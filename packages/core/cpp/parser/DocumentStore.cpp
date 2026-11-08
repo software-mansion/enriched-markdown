@@ -12,10 +12,6 @@ constexpr size_t kMaxEntries = 16;
 constexpr size_t kTreeBytesPerByte = 8;
 constexpr size_t kBudgetBytes = 8 * 1024 * 1024;
 
-bool sameOptions(const StreamingFilterOptions &a, const StreamingFilterOptions &b) {
-  return a.tableMode == b.tableMode && a.codeBlockMode == b.codeBlockMode && a.mediaMode == b.mediaMode;
-}
-
 // Moves the first matching entry to the front; whether there was one.
 template <typename Entry, typename Matches> bool moveToFront(std::list<Entry> &entries, Matches matches) {
   for (auto it = entries.begin(); it != entries.end(); ++it) {
@@ -35,8 +31,8 @@ template <typename Entry, typename Bytes> void evict(std::list<Entry> &entries, 
   }
 }
 
-size_t filterBytes(const std::string &markdown, const StreamingFilterResult &result) {
-  return markdown.size() + result.markdown.size();
+size_t snapshotBytes(const std::string &markdown, const StreamingSnapshot &snapshot) {
+  return markdown.size() + snapshot.markdown.size();
 }
 
 } // namespace
@@ -46,27 +42,26 @@ DocumentStore &DocumentStore::shared() {
   return store;
 }
 
-StreamingFilterResult DocumentStore::filter(const std::string &markdown, const StreamingFilterOptions &options) {
-  auto matches = [&](const FilterEntry &entry) {
-    return sameOptions(entry.options, options) && entry.markdown == markdown;
-  };
+StreamingSnapshot DocumentStore::snapshot(const std::string &markdown, const StreamingOptions &options) {
+  auto matches = [&](const SnapshotEntry &entry) { return entry.options == options && entry.markdown == markdown; };
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (moveToFront(filtered_, matches))
-      return filtered_.front().result;
+    if (moveToFront(snapshots_, matches))
+      return snapshots_.front().snapshot;
   }
 
-  // Filtered outside the lock; if another thread did the same meanwhile, the
+  // Prepared outside the lock; if another thread did the same meanwhile, the
   // first one stored wins.
-  filters_++;
-  StreamingFilterResult result = renderableMarkdownForStreaming(markdown, options);
+  snapshotsRun_++;
+  StreamingSnapshot snapshot = streamingSnapshot(markdown, options);
   std::lock_guard<std::mutex> lock(mutex_);
-  if (moveToFront(filtered_, matches))
-    return filtered_.front().result;
-  filtered_.push_front({markdown, options, result});
-  filteredBytes_ += filterBytes(markdown, result);
-  evict(filtered_, filteredBytes_, [](const FilterEntry &entry) { return filterBytes(entry.markdown, entry.result); });
-  return result;
+  if (moveToFront(snapshots_, matches))
+    return snapshots_.front().snapshot;
+  snapshots_.push_front({markdown, options, snapshot});
+  snapshotBytes_ += snapshotBytes(markdown, snapshot);
+  evict(snapshots_, snapshotBytes_,
+        [](const SnapshotEntry &entry) { return snapshotBytes(entry.markdown, entry.snapshot); });
+  return snapshot;
 }
 
 std::shared_ptr<const ParsedDocument> DocumentStore::parse(const std::string &markdown, const Md4cFlags &flags,
@@ -103,11 +98,11 @@ std::shared_ptr<const ParsedDocument> DocumentStore::parse(const std::string &ma
 
 void DocumentStore::clear() {
   std::lock_guard<std::mutex> lock(mutex_);
-  filtered_.clear();
+  snapshots_.clear();
   documents_.clear();
-  filteredBytes_ = 0;
+  snapshotBytes_ = 0;
   documentBytes_ = 0;
-  filters_ = 0;
+  snapshotsRun_ = 0;
   parses_ = 0;
 }
 

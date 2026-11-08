@@ -1,5 +1,6 @@
 package com.swmansion.enriched.markdown.utils.common
 
+import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
 
 enum class TableStreamingMode {
@@ -50,8 +51,8 @@ enum class MediaStreamingMode {
 }
 
 /**
- * Filtered markdown plus whether it ends inside a still-open fenced code block
- * (the trailing block whose highlighting/copy chrome the renderer defers).
+ * The markdown to render plus whether it ends inside a still-open fenced code
+ * block (the trailing block whose highlighting/copy chrome the renderer defers).
  */
 data class StreamingFilterResult(
   val markdown: String,
@@ -59,9 +60,11 @@ data class StreamingFilterResult(
 )
 
 /**
- * The pre-parse streaming filter, from the core's single implementation
- * (packages/core/cpp/parser/StreamingFilter.hpp) that iOS and the JS block
- * collector share, so every consumer sees the same document while it streams.
+ * The markdown to render while a document streams, from the core's streaming
+ * session (packages/core/cpp/parser/StreamingSession.hpp) that iOS and the JS
+ * block collector share, so every consumer sees the same document: trailing
+ * blocks still arriving are withheld and inline syntax still being typed is
+ * repaired the way [flags] parse it.
  */
 object StreamingMarkdownFilter {
   init {
@@ -70,12 +73,14 @@ object StreamingMarkdownFilter {
 
   fun renderableMarkdownForStreaming(
     markdown: String,
+    flags: Md4cFlags,
     tableMode: TableStreamingMode = TableStreamingMode.PROGRESSIVE,
     codeBlockMode: CodeBlockStreamingMode = CodeBlockStreamingMode.PROGRESSIVE,
     mediaMode: MediaStreamingMode = MediaStreamingMode.PROGRESSIVE,
   ): StreamingFilterResult =
     nativeRenderableMarkdownForStreaming(
       markdown,
+      flags,
       tableMode == TableStreamingMode.HIDDEN,
       codeBlockMode == CodeBlockStreamingMode.HIDDEN,
       mediaMode == MediaStreamingMode.HIDDEN,
@@ -84,6 +89,7 @@ object StreamingMarkdownFilter {
   @JvmStatic
   private external fun nativeRenderableMarkdownForStreaming(
     markdown: String,
+    flags: Md4cFlags,
     hideTables: Boolean,
     hideCodeBlocks: Boolean,
     hideMedia: Boolean,

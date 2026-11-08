@@ -14,6 +14,9 @@ import com.facebook.react.viewmanagers.EnrichedMarkdownTextManagerDelegate
 import com.facebook.react.viewmanagers.EnrichedMarkdownTextManagerInterface
 import com.facebook.yoga.YogaMeasureMode
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
+import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
+import com.swmansion.enriched.markdown.utils.common.MediaStreamingMode
+import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.applyReactBorderProps
 import com.swmansion.enriched.markdown.utils.common.emitContextMenuItemPress
 import com.swmansion.enriched.markdown.utils.common.emitLatexError
@@ -282,7 +285,11 @@ class EnrichedMarkdownTextManager :
     view: EnrichedMarkdownText?,
     config: ReadableMap?,
   ) {
-    // No-op — CommonMark mode uses a single text view; table streaming is GFM-only.
+    view?.setStreamingModes(
+      TableStreamingMode.fromString(config?.getString("tableMode")),
+      CodeBlockStreamingMode.fromString(config?.getString("codeBlockMode")),
+      MediaStreamingMode.fromString(config?.getString("mediaMode")),
+    )
   }
 
   @ReactProp(name = "spoilerOverlay")

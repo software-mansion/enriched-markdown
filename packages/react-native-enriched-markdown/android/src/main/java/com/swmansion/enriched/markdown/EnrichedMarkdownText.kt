@@ -30,9 +30,13 @@ import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
 import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
+import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
 import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
+import com.swmansion.enriched.markdown.utils.common.MediaStreamingMode
 import com.swmansion.enriched.markdown.utils.common.RenderCoordinator
+import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
+import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.emitCodeBlockPress
 import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
@@ -121,6 +125,9 @@ class EnrichedMarkdownText
     private var linkPillContent: Map<String, LinkPillContent> = emptyMap()
 
     private var streamingAnimation: Boolean = false
+    private var tableStreamingMode = TableStreamingMode.PROGRESSIVE
+    private var codeBlockStreamingMode = CodeBlockStreamingMode.PROGRESSIVE
+    private var mediaStreamingMode = MediaStreamingMode.PROGRESSIVE
     private var previousTextLength: Int = 0
     private var fadeAnimator: TailFadeInAnimator? = null
     override var spoilerOverlayDrawer: SpoilerOverlayDrawer? = null
@@ -265,6 +272,20 @@ class EnrichedMarkdownText
         fadeAnimator = null
         previousTextLength = 0
       }
+      // The streaming session decides what renders, so the text renders again.
+      scheduleRenderIfNeeded()
+    }
+
+    fun setStreamingModes(
+      tableMode: TableStreamingMode,
+      codeBlockMode: CodeBlockStreamingMode,
+      mediaMode: MediaStreamingMode,
+    ) {
+      if (tableMode == tableStreamingMode && codeBlockMode == codeBlockStreamingMode && mediaMode == mediaStreamingMode) return
+      tableStreamingMode = tableMode
+      codeBlockStreamingMode = codeBlockMode
+      mediaStreamingMode = mediaMode
+      if (streamingAnimation) scheduleRenderIfNeeded()
     }
 
     fun commitProps() {
@@ -310,11 +331,22 @@ class EnrichedMarkdownText
 
       val textLinkRegex = linkRegex
       val codeLinkRegex = inlineCodeLinkRegex
+      val flags = md4cFlags
+      val streaming = streamingAnimation
+      val tableMode = tableStreamingMode
+      val codeBlockMode = codeBlockStreamingMode
+      val mediaMode = mediaStreamingMode
 
       renderCoordinator.schedule {
         try {
+          val renderableMarkdown =
+            if (streaming) {
+              StreamingMarkdownFilter.renderableMarkdownForStreaming(markdown, flags, tableMode, codeBlockMode, mediaMode).markdown
+            } else {
+              markdown
+            }
           val ast =
-            parser.parseMarkdown(markdown, md4cFlags, isGFM, textLinkRegex, codeLinkRegex)
+            parser.parseMarkdown(renderableMarkdown, flags, isGFM, textLinkRegex, codeLinkRegex)
               ?: return@schedule Runnable { if (isAttachedToWindow) text = "" }
 
           renderer.configure(style, context, latexErrorReporter)

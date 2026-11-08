@@ -197,7 +197,7 @@ MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *f
   return parseMarkdownWithCppParser(markdown, flags, isGFM, textRegex, codeRegex, nil, NO);
 }
 
-static Markdown::Md4cFlags ENRMCoreFlags(ENRMMd4cFlags *flags)
+Markdown::Md4cFlags ENRMCoreMd4cFlags(ENRMMd4cFlags *flags)
 {
   Markdown::Md4cFlags cppFlags;
   cppFlags.underline = flags.underline;
@@ -256,12 +256,13 @@ MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *f
 
   // Slots and image sources are GitHub-flavor features (the CommonMark host lays
   // nothing out for them).
-  ENRMConversion request{Markdown::DocumentStore::shared().parse(ENRMUTF8String(markdown), ENRMCoreFlags(flags), isGFM),
-                         textRegex,
-                         codeRegex,
-                         isGFM ? activeBlockSlotIds : nil,
-                         isGFM && annotateImages,
-                         nil};
+  ENRMConversion request{
+      Markdown::DocumentStore::shared().parse(ENRMUTF8String(markdown), ENRMCoreMd4cFlags(flags), isGFM),
+      textRegex,
+      codeRegex,
+      isGFM ? activeBlockSlotIds : nil,
+      isGFM && annotateImages,
+      nil};
   if (!request.document->ast) {
     return [[MarkdownASTNode alloc] initWithType:MarkdownNodeTypeDocument];
   }

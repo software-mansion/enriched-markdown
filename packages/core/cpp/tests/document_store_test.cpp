@@ -1,5 +1,5 @@
 /*
- * Checks the shared document store: one filter and one parse per input, the
+ * Checks the shared document store: one snapshot and one parse per input, the
  * same tree for every caller, eviction, and concurrent callers on the threads a
  * streaming tick uses, under the thread sanitizer where scripts/test-core-parser.sh
  * can run it.
@@ -27,18 +27,25 @@ int main() {
   auto &store = Markdown::DocumentStore::shared();
   store.clear();
   Markdown::Md4cFlags flags;
-  Markdown::StreamingFilterOptions options;
+  Markdown::StreamingOptions options;
   const std::string tick = "Intro\n\n![a](https://e.com/a.png)\n\nSee [docs](https://e";
 
-  // A tick: collect, measure and render each filter and parse the same text.
+  // A tick: collect, measure and render each prepare and parse the same text.
   for (int caller = 0; caller < 3; caller++) {
-    auto filtered = store.filter(tick, options);
-    check(filtered.markdown == "Intro\n\n![a](https://e.com/a.png)\n\nSee ", "filtered text");
-    store.parse(filtered.markdown, flags, true);
+    auto snapshot = store.snapshot(tick, options);
+    check(snapshot.markdown == "Intro\n\n![a](https://e.com/a.png)\n\nSee docs", "snapshot text");
+    store.parse(snapshot.markdown, flags, true);
   }
-  check(store.filterCount() == 1 && store.parseCount() == 1, "one filter and one parse per tick (got " +
-                                                                 std::to_string(store.filterCount()) + ", " +
-                                                                 std::to_string(store.parseCount()) + ")");
+  check(store.snapshotCount() == 1 && store.parseCount() == 1, "one snapshot and one parse per tick (got " +
+                                                                   std::to_string(store.snapshotCount()) + ", " +
+                                                                   std::to_string(store.parseCount()) + ")");
+  Markdown::StreamingOptions hidden = options;
+  hidden.blocks.mediaMode = Markdown::StreamingBlockMode::Hidden;
+  store.snapshot(tick, hidden);
+  Markdown::StreamingOptions noMath = options;
+  noMath.flags.latexMath = false;
+  store.snapshot(tick, noMath);
+  check(store.snapshotCount() == 3, "the block modes and the flags are part of the snapshot's key");
 
   auto first = store.parse("Intro\n\n![a](https://e.com/a.png)\n\nSee ", flags, true);
   auto again = store.parse("Intro\n\n![a](https://e.com/a.png)\n\nSee ", flags, true);
@@ -126,8 +133,8 @@ int main() {
   for (int t = 0; t < 3; t++) {
     threads.emplace_back([&, t] {
       for (int round = 0; round < 50; round++) {
-        auto filtered = store.filter(longer + std::to_string(round), options);
-        seen[static_cast<size_t>(t)] = store.parse(filtered.markdown, flags, true);
+        auto snapshot = store.snapshot(longer + std::to_string(round), options);
+        seen[static_cast<size_t>(t)] = store.parse(snapshot.markdown, flags, true);
       }
     });
   }

@@ -22,15 +22,19 @@ typedef NS_ENUM(NSInteger, ENRMMediaStreamingMode) {
   ENRMMediaStreamingModeProgressive,
 };
 
+@class ENRMMd4cFlags;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// Filtered markdown for the current streaming tick, from the core's shared
-// filter (packages/core/cpp/parser/StreamingFilter.hpp). When non-NULL,
-// outEndsInsideOpenCodeFence reports whether the result ends inside a still-open
-// fenced code block (the trailing block whose chrome the renderer defers).
-NSString *ENRMRenderableMarkdownForStreaming(NSString *markdown, ENRMTableStreamingMode tableMode,
+// The markdown to render for the current streaming tick, from the core's
+// streaming session (packages/core/cpp/parser/StreamingSession.hpp): trailing
+// blocks still arriving are withheld and inline syntax still being typed is
+// repaired the way `flags` parse it. When non-NULL, outEndsInsideOpenCodeFence
+// reports whether the result ends inside a still-open fenced code block (the
+// trailing block whose chrome the renderer defers).
+NSString *ENRMRenderableMarkdownForStreaming(NSString *markdown, ENRMMd4cFlags *flags, ENRMTableStreamingMode tableMode,
                                              ENRMCodeBlockStreamingMode codeBlockMode, ENRMMediaStreamingMode mediaMode,
                                              BOOL *_Nullable outEndsInsideOpenCodeFence);
 

@@ -1027,7 +1027,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   BOOL (^render)(void) = ^BOOL {
     renderableMarkdown =
         streamingAnimation
-            ? ENRMRenderableMarkdownForStreaming(markdownString, tableStreamingMode, codeBlockStreamingMode,
+            ? ENRMRenderableMarkdownForStreaming(markdownString, md4cFlags, tableStreamingMode, codeBlockStreamingMode,
                                                  mediaStreamingMode, &endsInsideOpenCodeFence)
             : markdownString;
 
@@ -1132,7 +1132,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   BOOL endsInsideOpenCodeFence = NO;
   NSString *renderableMarkdown =
       _streamingAnimation
-          ? ENRMRenderableMarkdownForStreaming(markdownString, _tableStreamingMode, _codeBlockStreamingMode,
+          ? ENRMRenderableMarkdownForStreaming(markdownString, _md4cFlags, _tableStreamingMode, _codeBlockStreamingMode,
                                                _mediaStreamingMode, &endsInsideOpenCodeFence)
           : markdownString;
   _renderedMarkdown = [renderableMarkdown copy];

@@ -597,9 +597,10 @@ class EnrichedMarkdown(
 
   // Parses and renders off the main thread's state; safe on any thread.
   private fun runRenderJob(job: RenderJob): Pair<List<RenderedSegment>, Boolean> {
+    val flags = md4cFlags
     val filtered =
       if (job.isStreaming) {
-        StreamingMarkdownFilter.renderableMarkdownForStreaming(job.markdown, job.tableMode, job.codeBlockMode, job.mediaMode)
+        StreamingMarkdownFilter.renderableMarkdownForStreaming(job.markdown, flags, job.tableMode, job.codeBlockMode, job.mediaMode)
       } else {
         null
       }
@@ -610,7 +611,7 @@ class EnrichedMarkdown(
     val ast =
       parser.parseMarkdown(
         renderableMarkdown,
-        md4cFlags,
+        flags,
         isGFM,
         job.textLinkRegex,
         job.codeLinkRegex,

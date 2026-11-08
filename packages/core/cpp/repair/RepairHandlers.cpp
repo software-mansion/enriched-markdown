@@ -4,6 +4,7 @@
 // strikethrough-handler.ts and katex-handler.ts. Emphasis lives in
 // RepairEmphasis.cpp.
 #include "RepairInternal.hpp"
+#include <algorithm>
 
 namespace Markdown::RepairHandlers {
 
@@ -198,14 +199,78 @@ void setextHeadings(RepairContext &ctx) {
 
 namespace {
 
+bool isSpaceOrTabOrNewline(char c) {
+  return c == ' ' || c == '\t' || c == '\n';
+}
+
+// Whether the `(destination "title")` opening at `openParen` is still being
+// typed: the text ends inside the destination, before a title that may still
+// come, inside the title or before the `)`. Escapes, nested parentheses, a
+// `<...>` destination and the three title delimiters count, as in the parser;
+// a destination followed by other text is prose.
+bool destinationIsOpen(std::string_view text, size_t openParen) {
+  const size_t n = text.size();
+  size_t i = openParen + 1;
+  while (i < n && (text[i] == ' ' || text[i] == '\t')) {
+    ++i;
+  }
+  if (i < n && text[i] == '<') {
+    for (++i; i < n && text[i] != '>'; ++i) {
+      if (text[i] == '\\') {
+        ++i;
+      }
+    }
+    if (i >= n) {
+      return true;
+    }
+    ++i;
+  } else {
+    size_t depth = 0;
+    while (i < n) {
+      const char c = text[i];
+      if (c == '\\') {
+        i += 2;
+        continue;
+      }
+      if (isSpaceOrTabOrNewline(c) || (c == ')' && depth == 0)) {
+        break;
+      }
+      depth += c == '(' ? 1 : 0;
+      depth -= c == ')' ? 1 : 0;
+      ++i;
+    }
+  }
+  const size_t afterDestination = i;
+  while (i < n && isSpaceOrTabOrNewline(text[i])) {
+    ++i;
+  }
+  if (i >= n) {
+    return true;
+  }
+  if (text[i] == ')' || i == afterDestination || (text[i] != '"' && text[i] != '\'' && text[i] != '(')) {
+    return false; // closed, or prose that is no link
+  }
+  const char close = text[i] == '(' ? ')' : text[i];
+  for (++i; i < n && text[i] != close; ++i) {
+    if (text[i] == '\\') {
+      ++i;
+    }
+  }
+  if (i >= n) {
+    return true;
+  }
+  for (++i; i < n && isSpaceOrTabOrNewline(text[i]); ++i) {}
+  return i >= n;
+}
+
 // findFirstIncompleteBracket(): in text-only mode the bracket to drop is the
 // first unmatched `[` in the last block that can still close, skipping
 // complete links.
 size_t findFirstIncompleteBracket(RepairContext &ctx, size_t maxPos) {
   const std::string_view text = ctx.text();
-  for (size_t j = ctx.lastBlockStart(); j < maxPos; ++j) {
-    if (text[j] != '[' || ctx.code().inside(j) || (j > 0 && text[j - 1] == '!') ||
-        isBracketNotALink(text, j, ctx.markers()) || !ctx.openerCanStillClose(j)) {
+  for (size_t j = std::max(ctx.lastBlockStart(), openLabelWindowStart(text)); j < maxPos; ++j) {
+    if (text[j] != '[' || ctx.code().inside(j) || isImageBang(text, j) || isBracketNotALink(text, j, ctx.markers()) ||
+        !ctx.openerCanStillClose(j)) {
       continue;
     }
     const size_t closing = findMatchingClosingBracket(text, j);
@@ -233,10 +298,10 @@ void links(RepairContext &ctx, LinkMode mode) {
   // handleIncompleteUrl(): [text](partial-url
   const size_t lastParen = text.rfind("](");
   if (lastParen != npos && !isEscaped(text, lastParen) && !ctx.code().inside(lastParen) &&
-      text.find(')', lastParen + 2) == npos) {
+      destinationIsOpen(text, lastParen + 1)) {
     const size_t open = findMatchingOpeningBracket(text, lastParen);
     if (open != npos && !ctx.code().inside(open) && ctx.openerCanStillClose(open)) {
-      const bool isImage = open > 0 && text[open - 1] == '!';
+      const bool isImage = isImageBang(text, open);
       if (isImage) {
         ctx.erase(open - 1);
         return;
@@ -255,7 +320,8 @@ void links(RepairContext &ctx, LinkMode mode) {
   }
 
   // handleIncompleteText(): [partial-text without a closing ]
-  for (size_t i = text.size(); i > 0; --i) {
+  const size_t windowStart = openLabelWindowStart(text);
+  for (size_t i = text.size(); i > windowStart; --i) {
     const size_t idx = i - 1;
     if (text[idx] != '[' || ctx.code().inside(idx) || findMatchingClosingBracket(text, idx) != npos ||
         isBracketNotALink(text, idx, ctx.markers())) {
@@ -264,7 +330,7 @@ void links(RepairContext &ctx, LinkMode mode) {
     if (!ctx.openerCanStillClose(idx)) {
       return; // left open in an earlier block: literal text
     }
-    if (idx > 0 && text[idx - 1] == '!') {
+    if (isImageBang(text, idx)) {
       ctx.erase(idx - 1);
     } else if (mode == LinkMode::TextOnly) {
       ctx.erase(findFirstIncompleteBracket(ctx, idx), 1);

@@ -305,6 +305,58 @@ static Markdown::TextLinkMatchers makeTextLinkMatchers(JNIEnv *env, jobject text
   return matchers;
 }
 
+// The Kotlin Md4cFlags data class as the core's flags; defaults for null.
+static Md4cFlags md4cFlagsFromJava(JNIEnv *env, jobject flags) {
+  Md4cFlags md4cFlags;
+  if (flags) {
+    jclass flagsClass = env->GetObjectClass(flags);
+    if (flagsClass) {
+      jfieldID underlineField = env->GetFieldID(flagsClass, "underline", "Z");
+      if (underlineField) {
+        md4cFlags.underline = env->GetBooleanField(flags, underlineField) == JNI_TRUE;
+      }
+      jfieldID latexMathField = env->GetFieldID(flagsClass, "latexMath", "Z");
+      if (latexMathField) {
+        md4cFlags.latexMath = env->GetBooleanField(flags, latexMathField) == JNI_TRUE;
+      }
+      jfieldID superscriptField = env->GetFieldID(flagsClass, "superscript", "Z");
+      if (superscriptField) {
+        md4cFlags.superscript = env->GetBooleanField(flags, superscriptField) == JNI_TRUE;
+      }
+      jfieldID subscriptField = env->GetFieldID(flagsClass, "subscript", "Z");
+      if (subscriptField) {
+        md4cFlags.subscript = env->GetBooleanField(flags, subscriptField) == JNI_TRUE;
+      }
+      jfieldID strikethroughField = env->GetFieldID(flagsClass, "strikethrough", "Z");
+      if (strikethroughField) {
+        md4cFlags.strikethrough = env->GetBooleanField(flags, strikethroughField) == JNI_TRUE;
+      }
+      jfieldID highlightField = env->GetFieldID(flagsClass, "highlight", "Z");
+      if (highlightField) {
+        md4cFlags.highlight = env->GetBooleanField(flags, highlightField) == JNI_TRUE;
+      }
+      jfieldID permissiveAutolinksField = env->GetFieldID(flagsClass, "permissiveAutolinks", "Z");
+      if (permissiveAutolinksField) {
+        md4cFlags.permissiveAutolinks = env->GetBooleanField(flags, permissiveAutolinksField) == JNI_TRUE;
+      }
+      jfieldID hardSoftBreaksField = env->GetFieldID(flagsClass, "hardSoftBreaks", "Z");
+      if (hardSoftBreaksField) {
+        md4cFlags.hardSoftBreaks = env->GetBooleanField(flags, hardSoftBreaksField) == JNI_TRUE;
+      }
+      jfieldID preserveBlankLinesField = env->GetFieldID(flagsClass, "preserveBlankLines", "Z");
+      if (preserveBlankLinesField) {
+        md4cFlags.preserveBlankLines = env->GetBooleanField(flags, preserveBlankLinesField) == JNI_TRUE;
+      }
+      jfieldID admonitionsField = env->GetFieldID(flagsClass, "admonitions", "Z");
+      if (admonitionsField) {
+        md4cFlags.admonitions = env->GetBooleanField(flags, admonitionsField) == JNI_TRUE;
+      }
+      env->DeleteLocalRef(flagsClass);
+    }
+  }
+  return md4cFlags;
+}
+
 extern "C" {
 
 JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nativeParseMarkdown(
@@ -316,55 +368,7 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
   }
 
   try {
-    // Extract flags from Kotlin Md4cFlags data class
-    Md4cFlags md4cFlags;
-    if (flags) {
-      jclass flagsClass = env->GetObjectClass(flags);
-      if (flagsClass) {
-        jfieldID underlineField = env->GetFieldID(flagsClass, "underline", "Z");
-        if (underlineField) {
-          md4cFlags.underline = env->GetBooleanField(flags, underlineField) == JNI_TRUE;
-        }
-        jfieldID latexMathField = env->GetFieldID(flagsClass, "latexMath", "Z");
-        if (latexMathField) {
-          md4cFlags.latexMath = env->GetBooleanField(flags, latexMathField) == JNI_TRUE;
-        }
-        jfieldID superscriptField = env->GetFieldID(flagsClass, "superscript", "Z");
-        if (superscriptField) {
-          md4cFlags.superscript = env->GetBooleanField(flags, superscriptField) == JNI_TRUE;
-        }
-        jfieldID subscriptField = env->GetFieldID(flagsClass, "subscript", "Z");
-        if (subscriptField) {
-          md4cFlags.subscript = env->GetBooleanField(flags, subscriptField) == JNI_TRUE;
-        }
-        jfieldID strikethroughField = env->GetFieldID(flagsClass, "strikethrough", "Z");
-        if (strikethroughField) {
-          md4cFlags.strikethrough = env->GetBooleanField(flags, strikethroughField) == JNI_TRUE;
-        }
-        jfieldID highlightField = env->GetFieldID(flagsClass, "highlight", "Z");
-        if (highlightField) {
-          md4cFlags.highlight = env->GetBooleanField(flags, highlightField) == JNI_TRUE;
-        }
-        jfieldID permissiveAutolinksField = env->GetFieldID(flagsClass, "permissiveAutolinks", "Z");
-        if (permissiveAutolinksField) {
-          md4cFlags.permissiveAutolinks = env->GetBooleanField(flags, permissiveAutolinksField) == JNI_TRUE;
-        }
-        jfieldID hardSoftBreaksField = env->GetFieldID(flagsClass, "hardSoftBreaks", "Z");
-        if (hardSoftBreaksField) {
-          md4cFlags.hardSoftBreaks = env->GetBooleanField(flags, hardSoftBreaksField) == JNI_TRUE;
-        }
-        jfieldID preserveBlankLinesField = env->GetFieldID(flagsClass, "preserveBlankLines", "Z");
-        if (preserveBlankLinesField) {
-          md4cFlags.preserveBlankLines = env->GetBooleanField(flags, preserveBlankLinesField) == JNI_TRUE;
-        }
-        jfieldID admonitionsField = env->GetFieldID(flagsClass, "admonitions", "Z");
-        if (admonitionsField) {
-          md4cFlags.admonitions = env->GetBooleanField(flags, admonitionsField) == JNI_TRUE;
-        }
-        env->DeleteLocalRef(flagsClass);
-      }
-    }
-
+    Md4cFlags md4cFlags = md4cFlagsFromJava(env, flags);
     auto document = DocumentStore::shared().parse(utf8String(env, markdown), md4cFlags, isGFM == JNI_TRUE);
     if (!document->ast) {
       return nullptr;
@@ -405,25 +409,26 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
   }
 }
 
-// The core's streaming filter (StreamingFilter.hpp), shared with iOS and the JS
-// block collector. Returns a StreamingFilterResult, or null if that class cannot
-// be constructed (the caller then renders the markdown unfiltered).
+// The core's streaming session (StreamingSession.hpp), shared with iOS and the
+// JS block collector. Returns a StreamingFilterResult, or null if that class
+// cannot be constructed (the caller then renders the markdown as it is).
 JNIEXPORT jobject JNICALL
 Java_com_swmansion_enriched_markdown_utils_common_StreamingMarkdownFilter_nativeRenderableMarkdownForStreaming(
-    JNIEnv *env, jclass /* clazz */, jstring markdown, jboolean hideTables, jboolean hideCodeBlocks,
+    JNIEnv *env, jclass /* clazz */, jstring markdown, jobject flags, jboolean hideTables, jboolean hideCodeBlocks,
     jboolean hideMedia) {
   if (!markdown) {
     return nullptr;
   }
-  Markdown::StreamingFilterOptions options;
-  options.tableMode =
+  Markdown::StreamingOptions options;
+  options.blocks.tableMode =
       hideTables == JNI_TRUE ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
-  options.codeBlockMode =
+  options.blocks.codeBlockMode =
       hideCodeBlocks == JNI_TRUE ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
-  options.mediaMode =
+  options.blocks.mediaMode =
       hideMedia == JNI_TRUE ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
-  // Through the shared store: the tick's collect, measurement and render filter once.
-  Markdown::StreamingFilterResult result = DocumentStore::shared().filter(utf8String(env, markdown), options);
+  options.flags = md4cFlagsFromJava(env, flags);
+  // Through the shared store: the tick's collect, measurement and render prepare once.
+  Markdown::StreamingSnapshot result = DocumentStore::shared().snapshot(utf8String(env, markdown), options);
 
   // consumer-rules.pro keeps the class; a failed lookup leaves a pending
   // exception that would throw in Kotlin instead of returning null.

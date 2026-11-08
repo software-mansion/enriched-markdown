@@ -498,8 +498,28 @@ object MeasurementStore {
     fontScale: Float,
     maxFontSizeMultiplier: Float,
   ): Int {
-    val markdown = props.getStringOrDefault("markdown", "")
+    val markdown = renderableMarkdownFromProps(props, md4cFlagsFromProps(props))
     return computePropsHashForMarkdown(markdown, props, allowFontScaling, fontScale, maxFontSizeMultiplier)
+  }
+
+  // The props' markdown as the view renders it: while streaming, the core streaming
+  // session's snapshot. The modes come with the props (conversions.h), so the first
+  // measurement and one after a mode change prepare exactly what the view renders.
+  private fun renderableMarkdownFromProps(
+    props: ReadableMap?,
+    md4cFlags: Md4cFlags,
+  ): String {
+    val markdown = props.getStringOrDefault("markdown", "")
+    if (!props.getBooleanOrDefault("streamingAnimation", false)) return markdown
+    val streamingConfig = props.getMapOrNull("streamingConfig")
+    return StreamingMarkdownFilter
+      .renderableMarkdownForStreaming(
+        markdown,
+        md4cFlags,
+        TableStreamingMode.fromString(streamingConfig.getStringOrDefault("tableMode", "")),
+        CodeBlockStreamingMode.fromString(streamingConfig.getStringOrDefault("codeBlockMode", "")),
+        MediaStreamingMode.fromString(streamingConfig.getStringOrDefault("mediaMode", "")),
+      ).markdown
   }
 
   private fun computePropsHashForMarkdown(
@@ -569,9 +589,9 @@ object MeasurementStore {
     maxFontSizeMultiplier: Float,
   ): Long {
     // 1. Extract Props & Setup
-    val markdown = props.getStringOrDefault("markdown", "")
     val styleMap = props.getMapOrNull("markdownStyle")
     val md4cFlags = md4cFlagsFromProps(props)
+    val markdown = renderableMarkdownFromProps(props, md4cFlags)
     val isGFM = props.getBooleanOrDefault("isGFM", false)
 
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
@@ -631,37 +651,8 @@ object MeasurementStore {
     blockSlotIds: List<String>,
   ): Long {
     val isStreaming = props.getBooleanOrDefault("streamingAnimation", false)
-
-    val rawMarkdown = props.getStringOrDefault("markdown", "")
-    // The modes come with the props (conversions.h), so the first measurement and
-    // a measurement after a mode change filter exactly what the view will render.
-    val streamingConfig = props.getMapOrNull("streamingConfig")
-    val tableMode =
-      if (isStreaming && streamingConfig.getStringOrDefault("tableMode", "") == "hidden") {
-        TableStreamingMode.HIDDEN
-      } else {
-        TableStreamingMode.PROGRESSIVE
-      }
-    val codeBlockMode =
-      if (isStreaming && streamingConfig.getStringOrDefault("codeBlockMode", "") == "hidden") {
-        CodeBlockStreamingMode.HIDDEN
-      } else {
-        CodeBlockStreamingMode.PROGRESSIVE
-      }
-    val mediaMode =
-      if (isStreaming && streamingConfig.getStringOrDefault("mediaMode", "") == "hidden") {
-        MediaStreamingMode.HIDDEN
-      } else {
-        MediaStreamingMode.PROGRESSIVE
-      }
-    val markdown =
-      if (isStreaming) {
-        StreamingMarkdownFilter
-          .renderableMarkdownForStreaming(rawMarkdown, tableMode, codeBlockMode, mediaMode)
-          .markdown
-      } else {
-        rawMarkdown
-      }
+    val md4cFlags = md4cFlagsFromProps(props)
+    val markdown = renderableMarkdownFromProps(props, md4cFlags)
     val wrapped =
       if (props.getBooleanOrDefault("enableCodeBlockWrapToggle", true)) {
         id?.let { wrappedCodeBlocks[it] } ?: emptySet()
@@ -681,9 +672,9 @@ object MeasurementStore {
         ) + density.hashCode()
       ) + blockSlotIds.hashCode()
 
-    // Streaming shortcut: reuse cached size when the filtered content and
-    // width are unchanged. When the filter output changes (e.g. a table
-    // becomes complete), the hash differs and we fall through to full measure.
+    // Streaming shortcut: reuse cached size when the prepared content and
+    // width are unchanged. When it changes (e.g. a table becomes complete),
+    // the hash differs and we fall through to full measure.
     // Slot children need their frames recorded on every measure, so they never
     // take it.
     if (isStreaming && id != null && blockSlotIds.isEmpty()) {
@@ -696,7 +687,6 @@ object MeasurementStore {
       props.getMapOrNull("markdownStyle")
         ?: return YogaMeasureOutput.make(PixelUtil.toDIPFromPixel(width), 0f)
 
-    val md4cFlags = md4cFlagsFromProps(props)
     val isGFM = props.getBooleanOrDefault("isGFM", true)
     val allowTrailingMargin = props.getBooleanOrDefault("allowTrailingMargin", false)
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
