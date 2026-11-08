@@ -57,7 +57,9 @@
       }];
 }
 
-- (void)testBurstRendersOnlyTheLatestRevision
+// The render in flight finished after newer revisions arrived. It is still newer
+// than anything shown, so it shows: a stream faster than a render keeps updating.
+- (void)testBurstRendersOnlyTheLatestRevisionAndTheOneInFlightStillShows
 {
   XCTestExpectation *applied = [self expectationWithDescription:@"latest revision applied"];
   [self scheduleRevision:@"revision 1" onApply:nil];
@@ -68,7 +70,7 @@
   [self waitForExpectations:@[ applied ] timeout:5];
 
   XCTAssertEqualObjects(_renders, (@[ @"in-flight", @"revision 3" ]));
-  XCTAssertEqualObjects(_applies, @[ @"revision 3" ]);
+  XCTAssertEqualObjects(_applies, (@[ @"in-flight", @"revision 3" ]));
 }
 
 - (void)testSupersededPendingRenderIsReleasedBeforeItRuns

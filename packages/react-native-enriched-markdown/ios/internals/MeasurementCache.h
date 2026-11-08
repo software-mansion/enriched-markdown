@@ -4,7 +4,9 @@
 #include <React/RCTUtils.h>
 #include <functional>
 #include <list>
+#include <memory>
 #include <mutex>
+#include <optional>
 #include <react/renderer/graphics/Float.h>
 #include <string>
 #include <tuple>
@@ -235,12 +237,15 @@ template <typename PropsType> inline size_t ENRMImageSourcesFingerprintForProps(
   }
 }
 
+/// `withMarkdown` false leaves the markdown out: the key then holds everything
+/// else that sizes the content, for telling a stream's next update from new content.
 template <typename PropsType>
 inline MeasurementCacheKey buildMeasurementCacheKey(const PropsType &props, CGFloat maxWidth, CGFloat fontScale,
-                                                    MarkdownFlavor flavor, size_t wrappedCodeBlocksFingerprint = 0)
+                                                    MarkdownFlavor flavor, size_t wrappedCodeBlocksFingerprint = 0,
+                                                    bool withMarkdown = true)
 {
   return MeasurementCacheKey{
-      .markdown = props.markdown,
+      .markdown = withMarkdown ? props.markdown : std::string(),
       .maxWidth = maxWidth,
       .allowTrailingMargin = props.allowTrailingMargin,
       .allowFontScaling = props.allowFontScaling,
@@ -267,6 +272,71 @@ inline MeasurementCacheKey buildMeasurementCacheKey(const PropsType &props, CGFl
       .linkRegexKey = buildLinkRecognitionCacheKey(props.linkRecognition.text),
       .inlineCodeLinkRegexKey = buildLinkRecognitionCacheKey(props.linkRecognition.inlineCode),
   };
+}
+
+/**
+ * What the previous measurement of a view saw. The next one compares against it
+ * to tell a stream's update (the markdown only grew, nothing else changed) from
+ * new content.
+ */
+template <typename PropsT> struct ENRMPreviousMeasurement {
+  std::shared_ptr<const PropsT> props;
+  /// Everything else that sizes the content (buildMeasurementCacheKey without the markdown).
+  std::optional<MeasurementCacheKey> layoutKey;
+  /// The writing direction a parent's `direction` resolved to, which the key leaves out.
+  int layoutDirection{0};
+  /// The state's height counter, which the view advances when it asks for a new height.
+  int heightCounter{-1};
+  /// What the measurement returned, and for which width.
+  CGFloat maxWidth{-1};
+  CGFloat width{0};
+  CGFloat height{0};
+};
+
+/// Whether `current` keeps all of `previous` and only adds to it, as every update
+/// of a stream does. Empty `previous` doesn't count: there is nothing laid out to keep.
+inline bool ENRMMarkdownExtends(const std::string &previous, const std::string &current)
+{
+  return !previous.empty() && current.size() >= previous.size() && current.compare(0, previous.size(), previous) == 0;
+}
+
+/// Where a measurement's size comes from (ENRMChooseMeasurement).
+enum class ENRMMeasurementSource {
+  Full,
+  Previous,
+  LaidOut,
+};
+
+/**
+ * Picks the source of a measurement.
+ *
+ * - `streamUpdate`: nothing that sizes the content changed except the markdown,
+ *   which kept all of the previous and may have grown.
+ * - `grew`: the markdown is longer than last time.
+ * - `viewAskedForHeight`: the view laid out a render and asked for a new layout since.
+ * - `hasView`: the view is mounted, so it asks again once its height changes.
+ * - `hasLaidOutSize`: the view laid its content out for this width.
+ * - `samePreviousWidth`: the previous measurement was for this width.
+ *
+ * The view's size answers a stream's update (it trails by at most the render in
+ * flight) and a view that asked again. Otherwise the same document measured again
+ * gets the previous answer: Yoga measures twice a pass, and a view sized to its
+ * content lays out narrower than offered, so it keeps that size until it asks.
+ * Without a view nothing would ask, so a grown document measures in full.
+ */
+inline ENRMMeasurementSource ENRMChooseMeasurement(bool streamUpdate, bool grew, bool viewAskedForHeight, bool hasView,
+                                                   bool hasLaidOutSize, bool samePreviousWidth)
+{
+  if (!streamUpdate) {
+    return ENRMMeasurementSource::Full;
+  }
+  if (hasLaidOutSize && (grew || viewAskedForHeight)) {
+    return ENRMMeasurementSource::LaidOut;
+  }
+  if (!viewAskedForHeight && samePreviousWidth && (hasView || !grew)) {
+    return ENRMMeasurementSource::Previous;
+  }
+  return ENRMMeasurementSource::Full;
 }
 
 /**

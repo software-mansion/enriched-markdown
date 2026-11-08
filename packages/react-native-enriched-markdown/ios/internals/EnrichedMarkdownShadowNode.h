@@ -78,8 +78,7 @@ private:
   std::vector<ENRMBlockSlotPlacement> slotPlacements() const;
 
   int localHeightRecalculationCounter_{0};
-  mutable int lastExactMeasurementCounter_{0};
-  mutable CGSize lastExactMeasurementSize_{0, 0};
+  mutable ENRMPreviousMeasurement<EnrichedMarkdownProps> previousMeasurement_;
   mutable SlotMeasurement slotMeasurement_;
 };
 

@@ -3,9 +3,9 @@
 #import "ContextMenuUtils.h"
 #import "ENRMAccessibilityLabels.h"
 #import "ENRMAsyncRenderCoordinator.h"
-#import "ENRMAtomicSize.h"
 #import "ENRMContextMenuTextView+macOS.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLaidOutSize.h"
 #import "ENRMLatexErrorCoordinator.h"
 #import "ENRMLinkContextMenus.h"
 #import "ENRMLinkRegexProps.h"
@@ -62,7 +62,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownTextMd4cFlagsStruct &)props;
 - (void)setupTextView;
 - (void)renderMarkdownContent:(NSString *)markdownString;
-- (void)applyRenderedText:(NSMutableAttributedString *)attributedText;
+- (void)applyRenderedText:(NSMutableAttributedString *)attributedText forceHeightUpdate:(BOOL)scheduledForceHeight;
 - (void)textTapped:(ENRMTapRecognizer *)recognizer;
 - (void)setupLayoutManager;
 - (void)emitLinkPress:(NSString *)url;
@@ -150,7 +150,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   ENRMDirtyFlags _dirtyFlags;
 
-  ENRMAtomicSize _lastCommittedSize;
+  ENRMLaidOutSize _laidOutSize;
+  // The markdown the text was rendered from, published with its size.
+  std::shared_ptr<const std::string> _laidOutMarkdown;
 
   ENRMLatexErrorCoordinator *_latexErrorCoordinator;
 }
@@ -199,15 +201,19 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 {
   CGSize size = ENRMMeasureMarkdownText(_textView, maxWidth, _config, _allowTrailingMargin, _lastElementMarginBottom);
   if (CGSizeEqualToSize(size, CGSizeZero)) {
+    _laidOutSize.clear();
     CGFloat defaultHeight = UIFontLineHeight([UIFont systemFontOfSize:16.0]);
     return CGSizeMake(maxWidth, defaultHeight);
   }
+  _laidOutSize.store(maxWidth, size, _laidOutMarkdown);
   return size;
 }
 
-- (CGSize)lastCommittedLayoutSize
+- (CGSize)laidOutSizeForWidth:(CGFloat)width
+             pointScaleFactor:(CGFloat)pointScaleFactor
+                     markdown:(std::string_view)markdown
 {
-  return _lastCommittedSize.load();
+  return _laidOutSize.sizeFor(width, pointScaleFactor, markdown);
 }
 
 - (BOOL)hasRenderedMarkdown:(NSString *)markdown
@@ -230,21 +236,13 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   }
 }
 
-/// Publishes the committed size to the streaming fast path's mailbox, and picks
-/// up the Yoga-resolved direction inherited from any ancestor `direction` style.
-/// In FirstStrong mode the direction feeds the neutral-paragraph fallback, so a
-/// change requires a re-render of the cached markdown.
-///
-/// The mailbox holds a content size, not the border box: `measureContent`
-/// returns it straight to Yoga, which adds the `containerStyle` insets back on
-/// top of whatever it gets, so storing `frame.size` would double-count them.
+/// Picks up the Yoga-resolved direction inherited from any ancestor `direction`
+/// style. In FirstStrong mode the direction feeds the neutral-paragraph
+/// fallback, so a change requires a re-render of the cached markdown.
 - (void)updateLayoutMetrics:(const LayoutMetrics &)layoutMetrics
            oldLayoutMetrics:(const LayoutMetrics &)oldLayoutMetrics
 {
   [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
-
-  const auto contentSize = layoutMetrics.getContentFrame().size;
-  _lastCommittedSize.store(CGSizeMake(contentSize.width, contentSize.height));
 
   NSWritingDirection resolved = _resolvedLayoutDirection;
   if (layoutMetrics.layoutDirection == LayoutDirection::RightToLeft) {
@@ -485,12 +483,17 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     ENRMApplyWritingDirectionMode(result.attributedText, writingDirectionMode, resolvedLayoutDirection);
     return YES;
   };
+  // What this render answers, taken now: an older render can still apply after a
+  // newer one is scheduled, and must not claim the newer one's style or forced height.
+  const size_t styleFingerprint = _pendingStyleFingerprint;
+  const BOOL forceHeightUpdate = _forceHeightUpdateOnNextRender;
   dispatch_block_t apply = ^{
     self->_lastElementMarginBottom = result.lastElementMarginBottom;
     self->_accessibilityInfo = result.accessibilityInfo;
-    self->_renderedStyleFingerprint = self->_pendingStyleFingerprint;
+    self->_renderedStyleFingerprint = styleFingerprint;
     [self->_latexErrorCoordinator wireReporters:result.context.mathReporters];
-    [self applyRenderedText:result.attributedText];
+    self->_laidOutMarkdown = ENRMLaidOutMarkdown(markdownString);
+    [self applyRenderedText:result.attributedText forceHeightUpdate:forceHeightUpdate];
   };
 
   if (synchronously) {
@@ -550,6 +553,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   _textView.attributedText = attributedText;
   _renderedMarkdown = [_cachedMarkdown copy];
+  _laidOutMarkdown = ENRMLaidOutMarkdown(markdownString);
   _renderedStyleFingerprint = _pendingStyleFingerprint;
 }
 
@@ -568,7 +572,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   }
 }
 
-- (void)applyRenderedText:(NSMutableAttributedString *)attributedText
+/// `scheduledForceHeight` is the forced-height request set when this render was
+/// scheduled; one set since stays for the newer render it belongs to.
+- (void)applyRenderedText:(NSMutableAttributedString *)attributedText forceHeightUpdate:(BOOL)scheduledForceHeight
 {
   NSUInteger tailStart = _previousTextLength;
 
@@ -611,8 +617,10 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   if (contentBounds.size.width > 0) {
     // Font/style changes can produce the same measured size before UIKit has
     // fully refreshed layout, so force one Yoga update after those renders.
-    BOOL forceHeightUpdate = _forceHeightUpdateOnNextRender;
-    _forceHeightUpdateOnNextRender = NO;
+    BOOL forceHeightUpdate = scheduledForceHeight && _forceHeightUpdateOnNextRender;
+    if (forceHeightUpdate) {
+      _forceHeightUpdateOnNextRender = NO;
+    }
 
     [_textView.layoutManager ensureLayoutForTextContainer:_textView.textContainer];
     ENRMSetNeedsDisplay(_textView);
@@ -914,6 +922,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   const auto resetProps = std::make_shared<const EnrichedMarkdownTextProps>();
   _props = resetProps;
   [_renderCoordinator invalidate];
+  _laidOutSize.clear();
+  _laidOutMarkdown = nullptr;
 
   [_fadeAnimator cancel];
   _fadeAnimator = nil;

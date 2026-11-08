@@ -53,6 +53,7 @@ import com.swmansion.enriched.markdown.utils.common.parseLinkRecognition
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.abs
 import kotlin.math.ceil
 
 /**
@@ -94,6 +95,26 @@ object MeasurementStore {
 
   // Code blocks the user wrapped, by document-order index across nesting (see CodeBlockWrapState).
   private val wrappedCodeBlocks = ConcurrentHashMap<Int, Set<Int>>()
+
+  // The content size each view last laid its rendered markdown out at, and what each
+  // view's last measurement saw: a stream's next update takes the first instead of
+  // measuring the whole document again (laidOutSizeForStreamUpdate).
+  private data class LaidOutSize(
+    val widthPx: Float,
+    val size: Long,
+    val markdown: String,
+  )
+
+  private data class MeasuredInputs(
+    val markdown: String,
+    val layoutHash: Int,
+    val widthPx: Float,
+    // What the measurement returned, filled in once known.
+    val size: Long? = null,
+  )
+
+  private val laidOutSizes = ConcurrentHashMap<Int, LaidOutSize>()
+  private val previousInputs = ConcurrentHashMap<Int, MeasuredInputs>()
 
   private fun resolveFontScalingSettings(
     viewId: Int?,
@@ -151,6 +172,7 @@ object MeasurementStore {
     spannable: CharSequence?,
     paint: TextPaint,
     trailingMarginBottomPx: Float = 0f,
+    renderedMarkdown: String = "",
   ): Boolean {
     val cached = data[id]
     val width = cached?.cachedWidth ?: 0f
@@ -167,11 +189,30 @@ object MeasurementStore {
         )
     }
     data[id] = MeasurementParams(width, newSize, spannable, paintParams, existingHash)
+    // Without the width the last measurement offered, the size isn't laid out for
+    // it: the next measurement goes the full way and brings the width back.
+    if (width > 0f) laidOutSizes[id] = LaidOutSize(width, newSize, renderedMarkdown) else laidOutSizes.remove(id)
     return oldSize != newSize
+  }
+
+  /** The content size [id]'s view laid out [markdown] at, laid out for [widthPx]. */
+  fun storeLaidOutSize(
+    id: Int,
+    widthPx: Float,
+    size: Long,
+    markdown: String,
+  ) {
+    laidOutSizes[id] = LaidOutSize(widthPx, size, markdown)
+  }
+
+  fun clearLaidOutSize(id: Int) {
+    laidOutSizes.remove(id)
   }
 
   fun release(id: Int) {
     data.remove(id)
+    laidOutSizes.remove(id)
+    previousInputs.remove(id)
     numberOfLinesByViewId.remove(id)
     ellipsizeModeByViewId.remove(id)
     wrappedCodeBlocks.remove(id)
@@ -309,6 +350,28 @@ object MeasurementStore {
 
     val fontScale = checkAndUpdateFontScale(context, allowFontScaling, maxFontSizeMultiplier)
 
+    if (id == null || blockSlotIds.isNotEmpty()) {
+      // Slot children are measured where the walk places them; nothing here takes the view's size.
+      if (id != null) previousInputs.remove(id)
+      return measureInFull(context, id, width, props, splitTableSegments, blockSlotIds, allowFontScaling, fontScale, maxFontSizeMultiplier)
+    }
+    laidOutSizeForStreamUpdate(id, width, props, splitTableSegments, allowFontScaling, fontScale, maxFontSizeMultiplier)
+      ?.let { return it }
+    return measureInFull(context, id, width, props, splitTableSegments, blockSlotIds, allowFontScaling, fontScale, maxFontSizeMultiplier)
+      .also { recordMeasured(id, it) }
+  }
+
+  private fun measureInFull(
+    context: Context,
+    id: Int?,
+    width: Float,
+    props: ReadableMap?,
+    splitTableSegments: Boolean,
+    blockSlotIds: List<String>,
+    allowFontScaling: Boolean,
+    fontScale: Float,
+    maxFontSizeMultiplier: Float,
+  ): Long {
     // Split measurement always goes through the full measure path (no spannable caching)
     if (splitTableSegments) {
       return measureAndCacheSplit(context, id, width, props, allowFontScaling, fontScale, maxFontSizeMultiplier, blockSlotIds)
@@ -332,6 +395,87 @@ object MeasurementStore {
 
     return cached.cachedSize
   }
+
+  // A stream's update: the markdown only grew and nothing else that sizes the content
+  // changed. The view lays out every render it applies and asks for a new layout when
+  // its height changes, so the size it laid out at is behind by at most the render in
+  // flight; taking it spares rendering and measuring the whole document again on every
+  // update. The same document at the same width gets the previous answer back; new
+  // content, another width or a view that hasn't laid anything out yet measure in full.
+  private fun laidOutSizeForStreamUpdate(
+    id: Int,
+    width: Float,
+    props: ReadableMap?,
+    splitTableSegments: Boolean,
+    allowFontScaling: Boolean,
+    fontScale: Float,
+    maxFontSizeMultiplier: Float,
+  ): Long? {
+    val markdown = props.getStringOrDefault("markdown", "")
+    var layoutHash = computePropsHashForMarkdown("", props, allowFontScaling, fontScale, maxFontSizeMultiplier)
+    layoutHash = 31 * layoutHash + props.getBooleanOrDefault("isGFM", false).hashCode()
+    layoutHash = 31 * layoutHash + props.getBooleanOrDefault("streamingAnimation", false).hashCode()
+    layoutHash = 31 * layoutHash + (props.getMapOrNull("streamingConfig")?.toHashMap()?.hashCode() ?: 0)
+    layoutHash = 31 * layoutHash + splitTableSegments.hashCode()
+    layoutHash = 31 * layoutHash + (wrappedCodeBlocks[id]?.hashCode() ?: 0)
+    layoutHash = 31 * layoutHash + (breakStrategies[id]?.hashCode() ?: 0)
+
+    val previous = previousInputs.put(id, MeasuredInputs(markdown, layoutHash, width)) ?: return null
+    // The view's size counts for an earlier state of this stream, not a document it replaced.
+    val laidOut = laidOutSizes[id]?.takeIf { abs(it.widthPx - width) < 1f && markdownExtends(it.markdown, markdown) }
+    val size =
+      when (
+        chooseMeasurement(
+          streamUpdate = previous.layoutHash == layoutHash && markdownExtends(previous.markdown, markdown),
+          grew = markdown.length > previous.markdown.length,
+          viewLaidOutThisDocument = laidOut?.markdown == markdown,
+          hasLaidOutSize = laidOut != null,
+          samePreviousWidth = previous.size != null && previous.widthPx == width,
+        )
+      ) {
+        MeasurementSource.LAID_OUT -> laidOut?.size
+        MeasurementSource.PREVIOUS -> previous.size
+        MeasurementSource.FULL -> null
+      } ?: return null
+    recordMeasured(id, size)
+    return size
+  }
+
+  internal enum class MeasurementSource { FULL, PREVIOUS, LAID_OUT }
+
+  /**
+   * Picks the source of a measurement, as iOS's ENRMChooseMeasurement does. Android's
+   * measurement can't see the view's height counter, so "the view laid this document
+   * out" stands in for the view asking again, and a grown document never takes the
+   * previous answer: a view sized to its content would keep it for good.
+   */
+  internal fun chooseMeasurement(
+    streamUpdate: Boolean,
+    grew: Boolean,
+    viewLaidOutThisDocument: Boolean,
+    hasLaidOutSize: Boolean,
+    samePreviousWidth: Boolean,
+  ): MeasurementSource =
+    when {
+      !streamUpdate -> MeasurementSource.FULL
+      hasLaidOutSize && (grew || viewLaidOutThisDocument) -> MeasurementSource.LAID_OUT
+      !grew && samePreviousWidth -> MeasurementSource.PREVIOUS
+      else -> MeasurementSource.FULL
+    }
+
+  // Remembers what the measurement of [id] returned, for the next one to compare with.
+  private fun recordMeasured(
+    id: Int,
+    size: Long,
+  ) {
+    previousInputs.computeIfPresent(id) { _, inputs -> inputs.copy(size = size) }
+  }
+
+  /** Whether [current] keeps all of [previous] and only adds to it, as every update of a stream does. */
+  internal fun markdownExtends(
+    previous: String,
+    current: String,
+  ): Boolean = previous.isNotEmpty() && current.startsWith(previous)
 
   private fun md4cFlagsFromProps(props: ReadableMap?): Md4cFlags {
     val flags = props.getMapOrNull("md4cFlags")
@@ -372,8 +516,10 @@ object MeasurementStore {
     val imageSources = parseImageSources(props.getArrayOrNull("imageSources"))
     val linkPillContent = parseLinkPillContent(props.getArrayOrNull("linkPillContent"))
     var result = markdown.hashCode()
-    result = 31 * result + (styleMap?.hashCode() ?: 0)
-    result = 31 * result + (md4cFlagsMap?.hashCode() ?: 0)
+    // Hashed as plain maps: a native array inside (the style's `linkVariants`) hashes by
+    // identity, so the same style would hash differently on every measurement.
+    result = 31 * result + (styleMap?.toHashMap()?.hashCode() ?: 0)
+    result = 31 * result + (md4cFlagsMap?.toHashMap()?.hashCode() ?: 0)
     result = 31 * result + parseLinkRecognition(props.getMapOrNull("linkRecognition")).hashCode()
     result = 31 * result + fontScale.toBits()
     result = 31 * result + allowFontScaling.hashCode()

@@ -30,14 +30,9 @@ class EnrichedMarkdownLifecycleTest {
     view: EnrichedMarkdown,
     action: () -> Unit,
   ) {
-    val postToMain =
-      EnrichedMarkdown::class.java.getDeclaredMethod(
-        "postToMain",
-        Long::class.javaPrimitiveType,
-        Function0::class.java,
-      )
+    val postToMain = EnrichedMarkdown::class.java.getDeclaredMethod("postToMain", Runnable::class.java)
     postToMain.isAccessible = true
-    postToMain.invoke(view, 0L, action)
+    postToMain.invoke(view, Runnable { action() })
   }
 
   private fun idleMainLooper() = shadowOf(Looper.getMainLooper()).idle()
@@ -99,6 +94,30 @@ class EnrichedMarkdownLifecycleTest {
     assertNull(view.stateWrapper)
     view.onImageLayoutChanged()
     assertFalse(view.isLayoutRequested)
+  }
+
+  // An older render can apply after a newer one was scheduled: it takes only the
+  // flags set when it was scheduled, so the newer render still recreates its segments.
+  @Test
+  fun aRenderTakesOnlyTheFlagsSetWhenItWasScheduled() {
+    val view = newView()
+    val flagType = Class.forName("com.swmansion.enriched.markdown.EnrichedMarkdown\$DirtyFlag")
+    val flag = { name: String -> flagType.enumConstants.first { (it as Enum<*>).name == name } }
+    val flagsField = EnrichedMarkdown::class.java.getDeclaredField("dirtyFlags")
+    flagsField.isAccessible = true
+
+    @Suppress("UNCHECKED_CAST")
+    val dirtyFlags = flagsField.get(view) as MutableSet<Any>
+    dirtyFlags += flag("FORCE_HEIGHT")
+    val scheduled = HashSet(dirtyFlags)
+    dirtyFlags += flag("RECREATE_SEGMENTS")
+
+    val apply =
+      EnrichedMarkdown::class.java.declaredMethods.first { it.name == "applyRenderedSegments" }
+    apply.isAccessible = true
+    apply.invoke(view, emptyList<Any>(), false, scheduled, "")
+
+    assertEquals(setOf(flag("RECREATE_SEGMENTS")), dirtyFlags.toSet())
   }
 
   @Test
