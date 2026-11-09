@@ -94,15 +94,15 @@ object TaskListTapUtils {
         if (x >= indentWidth) return null
       }
 
-      val spanStart = spannable.getSpanStart(taskSpan)
-      val spanEnd = spannable.getSpanEnd(taskSpan)
+      val (itemStart, itemEnd) = spannable.itemRange(taskSpan.taskIndex) ?: return null
 
       val itemText =
         spannable
-          .subSequence(spanStart, spanEnd)
-          .toString()
-          .substringBefore('\n')
-          .trim()
+          .subSequence(itemStart, itemEnd)
+          .lineSequence()
+          .map { it.trim() }
+          .firstOrNull { it.isNotEmpty() }
+          .orEmpty()
 
       return TaskListHitTestResult(
         span = taskSpan,
@@ -112,8 +112,8 @@ object TaskListTapUtils {
     }
 
   /**
-   * Flips [span]'s checkbox and checked-text decoration directly on [textView]'s
-   * spans — no re-parse, so a tap redraws immediately.
+   * Flips the checkbox and checked-text decoration of [span]'s item directly on
+   * [textView]'s spans — no re-parse, so a tap redraws immediately.
    *
    * Returns `false` when the view holds no spannable text or [span] is no longer
    * attached to it, which a render landing mid-gesture can do; the caller then
@@ -127,13 +127,13 @@ object TaskListTapUtils {
   ): Boolean {
     val spannable = textView.text as? Spannable ?: return false
 
-    val spanStart = spannable.getSpanStart(span)
-    val spanEnd = spannable.getSpanEnd(span)
-    if (spanStart < 0) return false
+    // An item split around its code blocks has a span per segment.
+    val segments = spannable.getSpans(0, spannable.length, TaskListSpan::class.java).filter { it.taskIndex == span.taskIndex }
+    if (span !in segments) return false
 
-    if (span.isChecked == newChecked) return true
+    if (segments.all { it.isChecked == newChecked }) return true
 
-    // Flip the span in place, then re-set it over the range it already holds.
+    // Flip each span in place, then re-set it over the range it already holds.
     // Re-setting an attached span keeps its slot in the buffer's span array —
     // Layout paints LeadingMarginSpans in that order, advancing x by each one's
     // margin, so a remove + add would send this span to the end and a nested
@@ -141,22 +141,26 @@ object TaskListTapUtils {
     // The setSpan still reports a span change, and that is what makes TextView
     // drop the render node its Editor caches the drawn text in; a bare
     // invalidate() re-runs onDraw off that cache and repaints the old checkbox.
-    span.isChecked = newChecked
-    spannable.setSpan(span, spanStart, spanEnd, spannable.getSpanFlags(span))
+    for (segment in segments) {
+      segment.isChecked = newChecked
+      spannable.resetSpan(segment)
+    }
+
+    val (itemStart, itemEnd) = spannable.itemRange(span.taskIndex) ?: return true
 
     // Nested items and code blocks keep their own styling, exactly as on the
     // initial render in ListItemRenderer.
     val excludedRanges =
       (
-        spannable.getSpans(spanStart, spanEnd, BaseListSpan::class.java).filter { it.depth > span.depth } +
-          spannable.getSpans(spanStart, spanEnd, CodeBlockSpan::class.java).toList()
+        spannable.getSpans(itemStart, itemEnd, BaseListSpan::class.java).filter { it.depth > span.depth } +
+          spannable.getSpans(itemStart, itemEnd, CodeBlockSpan::class.java).toList()
       ).map { spannable.getSpanStart(it) to spannable.getSpanEnd(it) }
         .sortedBy { it.first }
 
     applyDecorationsToRanges(
       spannable = spannable,
-      spanStart = spanStart,
-      spanEnd = spanEnd,
+      spanStart = itemStart,
+      spanEnd = itemEnd,
       excludedRanges = excludedRanges,
       isChecked = newChecked,
       styleConfig = styleConfig,
@@ -165,6 +169,15 @@ object TaskListTapUtils {
     textView.invalidate()
 
     return true
+  }
+
+  private fun Spannable.resetSpan(span: Any) = setSpan(span, getSpanStart(span), getSpanEnd(span), getSpanFlags(span))
+
+  /** The range a task item covers: from its first segment's start to its last one's end, code blocks between included. */
+  private fun Spanned.itemRange(taskIndex: Int): Pair<Int, Int>? {
+    val spans = getSpans(0, length, TaskListSpan::class.java).filter { it.taskIndex == taskIndex }
+    if (spans.isEmpty()) return null
+    return spans.minOf { getSpanStart(it) } to spans.maxOf { getSpanEnd(it) }
   }
 
   private fun applyDecorationsToRanges(

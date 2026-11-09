@@ -596,6 +596,9 @@ class MarkdownAccessibilityHelper(
         .maxByOrNull { it.depth } ?: return null
 
     if (requireStart) {
+      // An item split around a code block starts only where its marker is drawn: the segments after
+      // the code block continue it.
+      if (!deepest.drawsMarker) return null
       val spanStart = spanned.getSpanStart(deepest)
       val firstChar =
         (spanStart until minOf(spanStart + 10, spanned.length))
