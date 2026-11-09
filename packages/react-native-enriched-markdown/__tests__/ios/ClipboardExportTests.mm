@@ -77,4 +77,18 @@
   XCTAssertEqualObjects(markdownFromASTNodeChildren(nestedCell), @"**$x_1$**");
 }
 
+- (void)testSerializedTableCellKeepsLineBreaksAsHTMLBreaks
+{
+  MarkdownASTNode * (^cell)(NSString *) = ^(NSString *content) {
+    MarkdownASTNode *text = [[MarkdownASTNode alloc] initWithType:MarkdownNodeTypeText];
+    text.content = content;
+    MarkdownASTNode *node = [[MarkdownASTNode alloc] initWithType:MarkdownNodeTypeTableCell];
+    [node addChild:text];
+    return node;
+  };
+  XCTAssertEqualObjects(markdownFromTableCellNode(cell(@"one\ntwo")), @"one<br>two");
+  // A backslash before the break stays literal instead of escaping the tag.
+  XCTAssertEqualObjects(markdownFromTableCellNode(cell(@"a\\\nb")), @"a\\\\<br>b");
+}
+
 @end
