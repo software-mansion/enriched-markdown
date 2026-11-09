@@ -99,6 +99,25 @@ class ImageSpanLoadFailureTest {
     assertTrue(bitmap.getPixel(WIDTH / 2, 2) != Color.TRANSPARENT)
   }
 
+  // The failure can come before the view has a width, as it does for table cells and quotes.
+  // The box is zero wide until then, so the text after it shares its line until the view is laid out again.
+  @Test
+  fun failedBlockImageIsLaidOutAgainOnceItsWidthIsKnown() {
+    val span = ImageSpan(context, "test://width-later", styleConfig(), isInline = false, altText = "a diagram")
+    val view =
+      EnrichedMarkdownInternalText(context).apply {
+        layoutParams = ViewGroup.LayoutParams(WIDTH, ViewGroup.LayoutParams.WRAP_CONTENT)
+        applyStyledText(SpannableStringBuilder("￼ after").apply { setSpan(span, 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) })
+      }
+    layOut(view)
+    assertEquals(1, view.layout.lineCount)
+
+    span.registerTextView(view)
+    layOut(view)
+
+    assertEquals(2, view.layout.lineCount)
+  }
+
   private fun layOut(view: EnrichedMarkdownInternalText) {
     view.measure(
       MeasureSpec.makeMeasureSpec(WIDTH, MeasureSpec.EXACTLY),

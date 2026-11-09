@@ -274,13 +274,11 @@ class ImageSpan(
       wrapAndAssignDrawable()
       return
     }
-    if (dynamicBoxHeight) {
-      val newBoxHeight = resolveBoxHeight(newWidth)
-      if (newBoxHeight != boxHeight) {
-        boxHeight = newBoxHeight
-        requestReflow(boxHeightChanged = true)
-      }
-    }
+    val previousBoxHeight = boxHeight
+    if (dynamicBoxHeight) boxHeight = resolveBoxHeight(newWidth)
+    // A failed image is drawn at this width. If it failed before the view had one,
+    // nothing else will lay it out again.
+    if (loadFailed || boxHeight != previousBoxHeight) requestReflow(boxHeightChanged = true)
   }
 
   private fun getAvailableWidth(view: TextView): Int {
