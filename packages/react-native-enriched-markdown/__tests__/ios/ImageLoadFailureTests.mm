@@ -73,6 +73,44 @@ static const CGFloat kBlockHeight = 100;
   XCTAssertGreaterThan([self boundsOf:fresh lineWidth:320].size.width, kInlineSize);
 }
 
+// Issue #1123: a list item indents its paragraph inside a full-width text container, and the
+// box took the container's width, so it ran past the right edge by the indent.
+- (CGFloat)laidOutWidthOfBlockImageWithHeadIndent:(CGFloat)headIndent tailIndent:(CGFloat)tailIndent
+{
+  ENRMImageAttachment *attachment = [self attachmentForURL:[self missingFile:@"indent"] alt:@"a diagram" isInline:NO];
+  NSMutableParagraphStyle *style = [[NSMutableParagraphStyle alloc] init];
+  style.firstLineHeadIndent = headIndent;
+  style.headIndent = headIndent;
+  style.tailIndent = tailIndent;
+
+  NSMutableAttributedString *text = [[NSAttributedString attributedStringWithAttachment:attachment] mutableCopy];
+  [text addAttribute:NSParagraphStyleAttributeName value:style range:NSMakeRange(0, text.length)];
+
+  NSTextStorage *storage = [[NSTextStorage alloc] initWithAttributedString:text];
+  NSLayoutManager *layoutManager = [[NSLayoutManager alloc] init];
+  NSTextContainer *container = [[NSTextContainer alloc] initWithSize:CGSizeMake(300, CGFLOAT_MAX)];
+  container.lineFragmentPadding = 0;
+  [layoutManager addTextContainer:container];
+  [storage addLayoutManager:layoutManager];
+  [layoutManager ensureLayoutForTextContainer:container];
+  return [layoutManager attachmentSizeForGlyphAtIndex:0].width;
+}
+
+- (void)testBlockImageWithoutIndentFillsTheLine
+{
+  XCTAssertEqual([self laidOutWidthOfBlockImageWithHeadIndent:0 tailIndent:0], 300);
+}
+
+- (void)testBlockImageFitsInsideAListItemsIndent
+{
+  XCTAssertEqual([self laidOutWidthOfBlockImageWithHeadIndent:30 tailIndent:0], 270);
+}
+
+- (void)testBlockImageFitsInsideATailIndent
+{
+  XCTAssertEqual([self laidOutWidthOfBlockImageWithHeadIndent:30 tailIndent:-10], 260);
+}
+
 - (void)testFailedBlockImageKeepsItsBoxAndDrawsAPlaceholder
 {
   ENRMImageAttachment *attachment = [self attachmentForURL:[self missingFile:@"block"] alt:@"a diagram" isInline:NO];

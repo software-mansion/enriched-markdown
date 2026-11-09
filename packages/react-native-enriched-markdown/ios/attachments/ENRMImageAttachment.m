@@ -162,15 +162,35 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
   return !self.isInline && self.cachedResizeMode.length == 0;
 }
 
+// TextKit proposes the line's full width and applies the paragraph's indents afterwards, so
+// a box as wide as the proposal runs past the right edge of an indented list item.
+- (CGFloat)availableWidthInLineFragment:(CGRect)lineFragment
+                          textContainer:(NSTextContainer *)textContainer
+                         characterIndex:(NSUInteger)characterIndex
+{
+  NSTextStorage *textStorage = textContainer.layoutManager.textStorage;
+  NSParagraphStyle *paragraph = characterIndex < textStorage.length
+                                    ? [textStorage attribute:NSParagraphStyleAttributeName
+                                                     atIndex:characterIndex
+                                              effectiveRange:NULL]
+                                    : nil;
+  CGFloat indent = MAX(paragraph.firstLineHeadIndent, paragraph.headIndent);
+  CGFloat tailInset = paragraph.tailIndent < 0 ? -paragraph.tailIndent : 0;
+  return MAX(0, lineFragment.size.width - indent - tailInset);
+}
+
 - (CGRect)attachmentBoundsForTextContainer:(NSTextContainer *)textContainer
                       proposedLineFragment:(CGRect)lineFragment
                              glyphPosition:(CGPoint)position
                             characterIndex:(NSUInteger)characterIndex
 {
   CGFloat height = self.cachedHeight;
-  CGFloat width = self.isInline ? height : (lineFragment.size.width > 0 ? lineFragment.size.width : height);
+  CGFloat available = [self availableWidthInLineFragment:lineFragment
+                                           textContainer:textContainer
+                                          characterIndex:characterIndex];
+  CGFloat width = self.isInline ? height : (available > 0 ? available : height);
   if (self.isInline && self.loadFailed) {
-    width = [self.failurePlaceholder chipWidthForHeight:height maxWidth:lineFragment.size.width];
+    width = [self.failurePlaceholder chipWidthForHeight:height maxWidth:available];
   }
 
   if (!self.isInline) {
