@@ -103,19 +103,21 @@ let package = Package(
             dependencies: ["EnrichedMarkdown", "EnrichedMarkdownTreeSitter"],
             path: "Sources/EnrichedMarkdownSyntaxHighlighting"
         ),
+        // Symlink into packages/core/cpp/streaming.
         .target(
-            name: "EnrichedMarkdownRepair",
-            path: "repair",
-            exclude: ["core/LICENSE.remend"],
-            sources: ["core", "SwiftRepairShim.cpp"],
+            name: "EnrichedMarkdownStreamingCore",
+            dependencies: ["EnrichedMarkdownCore"],
+            path: "streaming",
+            sources: ["core", "SwiftStreamingShim.cpp"],
             publicHeadersPath: "include",
             cxxSettings: [
-                .headerSearchPath("core")
+                .headerSearchPath("core"),
+                .headerSearchPath("../core/repair")
             ]
         ),
         .target(
             name: "EnrichedMarkdownStreaming",
-            dependencies: ["EnrichedMarkdown", "EnrichedMarkdownCppShim", "EnrichedMarkdownRepair"],
+            dependencies: ["EnrichedMarkdown", "EnrichedMarkdownStreamingCore"],
             path: "Sources/EnrichedMarkdownStreaming"
         ),
         .testTarget(
