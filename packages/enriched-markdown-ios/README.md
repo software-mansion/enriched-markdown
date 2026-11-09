@@ -849,8 +849,9 @@ struct Answer: View {
 
 While `isStreaming` is true:
 
-- Only the unfinished end of the text re-renders, so the text above keeps its
-  layout and selection, and updates stay fast as the answer grows.
+- Only the unfinished end of the text re-renders: the open paragraph, list
+  item or code block. The text above keeps its layout and selection, and
+  updates stay fast as the answer grows.
 - Unfinished syntax such as `**bold` renders as if closed, following the
   rules of [remend](https://www.npmjs.com/package/remend). A link or image
   still being typed waits until it closes.

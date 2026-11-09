@@ -78,7 +78,7 @@ final class LaTeXStreamingTests: XCTestCase {
         let (window, textView) = hostedTextView()
         defer { window.isHidden = true }
         let session = makeSession(config: .baseline())
-        let block = "$$\nx^2 + y^2 = z^2\n$$\n\n"
+        let block = "$$\nx^2 + y^2 = z^2\n$$\n"
         let first = session.render(block + "- item", options: streaming)
         let second = session.render(block + "- item grows", options: streaming)
 

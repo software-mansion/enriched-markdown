@@ -57,10 +57,19 @@ package final class AttributedRenderer {
                 let paragraph = MarkdownASTNode(type: .paragraph, children: [child])
                 factory.renderer(for: .paragraph).render(node: paragraph, into: output, context: context)
                 context.pluginBlockMargins = nil
-                continue
+            } else {
+                factory.renderer(for: child.type).render(node: child, into: output, context: context)
             }
-            factory.renderer(for: child.type).render(node: child, into: output, context: context)
+            context.listContinuation = nil
+            if child.type != .orderedList, child.type != .unorderedList {
+                context.openList = nil
+            }
         }
+    }
+
+    package func closeContinuedList(in output: NSMutableAttributedString, context: RenderContext) {
+        guard context.openList != nil, let marginBottom = config.list.marginBottom, marginBottom > 0 else { return }
+        ParagraphStyleHelpers.applyBlockSpacingAfter(to: output, marginBottom: marginBottom)
     }
 
     package func finishBlocks(in output: NSMutableAttributedString, range: NSRange, context: RenderContext) {
