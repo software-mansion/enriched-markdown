@@ -27,6 +27,7 @@ import OnTaskListItemPressSrc from '!!raw-loader!@site/src/examples/react-native
 import EnableTaskListItemToggleSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/EnableTaskListItemToggle';
 import EnableBlockContextMenuSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/EnableBlockContextMenu';
 import OnCopyPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnCopyPress';
+import OnSelectionCopySrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnSelectionCopy';
 import OnCodeBlockPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnCodeBlockPress';
 import OnLatexErrorSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnLatexError';
 import EnableLinkPreviewSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/EnableLinkPreview';
@@ -820,6 +821,24 @@ interface CopyPressEvent {
 ```
 
 <LivePreview src={OnCopyPressSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - copying from a code block is a native interaction, and the web build renders code blocks without a copy affordance.</>} />
+
+### `onSelectionCopy`
+
+Callback fired after a text selection is copied - from the selection menu's **Copy**, **Copy as Markdown**, or **Copy Image URL** item, the keyboard shortcut (⌘C / Ctrl+C), or TalkBack's copy action. Keyboard and TalkBack copies report `format: 'plain'`, the same as **Copy**. `text` is what was put on the clipboard as plain text. Code copied from a code block's header button or long-press menu is reported by [`onCopyPress`](#oncopypress) instead.
+
+The `selection` offsets index the rendered text, not the Markdown source. With `flavor="github"` they restart at each block that renders as its own view, such as a table, code block or quote, so consecutive paragraphs count as one run of text.
+
+<PropInfo type="(event: SelectionCopyEvent) => void" />
+
+```ts
+interface SelectionCopyEvent {
+  text: string; // the copied plain text
+  format: 'plain' | 'markdown' | 'imageUrls'; // Copy, Copy as Markdown, Copy Image URL
+  selection: { start: number; end: number }; // the copied range
+}
+```
+
+<LivePreview src={OnSelectionCopySrc} unavailable unavailableReason={<>iOS, Android, and macOS only - the web build leaves copying to the browser.</>} />
 
 ### `onCodeBlockPress`
 

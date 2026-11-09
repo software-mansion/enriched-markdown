@@ -71,6 +71,9 @@ class EnrichedMarkdownInternalText
           onCustomItemPress = { itemText, selectedText, start, end ->
             onContextMenuItemPress?.invoke(itemText, selectedText, start, end)
           },
+          onSelectionCopy = { text, format, start, end ->
+            onSelectionCopyCallback?.invoke(text, format, start, end)
+          },
         )
     }
 

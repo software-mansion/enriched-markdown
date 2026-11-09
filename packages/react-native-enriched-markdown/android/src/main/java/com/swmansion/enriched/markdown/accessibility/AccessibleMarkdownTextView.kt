@@ -3,11 +3,15 @@ package com.swmansion.enriched.markdown.accessibility
 import android.content.Context
 import android.graphics.Rect
 import android.util.AttributeSet
+import android.view.ActionMode
 import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.appcompat.widget.AppCompatTextView
 import com.swmansion.enriched.markdown.spans.LinkPillSpan
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
+import com.swmansion.enriched.markdown.utils.text.view.OnSelectionCopy
+import com.swmansion.enriched.markdown.utils.text.view.SelectionCopyFormat
+import com.swmansion.enriched.markdown.utils.text.view.copySelection
 
 /** AppCompatTextView with built-in TalkBack support via MarkdownAccessibilityHelper. */
 abstract class AccessibleMarkdownTextView
@@ -18,6 +22,23 @@ abstract class AccessibleMarkdownTextView
     defStyleAttr: Int = 0,
   ) : AppCompatTextView(context, attrs, defStyleAttr) {
     val accessibilityHelper = MarkdownAccessibilityHelper(this)
+    var onSelectionCopyCallback: OnSelectionCopy? = null
+
+    /** The selection toolbar while it is showing, kept up to date by the selection menu callback. */
+    internal var selectionActionMode: ActionMode? = null
+
+    // The selection menu's Copy ends up here, and Ctrl+C (and TalkBack's copy action) call this directly.
+    override fun onTextContextMenuItem(id: Int): Boolean {
+      if (id == android.R.id.copy) {
+        // The platform's copy is what tells the user when the clipboard refuses the clip.
+        if (!copySelection(SelectionCopyFormat.PLAIN, onSelectionCopyCallback)) {
+          return super.onTextContextMenuItem(id)
+        }
+        selectionActionMode?.finish()
+        return true
+      }
+      return super.onTextContextMenuItem(id)
+    }
 
     override fun setText(
       text: CharSequence?,

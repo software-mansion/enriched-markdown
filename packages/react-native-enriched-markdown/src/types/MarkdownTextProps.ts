@@ -10,6 +10,7 @@ import type {
   CopyPressEvent,
   LatexErrorEvent,
   CodeBlockPressEvent,
+  SelectionCopyEvent,
 } from './events';
 import type { LinkPillContent } from './linkPill';
 import type { LinkRecognition } from './linkRecognition';
@@ -482,6 +483,15 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android, macos
    */
   selectionMenuConfig?: SelectionMenuConfig;
+  /**
+   * Callback fired after a text selection is copied: from the selection menu's
+   * Copy, Copy as Markdown, or Copy Image URL(s) item, the keyboard shortcut
+   * (⌘C / Ctrl+C), or TalkBack's copy action. Receives the copied text, its
+   * format, and the copied range. Code block copies are reported by
+   * `onCopyPress` instead.
+   * @platform ios, android, macos
+   */
+  onSelectionCopy?: (event: SelectionCopyEvent) => void;
   /**
    * Translations for VoiceOver / TalkBack announcements (list items, table
    * rows, math, and the iOS rotor). All keys are optional and fall back to
