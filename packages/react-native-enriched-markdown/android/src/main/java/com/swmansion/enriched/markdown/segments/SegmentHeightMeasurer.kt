@@ -11,6 +11,7 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BoundsForWidthUtils
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
+import com.swmansion.enriched.markdown.utils.text.view.inViewSpanOrder
 import kotlin.math.ceil
 
 /** A stack's height and, for the root stack, the widest text line (px). */
@@ -219,7 +220,7 @@ object SegmentHeightMeasurer {
       }
     prepareWidthAwareSpans(text, widthPx)
     return StaticLayout.Builder
-      .obtain(text, 0, text.length, paint, widthPx)
+      .obtain(inViewSpanOrder(text), 0, text.length, paint, widthPx)
       .setIncludePad(false)
       .setLineSpacing(0f, 1f)
       .apply {

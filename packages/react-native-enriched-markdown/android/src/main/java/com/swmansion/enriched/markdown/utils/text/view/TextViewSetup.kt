@@ -27,6 +27,14 @@ private object NoCopySpannableFactory : Spannable.Factory() {
 }
 
 /**
+ * [text] as the markdown text view lays it out. Build every StaticLayout that sizes such
+ * a view from this: span order decides which LineHeightSpan wins on a shared line, so a
+ * layout over the bare builder can measure lines shorter than the view draws them.
+ */
+internal fun inViewSpanOrder(text: CharSequence): CharSequence =
+  if (text is SpannableStringBuilder) InsertionOrderedSpannable(text) else text
+
+/**
  * Hides that [buffer] is a `SpannableStringBuilder`. Layout reads a builder's paragraph
  * spans in position order rather than insertion order, which paints nested list margins
  * outer-first and pushes nested checkboxes an indent right.
