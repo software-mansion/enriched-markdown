@@ -15,8 +15,8 @@ import Foundation
 /// The attribute contract matches what a parser-side implementation would
 /// emit, so downstream code is provenance-agnostic.
 package enum SourceOffsetAnnotator {
-    static let sourceStartKey = "srcStart"
-    static let sourceEndKey = "srcEnd"
+    package static let sourceStartKey = "srcStart"
+    package static let sourceEndKey = "srcEnd"
 
     static func annotate(_ root: MarkdownASTNode, source: String) -> MarkdownASTNode {
         var scanner = Scanner(source: Array(source.utf8))
