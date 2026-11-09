@@ -19,6 +19,7 @@
 #import "ENRMTextRenderCache.h"
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
+#import "ENRMTextViewport.h"
 #import "ENRMUIKit.h"
 #import "ENRMUTF8.h"
 #import "ENRMViewFreeMeasurement.h"
@@ -52,6 +53,7 @@
 #import <React/RCTConversions.h>
 #import <React/RCTFont.h>
 #import <React/RCTI18nUtil.h>
+#import <React/RCTMountingTransactionObserving.h>
 
 using namespace facebook::react;
 
@@ -60,7 +62,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   ENRMDirtyRender = 1 << 0,
 };
 
-@interface EnrichedMarkdownText () <RCTEnrichedMarkdownTextViewProtocol, UITextViewDelegate, ENRMImageLayoutObserver>
+@interface EnrichedMarkdownText () <RCTEnrichedMarkdownTextViewProtocol, UITextViewDelegate, ENRMImageLayoutObserver,
+                                    RCTMountingTransactionObserving>
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownTextMd4cFlagsStruct &)props;
 - (void)setupTextView;
 - (void)renderMarkdownContent:(NSString *)markdownString;
@@ -150,6 +153,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   ENRMSelectionMenuLabels _selectionMenuLabels;
 
   ENRMSpoilerOverlayManager *_spoilerManager;
+  ENRMTextViewport *_viewport;
 
   NSLineBreakStrategy _lineBreakStrategy;
 
@@ -210,7 +214,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 - (CGSize)measureSize:(CGFloat)maxWidth
 {
-  CGSize size = ENRMMeasureMarkdownText(_textView, maxWidth, _config, _allowTrailingMargin, _lastElementMarginBottom);
+  CGSize size =
+      ENRMMeasureMarkdownText(_viewport, _textView, maxWidth, _config, _allowTrailingMargin, _lastElementMarginBottom);
   if (CGSizeEqualToSize(size, CGSizeZero)) {
     _laidOutSize.clear();
     CGFloat defaultHeight = UIFontLineHeight([UIFont systemFontOfSize:16.0]);
@@ -254,6 +259,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
            oldLayoutMetrics:(const LayoutMetrics &)oldLayoutMetrics
 {
   [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
+  // RCTViewComponentView framed the text view to the content box: the viewport keeps it there.
+  _viewport.contentFrame = RCTCGRectFromRect(layoutMetrics.getContentFrame());
 
   NSWritingDirection resolved = _resolvedLayoutDirection;
   if (layoutMetrics.layoutDirection == LayoutDirection::RightToLeft) {
@@ -426,6 +433,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   [_textView addGestureRecognizer:tapRecognizer];
 
   self.contentView = _textView;
+
+  _viewport = [[ENRMTextViewport alloc] initWithTextView:_textView];
 }
 
 - (void)didAddSubview:(RCTUIView *)subview
@@ -626,7 +635,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   NSUInteger tailStart = _previousTextLength;
 
   NSLayoutManager *layoutManager = _textView.layoutManager;
-  if ([layoutManager isKindOfClass:[TextViewLayoutManager class]]) {
+  // A new config redraws the whole text: only when it is new, not on every streamed update.
+  if ([layoutManager isKindOfClass:[TextViewLayoutManager class]] &&
+      ((TextViewLayoutManager *)layoutManager).config != _config) {
     [layoutManager setValue:_config forKey:@"config"];
   }
 
@@ -961,12 +972,21 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   }
 }
 
+// A layout change around this view (a message above it in a list growing) moves it on screen
+// without a scroll: a long text draws another part of itself.
+- (void)mountingTransactionDidMount:(const MountingTransaction &)transaction
+               withSurfaceTelemetry:(const SurfaceTelemetry &)surfaceTelemetry
+{
+  [_viewport update];
+}
+
 - (void)didMoveToWindow
 {
   [super didMoveToWindow];
 
   if (!self.window) {
     _needsWindowAttachRefresh = YES;
+    [_viewport update];
     return;
   }
   if (_renderedMarkdown == nil) {
@@ -976,10 +996,10 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   BOOL refresh = _needsWindowAttachRefresh;
   _needsWindowAttachRefresh = NO;
   if (refresh) {
-    // Refresh in place: RCTViewComponentView owns the text view's frame and has
-    // already set it to the content frame, so re-assigning self.bounds here would
-    // drop the containerStyle insets (see contentBounds).
-    ENRMRefreshTextViewLayout(_textView);
+    // Refresh in place, in the content frame RCTViewComponentView gave the viewport.
+    [_viewport refreshLayout];
+  } else {
+    [_viewport update];
   }
 
   [_spoilerManager setNeedsUpdate];

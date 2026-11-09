@@ -6,6 +6,7 @@
 #import "ENRMSpoilerOverlayManager.h"
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
+#import "ENRMTextViewport.h"
 #import "MarkdownAccessibilityElementBuilder.h"
 #import "MarkdownExtractor.h"
 #import "PasteboardUtils.h"
@@ -25,6 +26,7 @@
 #endif
   BOOL _accessibilityNeedsRebuild;
   ENRMSpoilerOverlayManager *_spoilerManager;
+  ENRMTextViewport *_viewport;
 }
 
 @synthesize textView = _textView;
@@ -68,6 +70,8 @@
 
   _spoilerManager = [[ENRMSpoilerOverlayManager alloc] initWithTextView:_textView config:_config];
   _spoilerManager.spoilerOverlay = _spoilerOverlay;
+
+  _viewport = [[ENRMTextViewport alloc] initWithTextView:_textView];
 }
 
 - (void)setupLayoutManager
@@ -84,7 +88,9 @@
 - (void)applyAttributedText:(NSMutableAttributedString *)text context:(RenderContext *)context
 {
   NSLayoutManager *layoutManager = _textView.layoutManager;
-  if ([layoutManager isKindOfClass:[TextViewLayoutManager class]]) {
+  // A new config redraws the whole text: only when it is new.
+  if ([layoutManager isKindOfClass:[TextViewLayoutManager class]] &&
+      ((TextViewLayoutManager *)layoutManager).config != _config) {
     [layoutManager setValue:_config forKey:@"config"];
   }
 
@@ -132,15 +138,35 @@
 
 - (CGSize)measureSize:(CGFloat)maxWidth
 {
-  return ENRMMeasureMarkdownText(_textView, maxWidth, _config, _allowTrailingMargin, _lastElementMarginBottom);
+  return ENRMMeasureMarkdownText(_viewport, _textView, maxWidth, _config, _allowTrailingMargin,
+                                 _lastElementMarginBottom);
 }
 
 - (void)layoutSubviews
 {
   [super layoutSubviews];
-  _textView.frame = self.bounds;
+  _viewport.contentFrame = self.bounds;
 
   [_spoilerManager updateIfNeeded];
+}
+
+#if !TARGET_OS_OSX
+- (void)didMoveToWindow
+{
+  [super didMoveToWindow];
+  [_viewport update];
+}
+#endif
+
+- (void)updateViewport
+{
+  [_viewport update];
+}
+
+- (void)refreshAfterWindowAttach
+{
+  _viewport.contentFrame = self.bounds;
+  [_viewport refreshLayout];
 }
 
 // An attachment that settles after render (an image's box, a link pill giving up its icon

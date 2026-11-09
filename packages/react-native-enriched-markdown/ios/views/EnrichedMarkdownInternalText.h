@@ -42,6 +42,11 @@ NS_ASSUME_NONNULL_BEGIN
 // The ENRMRenderResult revision shown, which a patch must be based on.
 @property (nonatomic, assign) uint64_t renderedRevision;
 
+/// Moves the drawn part of a long text to where it shows now (see ENRMTextViewport).
+- (void)updateViewport;
+/// Lays the text out again after the view joined a window.
+- (void)refreshAfterWindowAttach;
+
 #if TARGET_OS_OSX
 - (void)setContextMenuProvider:(ENRMContextMenuProvider)provider;
 #endif

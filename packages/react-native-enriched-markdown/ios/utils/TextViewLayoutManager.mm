@@ -2,12 +2,27 @@
 #import "BlockquoteBorder.h"
 #import "CodeBackground.h"
 #import "CodeBlockBackground.h"
+#import "ENRMTextViewport.h"
 #import "ListMarkerDrawer.h"
 #import "RuntimeKeys.h"
 #import "StyleConfig.h"
 #import <objc/runtime.h>
 
 @implementation TextViewLayoutManager
+
+#if !TARGET_OS_OSX
+// A text view drawing its text itself (ENRMTextViewportView) hears of what to redraw from here too.
+// Called while the text storage edits too: nothing here may generate glyphs.
+- (void)invalidateDisplayForGlyphRange:(NSRange)glyphRange
+{
+  [super invalidateDisplayForGlyphRange:glyphRange];
+  id textView =
+      self.textContainers.count > 0 ? objc_getAssociatedObject(self.textContainers.firstObject, kTextViewKey) : nil;
+  if ([textView conformsToProtocol:@protocol(ENRMTextViewportView)]) {
+    [(id<ENRMTextViewportView>)textView setNeedsDisplayFromGlyphIndex:glyphRange.location];
+  }
+}
+#endif
 
 - (void)drawBackgroundForGlyphRange:(NSRange)glyphsToShow atPoint:(CGPoint)origin
 {

@@ -40,6 +40,7 @@
 #import "ENRMSpoilerTapUtils.h"
 #import "ENRMUTF8.h"
 #import "ENRMViewFreeMeasurement.h"
+#import "ENRMVisibleArea.h"
 #import "EnrichedMarkdownBlockSlot.h"
 #import "EnrichedMarkdownInternalText.h"
 #import "FontScaleObserver.h"
@@ -77,6 +78,7 @@
 #import <React/RCTConversions.h>
 #import <React/RCTFont.h>
 #import <React/RCTI18nUtil.h>
+#import <React/RCTMountingTransactionObserving.h>
 
 using namespace facebook::react;
 
@@ -91,7 +93,8 @@ static char kENRMSegmentFadeAnimatorKey;
 // A signature no segment has (they are FNV hashes salted per kind).
 static const uint64_t kENRMUnknownSignature = UINT64_MAX;
 
-@interface EnrichedMarkdown () <RCTEnrichedMarkdownViewProtocol, UITextViewDelegate, ENRMImageLayoutObserver>
+@interface EnrichedMarkdown () <RCTEnrichedMarkdownViewProtocol, UITextViewDelegate, ENRMImageLayoutObserver,
+                                RCTMountingTransactionObserving>
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownMd4cFlagsStruct &)props;
 - (void)emitLinkPress:(NSString *)url;
 - (void)emitLinkLongPress:(NSString *)url;
@@ -124,6 +127,10 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   ENRMLatexErrorCoordinator *_latexErrorCoordinator;
   NSMutableArray<RCTUIView *> *_segmentViews;
   NSMutableArray<NSNumber *> *_segmentSignatures;
+  // Block segments off screen, their bitmaps dropped (see updateDrawnSegments).
+  ENRMVisibleArea *_visibleArea;
+  CGRect _drawnVisibleRect;
+  NSHashTable<RCTUIView *> *_undrawnSegments;
   ENRMSegmentViewRegistry *_segmentViewRegistry;
   ENRMDirtyFlags _dirtyFlags;
 
@@ -296,6 +303,10 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
     __weak EnrichedMarkdown *weakSelf = self;
     _blockSlotReveal =
         [[ENRMBlockSlotRevealController alloc] initWithFrameHandler:^{ [weakSelf stepBlockSlotReveal]; }];
+    // Text segments follow the scroll views themselves.
+    _visibleArea = [[ENRMVisibleArea alloc] initWithView:self onChange:^{ [weakSelf updateDrawnBlocks]; }];
+    _drawnVisibleRect = CGRectNull;
+    _undrawnSegments = [NSHashTable weakObjectsHashTable];
     _fontScaleObserver.onChange = ^{
       EnrichedMarkdown *strongSelf = weakSelf;
       if (!strongSelf)
@@ -690,6 +701,11 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     }
 #endif
   }];
+
+  if (applyFrames) {
+    // Segments moved by the ones above them show another part of the document.
+    [self updateDrawnSegments];
+  }
 
   if (yOffset > 0) {
     _laidOutSize.store(width, ENRMRoundedContentSize(CGSizeMake(maxContentWidth, yOffset), width), _laidOutMarkdown);
@@ -1328,7 +1344,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
                                   selectionEnd:selectionEnd];
         });
     return buildEditMenuForSelection(textView.textStorage, textView.selectedRange, segmentMarkdown, strongSelf->_config,
-                                     @[ baseMenu ], customItems, strongSelf -> _selectionMenuConfig);
+                                     @[ baseMenu ], customItems, strongSelf->_selectionMenuConfig);
   }];
 #endif
 
@@ -1742,9 +1758,142 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   [super updateProps:props oldProps:oldProps];
 }
 
+#if !TARGET_OS_OSX
+static void ENRMUpdateNestedViewports(UIView *view)
+{
+  for (UIView *subview in view.subviews) {
+    if ([subview isKindOfClass:[EnrichedMarkdownInternalText class]]) {
+      [(EnrichedMarkdownInternalText *)subview updateViewport];
+    } else if (![subview isKindOfClass:[UITextView class]]) {
+      ENRMUpdateNestedViewports(subview);
+    }
+  }
+}
+
+static BOOL ENRMDrawsItself(UIView *view)
+{
+  static IMP viewDrawRect;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{ viewDrawRect = class_getMethodImplementation([UIView class], @selector(drawRect:)); });
+  return class_getMethodImplementation([view class], @selector(drawRect:)) != viewDrawRect;
+}
+
+// Drops (`draws` NO) or redraws the bitmaps of the library's views in `view` that draw themselves.
+// Text views draw only their drawn rect already; a UIKit view may keep its contents some other way.
+static void ENRMSetViewDrawsContent(UIView *view, BOOL draws)
+{
+  if ([view isKindOfClass:[UITextView class]]) {
+    return;
+  }
+  static NSBundle *uiKit;
+  static dispatch_once_t uiKitOnce;
+  dispatch_once(&uiKitOnce, ^{ uiKit = [NSBundle bundleForClass:[UIView class]]; });
+  if (ENRMDrawsItself(view) && [NSBundle bundleForClass:[view class]] != uiKit) {
+    if (draws) {
+      [view setNeedsDisplay];
+    } else {
+      view.layer.contents = nil;
+    }
+  }
+  for (UIView *subview in view.subviews) {
+    ENRMSetViewDrawsContent(subview, draws);
+  }
+}
+
+// Runs `block` once Core Animation committed this run loop turn (its observer has order 2000000).
+static void ENRMAfterCommit(dispatch_block_t block)
+{
+  CFRunLoopObserverRef observer =
+      CFRunLoopObserverCreateWithHandler(kCFAllocatorDefault, kCFRunLoopBeforeWaiting, false, 2000001,
+                                         ^(CFRunLoopObserverRef firing, CFRunLoopActivity activity) {
+                                           CFRunLoopRemoveObserver(CFRunLoopGetMain(), firing, kCFRunLoopCommonModes);
+                                           block();
+                                         });
+  CFRunLoopAddObserver(CFRunLoopGetMain(), observer, kCFRunLoopCommonModes);
+  CFRelease(observer);
+}
+#endif
+
+// A layout change around this view (a message above it in a list growing) moves it on screen
+// without a scroll. Called for every mount on the surface: only a change in what shows matters.
+- (void)mountingTransactionDidMount:(const MountingTransaction &)transaction
+               withSurfaceTelemetry:(const SurfaceTelemetry &)surfaceTelemetry
+{
+#if !TARGET_OS_OSX
+  if (!CGRectEqualToRect([_visibleArea visibleRect], _drawnVisibleRect)) {
+    [self updateDrawnSegments];
+  }
+#endif
+}
+
+/// Draws only the segments near the visible part of the document. A text segment draws the part of
+/// its text there (ENRMTextViewport); a block segment off screen (a code block, a table, a quote)
+/// drops the bitmaps it drew, and draws again when it comes back.
+- (void)updateDrawnSegments
+{
+#if !TARGET_OS_OSX
+  for (RCTUIView *segment in _segmentViews) {
+    if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
+      [(EnrichedMarkdownInternalText *)segment updateViewport];
+    } else if (![segment isKindOfClass:[ENRMBlockSlotSegmentView class]]) {
+      // A quote holds text segments of its own, moved with it.
+      ENRMUpdateNestedViewports(segment);
+    }
+  }
+  [self updateDrawnBlocks];
+#endif
+}
+
+- (void)updateDrawnBlocks
+{
+#if !TARGET_OS_OSX
+  CGRect visible = [_visibleArea visibleRect];
+  _drawnVisibleRect = visible;
+  CGRect drawn = CGRectIsNull(visible) || CGRectIsEmpty(visible) ? CGRectNull
+                 : CGRectIsInfinite(visible)                     ? CGRectInfinite
+                                                                 : CGRectInset(visible, 0, -ENRMVisibleAreaMargin);
+  NSMutableArray<RCTUIView *> *dropped = nil;
+  for (RCTUIView *segment in _segmentViews) {
+    // React Native draws the views it renders into a slot.
+    if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]] ||
+        [segment isKindOfClass:[ENRMBlockSlotSegmentView class]]) {
+      continue;
+    }
+    BOOL draws = !CGRectIsNull(drawn) && CGRectIntersectsRect(drawn, segment.frame);
+    if (draws == ![_undrawnSegments containsObject:segment]) {
+      continue;
+    }
+    if (draws) {
+      [_undrawnSegments removeObject:segment];
+    } else {
+      [_undrawnSegments addObject:segment];
+      dropped = dropped ?: [NSMutableArray array];
+      [dropped addObject:segment];
+    }
+    ENRMSetViewDrawsContent(segment, draws);
+  }
+  if (dropped != nil) {
+    // A view that never drew (a new segment) draws when this run loop turn commits: drop that too.
+    __weak EnrichedMarkdown *weakSelf = self;
+    ENRMAfterCommit(^{
+      EnrichedMarkdown *strongSelf = weakSelf;
+      if (strongSelf == nil) {
+        return;
+      }
+      for (RCTUIView *segment in dropped) {
+        if ([strongSelf->_undrawnSegments containsObject:segment]) {
+          ENRMSetViewDrawsContent(segment, NO);
+        }
+      }
+    });
+  }
+#endif
+}
+
 - (void)didMoveToWindow
 {
   [super didMoveToWindow];
+  [self updateDrawnSegments];
 
   if (!self.window) {
     _needsWindowAttachRefresh = YES;
@@ -1755,7 +1904,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     for (RCTUIView *segment in _segmentViews) {
       if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
         EnrichedMarkdownInternalText *textSegment = (EnrichedMarkdownInternalText *)segment;
-        ENRMRefreshTextViewAfterWindowAttach(textSegment.textView, textSegment.bounds);
+        [textSegment refreshAfterWindowAttach];
       }
     }
 
