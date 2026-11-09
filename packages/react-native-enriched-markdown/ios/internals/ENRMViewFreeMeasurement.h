@@ -178,7 +178,7 @@ template <typename PropsT>
 static inline NSString *ENRMRenderableMarkdownFromProps(const PropsT &typedProps, ENRMMd4cFlags *flags)
 {
   NSString *markdown = ENRMStringFromUTF8(typedProps.markdown);
-  if (!typedProps.streamingAnimation) {
+  if (!typedProps.streaming) {
     return markdown;
   }
   const auto &config = typedProps.streamingConfig;

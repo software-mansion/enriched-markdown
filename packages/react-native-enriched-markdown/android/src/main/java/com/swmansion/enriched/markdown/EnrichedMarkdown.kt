@@ -56,6 +56,7 @@ import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
 import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitTextPressEvent
 import java.util.EnumSet
+import java.util.WeakHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -90,7 +91,8 @@ class EnrichedMarkdown(
   // not disposal: a view renders before its first attach and while detached.
   private var isDisposed = false
   private val dirtyFlags = EnumSet.noneOf(DirtyFlag::class.java)
-  var streamingAnimation: Boolean = false
+  private val textFadeAnimators = WeakHashMap<EnrichedMarkdownInternalText, TailFadeInAnimator>()
+  var streaming: Boolean = false
     set(value) {
       if (field == value) return
       field = value
@@ -98,11 +100,13 @@ class EnrichedMarkdown(
       // show or hide the content it holds back.
       dirtyFlags += DirtyFlag.FORCE_HEIGHT
       renderPending = true
-      if (!value) {
-        blockSlotReveal.cancel()
-        applyBlockSlotReveal()
-        if (width > 0) layoutSegments()
-      }
+      if (!value) finishStreamingAnimations()
+    }
+  var streamingFade: Boolean = true
+    set(value) {
+      if (field == value) return
+      field = value
+      if (!value) finishStreamingAnimations()
     }
 
   // used to force a Yoga re-measure when a block image resolves its box height
@@ -579,7 +583,7 @@ class EnrichedMarkdown(
     return RenderJob(
       style,
       markdown,
-      streamingAnimation,
+      streaming,
       tableStreamingMode,
       codeBlockStreamingMode,
       mediaStreamingMode,
@@ -837,7 +841,7 @@ class EnrichedMarkdown(
           val tableView = view as TableContainerView
           val previousRowCount = tableView.rowCount
           tableView.applyTableNode(segment.node)
-          if (streamingAnimation && !isReducedMotionEnabled(context)) {
+          if (fadesArrivals()) {
             tableView.animateNewRows(previousRowCount, BLOCK_FADE_DURATION_MS)
           }
         }
@@ -871,7 +875,6 @@ class EnrichedMarkdown(
       view: View,
       segment: RenderedSegment,
     ) {
-      if (!streamingAnimation) return
       when (segment) {
         is RenderedSegment.Text -> animateTextViewTail(view as EnrichedMarkdownInternalText, 0)
 
@@ -892,15 +895,17 @@ class EnrichedMarkdown(
     view: EnrichedMarkdownInternalText,
     tailStart: Int,
   ) {
-    if (!streamingAnimation) return
+    if (!streaming || !streamingFade) return
     val textLength = view.text?.length ?: 0
     if (textLength <= tailStart) return
-    TailFadeInAnimator(view).animate(tailStart, textLength)
+    textFadeAnimators.getOrPut(view) { TailFadeInAnimator(view) }.animate(tailStart, textLength)
   }
 
+  // New streamed content fades in, unless the fade is off or Reduce Motion is on.
+  private fun fadesArrivals() = streaming && streamingFade && !isReducedMotionEnabled(context)
+
   private fun animateBlockViewFadeIn(view: View) {
-    if (!streamingAnimation) return
-    if (isReducedMotionEnabled(context)) return
+    if (!fadesArrivals()) return
     view.alpha = 0f
     view
       .animate()
@@ -951,7 +956,7 @@ class EnrichedMarkdown(
   /** A root slot getting its first height while streaming grows into place ([BlockSlotRevealController]). */
   private fun updateBlockSlotHeights(heights: Map<String, Int>): Boolean {
     val changed = applyBlockSlotHeights(heights)
-    blockSlotReveal.noteHeights(heights, segmentViews, streamingAnimation && !isReducedMotionEnabled(context))
+    blockSlotReveal.noteHeights(heights, segmentViews, fadesArrivals())
     applyBlockSlotReveal()
     return changed
   }
@@ -964,6 +969,26 @@ class EnrichedMarkdown(
   private fun stepBlockSlotReveal() {
     applyBlockSlotReveal()
     if (width > 0) layoutSegments()
+  }
+
+  // Shows what is still fading in at once.
+  private fun finishStreamingAnimations() {
+    blockSlotReveal.cancel()
+    stepBlockSlotReveal()
+    textFadeAnimators.values.forEach { it.cancelAll() }
+    textFadeAnimators.clear()
+    for (view in segmentViews) {
+      when {
+        view is TableContainerView -> {
+          view.finishRowFade()
+        }
+
+        view !is EnrichedMarkdownInternalText && view.alpha < 1f -> {
+          view.animate().cancel()
+          view.alpha = 1f
+        }
+      }
+    }
   }
 
   fun onImageLayoutChanged() {

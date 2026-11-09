@@ -159,7 +159,8 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   BOOL _enableTaskListItemToggle;
   BOOL _enableImagePress;
   BOOL _enableTextPress;
-  BOOL _streamingAnimation;
+  BOOL _streaming;
+  BOOL _streamingFade;
   ENRMTableStreamingMode _tableStreamingMode;
   ENRMCodeBlockStreamingMode _codeBlockStreamingMode;
   ENRMMediaStreamingMode _mediaStreamingMode;
@@ -288,7 +289,8 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
       [weakMenuSelf emitLinkContextMenuItemPress:itemText pattern:pattern url:url];
     };
     _dynamicBlockProps.linkContextMenus = _linkContextMenus;
-    _streamingAnimation = NO;
+    _streaming = NO;
+    _streamingFade = YES;
     _tableStreamingMode = ENRMTableStreamingModeProgressive;
     _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
     _mediaStreamingMode = ENRMMediaStreamingModeProgressive;
@@ -851,9 +853,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 - (void)updateBlockSlotHeights:(NSDictionary<NSString *, NSNumber *> *)heights
 {
   ENRMApplyBlockSlotHeights(_segmentViews, heights);
-  [_blockSlotReveal noteHeights:heights
-                     inSegments:_segmentViews
-                         reveal:_streamingAnimation && !ENRMShouldReduceMotion()];
+  [_blockSlotReveal noteHeights:heights inSegments:_segmentViews reveal:[self fadesArrivals]];
   [self applyBlockSlotReveal];
 }
 
@@ -1033,7 +1033,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   BOOL allowFontScaling = _fontScaleObserver.allowFontScaling;
   CGFloat maxFontSizeMultiplier = _maxFontSizeMultiplier;
   BOOL allowTrailingMargin = _allowTrailingMargin;
-  BOOL streamingAnimation = _streamingAnimation;
+  BOOL streaming = _streaming;
   ENRMTableStreamingMode tableStreamingMode = _tableStreamingMode;
   ENRMCodeBlockStreamingMode codeBlockStreamingMode = _codeBlockStreamingMode;
   ENRMMediaStreamingMode mediaStreamingMode = _mediaStreamingMode;
@@ -1054,11 +1054,10 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   __block BOOL endsInsideOpenCodeFence = NO;
 
   BOOL (^render)(void) = ^BOOL {
-    renderableMarkdown =
-        streamingAnimation
-            ? ENRMRenderableMarkdownForStreaming(markdownString, md4cFlags, tableStreamingMode, codeBlockStreamingMode,
-                                                 mediaStreamingMode, &endsInsideOpenCodeFence)
-            : markdownString;
+    renderableMarkdown = streaming ? ENRMRenderableMarkdownForStreaming(markdownString, md4cFlags, tableStreamingMode,
+                                                                        codeBlockStreamingMode, mediaStreamingMode,
+                                                                        &endsInsideOpenCodeFence)
+                                   : markdownString;
 
     if (renderableMarkdown.length == 0) {
       renderedSegments = @[];
@@ -1115,7 +1114,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     _textRenderCacheEpoch++;
     // A first render reuses what Yoga's measurement rendered, when it matches.
     NSArray<ENRMRenderedSegment *> *prepared =
-        _renderedMarkdown.length == 0 && !streamingAnimation
+        _renderedMarkdown.length == 0 && !streaming
             ? ENRMTakePreparedSegments(
                   {_props, _fontScaleObserver.effectiveFontScale, resolvedLayoutDirection, activeBlockSlotIds})
             : nil;
@@ -1173,7 +1172,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   _laidOutMarkdown = ENRMLaidOutMarkdown(markdownString);
   BOOL endsInsideOpenCodeFence = NO;
   NSString *renderableMarkdown =
-      _streamingAnimation
+      _streaming
           ? ENRMRenderableMarkdownForStreaming(markdownString, _md4cFlags, _tableStreamingMode, _codeBlockStreamingMode,
                                                _mediaStreamingMode, &endsInsideOpenCodeFence)
           : markdownString;
@@ -1205,7 +1204,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 - (void)updatePendingCodeBlockSegment:(BOOL)endsInsideOpenCodeFence segments:(NSArray<ENRMRenderedSegment *> *)segments
 {
   _pendingCodeBlockSegment = nil;
-  if (!_streamingAnimation || !endsInsideOpenCodeFence) {
+  if (!_streaming || !endsInsideOpenCodeFence) {
     return;
   }
   ENRMRenderedSegment *last = segments.lastObject;
@@ -1224,7 +1223,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   const ENRMDirtyFlags dirtyFlags = scheduledFlags & _dirtyFlags;
   _renderedMarkdown = [renderedMarkdown copy];
   [self updatePendingCodeBlockSegment:endsInsideOpenCodeFence segments:renderedSegments];
-  BOOL segmentTopologyChanged = _streamingAnimation && [self renderedSegmentsChangeTopology:renderedSegments];
+  BOOL segmentTopologyChanged = _streaming && [self renderedSegmentsChangeTopology:renderedSegments];
 
   ENRMSegmentReconciliationResult *result = [ENRMSegmentReconciler reconcileCurrentViews:_segmentViews
       currentSignatures:_segmentSignatures
@@ -1395,7 +1394,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   NSUInteger previousRowCount = view.rowCount;
   [view applyTableNode:tableSegment.tableNode];
 
-  if (_streamingAnimation && !ENRMShouldReduceMotion()) {
+  if ([self fadesArrivals]) {
     [view animateNewRowsFromPreviousCount:previousRowCount duration:0.20];
   }
 }
@@ -1443,13 +1442,16 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   return _codeBlockWrapState.indices;
 }
 
+// New streamed content fades in, unless the fade is off or Reduce Motion is on.
+- (BOOL)fadesArrivals
+{
+  return _streaming && _streamingFade && !ENRMShouldReduceMotion();
+}
+
 - (void)animateBlockViewIfNeeded:(RCTUIView *)view
 {
-  if (!_streamingAnimation)
-    return;
-
 #if !TARGET_OS_OSX
-  if (ENRMShouldReduceMotion()) {
+  if (![self fadesArrivals]) {
     return;
   }
   view.alpha = 0.0;
@@ -1459,7 +1461,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
 - (void)animateTextView:(EnrichedMarkdownInternalText *)view fromTailStart:(NSUInteger)tailStart
 {
-  if (!_streamingAnimation)
+  if (!_streaming || !_streamingFade)
     return;
 
   ENRMTailFadeInAnimator *animator = objc_getAssociatedObject(view.textView, &kENRMSegmentFadeAnimatorKey);
@@ -1469,6 +1471,26 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   }
 
   [animator animateFrom:tailStart to:ENRMGetAttributedText(view.textView).length];
+}
+
+// Shows what is still fading in at once.
+- (void)finishStreamingAnimations
+{
+  [_blockSlotReveal cancel];
+  [self applyBlockSlotReveal];
+  [self setNeedsLayout];
+  for (RCTUIView *segment in _segmentViews) {
+    if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
+      ENRMPlatformTextView *textView = ((EnrichedMarkdownInternalText *)segment).textView;
+      [(ENRMTailFadeInAnimator *)objc_getAssociatedObject(textView, &kENRMSegmentFadeAnimatorKey) cancel];
+      objc_setAssociatedObject(textView, &kENRMSegmentFadeAnimatorKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    } else if ([segment isKindOfClass:[TableContainerView class]]) {
+      [(TableContainerView *)segment finishRowFade];
+    } else {
+      // A block fading in (animateBlockViewIfNeeded:).
+      [segment.layer removeAnimationForKey:@"opacity"];
+    }
+  }
 }
 
 - (void)updateTextView:(EnrichedMarkdownInternalText *)view withRenderedSegment:(ENRMRenderResult *)segment
@@ -1624,22 +1646,18 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     [self requestHeightUpdate];
   }
 
-  if (newViewProps.streamingAnimation != oldViewProps.streamingAnimation) {
-    _streamingAnimation = newViewProps.streamingAnimation;
+  if (newViewProps.streaming != oldViewProps.streaming) {
+    _streaming = newViewProps.streaming;
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
-    if (!_streamingAnimation) {
-      [_blockSlotReveal cancel];
-      [self applyBlockSlotReveal];
-      [self setNeedsLayout];
-      for (RCTUIView *segment in _segmentViews) {
-        if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
-          ENRMTailFadeInAnimator *animator = objc_getAssociatedObject(
-              ((EnrichedMarkdownInternalText *)segment).textView, &kENRMSegmentFadeAnimatorKey);
-          [animator cancel];
-          objc_setAssociatedObject(((EnrichedMarkdownInternalText *)segment).textView, &kENRMSegmentFadeAnimatorKey,
-                                   nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        }
-      }
+    if (!_streaming) {
+      [self finishStreamingAnimations];
+    }
+  }
+
+  if (newViewProps.streamingConfig.animation != oldViewProps.streamingConfig.animation) {
+    _streamingFade = newViewProps.streamingConfig.animation != "none";
+    if (!_streamingFade) {
+      [self finishStreamingAnimations];
     }
   }
 
@@ -1955,7 +1973,8 @@ static void ENRMAfterCommit(dispatch_block_t block)
   _inlineCodeLinkRegex = ENRMLinkRegexConfigFromProps(resetProps->linkRecognition.inlineCode);
   _maxFontSizeMultiplier = 0;
   _allowTrailingMargin = NO;
-  _streamingAnimation = NO;
+  _streaming = NO;
+  _streamingFade = YES;
   _tableStreamingMode = ENRMTableStreamingModeProgressive;
   _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
   _mediaStreamingMode = ENRMMediaStreamingModeProgressive;

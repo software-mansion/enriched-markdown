@@ -476,8 +476,15 @@ object MeasurementStore {
     val markdown = props.getStringOrDefault("markdown", "")
     var layoutHash = computePropsHashForMarkdown("", props, allowFontScaling, fontScale, maxFontSizeMultiplier)
     layoutHash = 31 * layoutHash + props.getBooleanOrDefault("isGFM", false).hashCode()
-    layoutHash = 31 * layoutHash + props.getBooleanOrDefault("streamingAnimation", false).hashCode()
-    layoutHash = 31 * layoutHash + (props.getMapOrNull("streamingConfig")?.toHashMap()?.hashCode() ?: 0)
+    layoutHash = 31 * layoutHash + props.getBooleanOrDefault("streaming", false).hashCode()
+    // The animation changes no layout.
+    layoutHash = 31 * layoutHash + (
+      props
+        .getMapOrNull("streamingConfig")
+        ?.toHashMap()
+        ?.minus("animation")
+        ?.hashCode() ?: 0
+    )
     layoutHash = 31 * layoutHash + splitTableSegments.hashCode()
     layoutHash = 31 * layoutHash + (wrappedCodeBlocks[id]?.hashCode() ?: 0)
     layoutHash = 31 * layoutHash + (breakStrategies[id]?.hashCode() ?: 0)
@@ -572,7 +579,7 @@ object MeasurementStore {
     md4cFlags: Md4cFlags,
   ): String {
     val markdown = props.getStringOrDefault("markdown", "")
-    if (!props.getBooleanOrDefault("streamingAnimation", false)) return markdown
+    if (!props.getBooleanOrDefault("streaming", false)) return markdown
     val streamingConfig = props.getMapOrNull("streamingConfig")
     return StreamingMarkdownFilter
       .renderableMarkdownForStreaming(
@@ -712,7 +719,7 @@ object MeasurementStore {
     maxFontSizeMultiplier: Float,
     blockSlotIds: List<String>,
   ): Long {
-    val isStreaming = props.getBooleanOrDefault("streamingAnimation", false)
+    val isStreaming = props.getBooleanOrDefault("streaming", false)
     val md4cFlags = md4cFlagsFromProps(props)
     val markdown = renderableMarkdownFromProps(props, md4cFlags)
     val wrapped =

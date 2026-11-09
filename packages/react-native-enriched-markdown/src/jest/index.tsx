@@ -307,6 +307,7 @@ export const EnrichedMarkdownText = ({
   maxFontSizeMultiplier: _maxFontSizeMultiplier,
   allowTrailingMargin: _allowTrailingMargin,
   flavor: _flavor,
+  streaming: _streaming,
   streamingAnimation: _streamingAnimation,
   streamingConfig: _streamingConfig,
   spoilerOverlay: _spoilerOverlay,

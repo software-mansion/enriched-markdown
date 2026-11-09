@@ -108,6 +108,15 @@ class TableContainerView(
     }
   }
 
+  fun finishRowFade() {
+    val grid = gridContainer
+    for (i in 0 until grid.childCount) {
+      val cell = grid.getChildAt(i) ?: continue
+      cell.animate().cancel()
+      cell.alpha = 1f
+    }
+  }
+
   private var rows: List<List<TableCellData>> = emptyList()
   private var columnCount = 0
   private var columnWidths = emptyList<Float>()

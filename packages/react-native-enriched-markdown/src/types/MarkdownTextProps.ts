@@ -139,7 +139,7 @@ export interface StreamingConfig {
    * Controls how incomplete tables are handled during streaming.
    * - `'hidden'`: hide the entire table until it's complete.
    * - `'progressive'` (default): show the table row-by-row as rows complete.
-   * Only effective when `streamingAnimation` is `true`.
+   * Only effective when `streaming` is `true`.
    * @default 'progressive'
    * @platform ios, android
    */
@@ -151,7 +151,7 @@ export interface StreamingConfig {
    * - `'progressive'` (default): show the code as it streams in with its header
    *   visible but non-interactive (copying is disabled); syntax highlighting is
    *   deferred until the closing fence arrives, so it appears once atomically.
-   * Only effective when `streamingAnimation` is `true`.
+   * Only effective when `streaming` is `true`.
    * @default 'progressive'
    * @platform ios, android
    */
@@ -164,11 +164,20 @@ export interface StreamingConfig {
    * - `'progressive'` (default): show the block as soon as its syntax is
    *   complete (`)` for an image, `>` for a `<video>` tag); the partial line is
    *   hidden until then instead of rendering as text.
-   * Only effective when `streamingAnimation` is `true`.
+   * Only effective when `streaming` is `true`.
    * @default 'progressive'
    * @platform ios, android
    */
   mediaMode?: 'hidden' | 'progressive';
+  /**
+   * How newly arrived content appears during streaming.
+   * - `'fade'` (default): new text, blocks and table rows fade in.
+   * - `'none'`: new content appears at once.
+   * Only effective when `streaming` is `true`.
+   * @default 'fade'
+   * @platform ios, android
+   */
+  animation?: 'fade' | 'none';
 }
 
 export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
@@ -393,16 +402,21 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   flavor?: 'commonmark' | 'github';
   /**
-   * When true, newly appended content fades in during streaming updates.
-   * Only the tail (new characters beyond the previous content) is animated.
-   * Recommended for LLM streaming use cases with `flavor="commonmark"`.
+   * Set while `markdown` is still arriving (an LLM answer streaming in).
+   * Incomplete syntax at the end is held back or repaired instead of rendering
+   * as raw markdown, and new content fades in (see `streamingConfig`). Set it
+   * back to `false` when the stream ends: the final render shows everything.
    * @default false
    * @platform ios, android
    */
+  streaming?: boolean;
+  /**
+   * @deprecated Use `streaming` instead.
+   */
   streamingAnimation?: boolean;
   /**
-   * Fine-grained control over streaming behavior for block-level elements.
-   * Only effective when `streamingAnimation` is `true`.
+   * Fine-grained control over streaming behavior.
+   * Only effective when `streaming` is `true`.
    * @platform ios, android
    */
   streamingConfig?: StreamingConfig;
