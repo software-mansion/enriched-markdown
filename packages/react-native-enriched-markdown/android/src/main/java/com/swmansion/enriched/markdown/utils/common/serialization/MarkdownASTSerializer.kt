@@ -20,6 +20,11 @@ object MarkdownASTSerializer {
     return buffer.toString()
   }
 
+  private val tableCellLineBreak = Regex("""(?<!\\)(\\*)\n""")
+
+  /** Serializes a table cell's content; a newline inside it becomes `<br>` so the row stays on one line. */
+  fun serializeTableCell(cell: MarkdownASTNode): String = serializeChildren(cell).replace(tableCellLineBreak, "$1$1<br>")
+
   /**
    * Serializes a Blockquote or Admonition node back to markdown, including
    * the `> ` prefix on every line and `> [!TYPE]` header for admonitions.
@@ -179,7 +184,7 @@ object MarkdownASTSerializer {
     for (section in node.children) {
       for (row in section.children) {
         if (row.type != NodeType.TableRow) continue
-        val cells = row.children.map { serializeChildren(it) }
+        val cells = row.children.map { serializeTableCell(it) }
         buffer.append("| ")
         buffer.append(cells.joinToString(" | "))
         buffer.append(" |\n")

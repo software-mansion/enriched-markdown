@@ -148,7 +148,7 @@ static void appendTableMarkdown(MarkdownASTNode *node, NSMutableString *buffer)
         continue;
       NSMutableArray<NSString *> *cells = [NSMutableArray arrayWithCapacity:row.children.count];
       for (MarkdownASTNode *cell in row.children) {
-        [cells addObject:markdownFromASTNodeChildren(cell)];
+        [cells addObject:markdownFromTableCellNode(cell)];
       }
       [buffer appendFormat:@"| %@ |\n", [cells componentsJoinedByString:@" | "]];
       if (!headerDone) {
@@ -331,6 +331,17 @@ NSString *markdownFromASTNodeChildren(MarkdownASTNode *node)
   NSMutableString *buffer = [NSMutableString string];
   serializeChildren(node, buffer);
   return [buffer copy];
+}
+
+NSString *markdownFromTableCellNode(MarkdownASTNode *node)
+{
+  NSString *markdown = markdownFromASTNodeChildren(node);
+  if (![markdown containsString:@"\n"])
+    return markdown;
+  return [markdown stringByReplacingOccurrencesOfString:@"(?<!\\\\)(\\\\*)\n"
+                                            withString:@"$1$1<br>"
+                                               options:NSRegularExpressionSearch
+                                                 range:NSMakeRange(0, markdown.length)];
 }
 
 NSString *markdownFromBlockquoteNode(MarkdownASTNode *node)

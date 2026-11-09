@@ -163,7 +163,7 @@ static NSArray<NSArray<TableCellData *> *> *ENRMTableBuildRows(MarkdownASTNode *
         cell.isHeader = isSectionHead || (cellNode.type == MarkdownNodeTypeTableHeaderCell);
         cell.alignment = ENRMTableTextAlignmentFromString(cellNode.attributes[@"align"]);
         cell.plainText = ENRMTablePlainTextFromNode(cellNode);
-        cell.markdownText = markdownFromASTNodeChildren(cellNode);
+        cell.markdownText = markdownFromTableCellNode(cellNode);
 
         StyleConfig *cellConfig = cell.isHeader ? headerCellConfig : bodyCellConfig;
         cell.attributedText =
