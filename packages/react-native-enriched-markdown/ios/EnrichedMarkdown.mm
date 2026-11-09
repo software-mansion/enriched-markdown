@@ -11,6 +11,7 @@
 #import "ENRMPreparedRenderStore.h"
 #import "ENRMTailFadeInAnimator.h"
 #import "ENRMTextInteractionUtils.h"
+#import "ENRMTextRenderCache.h"
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
 #import "ENRMUIKit.h"
@@ -87,6 +88,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 };
 
 static char kENRMSegmentFadeAnimatorKey;
+// A signature no segment has (they are FNV hashes salted per kind).
+static const uint64_t kENRMUnknownSignature = UINT64_MAX;
 
 @interface EnrichedMarkdown () <RCTEnrichedMarkdownViewProtocol, UITextViewDelegate, ENRMImageLayoutObserver>
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownMd4cFlagsStruct &)props;
@@ -189,6 +192,11 @@ static char kENRMSegmentFadeAnimatorKey;
   ENRMLaidOutSize _laidOutSize;
   // The markdown the segments were rendered from, published with their size.
   std::shared_ptr<const std::string> _laidOutMarkdown;
+
+  // Reused by the next render on the render queue (see ENRMTextRenderCache); a recycled view
+  // starts a new epoch, which drops it.
+  ENRMTextRenderCache *_textRenderCache;
+  NSUInteger _textRenderCacheEpoch;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -285,6 +293,7 @@ static char kENRMSegmentFadeAnimatorKey;
         [[RCTI18nUtil sharedInstance] isRTL] ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight;
 
     _fontScaleObserver = [[FontScaleObserver alloc] init];
+    _textRenderCache = [[ENRMTextRenderCache alloc] init];
     __weak EnrichedMarkdown *weakSelf = self;
     _blockSlotReveal =
         [[ENRMBlockSlotRevealController alloc] initWithFrameHandler:^{ [weakSelf stepBlockSlotReveal]; }];
@@ -1019,6 +1028,12 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   NSWritingDirection resolvedLayoutDirection = _resolvedLayoutDirection;
   NSSet<NSString *> *activeBlockSlotIds = _activeBlockSlotIds;
   BOOL annotateImages = config.imageSourceOverrides.count > 0;
+  // The render queue owns the cache; a synchronous render leaves it alone.
+  ENRMTextRenderCache *textRenderCache = synchronously ? nil : _textRenderCache;
+  const BOOL clearTextRenderCache = (_dirtyFlags & ENRMDirtyRecreateSegments) != 0;
+  NSArray *textRenderKey =
+      ENRMTextRenderKey(config, _pendingStyleFingerprint, allowFontScaling, maxFontSizeMultiplier, lineBreakStrategy,
+                        writingDirectionMode, resolvedLayoutDirection, _textRenderCacheEpoch);
 
   __block NSArray<ENRMRenderedSegment *> *renderedSegments = nil;
   __block NSString *renderableMarkdown = nil;
@@ -1046,6 +1061,17 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     if (!ast)
       return NO;
 
+    if (textRenderCache) {
+      if (clearTextRenderCache) {
+        [textRenderCache clear];
+      }
+      [textRenderCache beginRenderWithKey:textRenderKey];
+      renderedSegments = ENRMRenderSegmentsFromASTCached(ast, config, allowTrailingMargin, allowFontScaling,
+                                                         maxFontSizeMultiplier, lineBreakStrategy, writingDirectionMode,
+                                                         resolvedLayoutDirection, textRenderCache);
+      [textRenderCache endRender];
+      return YES;
+    }
     renderedSegments = ENRMRenderSegmentsFromAST(ast, config, allowTrailingMargin, allowFontScaling,
                                                  maxFontSizeMultiplier, lineBreakStrategy,
                                                  /*blockquoteContent*/ NO);
@@ -1071,6 +1097,8 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
   if (synchronously) {
     [_renderCoordinator invalidate];
+    // Its views show revisions the cache never made.
+    _textRenderCacheEpoch++;
     // A first render reuses what Yoga's measurement rendered, when it matches.
     NSArray<ENRMRenderedSegment *> *prepared =
         _renderedMarkdown.length == 0 && !streamingAnimation
@@ -1205,6 +1233,16 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
   _segmentViews = result.views;
   _segmentSignatures = result.signatures;
+  // A view that missed a patch gets the whole text from a full render: forgetting its signature
+  // makes the reconciler update it then, where it would keep a view whose segment it matches.
+  NSIndexSet *missedPatches = ENRMSyncTextRevisions(renderedSegments, _segmentViews);
+  if (missedPatches.count > 0) {
+    [missedPatches enumerateIndexesUsingBlock:^(NSUInteger i, BOOL *stop) {
+      self->_segmentSignatures[i] = @(kENRMUnknownSignature);
+    }];
+    _textRenderCacheEpoch++;
+    [self renderMarkdownContent:_cachedMarkdown];
+  }
   [self bringSlotLayerToFront];
   // Recreated placeholders (nested ones in particular) start at zero height; the
   // shadow node only republishes frames when they change, so reapply the last ones.
@@ -1243,6 +1281,11 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
 - (void)configureTextView:(EnrichedMarkdownInternalText *)view withRenderedSegment:(ENRMRenderResult *)segment
 {
+  const BOOL patches = segment.patchTail && segment.patchBaseRevision == view.renderedRevision;
+  if (!patches && !segment.attributedText) {
+    // A patch to text this view doesn't show: left for the full render applyRenderedSegments asks for.
+    return;
+  }
   view.spoilerOverlay = _spoilerOverlay;
   view.allowTrailingMargin = _allowTrailingMargin;
   view.lastElementMarginBottom = segment.lastElementMarginBottom;
@@ -1250,7 +1293,12 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   view.accessibilityLabels = _accessibilityLabels;
   view.textView.selectable = _selectable;
   [_latexErrorCoordinator wireReporters:segment.context.mathReporters];
-  [view applyAttributedText:segment.attributedText context:segment.context];
+  if (patches) {
+    [view applyAttributedTextPatch:segment.patchTail from:segment.patchStart];
+  } else {
+    [view applyAttributedText:segment.attributedText context:segment.context];
+  }
+  view.renderedRevision = segment.revision;
 
   const auto &selectionProps = *std::static_pointer_cast<EnrichedMarkdownProps const>(self->_props);
   ENRMApplySelectionColor(view.textView, selectionProps.selectionColor);
@@ -1414,6 +1462,8 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
 - (void)updateTextView:(EnrichedMarkdownInternalText *)view withRenderedSegment:(ENRMRenderResult *)segment
 {
+  // Restores the faded colors onto the text they came from.
+  [(ENRMTailFadeInAnimator *)objc_getAssociatedObject(view.textView, &kENRMSegmentFadeAnimatorKey) cancel];
   NSUInteger tailStart = ENRMGetAttributedText(view.textView).length;
   [self configureTextView:view withRenderedSegment:segment];
   [self animateTextView:view fromTailStart:tailStart];
@@ -1738,6 +1788,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   }
   [_segmentViews removeAllObjects];
   [_segmentSignatures removeAllObjects];
+  _textRenderCacheEpoch++;
 
   _cachedMarkdown = nil;
   _renderedMarkdown = nil;

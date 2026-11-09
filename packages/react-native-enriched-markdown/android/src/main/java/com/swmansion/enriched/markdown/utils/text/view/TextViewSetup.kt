@@ -2,16 +2,22 @@ package com.swmansion.enriched.markdown.utils.text.view
 
 import android.graphics.Color
 import android.os.Build
+import android.text.DynamicLayout
+import android.text.Editable
 import android.text.GetChars
+import android.text.NoCopySpan
 import android.text.SpanWatcher
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.TextWatcher
 import android.text.style.UpdateLayout
 import android.view.textclassifier.TextClassifier
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.view.ViewCompat
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
+import com.swmansion.enriched.markdown.segments.replaceTail
 import com.swmansion.enriched.markdown.utils.common.BoundsForWidthUtils
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 
@@ -63,17 +69,70 @@ private class InsertionOrderedSpannable(
     destoff: Int,
   ) = buffer.getChars(start, end, dest, destoff)
 
+  // Watchers set on this text, by the proxy that stands in for each in the buffer.
+  private val watcherProxies = HashMap<Any, WatcherProxy>()
+
+  // Set while [repaintSpan] re-sets a span: the watchers hear it from the buffer then, which the
+  // view draws again from and DynamicLayout ignores, so nothing is laid out again.
+  var repainting = false
+
+  /**
+   * Replaces the text from [start] on with [tail] as one change, told only to the layouts: they
+   * reflow once, where the buffer would tell them of every span it copies. TextView's own watcher
+   * hears nothing, as for setText: an edit would scroll to the selection and copy the text for
+   * accessibility. The view invalidates itself ([replaceAdoptedTextTail]).
+   */
+  fun replaceTail(
+    start: Int,
+    tail: Spanned,
+  ) {
+    val before = buffer.length - start
+    val proxies = buffer.getSpans(0, buffer.length, WatcherProxy::class.java)
+    val layouts =
+      proxies.mapNotNull { proxy ->
+        (proxy.watcher as? TextWatcher)?.takeIf {
+          it.javaClass.enclosingClass ==
+            DynamicLayout::class.java
+        }
+      }
+    layouts.forEach { it.beforeTextChanged(this, start, before, tail.length) }
+    proxies.forEach { it.muted = true }
+    try {
+      buffer.replaceTail(start, tail)
+    } finally {
+      proxies.forEach { it.muted = false }
+    }
+    layouts.forEach { it.onTextChanged(this, start, before, tail.length) }
+    layouts.forEach { it.afterTextChanged(buffer) }
+  }
+
   override fun <T : Any?> getSpans(
     start: Int,
     end: Int,
     type: Class<T>,
-  ): Array<T> = buffer.getSpans(start, end, type)
+  ): Array<T> {
+    val spans = buffer.getSpans(start, end, type)
+    // Layout asks for styles, never watchers: only a query a watcher could answer is mapped.
+    if (watcherProxies.isEmpty() || (!type.isAssignableFrom(WatcherProxy::class.java) && !isWatcherType(type))) return spans
+    val watchers = buffer.getSpans(start, end, WatcherProxy::class.java).map { it.watcher }.filter { type.isInstance(it) }
+    val result = spans.filterNot { it is WatcherProxy } + watchers
 
-  override fun getSpanStart(tag: Any): Int = buffer.getSpanStart(tag)
+    @Suppress("UNCHECKED_CAST")
+    val typed =
+      java.lang.reflect.Array
+        .newInstance(type, result.size) as Array<T>
+    result.forEachIndexed { index, span -> typed[index] = type.cast(span) }
+    return typed
+  }
 
-  override fun getSpanEnd(tag: Any): Int = buffer.getSpanEnd(tag)
+  // A watcher type the proxies don't implement (e.g. TextView's ChangeWatcher class).
+  private fun isWatcherType(type: Class<*>) = watcherProxies.keys.any { type.isInstance(it) }
 
-  override fun getSpanFlags(tag: Any): Int = buffer.getSpanFlags(tag)
+  override fun getSpanStart(tag: Any): Int = buffer.getSpanStart(watcherProxies[tag] ?: tag)
+
+  override fun getSpanEnd(tag: Any): Int = buffer.getSpanEnd(watcherProxies[tag] ?: tag)
+
+  override fun getSpanFlags(tag: Any): Int = buffer.getSpanFlags(watcherProxies[tag] ?: tag)
 
   override fun nextSpanTransition(
     start: Int,
@@ -89,14 +148,15 @@ private class InsertionOrderedSpannable(
   ) {
     val oldStart = buffer.getSpanStart(what)
     val oldEnd = buffer.getSpanEnd(what)
-    buffer.setSpan(what, start, end, flags)
+    val span = if (what is TextWatcher || what is SpanWatcher) watcherProxies.getOrPut(what) { WatcherProxy(what, this) } else what
+    buffer.setSpan(span, start, end, flags)
     if (what !is UpdateLayout || oldStart < 0) return
     buffer
       .getSpans(minOf(oldStart, start), minOf(maxOf(oldEnd, end), length), SpanWatcher::class.java)
       .forEach { it.onSpanChanged(this, what, oldStart, oldEnd, start, end) }
   }
 
-  override fun removeSpan(what: Any) = buffer.removeSpan(what)
+  override fun removeSpan(what: Any) = buffer.removeSpan(watcherProxies.remove(what) ?: what)
 
   override fun toString(): String = buffer.toString()
 }
@@ -110,8 +170,104 @@ private class InsertionOrderedSpannable(
 fun Spannable.repaintSpan(what: Any) {
   val start = getSpanStart(what)
   if (start < 0) return
-  val target = (this as? InsertionOrderedSpannable)?.buffer ?: this
-  target.setSpan(what, start, getSpanEnd(what), getSpanFlags(what))
+  if (this !is InsertionOrderedSpannable) {
+    setSpan(what, start, getSpanEnd(what), getSpanFlags(what))
+    return
+  }
+  repainting = true
+  try {
+    buffer.setSpan(what, start, getSpanEnd(what), getSpanFlags(what))
+  } finally {
+    repainting = false
+  }
+}
+
+/**
+ * Stands in the buffer for a watcher set on an [InsertionOrderedSpannable], and reports that
+ * text, not the buffer, as the one that changed. DynamicLayout ignores changes to any text but
+ * the one it lays out, so a patch to the buffer ([replaceAdoptedTextTail]) reflows the lines
+ * only through this.
+ */
+private class WatcherProxy(
+  val watcher: Any,
+  private val text: Spannable,
+) : TextWatcher,
+  SpanWatcher,
+  NoCopySpan {
+  // Set while [InsertionOrderedSpannable.replaceTail] tells the watcher of the change itself.
+  var muted = false
+
+  override fun beforeTextChanged(
+    s: CharSequence,
+    start: Int,
+    count: Int,
+    after: Int,
+  ) {
+    if (!muted) (watcher as? TextWatcher)?.beforeTextChanged(text, start, count, after)
+  }
+
+  override fun onTextChanged(
+    s: CharSequence,
+    start: Int,
+    before: Int,
+    count: Int,
+  ) {
+    if (!muted) (watcher as? TextWatcher)?.onTextChanged(text, start, before, count)
+  }
+
+  override fun afterTextChanged(s: Editable) {
+    if (!muted) (watcher as? TextWatcher)?.afterTextChanged(s)
+  }
+
+  override fun onSpanAdded(
+    s: Spannable,
+    what: Any,
+    start: Int,
+    end: Int,
+  ) {
+    if (!muted) (watcher as? SpanWatcher)?.onSpanAdded(text, unwrap(what), start, end)
+  }
+
+  override fun onSpanRemoved(
+    s: Spannable,
+    what: Any,
+    start: Int,
+    end: Int,
+  ) {
+    if (!muted) (watcher as? SpanWatcher)?.onSpanRemoved(text, unwrap(what), start, end)
+  }
+
+  override fun onSpanChanged(
+    s: Spannable,
+    what: Any,
+    ostart: Int,
+    oend: Int,
+    nstart: Int,
+    nend: Int,
+  ) {
+    if (muted) return
+    val source = if ((text as? InsertionOrderedSpannable)?.repainting == true) s else text
+    (watcher as? SpanWatcher)?.onSpanChanged(source, unwrap(what), ostart, oend, nstart, nend)
+  }
+
+  private fun unwrap(what: Any): Any = (what as? WatcherProxy)?.watcher ?: what
+}
+
+/** Whether [text] is a buffer a markdown text view adopted, which patches edit in place. */
+fun isAdoptedText(text: CharSequence?): Boolean = text is InsertionOrderedSpannable
+
+/**
+ * Replaces [text] from [start] on with [tail] in place, as one change, when [text] is a buffer a
+ * markdown text view adopted; false otherwise.
+ */
+fun replaceAdoptedTextTail(
+  text: CharSequence?,
+  start: Int,
+  tail: Spanned,
+): Boolean {
+  if (text !is InsertionOrderedSpannable || start > text.length) return false
+  text.replaceTail(start, tail)
+  return true
 }
 
 fun AccessibleMarkdownTextView.setupAsMarkdownTextView() {

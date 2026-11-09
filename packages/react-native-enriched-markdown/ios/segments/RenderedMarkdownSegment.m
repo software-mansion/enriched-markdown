@@ -209,3 +209,12 @@ uint64_t ENRMSignatureForNodes(NSArray<MarkdownASTNode *> *nodes)
   }
   return hash;
 }
+
+uint64_t ENRMSignatureForNodeSignatures(NSArray<NSNumber *> *nodeSignatures)
+{
+  uint64_t hash = kFNVOffsetBasis;
+  for (NSNumber *nodeSignature in nodeSignatures) {
+    hash = fnvMixUInt64(hash, nodeSignature.unsignedLongLongValue);
+  }
+  return hash;
+}

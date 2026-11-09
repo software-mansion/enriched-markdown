@@ -4,10 +4,12 @@
 #import "ENRMImageAttachment.h"
 #import "ENRMMarkdownTextView.h"
 #import "ENRMSpoilerOverlayManager.h"
+#import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
 #import "MarkdownAccessibilityElementBuilder.h"
 #import "MarkdownExtractor.h"
 #import "PasteboardUtils.h"
+#import "RenderedMarkdownSegment.h"
 #import "RuntimeKeys.h"
 #include <TargetConditionals.h>
 
@@ -107,6 +109,25 @@
   ENRMSetNeedsDisplay(_textView);
 }
 
+- (void)applyAttributedTextPatch:(NSAttributedString *)tail from:(NSUInteger)start
+{
+  _accessibilityElements = nil;
+  _accessibilityNeedsRebuild = YES;
+
+  NSTextStorage *storage = _textView.textStorage;
+  [storage beginEditing];
+  [storage replaceCharactersInRange:NSMakeRange(start, storage.length - start) withAttributedString:tail];
+  [storage endEditing];
+
+  [_spoilerManager setNeedsUpdate];
+  [self setNeedsLayout];
+
+#if !TARGET_OS_OSX
+  [_textView setNeedsLayout];
+#endif
+  ENRMSetNeedsDisplay(_textView);
+}
+
 - (CGFloat)measureHeight:(CGFloat)maxWidth
 {
   return [self measureSize:maxWidth].height;
@@ -190,3 +211,22 @@
 #endif
 
 @end
+
+NSIndexSet *ENRMSyncTextRevisions(NSArray<ENRMRenderedSegment *> *segments, NSArray<RCTUIView *> *views)
+{
+  NSMutableIndexSet *missedPatches = [NSMutableIndexSet indexSet];
+  for (NSUInteger i = 0; i < segments.count && i < views.count; i++) {
+    ENRMRenderedSegment *segment = segments[i];
+    EnrichedMarkdownInternalText *view = (EnrichedMarkdownInternalText *)views[i];
+    if (segment.kind != ENRMSegmentKindText || ![view isKindOfClass:[EnrichedMarkdownInternalText class]] ||
+        view.renderedRevision == segment.textResult.revision) {
+      continue;
+    }
+    if (segment.textResult.attributedText) {
+      view.renderedRevision = segment.textResult.revision;
+    } else {
+      [missedPatches addIndex:i];
+    }
+  }
+  return missedPatches;
+}

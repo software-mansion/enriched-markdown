@@ -101,8 +101,12 @@ object SegmentViewCreators {
         justificationMode = Layout.JUSTIFICATION_MODE_INTER_WORD
       }
       lastElementMarginBottom = segment.lastElementMarginBottom
-      applyStyledText(segment.styledText)
-      segment.imageSpans.forEach { it.registerTextView(this) }
+      // A patch alone can't start a view: it stays empty until the host's next full render.
+      segment.styledText?.let {
+        applyStyledText(it)
+        renderedRevision = segment.revision
+        segment.imageSpans.forEach { span -> span.registerTextView(this) }
+      }
 
       onTaskListItemPressCallback = { taskIndex, checked, itemText ->
         config.onTaskListItemPress?.invoke(taskIndex, checked, itemText)
@@ -126,9 +130,34 @@ object SegmentViewCreators {
     segment: RenderedSegment.Text,
   ) {
     view.lastElementMarginBottom = segment.lastElementMarginBottom
-    view.applyStyledText(segment.styledText)
-    segment.imageSpans.forEach { it.registerTextView(view) }
+    val patch = segment.patch
+    if (patch != null && view.renderedRevision == patch.baseRevision && view.applyStyledTextPatch(patch.start, patch.tail)) {
+      patch.tailImageSpans.forEach { it.registerTextView(view) }
+    } else {
+      // A patch to text this view doesn't show leaves it as it is, for the host's next full render.
+      val styledText = segment.styledText ?: return
+      view.applyStyledText(styledText)
+      segment.imageSpans.forEach { it.registerTextView(view) }
+    }
+    view.renderedRevision = segment.revision
   }
+
+  /**
+   * After reconciling [segments] into [views]: a view the reconciler kept shows its segment's
+   * text, under whatever revision it was given, so it takes the segment's. Returns the indices of
+   * the views that missed a patch, having no base for it ([updateTextView] left them as they were).
+   */
+  fun syncTextRevisions(
+    segments: List<RenderedSegment>,
+    views: List<View>,
+  ): List<Int> =
+    segments.indices.filter { index ->
+      val segment = segments[index] as? RenderedSegment.Text
+      val view = views.getOrNull(index) as? EnrichedMarkdownInternalText
+      if (segment == null || view == null || view.renderedRevision == segment.revision) return@filter false
+      if (segment.styledText != null) view.renderedRevision = segment.revision
+      segment.styledText == null
+    }
 
   fun createTableView(
     segment: RenderedSegment.Table,

@@ -12,6 +12,8 @@
 @class ENRMAccessibilityLabels;
 @class ENRMSpoilerOverlayManager;
 
+@class ENRMRenderedSegment;
+
 NS_ASSUME_NONNULL_BEGIN
 
 @interface EnrichedMarkdownInternalText : RCTUIView <ENRMSpoilerCapable>
@@ -19,6 +21,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithConfig:(StyleConfig *)config;
 
 - (void)applyAttributedText:(NSMutableAttributedString *)text context:(RenderContext *)context;
+// Replaces the shown text from `start` on with `tail`, keeping the selection and the layout before it.
+- (void)applyAttributedTextPatch:(NSAttributedString *)tail from:(NSUInteger)start;
 
 - (CGFloat)measureHeight:(CGFloat)maxWidth;
 - (CGSize)measureSize:(CGFloat)maxWidth;
@@ -40,11 +44,26 @@ NS_ASSUME_NONNULL_BEGIN
 /// system menu's Copy where the host keeps that menu (quotes). Set by the host to bridge up to the
 /// JS onSelectionCopy; a menu the host builds reports through the host instead.
 @property (nonatomic, copy, nullable) ENRMSelectionCopyHandler onSelectionCopy;
+// The ENRMRenderResult revision shown, which a patch must be based on.
+@property (nonatomic, assign) uint64_t renderedRevision;
 
 #if TARGET_OS_OSX
 - (void)setContextMenuProvider:(ENRMContextMenuProvider)provider;
 #endif
 
 @end
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// After reconciling `segments` into `views`: a view the reconciler kept shows its segment's text,
+// under whatever revision it was given, so it takes the segment's. Returns the indices of the
+// views that missed a patch, having no base for it, and need a full render.
+NSIndexSet *ENRMSyncTextRevisions(NSArray<ENRMRenderedSegment *> *segments, NSArray<RCTUIView *> *views);
+
+#ifdef __cplusplus
+}
+#endif
 
 NS_ASSUME_NONNULL_END

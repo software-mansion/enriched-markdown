@@ -28,6 +28,7 @@ import com.swmansion.enriched.markdown.segments.SegmentViewConfig
 import com.swmansion.enriched.markdown.segments.SegmentViewCreators
 import com.swmansion.enriched.markdown.segments.SegmentViewFactory
 import com.swmansion.enriched.markdown.segments.TableContainerView
+import com.swmansion.enriched.markdown.segments.TextRenderCache
 import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
 import com.swmansion.enriched.markdown.slots.BlockSlotLayer
 import com.swmansion.enriched.markdown.slots.BlockSlotRevealController
@@ -78,6 +79,12 @@ class EnrichedMarkdown(
   private val mainHandler = Handler(Looper.getMainLooper())
   private val executor: ExecutorService = Executors.newSingleThreadExecutor()
   private val renderCoordinator = RenderCoordinator(executor, ::postToMain)
+
+  // Reused by the next render on the executor (see TextRenderCache). A synchronous render
+  // applies segments the cache doesn't know of, so it marks the cache stale for the executor.
+  private val textRenderCache = TextRenderCache()
+
+  @Volatile private var textRenderCacheStale = false
   private val mathContainerClass: Class<*>? by lazy { SegmentViewCreators.mathContainerClass() }
   private val videoContainerClass: Class<*>? by lazy { SegmentViewCreators.videoContainerClass() }
 
@@ -596,7 +603,10 @@ class EnrichedMarkdown(
   }
 
   // Parses and renders off the main thread's state; safe on any thread.
-  private fun runRenderJob(job: RenderJob): Pair<List<RenderedSegment>, Boolean> {
+  private fun runRenderJob(
+    job: RenderJob,
+    cache: TextRenderCache? = null,
+  ): Pair<List<RenderedSegment>, Boolean> {
     val flags = md4cFlags
     val filtered =
       if (job.isStreaming) {
@@ -620,6 +630,7 @@ class EnrichedMarkdown(
       ) ?: return emptyList<RenderedSegment>() to false
 
     val segments = splitASTIntoSegments(ast)
+    cache?.begin(job.style)
     val renderedSegments =
       MarkdownSegmentRenderer.render(
         segments,
@@ -628,7 +639,9 @@ class EnrichedMarkdown(
         onLinkPressCallback,
         onLinkLongPressCallback,
         onLatexError = latexErrorReporter,
+        cache = cache,
       )
+    cache?.end()
     return renderedSegments to hasPendingCodeBlock
   }
 
@@ -639,10 +652,16 @@ class EnrichedMarkdown(
     // must not claim the newer one's flags.
     val scheduledFlags = EnumSet.copyOf(dirtyFlags)
     renderCoordinator.schedule {
+      // Recreated views hold none of the cached buffers.
+      if (textRenderCacheStale || DirtyFlag.RECREATE_SEGMENTS in scheduledFlags) {
+        textRenderCacheStale = false
+        textRenderCache.clear()
+      }
       val (segments, pendingCodeBlock) =
         try {
-          runRenderJob(job)
+          runRenderJob(job, textRenderCache)
         } catch (e: Exception) {
+          textRenderCache.clear()
           Log.e(TAG, "Render failed", e)
           emptyList<RenderedSegment>() to false
         }
@@ -657,6 +676,7 @@ class EnrichedMarkdown(
     if (isDisposed) return
     val job = renderJob() ?: return
     renderCoordinator.invalidate()
+    textRenderCacheStale = true
     val (segments, pendingCodeBlock) =
       try {
         runRenderJob(job)
@@ -690,6 +710,14 @@ class EnrichedMarkdown(
     val remeasure = DirtyFlag.REMEASURE in flags
 
     val topologyChanged = applySegments(renderedSegments, reset)
+    // A view that missed a patch gets the whole text from a full render: forgetting its signature
+    // makes the reconciler update it then, where it would keep a view whose segment it matches.
+    val missedPatches = SegmentViewCreators.syncTextRevisions(renderedSegments, segmentViews)
+    if (missedPatches.isNotEmpty()) {
+      missedPatches.forEach { segmentSignatures[it] = UNKNOWN_SIGNATURE }
+      textRenderCacheStale = true
+      scheduleRender()
+    }
     updateBlockSlotHeights(blockSlotHeights)
 
     // A just-closed block has unchanged content, so the reconciler reuses it
@@ -983,5 +1011,8 @@ class EnrichedMarkdown(
   companion object {
     private const val TAG = "EnrichedMarkdown"
     private const val BLOCK_FADE_DURATION_MS = 200L
+
+    // A signature no segment has (they are FNV hashes salted per kind).
+    private const val UNKNOWN_SIGNATURE = Long.MIN_VALUE
   }
 }

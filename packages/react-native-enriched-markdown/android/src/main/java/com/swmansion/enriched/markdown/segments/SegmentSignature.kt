@@ -83,10 +83,14 @@ object SegmentSignature {
     hasTasks: Boolean,
   ): Long = if (hasTasks) fnvMixLong(signature, taskIndexOffset.toLong()) else signature
 
-  fun signatureForNodes(nodes: List<MarkdownASTNode>): Long {
+  fun signatureForNodes(nodes: List<MarkdownASTNode>): Long =
+    signatureForNodeSignatures(LongArray(nodes.size) { signatureForNode(nodes[it]) })
+
+  /** [signatureForNodes] from each node's [signatureForNode]. */
+  fun signatureForNodeSignatures(nodeSignatures: LongArray): Long {
     var hash = FNV_OFFSET_BASIS
-    for (node in nodes) {
-      hash = fnvMixLong(hash, signatureForNode(node))
+    for (nodeSignature in nodeSignatures) {
+      hash = fnvMixLong(hash, nodeSignature)
     }
     return hash
   }

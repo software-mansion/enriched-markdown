@@ -16,6 +16,7 @@
 #import "ENRMSpoilerTapUtils.h"
 #import "ENRMTailFadeInAnimator.h"
 #import "ENRMTextInteractionUtils.h"
+#import "ENRMTextRenderCache.h"
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
 #import "ENRMUIKit.h"
@@ -63,7 +64,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownTextMd4cFlagsStruct &)props;
 - (void)setupTextView;
 - (void)renderMarkdownContent:(NSString *)markdownString;
-- (void)applyRenderedText:(NSMutableAttributedString *)attributedText forceHeightUpdate:(BOOL)scheduledForceHeight;
+- (void)applyRenderedText:(ENRMRenderResult *)result forceHeightUpdate:(BOOL)scheduledForceHeight;
 - (void)textTapped:(ENRMTapRecognizer *)recognizer;
 - (void)setupLayoutManager;
 - (void)emitLinkPress:(NSString *)url;
@@ -126,6 +127,13 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   NSUInteger _previousTextLength;
   ENRMTailFadeInAnimator *_fadeAnimator;
+
+  // Reused by the next render on the render queue (see ENRMTextRenderCache); a recycled view
+  // starts a new epoch, which drops it.
+  ENRMTextRenderCache *_textRenderCache;
+  NSUInteger _textRenderCacheEpoch;
+  // The ENRMRenderResult revision the text view shows, which a patch must be based on.
+  uint64_t _renderedRevision;
 
   AccessibilityInfo *_accessibilityInfo;
   ENRMAccessibilityLabels *_accessibilityLabels;
@@ -348,6 +356,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _mediaStreamingMode = ENRMMediaStreamingModeProgressive;
 
     _fontScaleObserver = [[FontScaleObserver alloc] init];
+    _textRenderCache = [[ENRMTextRenderCache alloc] init];
     __weak EnrichedMarkdownText *weakSelf = self;
     _fontScaleObserver.onChange = ^{
       EnrichedMarkdownText *strongSelf = weakSelf;
@@ -477,6 +486,11 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   ENRMTableStreamingMode tableStreamingMode = _tableStreamingMode;
   ENRMCodeBlockStreamingMode codeBlockStreamingMode = _codeBlockStreamingMode;
   ENRMMediaStreamingMode mediaStreamingMode = _mediaStreamingMode;
+  // The render queue owns the cache; a synchronous render leaves it alone.
+  ENRMTextRenderCache *textRenderCache = synchronously ? nil : _textRenderCache;
+  NSArray *textRenderKey =
+      ENRMTextRenderKey(config, _pendingStyleFingerprint, allowFontScaling, maxFontSizeMultiplier, lineBreakStrategy,
+                        writingDirectionMode, resolvedLayoutDirection, _textRenderCacheEpoch);
 
   __block ENRMRenderResult *result = nil;
 
@@ -493,6 +507,13 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     if (!ast)
       return NO;
 
+    if (textRenderCache) {
+      [textRenderCache beginRenderWithKey:textRenderKey];
+      result = ENRMRenderTextCached(ast.children, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
+                                    lineBreakStrategy, writingDirectionMode, resolvedLayoutDirection, textRenderCache);
+      [textRenderCache endRender];
+      return YES;
+    }
     result = ENRMRenderASTNodes(ast.children, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
                                 lineBreakStrategy);
     ENRMApplyWritingDirectionMode(result.attributedText, writingDirectionMode, resolvedLayoutDirection);
@@ -503,16 +524,25 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   const size_t styleFingerprint = _pendingStyleFingerprint;
   const BOOL forceHeightUpdate = _forceHeightUpdateOnNextRender;
   dispatch_block_t apply = ^{
+    if (!result.attributedText && result.revision != self->_renderedRevision &&
+        !(result.patchTail && result.patchBaseRevision == self->_renderedRevision)) {
+      // A patch to text this view doesn't show (a render it skipped): render in full.
+      self->_textRenderCacheEpoch++;
+      [self renderMarkdownContent:self->_cachedMarkdown];
+      return;
+    }
     self->_lastElementMarginBottom = result.lastElementMarginBottom;
     self->_accessibilityInfo = result.accessibilityInfo;
     self->_renderedStyleFingerprint = styleFingerprint;
     [self->_latexErrorCoordinator wireReporters:result.context.mathReporters];
     self->_laidOutMarkdown = ENRMLaidOutMarkdown(markdownString);
-    [self applyRenderedText:result.attributedText forceHeightUpdate:forceHeightUpdate];
+    [self applyRenderedText:result forceHeightUpdate:forceHeightUpdate];
   };
 
   if (synchronously) {
     [_renderCoordinator invalidate];
+    // Its views show revisions the cache never made.
+    _textRenderCacheEpoch++;
     // A first render reuses what Yoga's measurement rendered, when it matches.
     ENRMRenderResult *prepared =
         _renderedMarkdown.length == 0 && !_streamingAnimation
@@ -571,6 +601,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   }
 
   _textView.attributedText = attributedText;
+  _renderedRevision = 0;
   _renderedMarkdown = [_cachedMarkdown copy];
   _laidOutMarkdown = ENRMLaidOutMarkdown(markdownString);
   _renderedStyleFingerprint = _pendingStyleFingerprint;
@@ -593,8 +624,10 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 /// `scheduledForceHeight` is the forced-height request set when this render was
 /// scheduled; one set since stays for the newer render it belongs to.
-- (void)applyRenderedText:(NSMutableAttributedString *)attributedText forceHeightUpdate:(BOOL)scheduledForceHeight
+- (void)applyRenderedText:(ENRMRenderResult *)result forceHeightUpdate:(BOOL)scheduledForceHeight
 {
+  const BOOL patches = result.patchTail && result.patchBaseRevision == _renderedRevision;
+  NSMutableAttributedString *attributedText = result.attributedText;
   NSUInteger tailStart = _previousTextLength;
 
   NSLayoutManager *layoutManager = _textView.layoutManager;
@@ -618,14 +651,25 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _accessibilityElements = nil;
   _accessibilityNeedsRebuild = YES;
 
-  _textView.attributedText = attributedText;
+  // Restores the faded colors onto the text they came from.
+  [_fadeAnimator cancel];
+  if (patches) {
+    NSTextStorage *storage = _textView.textStorage;
+    [storage beginEditing];
+    [storage replaceCharactersInRange:NSMakeRange(result.patchStart, storage.length - result.patchStart)
+                 withAttributedString:result.patchTail];
+    [storage endEditing];
+  } else if (attributedText) {
+    _textView.attributedText = attributedText;
+    [_textView.layoutManager invalidateLayoutForCharacterRange:NSMakeRange(0, attributedText.length)
+                                          actualCharacterRange:NULL];
+  }
+  // Otherwise the view shows this text already (the cache handed the same segment back).
+  _renderedRevision = result.revision;
   _renderedMarkdown = [_cachedMarkdown copy];
   if (!self.window) {
     _needsWindowAttachRefresh = contentBounds.size.width <= 0;
   }
-
-  [_textView.layoutManager invalidateLayoutForCharacterRange:NSMakeRange(0, attributedText.length)
-                                        actualCharacterRange:NULL];
 
   // When bounds width is zero (recycled view not yet laid out), skip layout
   // and measurement — layoutSubviews will handle it once the view has real
@@ -663,8 +707,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     if (!_fadeAnimator) {
       _fadeAnimator = [[ENRMTailFadeInAnimator alloc] initWithTextView:_textView];
     }
-    [_fadeAnimator animateFrom:tailStart to:attributedText.length];
-    _previousTextLength = attributedText.length;
+    [_fadeAnimator animateFrom:tailStart to:result.textLength];
+    _previousTextLength = result.textLength;
   }
 }
 
@@ -1001,6 +1045,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     ENRMSetAttributedText(_textView, [[NSAttributedString alloc] initWithString:@""]);
     _textView.hidden = YES;
   }
+  _renderedRevision = 0;
+  _textRenderCacheEpoch++;
 
   [super prepareForRecycle];
 }
