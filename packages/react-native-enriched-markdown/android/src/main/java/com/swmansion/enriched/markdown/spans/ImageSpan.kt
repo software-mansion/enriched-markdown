@@ -78,15 +78,20 @@ class ImageSpan(
   private val requestKey: String = ImageCache.requestKey(requestUrl, requestHeaders)
 
   private var loadFailed: Boolean = ImageCache.hasFailed(requestKey)
-  private val failureDrawable =
+
+  // Read now: `paragraphStyle` is only the table cell's style while the cell is being rendered.
+  private val failureColor: Int = styleConfig.paragraphStyle.color
+  private val failureFontSize: Float = styleConfig.paragraphStyle.fontSize
+  private val failureDrawable by lazy {
     ImageLoadFailureDrawable(
       altText = altText,
-      color = styleConfig.paragraphStyle.color,
-      fontSize = styleConfig.paragraphStyle.fontSize,
+      color = failureColor,
+      fontSize = failureFontSize,
       borderRadius = borderRadiusPx.toFloat(),
       isInline = isInline,
       density = context.resources.displayMetrics.density,
     )
+  }
 
   private var cachedWidth: Int = 0
   private val capBounds = Rect()
