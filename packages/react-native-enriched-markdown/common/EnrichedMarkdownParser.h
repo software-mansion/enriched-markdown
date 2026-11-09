@@ -9,6 +9,7 @@
 #include "EnrichedMarkdownTextSpecJSI.h"
 #endif
 #include <memory>
+#include <unordered_set>
 #include <string>
 #include <vector>
 
@@ -58,14 +59,26 @@ struct Bridging<EnrichedMarkdownParserCollectedBlocks>
  * It filters and parses through the DocumentStore the native hosts use, so the
  * tick's measurement and render reuse its document and see the same ids. Shared
  * by iOS (EnrichedMarkdownParserProvider) and Android (parser-module/CMakeLists.txt).
+ * It also keeps the text of JS's markdown streams (ENRMMarkdownStreams).
  */
 class EnrichedMarkdownParser : public NativeEnrichedMarkdownParserCxxSpec<EnrichedMarkdownParser> {
 public:
   explicit EnrichedMarkdownParser(std::shared_ptr<CallInvoker> jsInvoker);
+  ~EnrichedMarkdownParser() override;
 
   EnrichedMarkdownParserCollectedBlocks collect(jsi::Runtime &rt, std::string markdown,
                                                 EnrichedMarkdownParserMd4cFlags flags, bool isGFM,
                                                 EnrichedMarkdownParserStreamingOptions streaming);
+  EnrichedMarkdownParserCollectedBlocks collectStream(jsi::Runtime &rt, double streamId, double length,
+                                                      EnrichedMarkdownParserMd4cFlags flags, bool isGFM,
+                                                      EnrichedMarkdownParserStreamingOptions streaming);
+  double createStream(jsi::Runtime &rt, std::string text);
+  double appendToStream(jsi::Runtime &rt, double streamId, std::string chunk);
+  void disposeStream(jsi::Runtime &rt, double streamId);
+
+private:
+  // This runtime's streams: a JS reload drops them without dispose().
+  std::unordered_set<int> streamIds_;
 };
 
 } // namespace facebook::react

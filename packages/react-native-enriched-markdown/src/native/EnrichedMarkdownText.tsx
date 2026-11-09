@@ -27,6 +27,11 @@ import { hasRenderers } from '../blockRenderers';
 import { useImageSources } from './useImageSources';
 import { useLinksChange } from '../linkOccurrences';
 import {
+  setNativeMarkdownStreams,
+  useMarkdownStreamSnapshot,
+} from '../markdownStream';
+import NativeEnrichedMarkdownParser from '../NativeEnrichedMarkdownParser';
+import {
   normalizeMenuItem,
   normalizeLegacyBooleanMenuItem,
 } from '../normalizeMenuItem';
@@ -98,6 +103,9 @@ export type {
 
 // Default English labels for the built-in selection menu actions. Defaults are
 // resolved here (JS-side) so the native code always receives a concrete string.
+// Streams keep their text in the parser module's C++ buffers.
+setNativeMarkdownStreams(NativeEnrichedMarkdownParser);
+
 const DEFAULT_COPY_LABEL = 'Copy';
 const DEFAULT_COPY_AS_MARKDOWN_LABEL = 'Copy as Markdown';
 const DEFAULT_COPY_IMAGE_URL_LABEL = 'Copy Image URL';
@@ -172,7 +180,8 @@ const defaultMd4cFlags: Md4cFlags = {
 };
 
 export const EnrichedMarkdownText = ({
-  markdown,
+  markdown: markdownProp = '',
+  stream,
   markdownStyle = {},
   containerStyle,
   onLinkPress,
@@ -435,7 +444,17 @@ export const EnrichedMarkdownText = ({
     [onCodeBlockPress]
   );
 
-  const streaming = streamingProp ?? streamingAnimation ?? false;
+  const streamSnapshot = useMarkdownStreamSnapshot(stream);
+  // A native stream's text stays in C++: the component descriptor puts it in `markdown`.
+  const nativeStream =
+    streamSnapshot != null && streamSnapshot.streamId !== 0
+      ? streamSnapshot
+      : null;
+  const markdown = streamSnapshot?.text ?? markdownProp;
+  const streaming =
+    streamingProp ??
+    streamingAnimation ??
+    (streamSnapshot != null && !streamSnapshot.ended);
   const tableMode = streamingConfig?.tableMode ?? 'progressive';
   const codeBlockMode = streamingConfig?.codeBlockMode ?? 'progressive';
   const mediaMode = streamingConfig?.mediaMode ?? 'progressive';
@@ -513,6 +532,7 @@ export const EnrichedMarkdownText = ({
   );
   const collected = useCollectedMarkdown(
     markdown,
+    nativeStream,
     normalizedMd4cFlags,
     isGFM,
     collectEnabled,
@@ -530,7 +550,10 @@ export const EnrichedMarkdownText = ({
   useLinksChange(collected.links, onLinksChange, collected !== NOT_COLLECTED);
 
   const sharedProps = {
-    markdown,
+    // Never real markdown, so leaving the stream sends `markdown` again.
+    markdown: nativeStream ? `\0stream:${nativeStream.streamId}` : markdown,
+    streamId: nativeStream?.streamId ?? 0,
+    streamLength: nativeStream?.length ?? 0,
     linkRecognition: nativeLinkRecognition,
     markdownStyle: normalizedStyle,
     onLinkPress: handleLinkPress,

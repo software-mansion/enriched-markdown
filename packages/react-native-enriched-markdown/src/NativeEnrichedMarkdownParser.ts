@@ -77,6 +77,19 @@ export interface Spec extends TurboModule {
     isGFM: boolean,
     streaming: NativeStreamingOptions
   ): NativeCollectedBlocks;
+  /** `collect` over the first `length` bytes of a stream. */
+  collectStream(
+    streamId: number,
+    length: number,
+    flags: NativeMd4cFlags,
+    isGFM: boolean,
+    streaming: NativeStreamingOptions
+  ): NativeCollectedBlocks;
+  /** A new stream holding `text`; returns its id. */
+  createStream(text: string): number;
+  /** Appends `chunk` to the stream; returns its length in bytes (0 once disposed). */
+  appendToStream(streamId: number, chunk: string): number;
+  disposeStream(streamId: number): void;
 }
 
 export default TurboModuleRegistry.get<Spec>('EnrichedMarkdownParser');

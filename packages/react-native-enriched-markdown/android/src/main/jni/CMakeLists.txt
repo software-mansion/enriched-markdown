@@ -68,6 +68,7 @@ add_library(
   ${LATEX_SOURCES}
   ${ANDROID_CPP_DIR}/jni-adapter.cpp
   ${COMMON_CPP_DIR}/EnrichedMarkdownParser.cpp
+  ${COMMON_CPP_DIR}/ENRMMarkdownStreams.cpp
 )
 
 target_include_directories(
