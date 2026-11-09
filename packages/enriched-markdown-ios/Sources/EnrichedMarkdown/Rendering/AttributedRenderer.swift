@@ -67,11 +67,6 @@ package final class AttributedRenderer {
         }
     }
 
-    package func closeContinuedList(in output: NSMutableAttributedString, context: RenderContext) {
-        guard context.openList != nil, let marginBottom = config.list.marginBottom, marginBottom > 0 else { return }
-        ParagraphStyleHelpers.applyBlockSpacingAfter(to: output, marginBottom: marginBottom)
-    }
-
     package func finishBlocks(in output: NSMutableAttributedString, range: NSRange, context: RenderContext) {
         BaselineShiftRenderer.applyShifts(to: output, in: range, context: context, config: config)
         SpoilerConcealment.conceal(output, in: range)
