@@ -77,6 +77,17 @@ class ImageSpan(
     }
   private val requestKey: String = ImageCache.requestKey(requestUrl, requestHeaders)
 
+  private var loadFailed: Boolean = ImageCache.hasFailed(requestKey)
+  private val failureDrawable =
+    ImageLoadFailureDrawable(
+      altText = altText,
+      color = styleConfig.paragraphStyle.color,
+      fontSize = styleConfig.paragraphStyle.fontSize,
+      borderRadius = borderRadiusPx.toFloat(),
+      isInline = isInline,
+      density = context.resources.displayMetrics.density,
+    )
+
   private var cachedWidth: Int = 0
   private val capBounds = Rect()
   private var viewRef: WeakReference<TextView>? = null
@@ -125,24 +136,31 @@ class ImageSpan(
     if (requestUrl.isEmpty()) return
     val scheme = Uri.parse(requestUrl).scheme?.lowercase()
     if (scheme == "http" || scheme == "https") {
-      ImageDownloader.download(context, requestUrl, requestHeaders) { bitmap ->
-        if (bitmap != null) {
-          sourceDrawable = bitmap.toDrawable(context.resources)
-          wrapAndAssignDrawable()
-        }
-      }
+      ImageDownloader.download(context, requestUrl, requestHeaders, ::handleLoadResult)
     } else {
       val cached = ImageCache.getOriginal(requestKey)
       val bitmap = cached ?: LocalImageLoader.load(context, requestUrl)
-      if (bitmap != null) {
-        if (cached == null) ImageCache.putOriginal(requestKey, bitmap)
-        sourceDrawable = bitmap.toDrawable(context.resources)
-        wrapAndAssignDrawable()
-      }
+      if (bitmap != null && cached == null) ImageCache.putOriginal(requestKey, bitmap)
+      handleLoadResult(bitmap)
     }
   }
 
-  private fun wrapAndAssignDrawable() {
+  private fun handleLoadResult(bitmap: Bitmap?) {
+    val wasFailed = loadFailed
+    if (bitmap == null) {
+      ImageCache.markFailed(requestKey)
+      loadFailed = true
+      // Re-setting the text also makes a selectable view re-record the placeholder.
+      if (!wasFailed) requestReflow(boxHeightChanged = true, inlineSizeChanged = isInline)
+      return
+    }
+    ImageCache.clearFailed(requestKey)
+    loadFailed = false
+    sourceDrawable = bitmap.toDrawable(context.resources)
+    wrapAndAssignDrawable(recovered = wasFailed)
+  }
+
+  private fun wrapAndAssignDrawable(recovered: Boolean = false) {
     val base = sourceDrawable ?: return
     val targetWidth =
       if (isInline) {
@@ -175,10 +193,13 @@ class ImageSpan(
           cacheKey = CacheKey(requestKey, targetWidth, boxHeight, borderRadiusPx, resizeMode),
         )
     }
-    requestReflow(boxHeightChanged = boxHeight != previousBoxHeight)
+    requestReflow(boxHeightChanged = boxHeight != previousBoxHeight || recovered, inlineSizeChanged = recovered && isInline)
   }
 
-  private fun requestReflow(boxHeightChanged: Boolean = false) {
+  private fun requestReflow(
+    boxHeightChanged: Boolean = false,
+    inlineSizeChanged: Boolean = false,
+  ) {
     val view = viewRef?.get() ?: return
     val text = view.text
     if (text is Spannable) {
@@ -196,15 +217,19 @@ class ImageSpan(
     }
     view.invalidate()
     view.requestLayout()
-    notifyBoxHeightMayHaveChanged(view)
+    notifyBoxHeightMayHaveChanged(view, inlineSizeChanged)
   }
 
   // With maxHeight/aspectRatio the box height can change after the image loads
   // (maxHeight fitted, aspectRatio at a late width). The React container height
   // was measured with the pre-load value, so ask the owning component to
   // re-measure; it only propagates when the stored height actually changed.
-  private fun notifyBoxHeightMayHaveChanged(view: TextView) {
-    if (!dynamicBoxHeight) return
+  // An inline image turning into a failure chip (or back) can re-wrap its line.
+  private fun notifyBoxHeightMayHaveChanged(
+    view: TextView,
+    inlineSizeChanged: Boolean,
+  ) {
+    if (!dynamicBoxHeight && !inlineSizeChanged) return
     // A self-measuring host (e.g. a table cell) sizes the image box itself and drives
     // its own re-layout, so bubbling up to the component would churn it and orphan this
     // freshly registered view. Let the host re-measure locally instead.
@@ -276,6 +301,11 @@ class ImageSpan(
   }
 
   override fun getDrawable(): Drawable {
+    if (loadFailed) {
+      val width = if (isInline) failureDrawable.chipWidth(height) else cachedWidth
+      failureDrawable.setBounds(0, 0, width.coerceAtLeast(0), boxHeight.coerceAtLeast(0))
+      return failureDrawable
+    }
     val drawable = loadedDrawable ?: transparentDrawable
     if (drawable !is ScaledImageDrawable) {
       val drawableWidth = if (isInline) height else cachedWidth.takeIf { it > 0 } ?: drawable.intrinsicWidth

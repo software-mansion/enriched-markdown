@@ -7,9 +7,14 @@ import java.security.MessageDigest
 object ImageCache {
   private const val ORIGINAL_CACHE_SIZE = 20 * 1024 * 1024
   private const val PROCESSED_CACHE_SIZE = 30 * 1024 * 1024
+  private const val FAILED_KEYS_SIZE = 200
 
   private val originalCache = bitmapLruCache(ORIGINAL_CACHE_SIZE)
   private val processedCache = bitmapLruCache(PROCESSED_CACHE_SIZE)
+
+  // Measurement builds its own spans, so the requests that failed have to be readable
+  // by a new span: without this it would size an inline image as the square it never drew.
+  private val failedKeys = LruCache<String, Boolean>(FAILED_KEYS_SIZE)
 
   /** Header names lower-cased; sorted first so case aliases collapse deterministically. */
   fun normalizedHeaders(headers: Map<String, String>): Map<String, String> =
@@ -45,6 +50,16 @@ object ImageCache {
     bitmap: Bitmap,
   ) {
     originalCache.put(url, bitmap)
+  }
+
+  fun hasFailed(requestKey: String): Boolean = failedKeys.get(requestKey) != null
+
+  fun markFailed(requestKey: String) {
+    failedKeys.put(requestKey, true)
+  }
+
+  fun clearFailed(requestKey: String) {
+    failedKeys.remove(requestKey)
   }
 
   fun getProcessed(
