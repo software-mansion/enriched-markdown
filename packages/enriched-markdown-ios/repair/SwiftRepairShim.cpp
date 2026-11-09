@@ -7,7 +7,7 @@
 
 extern "C" {
 
-char *em_repair_inline_markdown(const char *markdown, int highlight, int latexMath) {
+char *em_repair_inline_markdown(const char *markdown, int highlight, int latexMath, int superscript, int subscript) {
   if (!markdown) {
     return nullptr;
   }
@@ -17,6 +17,8 @@ char *em_repair_inline_markdown(const char *markdown, int highlight, int latexMa
   options.inlineMath = latexMath != 0;
   options.displayMath = latexMath != 0;
   options.highlight = highlight != 0;
+  options.superscript = superscript != 0;
+  options.subscript = subscript != 0;
   options.withholdIncomplete = true;
   options.withholdMath = true;
 

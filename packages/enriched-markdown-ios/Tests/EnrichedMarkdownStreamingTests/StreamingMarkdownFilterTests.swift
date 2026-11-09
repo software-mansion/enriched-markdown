@@ -6,9 +6,10 @@ final class StreamingMarkdownFilterTests: XCTestCase {
     private func filter(
         _ markdown: String,
         tables: MarkdownStreamingOptions.TableMode = .progressive,
-        codeBlocks: MarkdownStreamingOptions.CodeBlockMode = .progressive
+        codeBlocks: MarkdownStreamingOptions.CodeBlockMode = .progressive,
+        media: MarkdownStreamingOptions.MediaMode = .progressive
     ) -> StreamingMarkdownFilter.Result {
-        StreamingMarkdownFilter.renderable(markdown, options: MarkdownStreamingOptions(tables: tables, codeBlocks: codeBlocks))
+        StreamingMarkdownFilter.renderable(markdown, options: MarkdownStreamingOptions(tables: tables, codeBlocks: codeBlocks, media: media))
     }
 
     func testTablesFollowTheTableMode() {
@@ -27,6 +28,13 @@ final class StreamingMarkdownFilterTests: XCTestCase {
         XCTAssertEqual(hidden.markdown, "Intro\n\n")
         XCTAssertFalse(hidden.endsInsideOpenCodeFence)
         XCTAssertFalse(filter(open + "```\n").endsInsideOpenCodeFence)
+    }
+
+    func testMediaFollowsTheMediaMode() {
+        let image = "Intro\n\n![leaf](https://e.com/leaf.png)"
+        XCTAssertEqual(filter(image).markdown, image)
+        XCTAssertEqual(filter(image, media: .hidden).markdown, "Intro\n\n")
+        XCTAssertEqual(filter(image + "\n\n", media: .hidden).markdown, image + "\n\n")
     }
 
     func testOpenMathBlockWaitsForItsClosingDelimiter() {
