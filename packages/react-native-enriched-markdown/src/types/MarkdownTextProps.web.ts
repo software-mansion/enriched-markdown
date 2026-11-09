@@ -1,3 +1,4 @@
+import type { MarkdownStream } from '../markdownStream';
 import type { LinkRecognition } from './linkRecognition';
 import type {
   MarkdownImageOccurrence,
@@ -25,10 +26,16 @@ export interface EnrichedMarkdownTextProps extends Omit<
    */
   testID?: string;
   /**
-   * Markdown content to render.
+   * Markdown content to render. Ignored while `stream` is set.
    * @platform ios, android, web
    */
-  markdown: string;
+  markdown?: string;
+  /**
+   * Markdown arriving in pieces, from `createMarkdownStream()`. Shown instead of
+   * `markdown` and updated once per frame without re-rendering your component.
+   * @platform ios, android, web
+   */
+  stream?: MarkdownStream;
   /**
    * Style configuration for markdown elements.
    * @platform ios, android, web

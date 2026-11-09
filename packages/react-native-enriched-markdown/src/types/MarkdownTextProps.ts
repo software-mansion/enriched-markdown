@@ -1,4 +1,5 @@
 import type { ColorValue, ViewProps, ViewStyle, TextStyle } from 'react-native';
+import type { MarkdownStream } from '../markdownStream';
 import type { MarkdownStyle, Md4cFlags } from './MarkdownStyle';
 import type { AccessibilityLabels } from './AccessibilityLabels';
 import type {
@@ -184,10 +185,17 @@ export interface StreamingConfig {
 
 export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
   /**
-   * Markdown content to render.
+   * Markdown content to render. Ignored while `stream` is set.
    * @platform ios, android, web
    */
-  markdown: string;
+  markdown?: string;
+  /**
+   * Markdown arriving in pieces, from `createMarkdownStream()`. Shown instead of
+   * `markdown` and updated once per frame without re-rendering your component;
+   * streams until `stream.end()` unless `streaming` says otherwise.
+   * @platform ios, android, web
+   */
+  stream?: MarkdownStream;
   /**
    * Style configuration for markdown elements.
    * @platform ios, android, web

@@ -493,6 +493,12 @@ export interface NativeProps extends ViewProps {
    */
   markdown: string;
   /**
+   * A stream (createMarkdownStream) whose first `streamLength` bytes replace
+   * `markdown`; the component descriptor fills them in. 0 for none.
+   */
+  streamId?: CodegenTypes.WithDefault<CodegenTypes.Int32, 0>;
+  streamLength?: CodegenTypes.WithDefault<CodegenTypes.Int32, 0>;
+  /**
    * Internal style configuration for markdown elements.
    * Always provided with complete defaults via normalizeMarkdownStyle.
    * Block styles (paragraph, headings) contain fontSize, fontFamily, fontWeight, and color.

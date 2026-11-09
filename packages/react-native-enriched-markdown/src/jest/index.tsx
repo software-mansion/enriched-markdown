@@ -32,10 +32,13 @@ import type {
   TaskListItemPressEvent,
 } from '../types/events';
 
+import { useMarkdownStreamSnapshot } from '../markdownStream';
+
 export {
   DEFAULT_ACCESSIBILITY_LABELS,
   resolveAccessibilityLabels,
 } from '../accessibilityLabelDefaults';
+export { createMarkdownStream } from '../markdownStream';
 
 type AnyFn = (...args: any[]) => any;
 declare const jest: { fn: <T extends AnyFn>(impl?: T) => T };
@@ -288,6 +291,7 @@ function buildChildren(
 
 export const EnrichedMarkdownText = ({
   markdown,
+  stream,
   containerStyle,
   testID,
   accessible,
@@ -326,8 +330,12 @@ export const EnrichedMarkdownText = ({
   lineBreakStrategyIOS: _lineBreakStrategyIOS,
   writingDirection: _writingDirection,
 }: EnrichedMarkdownTextProps) => {
-  // Called when streaming turns off, as the native view does.
-  const isStreaming = streaming ?? streamingAnimation ?? false;
+  const streamSnapshot = useMarkdownStreamSnapshot(stream);
+  // Called when streaming turns off, or the stream ends, as the native view does.
+  const isStreaming =
+    streaming ??
+    streamingAnimation ??
+    (streamSnapshot != null && !streamSnapshot.ended);
   const wasStreaming = useRef(isStreaming);
   useEffect(() => {
     if (wasStreaming.current && !isStreaming) onStreamingEnd?.();
@@ -345,7 +353,7 @@ export const EnrichedMarkdownText = ({
       accessibilityState={accessibilityState}
       nativeID={nativeID}
     >
-      {buildChildren(markdown, {
+      {buildChildren(streamSnapshot?.text ?? markdown, {
         onLinkPress,
         onLinkLongPress,
         onTaskListItemPress,

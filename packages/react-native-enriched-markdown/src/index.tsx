@@ -46,6 +46,8 @@ export {
   DEFAULT_ACCESSIBILITY_LABELS,
   resolveAccessibilityLabels,
 } from './accessibilityLabelDefaults';
+export { createMarkdownStream } from './markdownStream';
+export type { MarkdownStream } from './markdownStream';
 
 export { EnrichedMarkdownTextInput } from './EnrichedMarkdownTextInput';
 export type {

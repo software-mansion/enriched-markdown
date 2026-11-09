@@ -1,5 +1,8 @@
 #include "EnrichedMarkdownParser.h"
 #include "DocumentStore.hpp"
+#include "ENRMMarkdownStreams.h"
+
+#include <algorithm>
 
 namespace facebook::react {
 
@@ -87,6 +90,36 @@ EnrichedMarkdownParser::collect(jsi::Runtime &, std::string markdown, EnrichedMa
     result.links.push_back({link.url, link.label, link.title});
   }
   return result;
+}
+
+EnrichedMarkdownParserCollectedBlocks
+EnrichedMarkdownParser::collectStream(jsi::Runtime &rt, double streamId, double length,
+                                      EnrichedMarkdownParserMd4cFlags flags, bool isGFM,
+                                      EnrichedMarkdownParserStreamingOptions streaming) {
+  std::string markdown =
+      ENRMMarkdownStreams::shared().prefix(static_cast<int>(streamId), static_cast<size_t>(std::max(length, 0.0)));
+  return collect(rt, std::move(markdown), flags, isGFM, streaming);
+}
+
+EnrichedMarkdownParser::~EnrichedMarkdownParser() {
+  for (int id : streamIds_) {
+    ENRMMarkdownStreams::shared().dispose(id);
+  }
+}
+
+double EnrichedMarkdownParser::createStream(jsi::Runtime &, std::string text) {
+  int id = ENRMMarkdownStreams::shared().create(std::move(text));
+  streamIds_.insert(id);
+  return id;
+}
+
+double EnrichedMarkdownParser::appendToStream(jsi::Runtime &, double streamId, std::string chunk) {
+  return static_cast<double>(ENRMMarkdownStreams::shared().append(static_cast<int>(streamId), chunk));
+}
+
+void EnrichedMarkdownParser::disposeStream(jsi::Runtime &, double streamId) {
+  streamIds_.erase(static_cast<int>(streamId));
+  ENRMMarkdownStreams::shared().dispose(static_cast<int>(streamId));
 }
 
 } // namespace facebook::react

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ENRMMarkdownStreams.h"
 #include "MarkdownContainerMeasurementManager.h"
 #include "MarkdownContainerShadowNode.h"
 #include "MarkdownTextInputMeasurementManager.h"
@@ -29,6 +30,12 @@ public:
     containerShadowNode.setMeasurementsManager(measurementsManager_);
   }
 
+  Props::Shared cloneProps(const PropsParserContext &context, const Props::Shared &props,
+                           RawProps rawProps) const override {
+    return ENRMResolveStreamedMarkdown<EnrichedMarkdownProps>(
+        props, ConcreteComponentDescriptor::cloneProps(context, props, std::move(rawProps)));
+  }
+
 private:
   const std::shared_ptr<MarkdownContainerMeasurementManager> measurementsManager_;
 };
@@ -43,6 +50,12 @@ public:
     ConcreteComponentDescriptor::adopt(shadowNode);
     auto &markdownTextShadowNode = static_cast<MarkdownTextShadowNode &>(shadowNode);
     markdownTextShadowNode.setMeasurementsManager(measurementsManager_);
+  }
+
+  Props::Shared cloneProps(const PropsParserContext &context, const Props::Shared &props,
+                           RawProps rawProps) const override {
+    return ENRMResolveStreamedMarkdown<EnrichedMarkdownTextProps>(
+        props, ConcreteComponentDescriptor::cloneProps(context, props, std::move(rawProps)));
   }
 
 private:

@@ -128,6 +128,19 @@ class EnrichedMarkdownTextManager :
     view?.setMarkdownContent(markdown ?: "")
   }
 
+  // A stream's text arrives as `markdown`, filled in by the component descriptor.
+  @ReactProp(name = "streamId", defaultInt = 0)
+  override fun setStreamId(
+    view: EnrichedMarkdownText?,
+    streamId: Int,
+  ) = Unit
+
+  @ReactProp(name = "streamLength", defaultInt = 0)
+  override fun setStreamLength(
+    view: EnrichedMarkdownText?,
+    streamLength: Int,
+  ) = Unit
+
   @ReactProp(name = "markdownStyle")
   override fun setMarkdownStyle(
     view: EnrichedMarkdownText?,

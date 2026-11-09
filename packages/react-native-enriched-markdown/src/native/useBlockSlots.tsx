@@ -42,6 +42,7 @@ let warnedAboutFlavor = false;
  */
 export function useCollectedMarkdown(
   markdown: string,
+  stream: { streamId: number; length: number } | null,
   flags: NativeMd4cFlags,
   isGFM: boolean,
   enabled: boolean,
@@ -67,12 +68,15 @@ export function useCollectedMarkdown(
       }
       return NOT_COLLECTED;
     }
-    const collected = NativeEnrichedMarkdownParser.collect(
-      markdown,
-      flags,
-      isGFM,
-      streaming
-    );
+    const collected = stream
+      ? NativeEnrichedMarkdownParser.collectStream(
+          stream.streamId,
+          stream.length,
+          flags,
+          isGFM,
+          streaming
+        )
+      : NativeEnrichedMarkdownParser.collect(markdown, flags, isGFM, streaming);
     return {
       blocks: collected.slots.map((slot): MarkdownBlock => {
         const placement = slot.placement as MarkdownBlockPlacement;
@@ -118,7 +122,7 @@ export function useCollectedMarkdown(
       })),
       links: collected.links,
     };
-  }, [markdown, flags, isGFM, enabled, streaming]);
+  }, [markdown, stream, flags, isGFM, enabled, streaming]);
 }
 
 /**
