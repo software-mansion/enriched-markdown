@@ -167,7 +167,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 // fixed origin; the hosting ENRMCodeBlockContainerView draws everything else.
 //
 // The TextKit stack (storage/layout manager/container) is built and laid out
-// once, when attributedCode is set, then cached: drawRect: only paints the
+// once, when attributedCode is set, then cached: drawing only paints the
 // already-computed glyphs, so scrolling and redraws never re-lay-out. This is
 // the same rendering path drawAtPoint used internally, so output is identical,
 // but the layout is no longer thrown away on every draw. The container is
@@ -184,12 +184,82 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 #if TARGET_OS_OSX
 @property (nonatomic, copy, nullable) NSMenu * (^menuProvider)(void);
 #endif
+- (void)drawCodeInRect:(CGRect)rect;
 @end
+
+#if !TARGET_OS_OSX
+// iOS gives a drawRect: view one backing store for its whole bounds, and a
+// tall block with long lines needs more than it will allocate, so the pane
+// stays blank. The content view does not draw; a canvas child does, through a
+// CATiledLayer once the pane is too big for one store.
+static const CGFloat kENRMCodeBlockMaxUntiledPixels = 2048 * 2048;
+
+@interface ENRMCodeBlockCanvasView : UIView
+@property (nonatomic, weak) ENRMCodeBlockContentView *contentView;
+@end
+
+@implementation ENRMCodeBlockCanvasView
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+  self = [super initWithFrame:frame];
+  if (self) {
+    self.backgroundColor = [UIColor clearColor];
+    self.contentMode = UIViewContentModeRedraw;
+    self.userInteractionEnabled = NO;
+  }
+  return self;
+}
+
+- (void)drawRect:(CGRect)rect
+{
+  [self.contentView drawCodeInRect:rect];
+}
+
+@end
+
+@interface ENRMCodeBlockTiledLayer : CATiledLayer
+@end
+
+@implementation ENRMCodeBlockTiledLayer
+
+// Tiles are drawn off the main thread; show them as they land, without a fade.
++ (CFTimeInterval)fadeDuration
+{
+  return 0;
+}
+
+@end
+
+@interface ENRMCodeBlockTiledCanvasView : ENRMCodeBlockCanvasView
+@end
+
+@implementation ENRMCodeBlockTiledCanvasView
+
++ (Class)layerClass
+{
+  return [ENRMCodeBlockTiledLayer class];
+}
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+  self = [super initWithFrame:frame];
+  if (self) {
+    ((CATiledLayer *)self.layer).tileSize = CGSizeMake(1024, 1024);
+  }
+  return self;
+}
+
+@end
+#endif
 
 @implementation ENRMCodeBlockContentView {
   NSTextStorage *_textStorage;
   NSLayoutManager *_layoutManager;
   NSTextContainer *_textContainer;
+#if !TARGET_OS_OSX
+  ENRMCodeBlockCanvasView *_canvas;
+#endif
 }
 
 #if TARGET_OS_OSX
@@ -202,26 +272,57 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 {
   return self.menuProvider ? self.menuProvider() : [super menuForEvent:event];
 }
+
+- (void)drawRect:(CGRect)rect
+{
+  [self drawCodeInRect:rect];
+}
+#else
+- (void)layoutSubviews
+{
+  [super layoutSubviews];
+  CGFloat scale = self.traitCollection.displayScale > 0 ? self.traitCollection.displayScale : 3;
+  CGFloat pixels = self.bounds.size.width * self.bounds.size.height * scale * scale;
+  Class canvasClass =
+      pixels > kENRMCodeBlockMaxUntiledPixels ? [ENRMCodeBlockTiledCanvasView class] : [ENRMCodeBlockCanvasView class];
+  if (![_canvas isMemberOfClass:canvasClass]) {
+    [_canvas removeFromSuperview];
+    _canvas = [[canvasClass alloc] initWithFrame:self.bounds];
+    _canvas.contentView = self;
+    [self addSubview:_canvas];
+  }
+  _canvas.frame = self.bounds;
+}
+
+- (void)setNeedsDisplay
+{
+  [super setNeedsDisplay];
+  [_canvas setNeedsDisplay];
+}
 #endif
 
+// Tiled canvases draw on background threads, so the TextKit stack and the
+// origin change and draw under this lock.
 - (void)setAttributedCode:(nullable NSAttributedString *)attributedCode
 {
-  _attributedCode = attributedCode;
-  if (attributedCode.length == 0) {
-    _textStorage = nil;
-    _layoutManager = nil;
-    _textContainer = nil;
-    return;
+  @synchronized(self) {
+    _attributedCode = attributedCode;
+    if (attributedCode.length == 0) {
+      _textStorage = nil;
+      _layoutManager = nil;
+      _textContainer = nil;
+      return;
+    }
+    _textStorage = [[NSTextStorage alloc] initWithAttributedString:attributedCode];
+    _layoutManager = [[NSLayoutManager alloc] init];
+    _layoutManager.usesFontLeading = ENRMLayoutManagerUsesFontLeading;
+    _textContainer = [[NSTextContainer alloc] initWithSize:[self containerSize]];
+    _textContainer.lineFragmentPadding = 0;
+    _textContainer.maximumNumberOfLines = 0;
+    [_layoutManager addTextContainer:_textContainer];
+    [_textStorage addLayoutManager:_layoutManager];
+    [_layoutManager ensureLayoutForTextContainer:_textContainer];
   }
-  _textStorage = [[NSTextStorage alloc] initWithAttributedString:attributedCode];
-  _layoutManager = [[NSLayoutManager alloc] init];
-  _layoutManager.usesFontLeading = ENRMLayoutManagerUsesFontLeading;
-  _textContainer = [[NSTextContainer alloc] initWithSize:[self containerSize]];
-  _textContainer.lineFragmentPadding = 0;
-  _textContainer.maximumNumberOfLines = 0;
-  [_layoutManager addTextContainer:_textContainer];
-  [_textStorage addLayoutManager:_layoutManager];
-  [_layoutManager ensureLayoutForTextContainer:_textContainer];
 }
 
 - (CGSize)containerSize
@@ -229,15 +330,24 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   return CGSizeMake(_wrapWidth > 0 ? _wrapWidth : CGFLOAT_MAX, CGFLOAT_MAX);
 }
 
+- (void)setTextOrigin:(CGPoint)textOrigin
+{
+  @synchronized(self) {
+    _textOrigin = textOrigin;
+  }
+}
+
 - (void)setWrapWidth:(CGFloat)wrapWidth
 {
   if (_wrapWidth == wrapWidth) {
     return;
   }
-  _wrapWidth = wrapWidth;
-  if (_textContainer) {
-    _textContainer.size = [self containerSize];
-    [_layoutManager ensureLayoutForTextContainer:_textContainer];
+  @synchronized(self) {
+    _wrapWidth = wrapWidth;
+    if (_textContainer) {
+      _textContainer.size = [self containerSize];
+      [_layoutManager ensureLayoutForTextContainer:_textContainer];
+    }
   }
 #if !TARGET_OS_OSX
   [self setNeedsDisplay];
@@ -248,22 +358,26 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 
 - (CGFloat)usedWidth
 {
-  if (!_layoutManager) {
-    return 0;
+  @synchronized(self) {
+    if (!_layoutManager) {
+      return 0;
+    }
+    return ceil([_layoutManager usedRectForTextContainer:_textContainer].size.width);
   }
-  return ceil([_layoutManager usedRectForTextContainer:_textContainer].size.width);
 }
 
-- (void)drawRect:(CGRect)rect
+- (void)drawCodeInRect:(CGRect)rect
 {
-  if (!_layoutManager) {
-    return;
+  @synchronized(self) {
+    if (!_layoutManager) {
+      return;
+    }
+    // Only paint the glyphs intersecting the dirty rect; tall blocks skip their
+    // off-screen lines. The rect is in view space, the layout in container space.
+    CGRect boundingRect = CGRectOffset(rect, -_textOrigin.x, -_textOrigin.y);
+    NSRange glyphRange = [_layoutManager glyphRangeForBoundingRect:boundingRect inTextContainer:_textContainer];
+    [_layoutManager drawGlyphsForGlyphRange:glyphRange atPoint:_textOrigin];
   }
-  // Only paint the glyphs intersecting the dirty rect; tall blocks skip their
-  // off-screen lines. The rect is in view space, the layout in container space.
-  CGRect boundingRect = CGRectOffset(rect, -self.textOrigin.x, -self.textOrigin.y);
-  NSRange glyphRange = [_layoutManager glyphRangeForBoundingRect:boundingRect inTextContainer:_textContainer];
-  [_layoutManager drawGlyphsForGlyphRange:glyphRange atPoint:self.textOrigin];
 }
 
 @end
