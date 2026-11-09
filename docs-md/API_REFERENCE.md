@@ -492,9 +492,9 @@ Markdown flavor. Set to `'github'` to enable GitHub Flavored Markdown features: 
 >
 > With `'github'`, a blockquote also renders as a dedicated component — a recursive container that draws its own box (padding, `backgroundColor`, and accent border with `borderRadius`) and splits its own content into segments. A code block, table, or math block quoted inside therefore becomes a real nested block component, and each nesting level is its own box. Long-pressing a blockquote or admonition opens the Copy / Copy as Markdown menu. With `'commonmark'`, blockquotes stay inside the single TextView, styled via spans.
 
-### `streamingAnimation`
+### `streaming`
 
-When `true`, newly appended content fades in during streaming updates. Only the tail (new characters beyond the previous content) is animated. Recommended for LLM streaming use cases.
+Set to `true` while `markdown` is still arriving (an LLM answer streaming in). Incomplete syntax at the end is held back or repaired instead of rendering as raw markdown, and new content fades in. Set it back to `false` when the stream ends: the final render shows everything. Replaces `streamingAnimation`, which still works but is deprecated; when both are set, `streaming` wins.
 
 | Type      | Default Value | Platform |
 | --------- | ------------- | -------- |
@@ -502,24 +502,24 @@ When `true`, newly appended content fades in during streaming updates. Only the 
 
 ### `streamingConfig`
 
-Configuration for streaming behavior. Controls how incomplete tables, fenced code blocks and media are handled during streaming, in both flavors (tables exist only in `github`). The settings only take effect when `streamingAnimation` is `true`.
+Configuration for streaming behavior. Controls how incomplete tables, fenced code blocks and media are handled during streaming, in both flavors (tables exist only in `github`). The settings only take effect when `streaming` is `true`.
 
 | Type                                        | Default Value                                          | Platform |
 | ------------------------------------------- | ------------------------------------------------------ | -------- |
-| `StreamingConfig` (`{ tableMode?: 'hidden' \| 'progressive'; codeBlockMode?: 'hidden' \| 'progressive' }`) | `{ tableMode: 'progressive', codeBlockMode: 'progressive' }` | Both     |
+| `StreamingConfig` (`{ tableMode?: 'hidden' \| 'progressive'; codeBlockMode?: 'hidden' \| 'progressive'; mediaMode?: 'hidden' \| 'progressive'; animation?: 'fade' \| 'none' }`) | `{ tableMode: 'progressive', codeBlockMode: 'progressive', mediaMode: 'progressive', animation: 'fade' }` | Both     |
 
 #### `tableMode`
 
 Controls how incomplete (still-streaming) tables are rendered:
 
-- **`'progressive'`** (default): The table is rendered row-by-row as content arrives. Requires at least a header row and separator line before anything is shown. Incomplete trailing rows (missing closing `|` or fewer columns than the header) are trimmed. New rows fade in with animation when `streamingAnimation` is also enabled.
+- **`'progressive'`** (default): The table is rendered row-by-row as content arrives. Requires at least a header row and separator line before anything is shown. Incomplete trailing rows (missing closing `|` or fewer columns than the header) are trimmed. New rows fade in unless `animation` is `'none'`.
 - **`'hidden'`**: The entire table is hidden until it is complete (followed by a blank line). This prevents visual jank from partially formed tables.
 
 ```tsx
 <EnrichedMarkdownText
   markdown={streamingMarkdown}
   flavor="github"
-  streamingAnimation
+  streaming
   streamingConfig={{ tableMode: 'hidden' }}
 />
 ```
@@ -530,6 +530,13 @@ Controls how a fenced code block whose closing fence has not arrived yet is rend
 
 - **`'progressive'`** (default): The code streams in line-by-line with its header (language label + copy button) visible but non-interactive — copying is disabled until the block completes. Syntax highlighting is deferred until the closing fence arrives, so it applies once instead of flickering on every token.
 - **`'hidden'`**: The entire code block is hidden until its closing fence arrives, then it appears complete (the same all-or-nothing behavior block math uses).
+
+#### `animation`
+
+Controls how newly arrived content appears while `streaming` is `true`:
+
+- **`'fade'`** (default): new text, blocks and table rows fade in, and blocks drawn by `renderers` grow into place. Reduce Motion turns it off.
+- **`'none'`**: new content appears at once.
 
 ### `spoilerOverlay`
 

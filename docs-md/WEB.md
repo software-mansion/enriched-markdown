@@ -56,8 +56,8 @@ warnings.
 | `flavor` | The web renderer always uses full GFM capabilities. On native, `flavor` controls whether a single `TextView` (CommonMark) or container-based renderer (GitHub) is used; the DOM has no such constraint. |
 | `enableLinkPreview` | iOS-only feature (native link preview on long press). |
 | `allowFontScaling` / `maxFontSizeMultiplier` | React Native text scaling props. Browsers handle font scaling natively via OS accessibility settings. |
-| `streamingAnimation` | Native-only tail fade-in animation. Not yet implemented on web. |
-| `streamingConfig` | Native-only streaming table configuration. Not yet implemented on web. |
+| `streaming`, `streamingAnimation` | Native-only streaming handling and fade-in. Not yet implemented on web. |
+| `streamingConfig` | Native-only streaming configuration. Not yet implemented on web. |
 | `numberOfLines` / `ellipsizeMode` | Native text truncation. Not yet implemented on web. |
 | `spoilerOverlay` | Native-only spoiler reveal animation. Not yet implemented on web. |
 | `contextMenuItems` | Not supported - browsers don't allow extending the native context menu. |

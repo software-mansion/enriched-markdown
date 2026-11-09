@@ -10,7 +10,7 @@ import StreamingSrc from '!!raw-loader!@site/src/examples/react-native/rich-text
 When Markdown arrives incrementally - token by token from an LLM, for example - you can render it as it streams instead of waiting for the whole string. The display component fades in newly appended text and handles half-formed block elements gracefully while the rest is still arriving.
 
 :::note
-Streaming ships in the React Native package, on iOS and Android. Both props are stripped on web, where the current Markdown string renders without the fade-in animation or the incomplete-block handling below.
+Streaming ships in the React Native package, on iOS and Android. `streaming` and `streamingConfig` are stripped on web, where the current Markdown string renders without the fade-in animation or the incomplete-block handling below.
 
 The standalone iOS and Android packages have no streaming API. You can still hand them a growing Markdown string and each update renders it, but new text does not fade in and half-formed tables, code blocks and math are not held back.
 :::
@@ -23,10 +23,10 @@ It is not quite a drop-in, though: it requires Worklets Bundle Mode, which means
 
 ## Incremental rendering
 
-Feed the growing Markdown string to the display component and enable [`streamingAnimation`](/react-native/api-reference/enriched-markdown-text#streaminganimation) (off by default). Only the tail - the new characters beyond the previous content - animates on each update, so the already-rendered text stays put:
+Feed the growing Markdown string to the display component and set [`streaming`](/react-native/api-reference/enriched-markdown-text#streaming) while it arrives (off by default). Only the tail - the new characters beyond the previous content - fades in on each update, so the already-rendered text stays put. Set it back to `false` when the stream ends, so the final render shows everything:
 
 ```tsx
-<EnrichedMarkdownText markdown={partialMarkdown} streamingAnimation />
+<EnrichedMarkdownText markdown={partialMarkdown} streaming={isStreaming} />
 ```
 
 :::note
@@ -38,7 +38,7 @@ The tail is found by **length**, not by diffing: everything past the previous st
 Some block elements can't be rendered until enough structure has arrived - a table needs its header and separator row, a fenced code block needs its closing fence. [`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig) decides what happens in the meantime.
 
 :::note
-This handling, and the inline repair below, applies while `streamingAnimation` is on, in both [flavors](/react-native/guides/markdown-flavors). Tables exist only in `github`, so `tableMode` has no effect under `commonmark`.
+This handling, and the inline repair below, applies while `streaming` is on, in both [flavors](/react-native/guides/markdown-flavors). Tables exist only in `github`, so `tableMode` has no effect under `commonmark`.
 :::
 
 **Tables** (`tableMode`)
@@ -76,11 +76,11 @@ Inline Markdown still being typed at the end is repaired, so it never flashes as
 
 Blocks that have finished are never touched again, so the cost of each update depends on the unfinished tail, not on the length of the document.
 
-<LivePreview src={StreamingSrc} unavailable unavailableReason={<>iOS and Android only - <code>streamingAnimation</code> and <code>streamingConfig</code> are stripped on web.</>} />
+<LivePreview src={StreamingSrc} unavailable unavailableReason={<>iOS and Android only - <code>streaming</code> and <code>streamingConfig</code> are stripped on web.</>} />
 
 ## Reference
 
-- [`streamingAnimation`](/react-native/api-reference/enriched-markdown-text#streaminganimation) - fade in newly appended content. Defaults to `false`.
-- [`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig) - `tableMode`, `codeBlockMode` and `mediaMode`, each `'progressive'` or `'hidden'`. Needs `streamingAnimation`.
+- [`streaming`](/react-native/api-reference/enriched-markdown-text#streaming) - set while the markdown is still arriving. Defaults to `false`. Replaces the deprecated `streamingAnimation`.
+- [`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig) - `tableMode`, `codeBlockMode` and `mediaMode`, each `'progressive'` or `'hidden'`, and `animation`, `'fade'` or `'none'`. Needs `streaming`.
 - [Markdown flavors](/react-native/guides/markdown-flavors) - what else the flavor switch changes.
 - [`react-native-streamdown`](https://enriched.swmansion.com/streamdown) - sibling library for LLM output: incomplete-Markdown repair ([remend](https://www.npmjs.com/package/remend)) and off-thread processing (react-native-worklets Bundle Mode). Accepts every `EnrichedMarkdownText` prop plus a `remendConfig`: `<StreamdownText markdown={partial} />`. See the setup caveat above.

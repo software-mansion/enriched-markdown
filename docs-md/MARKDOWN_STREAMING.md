@@ -22,7 +22,7 @@ The `streamingConfig` prop controls this behavior:
 <EnrichedMarkdownText
   markdown={streamingMarkdown}
   flavor="github"
-  streamingAnimation
+  streaming
   streamingConfig={{ tableMode: 'hidden' }}
 />
 ```
@@ -31,7 +31,7 @@ The `streamingConfig` prop controls this behavior:
 
 | Mode | Behavior |
 |---|---|
-| `'progressive'` (default) | Renders the table row-by-row as content arrives. New rows fade in when `streamingAnimation` is enabled. Incomplete trailing rows are automatically trimmed. |
+| `'progressive'` (default) | Renders the table row-by-row as content arrives. New rows fade in unless `animation` is `'none'`. Incomplete trailing rows are automatically trimmed. |
 | `'hidden'` | The table is completely hidden until it is followed by a blank line, indicating the table is complete. Prevents visual jank from partially formed tables. |
 
 ## Code Block Streaming (GFM)
@@ -46,7 +46,7 @@ The `codeBlockMode` field of `streamingConfig` controls this:
 <EnrichedMarkdownText
   markdown={streamingMarkdown}
   flavor="github"
-  streamingAnimation
+  streaming
   streamingConfig={{ codeBlockMode: 'progressive' }}
 />
 ```
@@ -58,5 +58,5 @@ The `codeBlockMode` field of `streamingConfig` controls this:
 | `'progressive'` (default) | The code streams in line-by-line with its header (language label + copy button) visible but non-interactive — copying is disabled until the block completes. Syntax highlighting is deferred so it applies once when the closing fence arrives instead of flickering per token. |
 | `'hidden'` | The entire code block is hidden until its closing fence arrives, then it appears complete (the same all-or-nothing behavior block math uses). |
 
-Both modes only take effect when `streamingAnimation` is `true`.
+Both modes only take effect when `streaming` is `true`.
 

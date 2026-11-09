@@ -33,7 +33,7 @@ export default function App() {
     <EnrichedMarkdownText
       markdown={markdown}
       flavor="github"
-      streamingAnimation
+      streaming
       streamingConfig={{ tableMode: 'hidden', codeBlockMode: 'progressive' }}
     />
   );

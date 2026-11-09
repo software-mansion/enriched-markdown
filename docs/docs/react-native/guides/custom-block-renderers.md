@@ -69,7 +69,7 @@ The block carries `language`, `code` (without trailing newlines) and `isComplete
 
 ## Streaming
 
-With `streamingAnimation`, a block appears only once its syntax is complete. A half-streamed `![alt](https://…` or `[label](https://…` never shows as text, and your element is not created for a block that is still arriving. A bare URL on its own line can always grow, so it waits until the next line starts.
+With `streaming`, a block appears only once its syntax is complete. A half-streamed `![alt](https://…` or `[label](https://…` never shows as text, and your element is not created for a block that is still arriving. A bare URL on its own line can always grow, so it waits until the next line starts.
 
 A code block is different, because it is useful before it is finished. With `codeBlockMode: 'progressive'`, the default, it appears once the line that opens the fence has ended, so its language is known. The same element then re-renders with the growing `code`, and `isComplete` is `false` until the closing fence arrives. Its `id` depends on the language only, so the element stays mounted and does not grow in again when the fence closes. Wait for `isComplete` before doing work that needs the whole block, such as parsing a diagram. With `codeBlockMode: 'hidden'`, the block appears once its closing fence arrives, with `isComplete` already `true`.
 
