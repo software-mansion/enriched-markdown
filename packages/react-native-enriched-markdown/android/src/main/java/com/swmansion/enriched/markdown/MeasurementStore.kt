@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.os.Build
+import android.text.Layout
 import android.text.Spannable
 import android.text.Spanned
 import android.text.StaticLayout
@@ -52,6 +53,7 @@ import com.swmansion.enriched.markdown.utils.common.parseLinkPillContent
 import com.swmansion.enriched.markdown.utils.common.parseLinkRecognition
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
+import com.swmansion.enriched.markdown.utils.text.view.isAdoptedText
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -114,6 +116,15 @@ object MeasurementStore {
   )
 
   private val laidOutSizes = ConcurrentHashMap<Int, LaidOutSize>()
+
+  // For each line of the text a view laid out itself at [widthPx], the widest line up to it
+  // ([storeLaidOut]).
+  private class LaidOutLines(
+    val widthPx: Int,
+    val widths: FloatArray,
+  )
+
+  private val laidOutLines = ConcurrentHashMap<Int, LaidOutLines>()
   private val previousInputs = ConcurrentHashMap<Int, MeasuredInputs>()
 
   private fun resolveFontScalingSettings(
@@ -181,6 +192,9 @@ object MeasurementStore {
     val paintParams = PaintParams(paint.typeface ?: Typeface.DEFAULT, paint.textSize)
 
     var newSize = measure(width, spannable, paint, id)
+    // A view's adopted buffer changes in place as patches land, on the main thread: a later
+    // measurement at another width renders the markdown again instead of laying it out.
+    val keptText = spannable.takeUnless { isAdoptedText(it) }
     if (trailingMarginBottomPx > 0f) {
       newSize =
         YogaMeasureOutput.make(
@@ -188,11 +202,56 @@ object MeasurementStore {
           YogaMeasureOutput.getHeight(newSize) + PixelUtil.toDIPFromPixel(trailingMarginBottomPx),
         )
     }
-    data[id] = MeasurementParams(width, newSize, spannable, paintParams, existingHash)
+    data[id] = MeasurementParams(width, newSize, keptText, paintParams, existingHash)
+    laidOutLines.remove(id)
     // Without the width the last measurement offered, the size isn't laid out for
     // it: the next measurement goes the full way and brings the width back.
     if (width > 0f) laidOutSizes[id] = LaidOutSize(width, newSize, renderedMarkdown) else laidOutSizes.remove(id)
     return oldSize != newSize
+  }
+
+  /**
+   * [store] from the view's own [layout], which reflowed the text from [changedFrom] on: only
+   * those lines are measured again. Null when [layout] isn't the one the measurement would build
+   * (another width, or a line limit), and the caller stores in full.
+   */
+  fun storeLaidOut(
+    id: Int,
+    layout: Layout,
+    changedFrom: Int,
+    trailingMarginBottomPx: Float,
+    renderedMarkdown: String,
+  ): Boolean? {
+    val cached = data[id] ?: return null
+    val width = cached.cachedWidth
+    if (width <= 0f || resolveMaxLines(id) > 0 || layout.width != ceil(width).toInt().coerceAtLeast(1)) return null
+
+    val lineCount = layout.lineCount
+    val previousWidths = laidOutLines[id]?.takeIf { it.widthPx == layout.width }?.widths
+    val kept =
+      if (previousWidths == null ||
+        changedFrom <= 0
+      ) {
+        0
+      } else {
+        minOf(layout.getLineForOffset(changedFrom), previousWidths.size, lineCount)
+      }
+    val widths = FloatArray(lineCount)
+    previousWidths?.copyInto(widths, 0, 0, kept)
+    for (line in kept until lineCount) {
+      widths[line] = maxOf(if (line > 0) widths[line - 1] else 0f, layout.getLineWidth(line))
+    }
+    laidOutLines[id] = LaidOutLines(layout.width, widths)
+
+    val height = if (lineCount > 0) layout.getLineBottom(lineCount - 1).toFloat() else 0f
+    val newSize =
+      YogaMeasureOutput.make(
+        PixelUtil.toDIPFromPixel(ceil(widths.lastOrNull() ?: 0f)),
+        PixelUtil.toDIPFromPixel(height) + PixelUtil.toDIPFromPixel(trailingMarginBottomPx),
+      )
+    data[id] = cached.copy(cachedSize = newSize, spannable = null)
+    laidOutSizes[id] = LaidOutSize(width, newSize, renderedMarkdown)
+    return cached.cachedSize != newSize
   }
 
   /** The content size [id]'s view laid out [markdown] at, laid out for [widthPx]. */
@@ -212,6 +271,7 @@ object MeasurementStore {
   fun release(id: Int) {
     data.remove(id)
     laidOutSizes.remove(id)
+    laidOutLines.remove(id)
     previousInputs.remove(id)
     numberOfLinesByViewId.remove(id)
     ellipsizeModeByViewId.remove(id)
@@ -388,7 +448,9 @@ object MeasurementStore {
 
     // Width changed - re-measure with cached spannable
     if (cached.cachedWidth != width) {
-      val newSize = measure(width, cached.spannable, cached.paintParams, safeId)
+      val spannable =
+        cached.spannable ?: return measureAndCache(context, safeId, width, props, allowFontScaling, fontScale, maxFontSizeMultiplier)
+      val newSize = measure(width, spannable, cached.paintParams, safeId)
       data[safeId] = cached.copy(cachedWidth = width, cachedSize = newSize)
       return newSize
     }

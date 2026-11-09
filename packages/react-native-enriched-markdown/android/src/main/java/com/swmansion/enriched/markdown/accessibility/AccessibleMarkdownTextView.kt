@@ -2,12 +2,14 @@ package com.swmansion.enriched.markdown.accessibility
 
 import android.content.Context
 import android.graphics.Rect
+import android.text.Spannable
 import android.util.AttributeSet
 import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.appcompat.widget.AppCompatTextView
 import com.swmansion.enriched.markdown.spans.LinkPillSpan
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
+import com.swmansion.enriched.markdown.utils.text.view.replaceAdoptedTextTail
 
 /** AppCompatTextView with built-in TalkBack support via MarkdownAccessibilityHelper. */
 abstract class AccessibleMarkdownTextView
@@ -23,12 +25,37 @@ abstract class AccessibleMarkdownTextView
       text: CharSequence?,
       type: BufferType?,
     ) {
-      // Prime pills before the layout for the new text is built, and register for icons
-      // that load later. Runs from the TextView constructor too: use nothing initialized after it.
+      prepareSpans(text)
+      super.setText(text, type)
+    }
+
+    /**
+     * Primes pills before the layout for [text] is built, and registers for icons that load
+     * later. Runs from the TextView constructor too: use nothing initialized after it.
+     */
+    protected fun prepareSpans(text: CharSequence?) {
       val contentWidth = width - compoundPaddingLeft - compoundPaddingRight
       if (contentWidth > 0) prepareWidthAwareSpans(text, contentWidth, includeImages = false)
       LinkPillSpan.registerView(text, this)
-      super.setText(text, type)
+    }
+
+    /**
+     * Replaces the text from [start] on with [tail]. The layout keeps the lines before the edit
+     * (DynamicLayout reflows from the changed paragraph), where setting the whole text would lay
+     * all of it out again. False when the view holds no buffer to edit.
+     */
+    protected fun replaceTextTail(
+      start: Int,
+      tail: Spannable,
+    ): Boolean {
+      prepareSpans(tail)
+      if (!replaceAdoptedTextTail(text, start, tail)) return false
+      // TextView didn't hear of the edit. Without a request, measure() would return the height
+      // cached before it.
+      requestLayout()
+      invalidate()
+      accessibilityHelper.invalidateAccessibilityItems()
+      return true
     }
 
     override fun onMeasure(

@@ -41,6 +41,17 @@
                                    context:(RenderContext *)context
                                      block:(ENRMBlockquoteTextRenderer *)block
 {
+  NSMutableAttributedString *output = [[NSMutableAttributedString alloc] init];
+  [self renderNodes:nodes into:output context:context block:block onBlockStart:nil];
+  return output;
+}
+
+- (void)renderNodes:(NSArray<MarkdownASTNode *> *)nodes
+               into:(NSMutableAttributedString *)output
+            context:(RenderContext *)context
+              block:(ENRMBlockquoteTextRenderer *)block
+       onBlockStart:(void (^)(NSUInteger index))onBlockStart
+{
   // 1. Establish the baseline block style. This ensures leaf nodes (like Text) have valid
   // attributes if they appear at the top level. A decorator overrides the default paragraph
   // baseline (e.g. the blockquote baseline so paragraphs render tight and pick up the quote's
@@ -51,12 +62,13 @@
     [context setBlockStyle:BlockTypeParagraph font:_config.paragraphFont color:_config.paragraphColor headingLevel:0];
   }
 
-  NSMutableAttributedString *output = [[NSMutableAttributedString alloc] init];
-
   // 2. Iterate through the sibling nodes.
-  for (MarkdownASTNode *node in nodes) {
+  [nodes enumerateObjectsUsingBlock:^(MarkdownASTNode *node, NSUInteger index, BOOL *stop) {
+    if (onBlockStart) {
+      onBlockStart(index);
+    }
     [self renderNodeRecursive:node into:output context:context];
-  }
+  }];
 
   // 3. Remove trailing paragraph spacing from last block element
   // Reset lastElementMarginBottom before processing
@@ -69,8 +81,6 @@
 
   // 5. Cleanup global state to prevent side effects in subsequent renders.
   [context clearBlockStyle];
-
-  return output;
 }
 
 /**

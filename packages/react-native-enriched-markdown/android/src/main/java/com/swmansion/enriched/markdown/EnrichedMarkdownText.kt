@@ -21,9 +21,14 @@ import com.facebook.react.uimanager.style.LogicalEdge
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
+import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
 import com.swmansion.enriched.markdown.renderer.Renderer
+import com.swmansion.enriched.markdown.segments.RenderedSegment
+import com.swmansion.enriched.markdown.segments.TextRenderCache
+import com.swmansion.enriched.markdown.segments.TextRenderResult
+import com.swmansion.enriched.markdown.segments.textRenderResult
 import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
@@ -125,6 +130,10 @@ class EnrichedMarkdownText
     private var linkPillContent: Map<String, LinkPillContent> = emptyMap()
 
     private var streamingAnimation: Boolean = false
+
+    val isStreaming: Boolean get() = streamingAnimation
+
+    val isJustified: Boolean get() = markdownStyle?.needsJustify == true
     private var tableStreamingMode = TableStreamingMode.PROGRESSIVE
     private var codeBlockStreamingMode = CodeBlockStreamingMode.PROGRESSIVE
     private var mediaStreamingMode = MediaStreamingMode.PROGRESSIVE
@@ -134,8 +143,17 @@ class EnrichedMarkdownText
       private set
     var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
 
-    private var pendingStyledText: CharSequence? = null
+    private var pendingText: RenderedSegment.Text? = null
     private var pendingRenderedMarkdown = ""
+
+    // Reused by the next render on the executor (see TextRenderCache). Every input but the
+    // markdown bumps the key, which drops it.
+    private val textRenderCache = TextRenderCache()
+    private var textRenderKey = 0L
+
+    // The revision of the text shown (see RenderedSegment.Text.revision), and its trailing margin.
+    private var renderedRevision = 0L
+    private var renderedLastElementMarginBottom = 0f
 
     // The markdown the displayed text was rendered from, which renders trail.
     internal var renderedMarkdown = ""
@@ -181,6 +199,7 @@ class EnrichedMarkdownText
       if (markdownStyle == newStyle) return
       markdownStyle = newStyle
       updateJustificationMode(newStyle)
+      textRenderKey++
       scheduleRender()
     }
 
@@ -294,6 +313,7 @@ class EnrichedMarkdownText
     }
 
     private fun scheduleRenderIfNeeded() {
+      textRenderKey++
       if (currentMarkdown.isNotEmpty()) {
         scheduleRender()
       }
@@ -333,6 +353,7 @@ class EnrichedMarkdownText
       val tableMode = tableStreamingMode
       val codeBlockMode = codeBlockStreamingMode
       val mediaMode = mediaStreamingMode
+      val renderKey = textRenderKey
 
       renderCoordinator.schedule {
         try {
@@ -344,49 +365,95 @@ class EnrichedMarkdownText
             }
           val ast =
             parser.parseMarkdown(renderableMarkdown, flags, isGFM, textLinkRegex, codeLinkRegex)
-              ?: return@schedule Runnable { if (isAttachedToWindow) text = "" }
+              ?: return@schedule Runnable { if (isAttachedToWindow) clearText() }
 
           renderer.configure(style, context, latexErrorReporter)
-          val styledText = renderer.renderDocument(ast, onLinkPressCallback, onLinkLongPressCallback)
+          textRenderCache.begin(renderKey)
+          val (rendered, _) =
+            try {
+              textRenderCache.render(ast.children, startingTaskIndex = 0, isLast = true) { nodes, taskIndex ->
+                renderText(nodes, taskIndex, style)
+              }
+            } finally {
+              textRenderCache.end()
+            }
 
           Runnable {
             if (isAttachedToWindow) {
-              applyRenderedText(styledText, markdown)
+              applyRenderedText(rendered, markdown)
             } else {
-              pendingStyledText = styledText
+              pendingText = rendered
               pendingRenderedMarkdown = markdown
             }
           }
         } catch (e: Exception) {
+          textRenderCache.clear()
           Log.e(TAG, "Render failed: ${e.message}", e)
-          Runnable { if (isAttachedToWindow) text = "" }
+          Runnable { if (isAttachedToWindow) clearText() }
         }
       }
     }
 
+    private fun renderText(
+      nodes: List<MarkdownASTNode>,
+      startingTaskIndex: Int,
+      style: StyleConfig,
+    ): TextRenderResult {
+      val styledText = renderer.renderContent(nodes, onLinkPressCallback, onLinkLongPressCallback, startingTaskIndex = startingTaskIndex)
+      return renderer.textRenderResult(styledText, style.needsJustify)
+    }
+
+    // For a patch to text this view doesn't show (it was detached for a render).
+    private fun renderInFull() {
+      textRenderKey++
+      scheduleRender()
+    }
+
+    private fun clearText() {
+      text = ""
+      renderedRevision = 0L
+    }
+
     private fun applyRenderedText(
-      styledText: CharSequence,
+      rendered: RenderedSegment.Text,
       markdown: String,
     ) {
-      val tailStart = previousTextLength
-      renderedMarkdown = markdown
+      // The cache handed back the segment this view shows.
+      if (rendered.revision == renderedRevision) {
+        renderedMarkdown = markdown
+        return
+      }
+      // A patch applies only to the text it was made against.
+      val patch = rendered.patch?.takeIf { it.baseRevision == renderedRevision }
+      if (patch == null && rendered.styledText == null) {
+        renderInFull()
+        return
+      }
 
       markdownStyle?.paragraphStyle?.fontSize?.let {
         setTextSize(TypedValue.COMPLEX_UNIT_PX, it)
       }
 
-      text = styledText
+      var changedFrom = 0
+      if (patch != null && replaceTextTail(patch.start, patch.tail)) {
+        patch.tailImageSpans.forEach { it.registerTextView(this) }
+        changedFrom = patch.start
+      } else {
+        text = rendered.styledText ?: return renderInFull()
+        rendered.imageSpans.forEach { it.registerTextView(this) }
+        accessibilityHelper.invalidateAccessibilityItems()
+      }
+      val tailStart = previousTextLength
+      renderedMarkdown = markdown
+      renderedRevision = rendered.revision
+      renderedLastElementMarginBottom = rendered.lastElementMarginBottom
+      val styledText = text
 
       applyInteractivity()
 
-      renderer.getCollectedImageSpans().forEach { span ->
-        span.registerTextView(this)
-      }
-
       spoilerOverlayDrawer = SpoilerOverlayDrawer.setupIfNeeded(this, styledText, spoilerOverlayDrawer, spoilerOverlay)
 
-      layoutManager.invalidateLayout()
-      accessibilityHelper.invalidateAccessibilityItems()
+      layoutManager.invalidateLayout(changedFrom)
 
       if (streamingAnimation) {
         if (fadeAnimator == null) {
@@ -401,7 +468,7 @@ class EnrichedMarkdownText
 
     // Trailing bottom margin included in the shadow-node measurement — must be
     // mirrored when re-storing the measurement from the display text.
-    fun trailingMarginBottomPx(): Float = if (allowTrailingMargin) renderer.getLastElementMarginBottom() else 0f
+    fun trailingMarginBottomPx(): Float = if (allowTrailingMargin) renderedLastElementMarginBottom else 0f
 
     fun setContextMenuItems(items: List<String>) {
       contextMenuItemTexts = items
@@ -569,7 +636,7 @@ class EnrichedMarkdownText
       renderCoordinator.invalidate()
       executor.shutdownNow()
       mainHandler.removeCallbacksAndMessages(null)
-      pendingStyledText = null
+      pendingText = null
       fadeAnimator?.cancelAll()
       fadeAnimator = null
     }
@@ -645,8 +712,8 @@ class EnrichedMarkdownText
 
     override fun onAttachedToWindow() {
       super.onAttachedToWindow()
-      pendingStyledText?.let {
-        pendingStyledText = null
+      pendingText?.let {
+        pendingText = null
         applyRenderedText(it, pendingRenderedMarkdown)
       }
     }
