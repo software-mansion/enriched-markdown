@@ -12,6 +12,20 @@ import { StreamdownText } from 'react-native-streamdown';
 
 `StreamdownText` accepts all props from `EnrichedMarkdownText` and adds a `remendConfig` prop for customizing the markdown repair pipeline. See the [react-native-streamdown README](https://github.com/software-mansion-labs/react-native-streamdown#readme) for full setup instructions including the required Babel and Metro configuration for Bundle Mode.
 
+## Streaming Without Re-rendering
+
+Passing a growing `markdown` re-renders your component on every chunk. A stream from `createMarkdownStream()` doesn't: append chunks to it and the view updates once per frame on its own, with the text kept in native memory.
+
+```tsx
+const stream = createMarkdownStream();
+socket.onmessage = (event) => stream.append(event.data);
+socket.onclose = () => stream.end();
+
+<EnrichedMarkdownText stream={stream} flavor="github" />;
+```
+
+Keep the stream outside the component, so a list row that unmounts and mounts again shows the same text, and call `dispose()` when the message is gone.
+
 ## Table Streaming (GFM)
 
 When using `flavor="github"` with streaming content, tables require special handling because they are block-level elements that can't be rendered until the parser has enough structure (at minimum a header row and separator line).

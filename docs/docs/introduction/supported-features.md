@@ -154,9 +154,10 @@ Each has its own page - under **Rich text formatting**, or under the React Nativ
 
 LaTeX math on web needs the optional `katex` peer dependency; without it the
 formula falls back to its raw `$...$` source. Code-block highlighting on web
-renders a plain, uncolored `<pre><code>`. The two streaming props are stripped
-on web. Link pills are drawn by the native text stack, so on web those links
-render as ordinary links with the variant's colors; custom link menus are an
+renders a plain, uncolored `<pre><code>`. `streaming` and `streamingConfig` are
+stripped on web; a `stream` still shows its text as it grows. Link pills are
+drawn by the native text stack, so on web those links render as ordinary links
+with the variant's colors; custom link menus are an
 iOS 17+ feature, and a long press on web is the `contextmenu` event delivered
 to `onLinkLongPress`.
 
