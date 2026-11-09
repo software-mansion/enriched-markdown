@@ -39,7 +39,7 @@ EnrichedMarkdownShadowNode::EnrichedMarkdownShadowNode(const ShadowNode &sourceS
   }
   // The streaming modes decide what the walk renders but are not part of the
   // measurement key (the LRU cache is never used while streaming).
-  if (fragment.props && (oldProps.streamingAnimation != newProps.streamingAnimation ||
+  if (fragment.props && (oldProps.streaming != newProps.streaming ||
                          oldProps.streamingConfig.tableMode != newProps.streamingConfig.tableMode ||
                          oldProps.streamingConfig.codeBlockMode != newProps.streamingConfig.codeBlockMode ||
                          oldProps.streamingConfig.mediaMode != newProps.streamingConfig.mediaMode)) {
@@ -203,7 +203,7 @@ CGSize EnrichedMarkdownShadowNode::measureWithSlots(const std::vector<SlotChild>
               }];
 
   id rendered = ENRMPrepareFirstRender(
-      view != nil, props.streamingAnimation, {getProps(), fontScale, resolvedLayoutDirection, slotIds}, ^id {
+      view != nil, props.streaming, {getProps(), fontScale, resolvedLayoutDirection, slotIds}, ^id {
         return ENRMRenderSegmentedMarkdownViewFree(props, ENRMStyleConfigFromProps(props, fontScale),
                                                    resolvedLayoutDirection, slotIds);
       });

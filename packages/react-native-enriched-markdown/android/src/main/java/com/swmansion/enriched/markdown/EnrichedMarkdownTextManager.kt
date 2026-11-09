@@ -272,12 +272,12 @@ class EnrichedMarkdownTextManager :
     // No-op on Android — first-strong per-paragraph resolution is the platform default
   }
 
-  @ReactProp(name = "streamingAnimation", defaultBoolean = false)
-  override fun setStreamingAnimation(
+  @ReactProp(name = "streaming", defaultBoolean = false)
+  override fun setStreaming(
     view: EnrichedMarkdownText?,
-    streamingAnimation: Boolean,
+    streaming: Boolean,
   ) {
-    view?.setStreamingAnimation(streamingAnimation)
+    view?.setStreaming(streaming)
   }
 
   @ReactProp(name = "streamingConfig")
@@ -290,6 +290,7 @@ class EnrichedMarkdownTextManager :
       CodeBlockStreamingMode.fromString(config?.getString("codeBlockMode")),
       MediaStreamingMode.fromString(config?.getString("mediaMode")),
     )
+    view?.setStreamingFade(config?.getString("animation") != "none")
   }
 
   @ReactProp(name = "spoilerOverlay")

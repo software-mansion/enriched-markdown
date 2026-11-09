@@ -198,7 +198,8 @@ export const EnrichedMarkdownText = ({
   maxFontSizeMultiplier,
   allowTrailingMargin = false,
   flavor = 'commonmark',
-  streamingAnimation = false,
+  streaming: streamingProp,
+  streamingAnimation,
   streamingConfig,
   spoilerOverlay = 'particles',
   contextMenuItems,
@@ -446,12 +447,14 @@ export const EnrichedMarkdownText = ({
     [onSelectionCopy]
   );
 
+  const streaming = streamingProp ?? streamingAnimation ?? false;
   const tableMode = streamingConfig?.tableMode ?? 'progressive';
   const codeBlockMode = streamingConfig?.codeBlockMode ?? 'progressive';
   const mediaMode = streamingConfig?.mediaMode ?? 'progressive';
+  const animation = streamingConfig?.animation ?? 'fade';
   const normalizedStreamingConfig = useMemo(
-    () => ({ tableMode, codeBlockMode, mediaMode }),
-    [tableMode, codeBlockMode, mediaMode]
+    () => ({ tableMode, codeBlockMode, mediaMode, animation }),
+    [tableMode, codeBlockMode, mediaMode, animation]
   );
   const normalizedSelectionMenuConfig = useMemo(() => {
     // The boolean acceptance is confined to this wrapper boundary via a single
@@ -513,12 +516,12 @@ export const EnrichedMarkdownText = ({
     renderersEnabled || resolveImageSource != null || onLinksChange != null;
   const collectStreaming = useMemo(
     () => ({
-      enabled: streamingAnimation,
+      enabled: streaming,
       tableMode,
       codeBlockMode,
       mediaMode,
     }),
-    [streamingAnimation, tableMode, codeBlockMode, mediaMode]
+    [streaming, tableMode, codeBlockMode, mediaMode]
   );
   const collected = useCollectedMarkdown(
     markdown,
@@ -562,7 +565,7 @@ export const EnrichedMarkdownText = ({
     allowFontScaling,
     maxFontSizeMultiplier,
     allowTrailingMargin,
-    streamingAnimation,
+    streaming,
     streamingConfig: normalizedStreamingConfig,
     spoilerOverlay,
     style: containerStyle,

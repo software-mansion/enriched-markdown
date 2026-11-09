@@ -10,7 +10,7 @@ import type { EnrichedMarkdownTextProps as WebMarkdownTextProps } from '../types
  * type-checked against the native `MarkdownTextProps.ts` interface (bundlers
  * swap in `.web.tsx` at runtime, but `tsc` resolves the base `.ts` unless the
  * project sets `moduleSuffixes`). So JSX like `flavor="github"` or
- * `streamingAnimation` compiles fine and would otherwise be spread onto the
+ * `streaming` compiles fine and would otherwise be spread onto the
  * root DOM element, triggering React "unknown prop" warnings. They are dropped
  * here before reaching the DOM.
  *
@@ -40,6 +40,7 @@ export const NATIVE_ONLY_PROP_NAMES: Record<NativeOnlyPropName, true> = {
   allowFontScaling: true,
   maxFontSizeMultiplier: true,
   flavor: true,
+  streaming: true,
   streamingAnimation: true,
   streamingConfig: true,
   spoilerOverlay: true,

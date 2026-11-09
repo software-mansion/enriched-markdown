@@ -186,7 +186,7 @@ it('passes the streaming filter settings so the collector sees the rendered docu
     <EnrichedMarkdownText
       markdown="x"
       flavor="github"
-      streamingAnimation
+      streaming
       streamingConfig={{ mediaMode: 'hidden', tableMode: 'hidden' }}
       renderers={{ image: () => <View /> }}
     />
@@ -197,6 +197,67 @@ it('passes the streaming filter settings so the collector sees the rendered docu
     codeBlockMode: 'progressive',
     mediaMode: 'hidden',
   });
+});
+
+it('takes the deprecated streamingAnimation as streaming', () => {
+  render(
+    <EnrichedMarkdownText
+      markdown="x"
+      flavor="github"
+      streamingAnimation
+      renderers={{ image: () => <View /> }}
+    />
+  );
+  expect(mockCollect).toHaveBeenCalledWith(
+    'x',
+    expect.anything(),
+    true,
+    expect.objectContaining({ enabled: true })
+  );
+});
+
+it('passes streaming and the animation to the native view', () => {
+  const root = render(
+    <EnrichedMarkdownText markdown="x" flavor="github" streaming />
+  );
+  expect(host(root).props.streaming).toBe(true);
+  expect(host(root).props.streamingConfig.animation).toBe('fade');
+  act(() =>
+    root.render(
+      <EnrichedMarkdownText
+        markdown="x"
+        flavor="github"
+        streaming
+        streamingConfig={{ animation: 'none' }}
+      />
+    )
+  );
+  expect(host(root).props.streamingConfig.animation).toBe('none');
+});
+
+it('sends the deprecated streamingAnimation to the native view as streaming', () => {
+  const root = render(
+    <EnrichedMarkdownText markdown="x" flavor="github" streamingAnimation />
+  );
+  expect(host(root).props.streaming).toBe(true);
+});
+
+it('lets streaming override the deprecated streamingAnimation', () => {
+  render(
+    <EnrichedMarkdownText
+      markdown="x"
+      flavor="github"
+      streaming={false}
+      streamingAnimation
+      renderers={{ image: () => <View /> }}
+    />
+  );
+  expect(mockCollect).toHaveBeenCalledWith(
+    'x',
+    expect.anything(),
+    true,
+    expect.objectContaining({ enabled: false })
+  );
 });
 
 it('parses once per flag values, not per md4cFlags object identity', () => {

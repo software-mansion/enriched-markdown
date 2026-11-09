@@ -453,6 +453,7 @@ interface StreamingConfigInternal {
   tableMode: string;
   codeBlockMode: string;
   mediaMode?: string;
+  animation: string;
 }
 
 interface LinkContextMenuItemConfig {
@@ -640,13 +641,13 @@ export interface NativeProps extends ViewProps {
    */
   allowTrailingMargin?: CodegenTypes.WithDefault<boolean, false>;
   /**
-   * When true, newly appended content fades in during streaming updates.
-   * Only the tail (new characters beyond the previous content) is animated.
+   * While true, incomplete syntax at the end of `markdown` is held back or
+   * repaired, and new content animates in per `streamingConfig.animation`.
    * @default false
    */
-  streamingAnimation?: CodegenTypes.WithDefault<boolean, false>;
+  streaming?: CodegenTypes.WithDefault<boolean, false>;
   /**
-   * Fine-grained control over streaming behavior for block-level elements.
+   * Fine-grained control over streaming behavior.
    */
   streamingConfig?: StreamingConfigInternal;
   /**

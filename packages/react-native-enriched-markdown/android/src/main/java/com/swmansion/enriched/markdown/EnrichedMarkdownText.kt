@@ -129,9 +129,9 @@ class EnrichedMarkdownText
     private var imageRequestHeaders: Map<String, String> = emptyMap()
     private var linkPillContent: Map<String, LinkPillContent> = emptyMap()
 
-    private var streamingAnimation: Boolean = false
-
-    val isStreaming: Boolean get() = streamingAnimation
+    var isStreaming: Boolean = false
+      private set
+    private var streamingFade = true
 
     val isJustified: Boolean get() = markdownStyle?.needsJustify == true
     private var tableStreamingMode = TableStreamingMode.PROGRESSIVE
@@ -281,9 +281,9 @@ class EnrichedMarkdownText
       scheduleRenderIfNeeded()
     }
 
-    fun setStreamingAnimation(enabled: Boolean) {
-      if (streamingAnimation == enabled) return
-      streamingAnimation = enabled
+    fun setStreaming(enabled: Boolean) {
+      if (isStreaming == enabled) return
+      isStreaming = enabled
       if (enabled) {
         previousTextLength = text?.length ?: 0
       } else {
@@ -304,7 +304,13 @@ class EnrichedMarkdownText
       tableStreamingMode = tableMode
       codeBlockStreamingMode = codeBlockMode
       mediaStreamingMode = mediaMode
-      if (streamingAnimation) scheduleRenderIfNeeded()
+      if (isStreaming) scheduleRenderIfNeeded()
+    }
+
+    fun setStreamingFade(enabled: Boolean) {
+      if (streamingFade == enabled) return
+      streamingFade = enabled
+      if (!enabled) fadeAnimator?.cancelAll()
     }
 
     fun commitProps() {
@@ -352,7 +358,7 @@ class EnrichedMarkdownText
       val textLinkRegex = linkRegex
       val codeLinkRegex = inlineCodeLinkRegex
       val flags = md4cFlags
-      val streaming = streamingAnimation
+      val streaming = isStreaming
       val tableMode = tableStreamingMode
       val codeBlockMode = codeBlockStreamingMode
       val mediaMode = mediaStreamingMode
@@ -455,11 +461,13 @@ class EnrichedMarkdownText
 
       layoutManager.invalidateLayout(changedFrom)
 
-      if (streamingAnimation) {
-        if (fadeAnimator == null) {
-          fadeAnimator = TailFadeInAnimator(this)
+      if (isStreaming) {
+        if (streamingFade) {
+          if (fadeAnimator == null) {
+            fadeAnimator = TailFadeInAnimator(this)
+          }
+          fadeAnimator?.animate(tailStart, styledText.length)
         }
-        fadeAnimator?.animate(tailStart, styledText.length)
         previousTextLength = styledText.length
       }
 

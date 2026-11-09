@@ -61,7 +61,7 @@ static inline Size ENRMClampMeasuredSize(CGSize size, const LayoutConstraints &l
 /// stay out of the cache key, are the same in both.
 template <typename PropsT> static inline bool ENRMStreamingRenderEqual(const PropsT &a, const PropsT &b)
 {
-  return a.streamingAnimation == b.streamingAnimation && a.streamingConfig.tableMode == b.streamingConfig.tableMode &&
+  return a.streaming == b.streaming && a.streamingConfig.tableMode == b.streamingConfig.tableMode &&
          a.streamingConfig.codeBlockMode == b.streamingConfig.codeBlockMode &&
          a.streamingConfig.mediaMode == b.streamingConfig.mediaMode;
 }
@@ -124,7 +124,7 @@ static inline Size ENRMMeasureMarkdownContent(
   RCTInternalGenericWeakWrapper *weakWrapper = (RCTInternalGenericWeakWrapper *)unwrapManagedObject(componentViewRef);
   ViewT *view = weakWrapper ? (ViewT *)weakWrapper.object : nil;
 
-  const bool shouldUseMeasurementCache = !typedProps.streamingAnimation;
+  const bool shouldUseMeasurementCache = !typedProps.streaming;
   CGFloat fontScale = ENRMFontScaleForMeasurement(typedProps.allowFontScaling, layoutContext);
 
   // The view lays out every render it applies and asks for a new layout when its
@@ -161,8 +161,8 @@ static inline Size ENRMMeasureMarkdownContent(
   }
 
   id rendered =
-      ENRMPrepareFirstRender(view != nil, typedProps.streamingAnimation,
-                             {props, fontScale, resolvedLayoutDirection, nil}, ^id { return render(fontScale); });
+      ENRMPrepareFirstRender(view != nil, typedProps.streaming, {props, fontScale, resolvedLayoutDirection, nil},
+                             ^id { return render(fontScale); });
 
   std::optional<MeasurementCacheKey> cacheKey;
   if (shouldUseMeasurementCache && !typedProps.markdown.empty()) {

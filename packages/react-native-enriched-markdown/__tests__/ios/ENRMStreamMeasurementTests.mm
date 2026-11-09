@@ -13,7 +13,7 @@ using facebook::react::MeasurementCacheKey;
 // The fields ENRMIsStreamUpdate reads, as codegen generates them on the components' props.
 struct ENRMStreamMeasurementProps {
   std::string markdown;
-  bool streamingAnimation = true;
+  bool streaming = true;
   struct {
     int tableMode = 0;
     int codeBlockMode = 0;
