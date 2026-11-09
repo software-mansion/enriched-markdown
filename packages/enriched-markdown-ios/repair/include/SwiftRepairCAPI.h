@@ -5,7 +5,7 @@ extern "C" {
 #endif
 
 // Caller releases with em_repair_release.
-char *em_repair_inline_markdown(const char *markdown, int highlight, int latexMath);
+char *em_repair_inline_markdown(const char *markdown, int highlight, int latexMath, int superscript, int subscript);
 void em_repair_release(char *string);
 
 #ifdef __cplusplus

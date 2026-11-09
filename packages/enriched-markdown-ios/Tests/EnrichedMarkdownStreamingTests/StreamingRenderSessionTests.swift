@@ -120,6 +120,16 @@ final class StreamingRenderSessionTests: XCTestCase {
         XCTAssertFalse(attachments(of: TableAttachment.self, in: session.render("Intro\n\n" + table + "\n\nAfter", options: options).text).isEmpty)
     }
 
+    func testHiddenImageAppearsWhenComplete() {
+        let session = StreamingFixtures.session()
+        let options = MarkdownStreamingOptions(media: .hidden)
+        let image = "![leaf](https://example.com/leaf.png)"
+        let hidden = session.render("Intro\n\n" + image, options: options).text
+        let complete = session.render("Intro\n\n" + image + "\n\nAfter", options: options).text
+        XCTAssertTrue(attachments(of: MarkdownImageAttachment.self, in: hidden).isEmpty)
+        XCTAssertFalse(attachments(of: MarkdownImageAttachment.self, in: complete).isEmpty)
+    }
+
     func testTrailingBlockMarginSurvivesAWithheldTail() {
         let session = StreamingFixtures.session()
         let markdown = "Para\n\n___\n\n| A | B |\n|---|---|\n| 1 | 2 |"

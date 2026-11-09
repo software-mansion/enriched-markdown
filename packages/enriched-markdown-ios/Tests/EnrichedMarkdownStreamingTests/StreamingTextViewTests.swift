@@ -41,7 +41,11 @@ final class StreamingTextViewTests: XCTestCase {
 
     func testEnvironmentDefault() {
         XCTAssertNil(EnvironmentValues().markdownStreaming)
-        XCTAssertEqual(MarkdownStreamingOptions(), MarkdownStreamingOptions(tables: .progressive, codeBlocks: .progressive, transition: .opacity))
+        XCTAssertEqual(
+            MarkdownStreamingOptions(),
+            MarkdownStreamingOptions(tables: .progressive, codeBlocks: .progressive, media: .progressive, transition: .opacity)
+        )
+        XCTAssertNotEqual(MarkdownStreamingOptions(media: .hidden), MarkdownStreamingOptions())
     }
 
     func testOptionsCompareTransitionsByValue() {
