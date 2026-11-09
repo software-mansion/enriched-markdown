@@ -17,6 +17,9 @@ NSString *markdownFromASTNode(MarkdownASTNode *node);
 /// Useful for extracting the markdown content of a container node (e.g. a table cell).
 NSString *markdownFromASTNodeChildren(MarkdownASTNode *node);
 
+/// Serializes a table cell's content; a newline inside it becomes `<br>` so the row stays on one line.
+NSString *markdownFromTableCellNode(MarkdownASTNode *node);
+
 /// Serializes a Blockquote or Admonition node to full markdown, including `> ` line
 /// prefixes and `> [!TYPE]` header for admonitions.
 NSString *markdownFromBlockquoteNode(MarkdownASTNode *node);

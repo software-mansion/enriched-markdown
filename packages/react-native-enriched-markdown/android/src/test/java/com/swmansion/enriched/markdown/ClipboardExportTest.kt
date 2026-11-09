@@ -70,6 +70,15 @@ class ClipboardExportTest {
     assertEquals("**\$x_1\$**", MarkdownASTSerializer.serializeChildren(nestedCell))
   }
 
+  @Test
+  fun serializedTableCellKeepsLineBreaksAsHtmlBreaks() {
+    fun cell(text: String) =
+      MarkdownASTNode(MarkdownASTNode.NodeType.TableCell, children = listOf(MarkdownASTNode(MarkdownASTNode.NodeType.Text, text)))
+    assertEquals("one<br>two", MarkdownASTSerializer.serializeTableCell(cell("one\ntwo")))
+    // A backslash before the break stays literal instead of escaping the tag.
+    assertEquals("a\\\\<br>b", MarkdownASTSerializer.serializeTableCell(cell("a\\\nb")))
+  }
+
   private fun style(): StyleConfig {
     com.facebook.react.uimanager.DisplayMetricsHolder
       .initDisplayMetricsIfNotInitialized(context)
