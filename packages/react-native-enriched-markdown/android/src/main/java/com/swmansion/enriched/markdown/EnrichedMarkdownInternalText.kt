@@ -19,6 +19,7 @@ import com.swmansion.enriched.markdown.utils.text.view.applySelectableState
 import com.swmansion.enriched.markdown.utils.text.view.cancelJSTouchForCheckboxTap
 import com.swmansion.enriched.markdown.utils.text.view.cancelJSTouchForLinkTap
 import com.swmansion.enriched.markdown.utils.text.view.createSelectionActionModeCallback
+import com.swmansion.enriched.markdown.utils.text.view.refreshSelectionControllers
 import com.swmansion.enriched.markdown.utils.text.view.setupAsMarkdownTextView
 
 class EnrichedMarkdownInternalText
@@ -87,6 +88,11 @@ class EnrichedMarkdownInternalText
     override fun onDraw(canvas: Canvas) {
       super.onDraw(canvas)
       spoilerOverlayDrawer?.draw(canvas)
+    }
+
+    override fun onAttachedToWindow() {
+      super.onAttachedToWindow()
+      refreshSelectionControllers()
     }
 
     override fun onDetachedFromWindow() {
