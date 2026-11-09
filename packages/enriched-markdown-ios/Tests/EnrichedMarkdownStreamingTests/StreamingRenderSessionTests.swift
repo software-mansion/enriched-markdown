@@ -130,6 +130,44 @@ final class StreamingRenderSessionTests: XCTestCase {
         XCTAssertFalse(attachments(of: MarkdownImageAttachment.self, in: complete).isEmpty)
     }
 
+    func testLongListsFreezeTheirFinishedItems() {
+        let items = (1...30).map { "- Item \($0) of a long bullet list" }.joined(separator: "\n")
+        let markdown = "Intro\n\n" + items + "\n\nAfter the list."
+        assertEveryPrefixRendersWhole(markdown)
+        let session = StreamingFixtures.session()
+        var stableLengths: [Int] = []
+        for prefix in StreamingFixtures.chunks(of: markdown, sizes: [17, 9, 23]) {
+            stableLengths.append(session.render(prefix, options: streaming).lineage.stableLength)
+        }
+        XCTAssertEqual(stableLengths, stableLengths.sorted())
+        XCTAssertGreaterThan(Set(stableLengths).count, 10, "the frozen part grows item by item")
+    }
+
+    func testNumberedListsRealignWhenAWiderNumberArrives() {
+        let items = (1...12).map { "\($0). Step \($0) of the recipe" }.joined(separator: "\n")
+        let markdown = "Intro\n\n" + items + "\n\nDone."
+        assertEveryPrefixRendersWhole(markdown)
+        let session = StreamingFixtures.session()
+        var stableLengths: [Int] = []
+        for prefix in StreamingFixtures.chunks(of: markdown, sizes: [17, 9, 23]) {
+            stableLengths.append(session.render(prefix, options: streaming).lineage.stableLength)
+        }
+        XCTAssertNotEqual(stableLengths, stableLengths.sorted(), "the list is rendered again once its marker column widens")
+        XCTAssertGreaterThan(Set(stableLengths).count, 5)
+    }
+
+    func testOpenFenceBodyIsNotReparsed() {
+        let session = StreamingFixtures.session()
+        let body = (1...40).map { "let value\($0) = \($0)" }.joined(separator: "\n")
+        let result = session.render(openFence + body + "\n``", options: streaming)
+        XCTAssertEqual(result.source, openFence + body + "\n")
+        XCTAssertEqual(attachments(of: CodeBlockAttachment.self, in: result.text).count, 0)
+        XCTAssertTrue(result.text.string.contains("let x = 1\n" + body))
+        XCTAssertFalse(result.text.string.contains("``"))
+        let closed = session.render(openFence + body + "\n```\n", options: streaming)
+        assertEquivalent(closed.text, fullRender(openFence + body + "\n```\n"), "closed block")
+    }
+
     func testTrailingBlockMarginSurvivesAWithheldTail() {
         let session = StreamingFixtures.session()
         let markdown = "Para\n\n___\n\n| A | B |\n|---|---|\n| 1 | 2 |"
