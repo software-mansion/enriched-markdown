@@ -47,6 +47,7 @@ extension View {
     _ isStreaming: Bool = true,
     tables: MarkdownStreamingOptions.TableMode = .progressive,
     codeBlocks: MarkdownStreamingOptions.CodeBlockMode = .progressive,
+    media: MarkdownStreamingOptions.MediaMode = .progressive,
     transition: any MarkdownStreamingTransition = .opacity
   ) -> some View
 }
@@ -76,6 +77,17 @@ What a fenced code block shows while it is still arriving.
 | `.progressive` | The code appears line by line. The block's copy actions and syntax highlighting wait for the closing fence. |
 | `.hidden` | The block stays hidden until its closing fence arrives. |
 
+#### `media`
+
+What an image on a line of its own shows while it is still arriving. A link on a line of its own counts too.
+
+<PropInfo type="MarkdownStreamingOptions.MediaMode" default=".progressive" />
+
+| Mode | While the image arrives |
+| --- | --- |
+| `.progressive` | It appears once its syntax is complete. A half-written `![alt](ur` waits. |
+| `.hidden` | It stays hidden until a blank line follows it. |
+
 #### `transition`
 
 How new text appears.
@@ -94,7 +106,7 @@ To animate it your own way, see [Custom transitions](#custom-transitions).
 
 - **Finished text stays put.** Each update re-renders only the unfinished end of the answer. The text above it keeps its layout and selection, and tables and code blocks keep their scroll position. Updates stay fast however long the answer gets.
 - **Unfinished syntax never shows raw.** `**bold` and `` `code`` render as if they were already closed. A lone `**` at the very end waits for the next token. The rules follow [remend](https://www.npmjs.com/package/remend). A link or image still being typed, such as `[text](ur`, waits until it closes.
-- **Unfinished blocks wait**, as set by [`tables`](#tables) and [`codeBlocks`](#codeblocks). A `$$` block stays hidden until its closing `$$` arrives. With [LaTeX math](/ios/guides/latex-math) on, a formula inside a line stays hidden until it closes too. A `$` next to a digit or a space is a price, not math.
+- **Unfinished blocks wait**, as set by [`tables`](#tables), [`codeBlocks`](#codeblocks) and [`media`](#media). A `$$` block stays hidden until its closing `$$` arrives. With [LaTeX math](/ios/guides/latex-math) on, a formula inside a line stays hidden until it closes too. A `$` next to a digit or a space is a price, not math.
 - **New text animates in**, as set by [`transition`](#transition). Selection and VoiceOver are not affected. With Reduce Motion on, new text appears at once.
 
 Each update should extend the previous string. A string that does not, such as a regenerated answer, starts over. A document that ends with a link reference definition (`[label]: url`), or one parsed with [`preserveBlankLines`](/ios/api-reference/enriched-markdown-text#preserveblanklines), re-renders in full on every update.

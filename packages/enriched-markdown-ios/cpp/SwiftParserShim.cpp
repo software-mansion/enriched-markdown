@@ -153,7 +153,7 @@ char *em_latex_spoken_form(const char *latex) {
   return strdup(Markdown::spokenLatex(latex).c_str());
 }
 
-char *em_renderable_markdown_for_streaming(const char *markdown, int hideTables, int hideCodeBlocks,
+char *em_renderable_markdown_for_streaming(const char *markdown, int hideTables, int hideCodeBlocks, int hideMedia,
                                            int *endsInsideOpenCodeFence) {
   if (!markdown) {
     return nullptr;
@@ -164,6 +164,7 @@ char *em_renderable_markdown_for_streaming(const char *markdown, int hideTables,
       hideTables != 0 ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
   options.codeBlockMode =
       hideCodeBlocks != 0 ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
+  options.mediaMode = hideMedia != 0 ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
 
   Markdown::StreamingFilterResult result = Markdown::renderableMarkdownForStreaming(markdown, options);
   if (endsInsideOpenCodeFence) {

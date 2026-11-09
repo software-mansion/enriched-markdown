@@ -854,9 +854,9 @@ While `isStreaming` is true:
 - Unfinished syntax such as `**bold` renders as if closed, following the
   rules of [remend](https://www.npmjs.com/package/remend). A link or image
   still being typed waits until it closes.
-- Unfinished tables and code blocks follow `tables` and `codeBlocks` below.
-  A `$$` block stays hidden until it closes; with LaTeX on, so does a formula
-  inside a line.
+- Unfinished tables, code blocks and images follow `tables`, `codeBlocks` and
+  `media` below. A `$$` block stays hidden until it closes; with LaTeX on, so
+  does a formula inside a line.
 - New text animates in, as set by `transition`. Reduce Motion turns this off.
 
 ```swift
@@ -865,6 +865,7 @@ extension View {
     _ isStreaming: Bool = true,
     tables: MarkdownStreamingOptions.TableMode = .progressive,
     codeBlocks: MarkdownStreamingOptions.CodeBlockMode = .progressive,
+    media: MarkdownStreamingOptions.MediaMode = .progressive,
     transition: any MarkdownStreamingTransition = .opacity
   ) -> some View
 }
@@ -874,6 +875,7 @@ extension View {
 |-----------|--------------------------|-----------|
 | `tables` | Shows the table once its header and delimiter rows are in, then adds rows as they complete | Hides the table until a blank line follows it |
 | `codeBlocks` | Shows the code line by line; copy actions and highlighting wait for the closing fence | Hides the block until its closing fence arrives |
+| `media` | Shows an image on its own line once its syntax is complete | Hides it until a blank line follows it |
 
 `transition` is `.opacity` (a 0.2 s fade, the default), `.opacity(duration:)`,
 `.identity` (no animation), or a `MarkdownStreamingTransition` of your own:

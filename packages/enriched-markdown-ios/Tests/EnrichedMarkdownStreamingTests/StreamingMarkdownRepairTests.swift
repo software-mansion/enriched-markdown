@@ -61,9 +61,10 @@ final class StreamingMarkdownRepairTests: XCTestCase {
         assertRepairs([("Mark ==this", "Mark ==this==")], options: MarkdownParsingOptions(highlight: true))
     }
 
-    func testCaretsAndTildesAreNotClosed() {
-        assertRepairs([("x^2 and **b", "x^2 and **b**")], options: MarkdownParsingOptions(superscript: true))
-        assertRepairs([("H~2 and **b", "H\\~2 and **b**")], options: MarkdownParsingOptions(subscript: true))
+    func testCaretsAndTildesFollowTheParserOptions() {
+        assertRepairs([("x^2 and **b", "x^2 and **b**"), ("H~2 and **b", "H\\~2 and **b**")])
+        assertRepairs([("x^2 and **b", "x^2 and **b**^")], options: MarkdownParsingOptions(superscript: true))
+        assertRepairs([("H~2 and **b", "H~2 and **b**~")], options: MarkdownParsingOptions(subscript: true))
     }
 
     func testUnclosedMathFollowsTheLaTeXOption() {

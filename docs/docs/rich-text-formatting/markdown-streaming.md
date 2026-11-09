@@ -80,7 +80,7 @@ EnrichedMarkdownText(partialMarkdown)
 
 Compared with the React Native package:
 
-- **No flavor switch.** Unfinished tables, code blocks and math are held back in every document. `tables:` and `codeBlocks:` take the same `.progressive` and `.hidden` modes.
+- **No flavor switch.** Unfinished tables, code blocks and math are held back in every document. `tables:`, `codeBlocks:` and `media:` take the same `.progressive` and `.hidden` modes.
 - **Unfinished syntax is repaired**, as `react-native-streamdown` does: `**bold` and `[text](ur` render as if already closed. The rules follow [remend](https://www.npmjs.com/package/remend).
 - **Only the unfinished end re-renders**, so updates stay fast as the answer grows and a selection survives them.
 - **`transition:` picks the animation**: a fade (the default), none, or [your own](/ios/guides/markdown-streaming#custom-transitions).
@@ -96,4 +96,4 @@ Updates must still be append-only: a string that does not extend the previous on
 
 **iOS** - see the [Markdown streaming guide](/ios/guides/markdown-streaming).
 
-- [`.markdownStreaming`](/ios/guides/markdown-streaming#markdownstreaming) - marks a view as streaming. `tables:` and `codeBlocks:` take `.progressive` or `.hidden`, and `transition:` picks the animation.
+- [`.markdownStreaming`](/ios/guides/markdown-streaming#markdownstreaming) - marks a view as streaming. `tables:`, `codeBlocks:` and `media:` take `.progressive` or `.hidden`, and `transition:` picks the animation.
