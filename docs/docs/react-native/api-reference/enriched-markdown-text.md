@@ -38,6 +38,7 @@ import AllowFontScalingSrc from '!!raw-loader!@site/src/examples/react-native/ap
 import MaxFontSizeMultiplierSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/MaxFontSizeMultiplier';
 import AllowTrailingMarginSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/AllowTrailingMargin';
 import StreamingSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Streaming';
+import StreamSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Stream';
 import StreamingConfigSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/StreamingConfig';
 import SpoilerOverlaySrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/SpoilerOverlay';
 import ImageRequestHeadersSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/ImageRequestHeaders';
@@ -89,11 +90,36 @@ Each prop has a live playground below - edit the code and try it. Props marked w
 
 ### `markdown`
 
-The Markdown content to render. Which syntax elements are recognized depends on the [`flavor`](#flavor) and the [`md4cFlags`](#md4cflags) you set. To learn more, see [Feature support](/introduction/supported-features).
+The Markdown content to render. Which syntax elements are recognized depends on the [`flavor`](#flavor) and the [`md4cFlags`](#md4cflags) you set. To learn more, see [Feature support](/introduction/supported-features). Ignored while [`stream`](#stream) is set.
 
-<PropInfo type="string" required />
+<PropInfo type="string" />
 
 <LivePreview src={MarkdownSrc} />
+
+### `stream`
+
+Markdown arriving in pieces, from `createMarkdownStream()`: an alternative to `markdown` for text that grows, such as an LLM answer. Appending to the stream doesn't re-render your component; the view updates once per frame. On iOS and Android the text stays in native memory, so only each chunk crosses from JavaScript.
+
+```tsx
+import { createMarkdownStream, EnrichedMarkdownText } from 'react-native-enriched-markdown';
+
+const stream = createMarkdownStream();
+for await (const chunk of response) stream.append(chunk);
+stream.end();
+
+<EnrichedMarkdownText stream={stream} />;
+```
+
+- `append(chunk)` adds to the end of the text. It throws after `end()` or `dispose()`.
+- `end()` marks the text complete: the view stops [`streaming`](#streaming) and shows everything.
+- `reset(text?)` replaces the text (empty by default) and streams again, for a retry or a regeneration. It also works after `dispose()`.
+- `dispose()` frees the text once no view shows it; a view that mounts after that shows nothing. Call it when the message is gone. A stream that JavaScript no longer references is freed too, where the engine supports `FinalizationRegistry`.
+
+The view streams until `end()`; an explicit `streaming` prop takes precedence. A task-list checkbox toggled while streaming is reset by the next update. Create the stream outside the component (for example next to the message in your store), so it outlives views that unmount and mount again, such as rows of a list. For the same reason, don't dispose it in an effect cleanup of the component that renders it: StrictMode runs cleanups during development.
+
+<PropInfo type="MarkdownStream" />
+
+<LivePreview src={StreamSrc} />
 
 ### `markdownStyle`
 

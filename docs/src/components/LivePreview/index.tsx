@@ -187,6 +187,7 @@ function Playground({
   const RN = require('react-native');
   const {
     EnrichedMarkdownText,
+    createMarkdownStream,
     EnrichedMarkdownTextInput,
     // eslint-disable-next-line @typescript-eslint/no-var-requires
   } = require('react-native-enriched-markdown');
@@ -208,6 +209,7 @@ function Playground({
       Linking: RN.Linking,
       EnrichedMarkdownText,
       EnrichedMarkdownTextInput,
+      createMarkdownStream,
       // Shared default palette used by the API-reference examples so each one
       // can start from a full theme in a single line and override via spread.
       defaultMarkdownStyle,

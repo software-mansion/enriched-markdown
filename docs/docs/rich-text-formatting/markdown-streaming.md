@@ -10,7 +10,7 @@ import StreamingSrc from '!!raw-loader!@site/src/examples/react-native/rich-text
 When Markdown arrives incrementally - token by token from an LLM, for example - you can render it as it streams instead of waiting for the whole string. The display component fades in newly appended text and handles half-formed block elements gracefully while the rest is still arriving.
 
 :::note
-Streaming ships in the React Native package, on iOS and Android. `streaming` and `streamingConfig` are stripped on web, where the current Markdown string renders without the fade-in animation or the incomplete-block handling below.
+Streaming ships in the React Native package, on iOS and Android. `streaming` and `streamingConfig` are stripped on web, where the current Markdown string renders without the fade-in animation or the incomplete-block handling below; a `stream` still shows its text as it grows.
 
 The standalone iOS and Android packages have no streaming API. You can still hand them a growing Markdown string and each update renders it, but new text does not fade in and half-formed tables, code blocks and math are not held back.
 :::
@@ -32,6 +32,22 @@ Feed the growing Markdown string to the display component and set [`streaming`](
 :::note
 The tail is found by **length**, not by diffing: everything past the previous string's length fades in. Streaming therefore assumes **append-only** updates. If you replace `markdown` wholesale - a retry, a regeneration, switching to a different response - the fade will not line up with what actually changed.
 :::
+
+### Streaming without re-rendering
+
+Passing a growing `markdown` re-renders your component on every chunk, and hands the whole text from JavaScript to native code each time. With a stream, your component doesn't re-render: append chunks to it, and the view updates once per frame on its own. Its text stays in native memory, so only each chunk crosses from JavaScript.
+
+```tsx
+import { createMarkdownStream } from 'react-native-enriched-markdown';
+
+const stream = createMarkdownStream();
+socket.onmessage = (event) => stream.append(event.data);
+socket.onclose = () => stream.end();
+
+<EnrichedMarkdownText stream={stream} flavor="github" />;
+```
+
+`end()` stops streaming and renders the whole text; `reset()` starts over for a retry. Keep the stream outside the component, so a row of a list that unmounts and mounts again shows the same text. See [`stream`](/react-native/api-reference/enriched-markdown-text#stream).
 
 ## Incomplete blocks
 
@@ -81,6 +97,7 @@ Blocks that have finished are never touched again, so the cost of each update de
 ## Reference
 
 - [`streaming`](/react-native/api-reference/enriched-markdown-text#streaming) - set while the markdown is still arriving. Defaults to `false`. Replaces the deprecated `streamingAnimation`.
+- [`stream`](/react-native/api-reference/enriched-markdown-text#stream) - markdown from `createMarkdownStream()`, updated once per frame without re-rendering your component.
 - [`onStreamingEnd`](/react-native/api-reference/enriched-markdown-text#onstreamingend) - called when the view stops streaming.
 - [`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig) - `tableMode`, `codeBlockMode` and `mediaMode`, each `'progressive'` or `'hidden'`, and `animation`, `'fade'` or `'none'`. Needs `streaming`.
 - [Markdown flavors](/react-native/guides/markdown-flavors) - what else the flavor switch changes.

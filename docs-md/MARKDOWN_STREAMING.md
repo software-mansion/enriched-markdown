@@ -22,6 +22,20 @@ Feed the growing markdown string to `EnrichedMarkdownText` and set `streaming` w
 
 Streaming assumes append-only updates: everything past the previous string's length is treated as new. `streamingAnimation` is a deprecated alias of `streaming`.
 
+## Streaming Without Re-rendering
+
+Passing a growing `markdown` re-renders your component on every chunk. A stream from `createMarkdownStream()` doesn't: append chunks to it and the view updates once per frame on its own, with the text kept in native memory.
+
+```tsx
+const stream = createMarkdownStream();
+socket.onmessage = (event) => stream.append(event.data);
+socket.onclose = () => stream.end();
+
+<EnrichedMarkdownText stream={stream} flavor="github" />;
+```
+
+Keep the stream outside the component, so a list row that unmounts and mounts again shows the same text, and call `dispose()` when the message is gone.
+
 ## Incomplete Blocks
 
 Some blocks can't be rendered until enough of them has arrived. The `streamingConfig` prop decides what happens in the meantime, in both flavors, while `streaming` is `true`.
