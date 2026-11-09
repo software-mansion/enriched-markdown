@@ -485,9 +485,10 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
   selectionMenuConfig?: SelectionMenuConfig;
   /**
    * Callback fired after a text selection is copied: from the selection menu's
-   * Copy, Copy as Markdown, or Copy Image URL(s) item. Receives the copied text,
-   * which item copied it, and the copied range. Code block copies are reported
-   * by `onCopyPress` instead.
+   * Copy, Copy as Markdown, or Copy Image URL(s) item, the keyboard shortcut
+   * (⌘C / Ctrl+C), or TalkBack's copy action. Receives the copied text, its
+   * format, and the copied range. Code block copies are reported by
+   * `onCopyPress` instead.
    * @platform ios, android, macos
    */
   onSelectionCopy?: (event: SelectionCopyEvent) => void;

@@ -208,7 +208,7 @@ Only fires when `flavor="github"` — the copy button is part of the GitHub flav
 
 ### `onSelectionCopy`
 
-Callback after a text selection is copied, from the selection menu's **Copy**, **Copy as Markdown**, or **Copy Image URL** item. Receives `text` (the copied plain text), `format` (`'plain'`, `'markdown'`, or `'imageUrls'`), and `selection` (`{ start, end }` in the rendered text; with `flavor="github"`, they restart at each block that renders as its own view, such as a table, code block or quote, so consecutive paragraphs count as one run of text). Code block copies are reported by `onCopyPress` instead.
+Callback after a text selection is copied, from the selection menu's **Copy**, **Copy as Markdown**, or **Copy Image URL** item, the keyboard shortcut (⌘C / Ctrl+C), or TalkBack's copy action. Receives `text` (the copied plain text), `format` (`'plain'`, also used by keyboard and TalkBack copies, `'markdown'`, or `'imageUrls'`), and `selection` (`{ start, end }` in the rendered text; with `flavor="github"`, they restart at each block that renders as its own view, such as a table, code block or quote, so consecutive paragraphs count as one run of text). Code block copies are reported by `onCopyPress` instead.
 
 | Type                                    | Default Value | Platform    |
 | --------------------------------------- | ------------- | ----------- |

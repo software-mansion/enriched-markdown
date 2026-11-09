@@ -18,6 +18,8 @@ The default **Copy** action copies the selection with rich-formatting support, s
 - **iOS** copies several formats simultaneously - Plain Text, Markdown (original syntax preserved, under the `net.daringfireball.markdown` type that lets a receiving app recognize it), HTML, RTF (for apps like Notes and Pages), and RTFD (RTF with embedded images).
 - **Android** copies both Plain Text and HTML, so rich-text targets (Gmail, Google Docs) keep the formatting.
 
+The keyboard shortcut (⌘C / Ctrl+C) writes the same formats as the menu's **Copy**.
+
 The standalone SDKs both write **Plain Text and HTML**: see what [iOS](/ios/api-reference/enriched-markdown-text#copy-flavors) and [Android](/android/api-reference/enriched-markdown-text#copying) put on the clipboard.
 
 ## Copy as Markdown
@@ -167,7 +169,7 @@ Not localizable from Compose. The view underneath accepts a Copy as Markdown lab
 - [`selectionMenuConfig`](/react-native/api-reference/enriched-markdown-text#selectionmenuconfig) - toggle and relabel built-in menu actions. Its exported type is **`TextSelectionMenuConfig`** (with `TextSelectionMenuPluralLabels`); the unprefixed names belong to the editor.
 - [`contextMenuItems`](/react-native/api-reference/enriched-markdown-text#contextmenuitems) - add your own actions. Its exported type is **`TextContextMenuItem`**; bare `ContextMenuItem` at the package root is the **editor's** type, which carries an extra `styleState` field in its `onPress` payload.
 - [`onCopyPress`](/react-native/api-reference/enriched-markdown-text#oncopypress) - fires when code is copied from a fenced code block, via the header button, the long-press Copy action, or the VoiceOver copy action. It only fires under `flavor="github"`, and never for Copy as Markdown. Payload: `{ code, language }`.
-- [`onSelectionCopy`](/react-native/api-reference/enriched-markdown-text#onselectioncopy) - fires when a text selection is copied, from the menu's Copy, Copy as Markdown or Copy Image URL item. Payload: `{ text, format, selection }`.
+- [`onSelectionCopy`](/react-native/api-reference/enriched-markdown-text#onselectioncopy) - fires when a text selection is copied, from the menu's Copy, Copy as Markdown or Copy Image URL item, the keyboard shortcut (⌘C / Ctrl+C), or TalkBack's copy action. Payload: `{ text, format, selection }`.
 - [`enableBlockContextMenu`](/react-native/api-reference/enriched-markdown-text#enableblockcontextmenu) - turn the long-press block menu off.
 - Editor extras: `formatMenuConfig` and `selectionMenuConfig` on [`EnrichedMarkdownTextInput`](/react-native/api-reference/enriched-markdown-text-input).
 

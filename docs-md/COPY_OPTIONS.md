@@ -4,7 +4,7 @@ When text is selected, `react-native-enriched-markdown` provides enhanced copy f
 
 ## Smart Copy
 
-The default **Copy** action copies the selected text with rich formatting support:
+The default **Copy** action and the keyboard shortcut (⌘C / Ctrl+C) copy the selected text with rich formatting support:
 
 ### iOS
 

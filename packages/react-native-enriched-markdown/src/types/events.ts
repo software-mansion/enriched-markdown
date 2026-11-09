@@ -36,14 +36,14 @@ export interface CodeBlockPressEvent {
 
 /**
  * Event payload fired when a text selection is copied from the native
- * selection menu.
+ * selection menu, with the keyboard shortcut, or through TalkBack.
  */
 export interface SelectionCopyEvent {
   /** What was put on the clipboard as plain text. */
   text: string;
   /**
-   * Which item copied it: `'plain'` for Copy, `'markdown'` for Copy as Markdown,
-   * `'imageUrls'` for Copy Image URL(s).
+   * How it was copied: `'plain'` for Copy and for keyboard or TalkBack copies,
+   * `'markdown'` for Copy as Markdown, `'imageUrls'` for Copy Image URL(s).
    */
   format: 'plain' | 'markdown' | 'imageUrls';
   /**

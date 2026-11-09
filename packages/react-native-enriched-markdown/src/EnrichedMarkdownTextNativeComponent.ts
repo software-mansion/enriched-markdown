@@ -685,8 +685,9 @@ export interface NativeProps extends ViewProps {
    */
   onContextMenuItemPress?: CodegenTypes.BubblingEventHandler<OnContextMenuItemPressEvent>;
   /**
-   * Fired after a text selection is copied from the selection menu. Receives the
-   * copied text, its format, and the range.
+   * Fired after a text selection is copied from the selection menu, with the
+   * keyboard shortcut, or through TalkBack. Receives the copied text, its
+   * format, and the range.
    */
   onSelectionCopy?: CodegenTypes.BubblingEventHandler<SelectionCopyEvent>;
   /**
