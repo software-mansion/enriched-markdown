@@ -68,6 +68,7 @@ class ImageSpan(
       maxHeightPx > 0 -> maxHeightPx
       else -> height
     }
+  private val placeholderBoxHeight: Int = boxHeight
 
   private val requestUrl: String = sourceOverride?.uri ?: imageUrl
   private val requestHeaders: Map<String, String> =
@@ -260,8 +261,9 @@ class ImageSpan(
         val postWidth = getAvailableWidth(view)
         if (postWidth != cachedWidth) updateWidthAndRecreate(postWidth)
         // onMeasure may have fitted the box without a new width to report here, and the
-        // component may have measured before the image was cached.
-        if (!boxHeightReported) notifyBoxHeightMayHaveChanged(view)
+        // component may have measured before the image was cached. A box still at its
+        // placeholder height can't have left the component stale, and a load notifies anyway.
+        if (!boxHeightReported && boxHeight != placeholderBoxHeight) notifyBoxHeightMayHaveChanged(view)
       }
     }
   }

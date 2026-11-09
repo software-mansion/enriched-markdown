@@ -293,6 +293,18 @@ class ImageLineLayoutTest {
     assertEquals(1, remeasures)
   }
 
+  @Test
+  fun anUnloadedImageDoesNotAskForARemeasureAtRegistration() {
+    val (span, _) = pendingImage("https://example.com/never-loads.png", fittedImageStyle())
+    val view = viewAwaitingLayout(span)
+    var remeasures = 0
+    span.registerTextView(view) { remeasures++ }
+    measure(view)
+    view.runPostedActions()
+
+    assertEquals(0, remeasures)
+  }
+
   private fun fittedImageStyle() = styleConfig(image = mapOf("maxHeight" to IMAGE_HEIGHT.toDouble(), "resizeMode" to "contain"))
 
   /** A view showing [span] that has not been measured yet, as one is when it is created. */
@@ -309,21 +321,21 @@ class ImageLineLayoutTest {
   }
 
   /** An image whose download is in flight, and what finishes that download. */
-  @Suppress("UNCHECKED_CAST")
   private fun pendingImage(
     url: String,
     style: StyleConfig,
     isInline: Boolean = false,
-  ): Pair<ImageSpan, (Bitmap) -> Unit> {
-    val inFlight =
-      ImageDownloader::class.java
-        .getDeclaredField("inFlight")
-        .apply { isAccessible = true }
-        .get(ImageDownloader) as MutableMap<String, MutableList<(Bitmap?) -> Unit>>
-    inFlight[url] = mutableListOf()
-    val span = ImageSpan(context, url, style, isInline)
-    val callbacks = inFlight.remove(url).orEmpty()
-    return span to { bitmap -> callbacks.forEach { it(bitmap) } }
+  ): Pair<ImageSpan, (Bitmap?) -> Unit> {
+    var finishLoading: (Bitmap?) -> Unit = {}
+    val realLoader = ImageDownloader.remoteLoader
+    ImageDownloader.remoteLoader = { _, _, _, onLoaded -> finishLoading = onLoaded }
+    val span =
+      try {
+        ImageSpan(context, url, style, isInline)
+      } finally {
+        ImageDownloader.remoteLoader = realLoader
+      }
+    return span to finishLoading
   }
 
   /** A laid out view with [span] and a span that counts how often the paragraph is measured. */
