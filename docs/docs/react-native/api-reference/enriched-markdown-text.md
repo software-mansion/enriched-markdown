@@ -37,7 +37,7 @@ import SelectionHandleColorSrc from '!!raw-loader!@site/src/examples/react-nativ
 import AllowFontScalingSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/AllowFontScaling';
 import MaxFontSizeMultiplierSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/MaxFontSizeMultiplier';
 import AllowTrailingMarginSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/AllowTrailingMargin';
-import StreamingAnimationSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/StreamingAnimation';
+import StreamingSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Streaming';
 import StreamingConfigSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/StreamingConfig';
 import SpoilerOverlaySrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/SpoilerOverlay';
 import ImageRequestHeadersSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/ImageRequestHeaders';
@@ -295,25 +295,30 @@ Whether to preserve the bottom margin of the last block element. When `false` (d
 
 <LivePreview src={AllowTrailingMarginSrc} />
 
-### `streamingAnimation`
+### `streaming`
 
-When `true`, newly appended content fades in during streaming updates. Only the tail is animated, and the tail is found by **length**, not by diffing: everything past the previous content's length fades in. Streaming therefore assumes append-only updates - replacing `markdown` wholesale (a retry or a regeneration) will not fade correctly. Recommended for LLM streaming use cases.
+Set to `true` while `markdown` is still arriving, for example an LLM answer streaming in. Incomplete syntax at the end of the document is held back or repaired instead of rendering as raw markdown (see [`streamingConfig`](#streamingconfig)), and new content fades in. Set it back to `false` when the stream ends: the final render shows everything, including content that was held back.
+
+New content is found by **length**, not by diffing: everything past the previous content's length counts as new. Streaming therefore assumes append-only updates - replacing `markdown` wholesale (a retry or a regeneration) will not fade correctly.
+
+`streamingAnimation` is the previous name of this prop. It still works, but is deprecated; when both are set, `streaming` wins.
 
 <PropInfo type="boolean" default="false" />
 
-<LivePreview src={StreamingAnimationSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - the fade-in animation is native. On macOS it degrades to an instant reveal.</>} />
+<LivePreview src={StreamingSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - streaming is native. On macOS the fade-in degrades to an instant reveal.</>} />
 
 ### `streamingConfig`
 
-Fine-grained control over how incomplete tables, fenced code blocks and media blocks are handled while streaming. Two conditions must both hold for it to do anything: `streamingAnimation` must be `true`, **and** the flavor must be `github` - the filter runs only on the segmented renderer, so under `flavor="commonmark"` you get the tail fade and nothing else.
+Fine-grained control over streaming: how incomplete tables, fenced code blocks and media blocks are handled, and how new content appears. Only takes effect while [`streaming`](#streaming) is `true`, in both flavors.
 
-<PropInfo type="StreamingConfig" default="{ tableMode: 'progressive', codeBlockMode: 'progressive', mediaMode: 'progressive' }" />
+<PropInfo type="StreamingConfig" default="{ tableMode: 'progressive', codeBlockMode: 'progressive', mediaMode: 'progressive', animation: 'fade' }" />
 
 ```ts
 interface StreamingConfig {
   tableMode?: 'hidden' | 'progressive';
   codeBlockMode?: 'hidden' | 'progressive';
   mediaMode?: 'hidden' | 'progressive';
+  animation?: 'fade' | 'none';
 }
 ```
 
@@ -328,6 +333,9 @@ interface StreamingConfig {
 - `mediaMode`
   - `'progressive'` **(default)** shows a trailing image paragraph, link paragraph or `<video>` block as soon as its syntax is complete (the closing `)` or `>`); until then the partial line is withheld instead of rendering as text. A bare URL on its own line can always grow, so it is withheld until the next line arrives.
   - `'hidden'` withholds the block until a blank line or another block follows it, like `tableMode: 'hidden'`, so it never appears before the content after it. Applies to native images and to blocks drawn by [`renderers`](#renderers) alike.
+- `animation`
+  - `'fade'` **(default)** fades in new text, blocks and table rows, and grows a block drawn by [`renderers`](#renderers) into place. Reduce Motion turns it off.
+  - `'none'` shows new content at once.
 
 An unterminated block-math (`$$`) block is also withheld until its closing `$$` arrives. That behavior is unconditional and has no key here.
 

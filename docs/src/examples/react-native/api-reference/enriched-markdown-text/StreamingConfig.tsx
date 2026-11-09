@@ -31,7 +31,7 @@ export default function App() {
     <EnrichedMarkdownText
       markdown={markdown}
       flavor="github"
-      streamingAnimation
+      streaming
       streamingConfig={{
         // Hold incomplete tables back until they are complete...
         tableMode: 'hidden',

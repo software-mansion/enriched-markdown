@@ -36,5 +36,5 @@ Today, the macOS build differs from iOS in these ways. See [the roadmap](/misc/r
 The `@platform` annotations in the prop reference name iOS and Android, but the same iOS code runs on macOS, so most iOS-marked props apply there too. Two to know about explicitly:
 
 - [`contextMenuItems`](/react-native/api-reference/enriched-markdown-text#contextmenuitems) **is** supported on macOS - custom items are prepended to the selection menu just as on iOS.
-- [`streamingAnimation`](/react-native/api-reference/enriched-markdown-text#streaminganimation) is honored but degraded, per the fade-in limitation above.
+- [`streaming`](/react-native/api-reference/enriched-markdown-text#streaming) is honored, but its fade is degraded, per the fade-in limitation above.
 - [`linkContextMenuItems`](/react-native/api-reference/enriched-markdown-text#linkcontextmenuitems) is **ignored** on macOS - it is an iOS 17+ feature. A long press on a link reaches `onLinkLongPress` instead; see [Link menus](/react-native/guides/link-menus).
