@@ -142,6 +142,12 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
                              glyphPosition:(CGPoint)position
                             characterIndex:(NSUInteger)characterIndex
 {
+  // A text view lays out attachments it never draws (outside the drawn part of a long text):
+  // the container leads a load back to it (refreshDisplay). Not a measurement-only container.
+  if (textContainer != nil && objc_getAssociatedObject(textContainer, kTextViewKey) != nil) {
+    self.textContainer = textContainer;
+  }
+
   CGFloat height = self.cachedHeight;
   CGFloat width = self.isInline ? height : (lineFragment.size.width > 0 ? lineFragment.size.width : height);
 
@@ -198,8 +204,10 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
   self.image = image;
   CGFloat targetWidth = self.isInline ? self.cachedHeight : self.bounds.size.width;
 
-  // Defer processing if we don't have valid bounds yet (common for non-inline block images)
+  // Defer processing if we don't have valid bounds yet (common for non-inline block images). Its box
+  // can take the image's height before it is drawn, though: lay it out again.
   if (!self.isInline && targetWidth <= 0) {
+    [self invalidateBoxLayout];
     return;
   }
 
@@ -333,6 +341,21 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
   [[ENRMImageDownloader shared] downloadURL:self.requestURL
                                     headers:self.requestHeaders
                                  completion:^(RCTUIImage *image) { [weakSelf handleLoadedImage:image]; }];
+}
+
+- (void)invalidateBoxLayout
+{
+  // Only maxHeight/aspectRatio boxes take the image's height.
+  if (self.cachedMaxHeight <= 0 && self.cachedAspectRatio <= 0) {
+    return;
+  }
+  ENRMPlatformTextView *textView = [self fetchAssociatedTextView];
+  NSRange range = textView ? [self findAttachmentRangeInText:textView.textStorage] : NSMakeRange(NSNotFound, 0);
+  if (range.location != NSNotFound) {
+    [textView.layoutManager invalidateDisplayForCharacterRange:range];
+    [textView.layoutManager invalidateLayoutForCharacterRange:range actualCharacterRange:NULL];
+    [self notifyImageLayoutObserver:textView];
+  }
 }
 
 - (void)refreshDisplay
