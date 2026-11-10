@@ -16,6 +16,7 @@ import {
 import type { FormattingRange, InputStyleType } from '../model/inlineStyles';
 import type { BoundaryEvent } from '../model/boundaryEvents';
 import { markdownEscapePositions } from './markdownEscape';
+import { isInputCoreLoaded, serializeWithCore } from './inputCore';
 
 const OPENING_DELIMITERS: Record<InputStyleType, string> = {
   strong: '**',
@@ -172,7 +173,7 @@ function lineAt(lineStarts: readonly number[], position: number): number {
   );
 }
 
-export function serializeInline(
+export function serializeInlineReference(
   text: string,
   ranges: readonly FormattingRange[]
 ): string {
@@ -519,13 +520,13 @@ function writeMarkdown(
 // Markers are written during the same sweep as the delimiters, so the output is
 // never split back into lines. That relies on delimiters never carrying a line
 // ending, which is why link destinations percent-encode theirs.
-export function serialize(
+export function serializeReference(
   text: string,
   ranges: readonly FormattingRange[],
   blockRanges: readonly BlockRange[]
 ): string {
   if (blockRanges.length === 0) {
-    return serializeInline(text, ranges);
+    return serializeInlineReference(text, ranges);
   }
 
   const lineStarts = lineStartsOf(text);
@@ -658,4 +659,49 @@ export function markdownLinePrefix(
     case 'h6':
       return '#'.repeat(HEADING_BLOCK_TYPES.indexOf(block.type) + 1) + ' ';
   }
+}
+
+/**
+ * Plain text and ranges to markdown, by the C++ core. Throws until the WASM
+ * module has loaded: callers that cannot wait use {@link serializeOrPlainText}.
+ */
+export function serialize(
+  text: string,
+  ranges: readonly FormattingRange[],
+  blockRanges: readonly BlockRange[]
+): string {
+  return serializeWithCore(text, ranges, blockRanges);
+}
+
+/** {@link serialize} for text with styles and no blocks. */
+export function serializeInline(
+  text: string,
+  ranges: readonly FormattingRange[]
+): string {
+  return serializeWithCore(text, ranges, []);
+}
+
+let warnedAboutPlainText = false;
+
+/**
+ * For callers that cannot wait for the module (`getMarkdown`, the copy
+ * handler): the markdown once it has loaded, otherwise - still loading, or the
+ * load failed - the plain text without markers, with one warning.
+ */
+export function serializeOrPlainText(
+  text: string,
+  ranges: readonly FormattingRange[],
+  blockRanges: readonly BlockRange[]
+): string {
+  if (isInputCoreLoaded()) {
+    return serializeWithCore(text, ranges, blockRanges);
+  }
+  if (!warnedAboutPlainText) {
+    warnedAboutPlainText = true;
+    // eslint-disable-next-line no-console -- the only way to tell the app
+    console.warn(
+      'react-native-enriched-markdown: the markdown core is not loaded (yet), so the markdown is returned without formatting. It loads when the input mounts; wait for onChangeMarkdown, or call getMarkdown later.'
+    );
+  }
+  return text;
 }
