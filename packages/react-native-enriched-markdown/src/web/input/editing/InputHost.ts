@@ -4,7 +4,7 @@ import {
   parseToPlainTextAndRanges,
   type ParseResult,
 } from '../formatting/InputParser';
-import { serialize } from '../formatting/MarkdownSerializer';
+import { serializeOrPlainText } from '../formatting/MarkdownSerializer';
 import type { RangeBounds } from '../model/rangeBounds';
 import type { TextEdit } from '../model/textEdit';
 import { DomRenderer } from '../render/DomRenderer';
@@ -287,7 +287,7 @@ export class InputHost {
   }
 
   getMarkdown(): string {
-    return serialize(
+    return serializeOrPlainText(
       this.text,
       this.formattingStore.allRanges,
       this.blockStore.allRanges
@@ -1076,7 +1076,7 @@ export class InputHost {
               end: Math.min(range.end, end) - start,
             },
           ];
-    return serialize(
+    return serializeOrPlainText(
       this.text.slice(start, end),
       this.formattingStore.allRanges.flatMap(clip),
       this.blockStore.allRanges.flatMap(clip)

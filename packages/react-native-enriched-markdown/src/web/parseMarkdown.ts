@@ -93,7 +93,7 @@ export function isParserReady(): boolean {
 
 /** The loaded WASM module, or null until {@link isParserReady}. */
 export function getLoadedModule(): Md4cModule | null {
-  return loadedModule;
+  return loadedParser === null ? null : loadedModule;
 }
 
 /** Calls `listener` once the WASM load finishes. */

@@ -1,4 +1,7 @@
-import { parseResultFromAst, parseToPlainTextAndRanges } from '../InputParser';
+import {
+  parseResultFromAst,
+  parseToPlainTextAndRangesReference as parseToPlainTextAndRanges,
+} from '../InputParser';
 import { parseMarkdown } from '../../../parseMarkdown';
 import { createFormattingRange as range } from '../../model/inlineStyles';
 import { createBlockRange as block } from '../../model/blocks';
