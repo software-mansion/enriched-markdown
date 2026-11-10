@@ -91,3 +91,4 @@ set_target_properties(enriched_markdown_input PROPERTIES C_STANDARD 99 C_STANDAR
 add_core_test(repair enriched_markdown_repair)
 add_core_test(latex enriched_markdown_latex)
 add_core_test(input enriched_markdown_input)
+target_compile_definitions(input_tests PRIVATE INPUT_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/input")
