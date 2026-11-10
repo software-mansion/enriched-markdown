@@ -235,6 +235,24 @@ it('passes streaming and the animation to the native view', () => {
   expect(host(root).props.streamingConfig.animation).toBe('none');
 });
 
+it('passes smooth pacing to the native view, off by default', () => {
+  const root = render(
+    <EnrichedMarkdownText markdown="x" flavor="github" streaming />
+  );
+  expect(host(root).props.streamingConfig.smooth).toBe(false);
+  act(() =>
+    root.render(
+      <EnrichedMarkdownText
+        markdown="x"
+        flavor="github"
+        streaming
+        streamingConfig={{ smooth: true }}
+      />
+    )
+  );
+  expect(host(root).props.streamingConfig.smooth).toBe(true);
+});
+
 it('calls onStreamingEnd when the native view stops streaming', () => {
   const onStreamingEnd = jest.fn();
   const root = render(

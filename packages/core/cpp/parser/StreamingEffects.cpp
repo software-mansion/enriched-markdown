@@ -1,4 +1,5 @@
 #include "StreamingEffects.hpp"
+#include "StreamingWords.hpp"
 
 #include <algorithm>
 
@@ -31,7 +32,14 @@ void StreamingEffects::configure(const StreamingEffectConfig &config) {
   reset();
 }
 
-void StreamingEffects::noteArrival(size_t start, size_t end, double time) {
+void StreamingEffects::noteArrival(size_t start, size_t end, double time, std::u16string_view text, char16_t previous) {
+  if (end < textLength_) {
+    units_.erase(std::remove_if(units_.begin(), units_.end(), [&](const Unit &unit) { return unit.start >= end; }),
+                 units_.end());
+    if (!units_.empty()) {
+      units_.back().end = std::min(units_.back().end, end);
+    }
+  }
   textLength_ = end;
   if (end <= start) {
     return;
@@ -41,7 +49,32 @@ void StreamingEffects::noteArrival(size_t start, size_t end, double time) {
     return;
   }
   prune(time);
-  arrivals_.push_back({start, end, time});
+  if (text.size() != end - start) {
+    units_.push_back({start, end, time});
+    return;
+  }
+  size_t i = 0;
+  // Spaces, or the rest of a word the last chunk ended inside, go with that word; when it has
+  // already appeared, they show at once.
+  bool continues =
+      isStreamingSpace(text[0]) || (!isStreamingSpace(previous) && !isOwnWord(previous) && !isOwnWord(text[0]));
+  if (continues) {
+    if (isStreamingSpace(text[0])) {
+      while (i < text.size() && isStreamingSpace(text[i])) {
+        i++;
+      }
+    } else {
+      i = wordEnd(text, 0);
+    }
+    if (!units_.empty() && units_.back().end == start) {
+      units_.back().end = start + i;
+    }
+  }
+  while (i < text.size()) {
+    size_t next = wordEnd(text, i);
+    units_.push_back({start + i, start + next, time});
+    i = next;
+  }
 }
 
 void StreamingEffects::finish(double time) {
@@ -51,15 +84,25 @@ void StreamingEffects::finish(double time) {
 }
 
 void StreamingEffects::reset() {
-  arrivals_.clear();
+  units_.clear();
   textLength_ = 0;
   finishedAt_.reset();
 }
 
 void StreamingEffects::prune(double time) {
-  auto settled = std::find_if(arrivals_.begin(), arrivals_.end(),
-                              [&](const Arrival &arrival) { return time - arrival.time < config_.duration; });
-  arrivals_.erase(arrivals_.begin(), settled);
+  auto settled =
+      std::find_if(units_.begin(), units_.end(), [&](const Unit &unit) { return time - unit.time < config_.duration; });
+  units_.erase(units_.begin(), settled);
+}
+
+const StreamingEffects::Unit *StreamingEffects::unitAt(size_t index) const {
+  auto after =
+      std::upper_bound(units_.begin(), units_.end(), index, [](size_t i, const Unit &unit) { return i < unit.start; });
+  if (after == units_.begin()) {
+    return nullptr;
+  }
+  const Unit &unit = *std::prev(after);
+  return index < unit.end ? &unit : nullptr;
 }
 
 bool StreamingEffects::changesOverTime(double time) {
@@ -70,9 +113,12 @@ bool StreamingEffects::changesOverTime(double time) {
 }
 
 std::optional<CharacterRange> StreamingEffects::animatedRange(double time) {
+  if (textLength_ == 0) {
+    return std::nullopt;
+  }
   switch (config_.type) {
     case StreamingEffectType::Gradient: {
-      if (textLength_ == 0 || (finishedAt_ && time - *finishedAt_ >= kSettleDuration)) {
+      if (finishedAt_ && time - *finishedAt_ >= kSettleDuration) {
         return std::nullopt;
       }
       size_t start = textLength_ > config_.length ? textLength_ - config_.length : 0;
@@ -80,16 +126,11 @@ std::optional<CharacterRange> StreamingEffects::animatedRange(double time) {
     }
     case StreamingEffectType::Fade: {
       prune(time);
-      if (arrivals_.empty()) {
+      if (units_.empty()) {
         return std::nullopt;
       }
-      size_t start = arrivals_.front().start;
-      size_t end = arrivals_.front().end;
-      for (const auto &arrival : arrivals_) {
-        start = std::min(start, arrival.start);
-        end = std::max(end, arrival.end);
-      }
-      return CharacterRange{start, end - start};
+      size_t start = std::min(units_.front().start, textLength_);
+      return CharacterRange{start, std::min(units_.back().end, textLength_) - start};
     }
     case StreamingEffectType::None:
       return std::nullopt;
@@ -100,11 +141,8 @@ std::optional<CharacterRange> StreamingEffects::animatedRange(double time) {
 CharacterLook StreamingEffects::lookAt(size_t index, double time) const {
   CharacterLook look;
   if (config_.type == StreamingEffectType::Fade) {
-    for (auto it = arrivals_.rbegin(); it != arrivals_.rend(); ++it) {
-      if (index >= it->start && index < it->end) {
-        look.opacity = easeOut((time - it->time) / config_.duration);
-        break;
-      }
+    if (const Unit *unit = unitAt(index)) {
+      look.opacity = easeOut((time - unit->time) / config_.duration);
     }
     return look;
   }

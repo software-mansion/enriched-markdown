@@ -1,5 +1,6 @@
 #import "ENRMStreamingEffects.h"
 #include "StreamingEffects.hpp"
+#include <string>
 
 using Markdown::EffectColor;
 using Markdown::StreamingEffectType;
@@ -47,9 +48,15 @@ static std::optional<EffectColor> ENRMEffectColor(RCTUIColor *_Nullable color)
   }
 }
 
-- (void)noteArrivalFrom:(NSUInteger)start to:(NSUInteger)end at:(CFTimeInterval)time
+- (void)noteArrivalIn:(NSString *)text from:(NSUInteger)start to:(NSUInteger)end at:(CFTimeInterval)time
 {
-  _effects.noteArrival(start, end, time);
+  end = MIN(end, text.length);
+  std::u16string characters(start < end ? end - start : 0, u'\0');
+  if (!characters.empty()) {
+    [text getCharacters:reinterpret_cast<unichar *>(characters.data()) range:NSMakeRange(start, end - start)];
+  }
+  char16_t previous = start > 0 && start <= text.length ? [text characterAtIndex:start - 1] : u' ';
+  _effects.noteArrival(start, end, time, characters, previous);
 }
 
 - (void)finishAt:(CFTimeInterval)time

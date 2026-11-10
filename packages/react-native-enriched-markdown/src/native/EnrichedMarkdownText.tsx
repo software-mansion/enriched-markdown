@@ -472,6 +472,7 @@ export const EnrichedMarkdownText = ({
     animationStartColor,
     animationEndColor,
   } = normalizeStreamingAnimation(streamingConfig?.animation);
+  const smooth = streamingConfig?.smooth ?? false;
   const normalizedStreamingConfig = useMemo(
     () => ({
       tableMode,
@@ -482,6 +483,7 @@ export const EnrichedMarkdownText = ({
       animationLength,
       animationStartColor,
       animationEndColor,
+      smooth,
     }),
     [
       tableMode,
@@ -492,6 +494,7 @@ export const EnrichedMarkdownText = ({
       animationLength,
       animationStartColor,
       animationEndColor,
+      smooth,
     ]
   );
   const normalizedSelectionMenuConfig = useMemo(() => {

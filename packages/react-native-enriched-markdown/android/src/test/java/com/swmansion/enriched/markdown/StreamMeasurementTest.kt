@@ -93,6 +93,18 @@ class StreamMeasurementTest {
     assertEquals(taller, streamUpdate("Message"))
   }
 
+  // Smooth pacing: the view shows part of the markdown and asks again as it shows more.
+  @Test
+  fun aViewShowingPartOfTheDocumentHandsOverEachNewSize() {
+    streamUpdate("Smooth pacing")
+    MeasurementStore.storeLaidOutSize(viewId, widthPx, laidOut, "Smooth pacing shows")
+    assertEquals(laidOut, streamUpdate("Smooth pacing shows the words"))
+    val taller = YogaMeasureOutput.make(360f, 2480f)
+    MeasurementStore.storeLaidOutSize(viewId, widthPx, taller, "Smooth pacing shows the")
+
+    assertEquals(taller, streamUpdate("Smooth pacing shows the words"))
+  }
+
   // A new stream's first chunks arrive before the view rendered any of them: it still
   // shows the document the stream replaced, whose size isn't the stream's.
   @Test

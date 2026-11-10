@@ -172,8 +172,8 @@ export interface StreamingConfig {
   mediaMode?: 'hidden' | 'progressive';
   /**
    * How newly arrived content appears during streaming.
-   * - `'fade'` (default): each new chunk of text fades in over 200 ms, and new
-   *   blocks and table rows fade in.
+   * - `'fade'` (default): each new word fades in over 200 ms, and new blocks
+   *   and table rows fade in.
    * - `'gradient'`: the last 20 characters run from their own color to
    *   transparent, following the end of the text (see `StreamingGradient`).
    * - `'none'`: new content appears at once.
@@ -182,6 +182,17 @@ export interface StreamingConfig {
    * @platform ios, android
    */
   animation?: StreamingAnimation;
+  /**
+   * Reveals new text word by word at a steady pace instead of in the bursts
+   * it arrives in: the view shows the text revealed so far, so its layout and
+   * blocks grow with the words. Each chunk spreads over the time until the
+   * next one, at most a second behind, and what is left shows within 200 ms
+   * when the stream ends. Works with every `animation`. Only effective when
+   * `streaming` is `true`.
+   * @default false
+   * @platform ios, android
+   */
+  smooth?: boolean;
 }
 
 /** `streamingConfig.animation`: a preset name, or a preset with its options. */
@@ -195,7 +206,7 @@ export type StreamingAnimation =
 export interface StreamingFade {
   type: 'fade';
   /**
-   * How long a new chunk takes to appear, in milliseconds.
+   * How long a new word takes to appear, in milliseconds.
    * @default 200
    */
   duration?: number;

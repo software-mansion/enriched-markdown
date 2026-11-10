@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown
 
 import android.content.Context
 import android.content.res.Configuration
+import android.graphics.Canvas
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -50,6 +51,7 @@ import com.swmansion.enriched.markdown.utils.common.animatorDurationScale
 import com.swmansion.enriched.markdown.utils.common.isReducedMotionEnabled
 import com.swmansion.enriched.markdown.utils.text.StreamingEffects
 import com.swmansion.enriched.markdown.utils.text.StreamingEffectsAnimator
+import com.swmansion.enriched.markdown.utils.text.StreamingPacer
 import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.text.view.TextPressHost
@@ -98,22 +100,64 @@ class EnrichedMarkdown(
 
   // The stream ended and its last text has not been rendered yet: it still animates, then settles.
   private var streamEnding = false
+
+  // Whether the view streams: after the prop turns off, smooth pacing keeps it on until the words
+  // still waiting have appeared.
   var streaming: Boolean = false
+    private set
+  private var streamingProp = false
+  private var streamingEnded = false
+  private var streamingFade: Boolean = true
+
+  /** streamingConfig.smooth: the view renders the markdown [pacer] has revealed so far. */
+  var smooth: Boolean = false
     set(value) {
       if (field == value) return
       field = value
-      streamEnding = !value
+      renderPending = true
+    }
+  private val pacer =
+    StreamingPacer(
+      reveal = {
+        renderedSource = it
+        scheduleRenderIfNeeded()
+      },
+      done = {
+        stopStreaming()
+        renderedSource = currentMarkdown
+        scheduleRenderIfNeeded()
+      },
+    )
+
+  // The markdown renders take: all of [currentMarkdown], or what smooth pacing has revealed.
+  private var renderedSource: String = ""
+
+  fun setStreamingProp(value: Boolean) {
+    if (streamingProp == value) return
+    streamingProp = value
+    renderPending = true
+    if (value) {
+      streaming = true
+      streamEnding = false
+      streamingEnded = false
+      pacer.resume()
       // The streaming filter only applies while this is on, so re-render to
       // show or hide the content it holds back.
       dirtyFlags += DirtyFlag.FORCE_HEIGHT
-      renderPending = true
-      if (!value) {
-        finishStreamingAnimations()
-        settleTextSegments(except = null)
-        emitStreamingEndEvent()
-      }
+    } else {
+      streamingEnded = true
     }
-  private var streamingFade: Boolean = true
+  }
+
+  // The stream ended: the next render shows the whole document, and what still animates settles.
+  private fun stopStreaming() {
+    streaming = false
+    streamEnding = true
+    emitStreamingEndEvent()
+    dirtyFlags += DirtyFlag.FORCE_HEIGHT
+    finishStreamingAnimations()
+    settleTextSegments(except = null)
+  }
 
   /** Text segments start over with the new animation: 'none' shows what still animates at once. */
   fun setStreamingAnimation(config: StreamingEffects.Config) {
@@ -150,6 +194,7 @@ class EnrichedMarkdown(
       renderPending = true
     }
   private var renderPending: Boolean = false
+  private var markdownChanged = false
 
   var currentMarkdown: String = ""
     private set
@@ -283,7 +328,7 @@ class EnrichedMarkdown(
     }
     if (currentMarkdown == markdown) return
     currentMarkdown = markdown
-    renderPending = true
+    markdownChanged = true
   }
 
   fun setMarkdownStyle(style: ReadableMap?) {
@@ -348,12 +393,41 @@ class EnrichedMarkdown(
     renderPending = true
   }
 
+  // Smooth pacing lays out a new line before Yoga has given the view the height for it (that takes
+  // a commit): until then the line stays inside the view rather than drawing over what follows.
+  override fun dispatchDraw(canvas: Canvas) {
+    if (!(streaming && smooth)) {
+      super.dispatchDraw(canvas)
+      return
+    }
+    val saved = canvas.save()
+    canvas.clipRect(-width.toFloat(), 0f, 2f * width, height.toFloat())
+    super.dispatchDraw(canvas)
+    canvas.restoreToCount(saved)
+  }
+
   fun commitProps() {
     if (isDisposed) return
     MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
-    if (renderPending) {
+    // With smooth pacing the words still waiting appear first (within 200 ms), then streaming stops.
+    if (streamingEnded) {
+      streamingEnded = false
+      if (smooth) {
+        pacer.markdownToRender(currentMarkdown, pacing = true)
+        pacer.finish()
+      }
+      if (!pacer.waiting) stopStreaming()
+    }
+    if (renderPending || markdownChanged) {
+      // Smooth pacing renders what has been revealed and hands the rest over frame by frame, so
+      // new markdown that reveals nothing yet renders nothing.
+      val source = pacer.markdownToRender(currentMarkdown, pacing = streaming && smooth)
+      if (renderPending || source != renderedSource) {
+        renderedSource = source
+        scheduleRenderIfNeeded()
+      }
       renderPending = false
-      scheduleRenderIfNeeded()
+      markdownChanged = false
     }
   }
 
@@ -575,7 +649,7 @@ class EnrichedMarkdown(
   }
 
   private fun scheduleRenderIfNeeded() {
-    if (currentMarkdown.isNotEmpty()) scheduleRender()
+    if (renderedSource.isNotEmpty()) scheduleRender()
   }
 
   // Everything one render needs, captured on the main thread.
@@ -594,7 +668,7 @@ class EnrichedMarkdown(
 
   private fun renderJob(): RenderJob? {
     val style = markdownStyle ?: return null
-    val markdown = currentMarkdown.takeIf { it.isNotEmpty() } ?: return null
+    val markdown = renderedSource.takeIf { it.isNotEmpty() } ?: return null
     return RenderJob(
       style,
       markdown,
@@ -1047,6 +1121,7 @@ class EnrichedMarkdown(
     stateWrapper = null
     textEffects.values.forEach { it.release() }
     textEffects.clear()
+    pacer.release()
   }
 
   companion object {

@@ -15,6 +15,7 @@
 #import "ENRMSpoilerOverlayManager.h"
 #import "ENRMSpoilerTapUtils.h"
 #import "ENRMStreamingEffectsProps.h"
+#import "ENRMStreamingPacer.h"
 #import "ENRMTextInteractionUtils.h"
 #import "ENRMTextRenderCache.h"
 #import "ENRMTextRenderer.h"
@@ -130,6 +131,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   NSUInteger _previousTextLength;
   // The stream ended and its last text has not been rendered yet: it still animates, then settles.
   BOOL _streamEnding;
+  // Smooth pacing (streamingConfig.smooth): the view renders the markdown revealed so far.
+  ENRMStreamingPacer *_pacer;
 
   // Reused by the next render on the render queue (see ENRMTextRenderCache); a recycled view
   // starts a new epoch, which drops it.
@@ -358,6 +361,14 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _resolvedLayoutDirection =
         [[RCTI18nUtil sharedInstance] isRTL] ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight;
     _dirtyFlags = ENRMDirtyNone;
+    __weak EnrichedMarkdownText *weakPacingSelf = self;
+    _pacer = [[ENRMStreamingPacer alloc]
+        initWithReveal:^(NSString *markdown) { [weakPacingSelf renderMarkdownContent:markdown]; }
+        done:^{
+          EnrichedMarkdownText *strongSelf = weakPacingSelf;
+          [strongSelf stopStreaming];
+          [strongSelf renderMarkdownContent:strongSelf->_pacer.markdown];
+        }];
     _tableStreamingMode = ENRMTableStreamingModeProgressive;
     _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
     _mediaStreamingMode = ENRMMediaStreamingModeProgressive;
@@ -711,7 +722,10 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 #if !TARGET_OS_OSX
     ENRMMarkdownTextView *markdownTextView = (ENRMMarkdownTextView *)_textView;
     CFTimeInterval now = CACurrentMediaTime();
-    [markdownTextView.streamingEffects noteArrivalFrom:tailStart to:result.textLength at:now];
+    [markdownTextView.streamingEffects noteArrivalIn:markdownTextView.textStorage.string
+                                                from:tailStart
+                                                  to:result.textLength
+                                                  at:now];
     if (_streamEnding) {
       [markdownTextView.streamingEffects finishAt:now];
     }
@@ -730,14 +744,26 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 }
 #endif
 
+// The stream ended: the next render shows the whole text, and what still animates settles.
+- (void)stopStreaming
+{
+  _streaming = NO;
+  _streamEnding = YES;
+  if (auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter)) {
+    emitter->onStreamingEnd({});
+  }
+#if !TARGET_OS_OSX
+  [((ENRMMarkdownTextView *)_textView).streamingEffects finishAt:CACurrentMediaTime()];
+  [(ENRMMarkdownTextView *)_textView streamingEffectsChanged];
+#endif
+}
+
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
 {
   const auto &oldViewProps = *std::static_pointer_cast<EnrichedMarkdownTextProps const>(_props);
   const auto &newViewProps = *std::static_pointer_cast<EnrichedMarkdownTextProps const>(props);
 
-  if (oldViewProps.markdown != newViewProps.markdown) {
-    _dirtyFlags |= ENRMDirtyRender;
-  }
+  BOOL markdownChanged = oldViewProps.markdown != newViewProps.markdown;
 
   if (_config == nil) {
     _config = [[StyleConfig alloc] init];
@@ -888,23 +914,21 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _accessibilityNeedsRebuild = YES;
   }
 
+  BOOL streamingEnded = NO;
   if (newViewProps.streaming != oldViewProps.streaming) {
-    _streaming = newViewProps.streaming;
-    // The streaming session decides what renders, so the text renders again.
-    _dirtyFlags |= ENRMDirtyRender;
-    _streamEnding = !_streaming;
-    if (_streaming) {
+    if (newViewProps.streaming) {
+      _streaming = YES;
+      _streamEnding = NO;
+      [_pacer resume];
+      // The streaming session decides what renders, so the text renders again.
+      _dirtyFlags |= ENRMDirtyRender;
       _previousTextLength = ENRMGetAttributedText(_textView).length;
     } else {
-#if !TARGET_OS_OSX
-      // What still animates settles.
-      [((ENRMMarkdownTextView *)_textView).streamingEffects finishAt:CACurrentMediaTime()];
-      [(ENRMMarkdownTextView *)_textView streamingEffectsChanged];
-#endif
-      if (auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter)) {
-        emitter->onStreamingEnd({});
-      }
+      streamingEnded = YES;
     }
+  }
+  if (newViewProps.streamingConfig.smooth != oldViewProps.streamingConfig.smooth) {
+    _dirtyFlags |= ENRMDirtyRender;
   }
 
   if (newViewProps.streamingConfig.tableMode != oldViewProps.streamingConfig.tableMode) {
@@ -965,11 +989,29 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _dirtyFlags |= ENRMDirtyRender;
   }
 
-  if (_dirtyFlags & ENRMDirtyRender) {
-    _pendingStyleFingerprint =
-        computeStyleFingerprint(newViewProps.markdownStyle) ^ std::hash<bool>{}(newViewProps.allowTrailingMargin);
-    // Rendered in finalizeUpdates, once the view has its layout metrics.
-    _pendingRenderMarkdown = ENRMStringFromUTF8(newViewProps.markdown);
+  // With smooth pacing the words still waiting appear first (within 200 ms), then streaming stops.
+  if (streamingEnded) {
+    if (newViewProps.streamingConfig.smooth) {
+      [_pacer markdownToRender:ENRMStringFromUTF8(newViewProps.markdown) pacing:YES];
+      [_pacer finish];
+    }
+    if (!_pacer.waiting) {
+      [self stopStreaming];
+    }
+    _dirtyFlags |= ENRMDirtyRender;
+  }
+
+  if (markdownChanged || (_dirtyFlags & ENRMDirtyRender)) {
+    // Smooth pacing renders what has been revealed and hands the rest over frame by frame, so new
+    // markdown that reveals nothing yet renders nothing.
+    NSString *markdown = [_pacer markdownToRender:ENRMStringFromUTF8(newViewProps.markdown)
+                                           pacing:_streaming && newViewProps.streamingConfig.smooth];
+    if ((_dirtyFlags & ENRMDirtyRender) || ![markdown isEqualToString:_cachedMarkdown]) {
+      _pendingStyleFingerprint =
+          computeStyleFingerprint(newViewProps.markdownStyle) ^ std::hash<bool>{}(newViewProps.allowTrailingMargin);
+      // Rendered in finalizeUpdates, once the view has its layout metrics.
+      _pendingRenderMarkdown = markdown;
+    }
     _dirtyFlags &= ~ENRMDirtyRender;
   }
 
@@ -1041,6 +1083,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   _previousTextLength = 0;
   _streamEnding = NO;
+  [_pacer reset];
   _streaming = NO;
 #if !TARGET_OS_OSX
   [((ENRMMarkdownTextView *)_textView).streamingEffects reset];

@@ -326,7 +326,7 @@ class EnrichedMarkdownManager :
     view: EnrichedMarkdown?,
     streaming: Boolean,
   ) {
-    view?.streaming = streaming
+    view?.setStreamingProp(streaming)
   }
 
   @ReactProp(name = "streamingConfig")
@@ -339,6 +339,7 @@ class EnrichedMarkdownManager :
     view.codeBlockStreamingMode = CodeBlockStreamingMode.fromString(config?.getString("codeBlockMode"))
     view.mediaStreamingMode = MediaStreamingMode.fromString(config?.getString("mediaMode"))
     view.setStreamingAnimation(StreamingEffects.Config.from(config, view.context))
+    view.smooth = config?.toHashMap()?.get("smooth") == true
   }
 
   @ReactProp(name = "spoilerOverlay")

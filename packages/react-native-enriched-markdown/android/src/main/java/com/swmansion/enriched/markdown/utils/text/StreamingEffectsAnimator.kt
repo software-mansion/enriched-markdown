@@ -42,7 +42,8 @@ class StreamingEffectsAnimator(
     start: Int,
     end: Int,
   ) {
-    effects.noteArrival(start, end, StreamingEffects.now())
+    val text = viewRef.get()?.text ?: ""
+    effects.noteArrival(text, start, end, StreamingEffects.now())
     if (end > start) finished = false
     refresh()
   }

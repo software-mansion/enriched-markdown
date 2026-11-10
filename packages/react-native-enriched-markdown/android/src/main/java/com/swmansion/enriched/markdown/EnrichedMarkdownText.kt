@@ -45,6 +45,7 @@ import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.emitCodeBlockPress
 import com.swmansion.enriched.markdown.utils.text.StreamingEffects
 import com.swmansion.enriched.markdown.utils.text.StreamingEffectsAnimator
+import com.swmansion.enriched.markdown.utils.text.StreamingPacer
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
 import com.swmansion.enriched.markdown.utils.text.view.CodeBlockPressHost
 import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
@@ -131,7 +132,26 @@ class EnrichedMarkdownText
     private var imageRequestHeaders: Map<String, String> = emptyMap()
     private var linkPillContent: Map<String, LinkPillContent> = emptyMap()
 
+    // Whether the view streams: after the prop turns off, smooth pacing keeps it on until the words
+    // still waiting have appeared.
     var isStreaming: Boolean = false
+      private set
+    private var streamingProp = false
+    private var streamingEnded = false
+
+    // streamingConfig.smooth: the view renders the markdown [pacer] has revealed so far.
+    private var smooth = false
+    private val pacer =
+      StreamingPacer(
+        reveal = {
+          renderedSource = it
+          scheduleRenderIfNeeded()
+        },
+        done = { stopStreaming() },
+      )
+
+    // The markdown renders take: all of [currentMarkdown], or what smooth pacing has revealed.
+    private var renderedSource = ""
       private set
 
     val isJustified: Boolean get() = markdownStyle?.needsJustify == true
@@ -193,6 +213,11 @@ class EnrichedMarkdownText
     fun setMarkdownContent(markdown: String) {
       if (currentMarkdown == markdown) return
       currentMarkdown = markdown
+      // Smooth pacing renders what has been revealed and hands the rest over frame by frame, so new
+      // markdown that reveals nothing yet renders nothing.
+      val source = pacer.markdownToRender(markdown, pacing = isStreaming && smooth)
+      if (source == renderedSource) return
+      renderedSource = source
       scheduleRender()
     }
 
@@ -286,16 +311,35 @@ class EnrichedMarkdownText
     }
 
     fun setStreaming(enabled: Boolean) {
-      if (isStreaming == enabled) return
-      isStreaming = enabled
-      streamEnding = !enabled
+      if (streamingProp == enabled) return
+      streamingProp = enabled
       if (enabled) {
+        isStreaming = true
+        streamEnding = false
+        streamingEnded = false
+        pacer.resume()
         previousTextLength = text?.length ?: 0
+        // The streaming session decides what renders, so the text renders again.
+        scheduleRenderIfNeeded()
       } else {
-        effectsAnimator?.finish()
-        emitStreamingEndEvent()
+        streamingEnded = true
       }
-      // The streaming session decides what renders, so the text renders again.
+    }
+
+    fun setSmooth(enabled: Boolean) {
+      if (smooth == enabled) return
+      smooth = enabled
+      renderedSource = pacer.markdownToRender(currentMarkdown, pacing = isStreaming && smooth)
+      scheduleRenderIfNeeded()
+    }
+
+    // The stream ended: the next render shows the whole text, and what still animates settles.
+    private fun stopStreaming() {
+      isStreaming = false
+      streamEnding = true
+      emitStreamingEndEvent()
+      effectsAnimator?.finish()
+      renderedSource = currentMarkdown
       scheduleRenderIfNeeded()
     }
 
@@ -319,6 +363,15 @@ class EnrichedMarkdownText
 
     fun commitProps() {
       updateMeasurementStoreFontScaling()
+      // With smooth pacing the words still waiting appear first (within 200 ms), then streaming stops.
+      if (streamingEnded) {
+        streamingEnded = false
+        if (smooth) {
+          pacer.markdownToRender(currentMarkdown, pacing = true)
+          pacer.finish()
+        }
+        if (!pacer.waiting) stopStreaming()
+      }
     }
 
     private fun updateMeasurementStoreFontScaling() {
@@ -327,7 +380,7 @@ class EnrichedMarkdownText
 
     private fun scheduleRenderIfNeeded() {
       textRenderKey++
-      if (currentMarkdown.isNotEmpty()) {
+      if (renderedSource.isNotEmpty()) {
         scheduleRender()
       }
     }
@@ -356,7 +409,7 @@ class EnrichedMarkdownText
 
     private fun scheduleRender() {
       val style = markdownStyle ?: return
-      val markdown = currentMarkdown
+      val markdown = renderedSource
       if (markdown.isEmpty()) return
 
       val textLinkRegex = linkRegex
@@ -661,6 +714,7 @@ class EnrichedMarkdownText
       pendingText = null
       effectsAnimator?.release()
       effectsAnimator = null
+      pacer.release()
     }
 
     override fun setPadding(
