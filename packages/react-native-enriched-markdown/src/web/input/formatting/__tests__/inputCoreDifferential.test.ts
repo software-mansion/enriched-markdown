@@ -2,8 +2,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadParser } from '../../../parseMarkdown';
-import { parseToPlainTextAndRanges } from '../InputParser';
-import { serialize } from '../MarkdownSerializer';
+import { parseToPlainTextAndRangesReference as parseToPlainTextAndRanges } from '../InputParser';
+import { serializeReference as serialize } from '../MarkdownSerializer';
 import { parseWithCore, serializeWithCore } from '../inputCore';
 import { BlockStore } from '../BlockStore';
 import { FormattingStore } from '../FormattingStore';

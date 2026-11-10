@@ -1,9 +1,13 @@
+import { loadParser } from '../../../parseMarkdown';
 import { parseToPlainTextAndRanges } from '../InputParser';
 import { FormattingStore } from '../FormattingStore';
 import { BlockStore } from '../BlockStore';
 import { serialize } from '../MarkdownSerializer';
 import { createBlockRange } from '../../model/blocks';
 import { createFormattingRange } from '../../model/inlineStyles';
+
+// Import and export run in the WASM core, which loads asynchronously.
+beforeAll(() => loadParser());
 
 async function roundTrip(markdown: string): Promise<string> {
   const { plainText, formattingRanges, blockRanges } =

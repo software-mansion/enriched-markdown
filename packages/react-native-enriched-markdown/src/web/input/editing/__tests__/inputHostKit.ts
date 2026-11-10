@@ -2,10 +2,19 @@
 // the events a browser would raise by itself - `beforeinput`,
 // `selectionchange`, the clipboard pair - so each one is built here by hand,
 // in the shape the host reads it.
+import { loadParser } from '../../../parseMarkdown';
 import type { HistoryState } from '../EditHistory';
 import { InputHost, type InputHostOptions } from '../InputHost';
 import type { InputState } from '../InputState';
 import type { RangeBounds } from '../../model/rangeBounds';
+
+// `getMarkdown` and the copy handler need the markdown core, which loads
+// asynchronously: ready before the first test of every suite using this kit.
+// The loading behaviour itself is tested in InputHostCoreLoading.test.ts. A
+// suite that requires the kit from inside a test cannot register a hook.
+if (expect.getState().currentTestName === undefined) {
+  beforeAll(() => loadParser());
+}
 
 export interface MountedHost {
   root: HTMLElement;

@@ -1,3 +1,4 @@
+import { loadParser } from '../../../parseMarkdown';
 import { parseToPlainTextAndRanges } from '../InputParser';
 import {
   normalizeBlockRanges,
@@ -5,6 +6,9 @@ import {
 } from '../normalizeImport';
 import { createBlockRange as block } from '../../model/blocks';
 import { createFormattingRange as range } from '../../model/inlineStyles';
+
+// Import and export run in the WASM core, which loads asynchronously.
+beforeAll(() => loadParser());
 
 // What md4c reports for these breaks the stores' invariants; the import
 // restores them before an edit can trip over it (review §2.3.4).

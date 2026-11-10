@@ -1,4 +1,5 @@
 /* eslint-disable no-bitwise -- the seeded generator below */
+import { loadParser } from '../../../parseMarkdown';
 import { parseToPlainTextAndRanges } from '../InputParser';
 import { FormattingStore } from '../FormattingStore';
 import { serializeInline } from '../MarkdownSerializer';
@@ -6,6 +7,9 @@ import {
   INPUT_STYLE_TYPES,
   type InputStyleType,
 } from '../../model/inlineStyles';
+
+// Import and export run in the WASM core, which loads asynchronously.
+beforeAll(() => loadParser());
 
 // Documents a toolbar could build - words, styles applied over whole words,
 // overlapping and crossing each other freely - must come back from their own
