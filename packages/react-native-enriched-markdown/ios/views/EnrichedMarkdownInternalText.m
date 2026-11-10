@@ -131,6 +131,11 @@
 {
   [_spoilerManager setNeedsUpdate];
   [_spoilerManager updateIfNeeded];
+  // VoiceOver's elements hold frames from the old layout.
+  _accessibilityNeedsRebuild = YES;
+#if !TARGET_OS_OSX
+  UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+#endif
   [[self.superview enrm_imageLayoutObserver] imageAttachmentDidResolveLayout];
 }
 

@@ -1,5 +1,7 @@
 #import "../../ios/attachments/ENRMImageAttachment.h"
+#import "../../ios/renderer/RenderContext.h"
 #import "../../ios/styles/StyleConfig.h"
+#import "../../ios/views/EnrichedMarkdownInternalText.h"
 #import <XCTest/XCTest.h>
 #import <objc/runtime.h>
 
@@ -7,6 +9,10 @@
 // not exist fail synchronously on the main thread, so no network or wait is involved.
 static const CGFloat kInlineSize = 20;
 static const CGFloat kBlockHeight = 100;
+
+@interface EnrichedMarkdownInternalText (ImageLayoutObserver)
+- (void)imageAttachmentDidResolveLayout;
+@end
 
 @interface ENRMImageLoadFailureTests : XCTestCase
 @end
@@ -152,6 +158,33 @@ static const CGFloat kBlockHeight = 100;
 {
   XCTAssertGreaterThan([self chipWidthAtContentSize:UIContentSizeCategoryAccessibilityExtraExtraExtraLarge],
                        [self chipWidthAtContentSize:UIContentSizeCategoryLarge]);
+}
+
+// A failure that arrives after VoiceOver has read the text widens the image and reflows the
+// text, so the elements built before it point at the old lines.
+- (CGFloat)accessibilityHeightAfterReflowNotifying:(BOOL)notify
+{
+  EnrichedMarkdownInternalText *view = [[EnrichedMarkdownInternalText alloc] initWithConfig:[self config]];
+  view.frame = CGRectMake(0, 0, 320, 600);
+  NSString *words = @"one two three four five six seven eight nine ten eleven twelve";
+  NSDictionary *attributes = @{NSFontAttributeName : [UIFont systemFontOfSize:16]};
+  [view applyAttributedText:[[NSMutableAttributedString alloc] initWithString:words attributes:attributes]
+                    context:[RenderContext new]];
+  view.textView.textContainer.size = CGSizeMake(320, CGFLOAT_MAX);
+  CGFloat before = CGRectGetHeight([view.accessibilityElements.firstObject accessibilityFrameInContainerSpace]);
+
+  view.textView.textContainer.size = CGSizeMake(80, CGFLOAT_MAX);
+  if (notify) {
+    [view imageAttachmentDidResolveLayout];
+  }
+  CGFloat after = CGRectGetHeight([view.accessibilityElements.firstObject accessibilityFrameInContainerSpace]);
+  return after - before;
+}
+
+- (void)testVoiceOverFramesFollowALateImageLayout
+{
+  XCTAssertEqual([self accessibilityHeightAfterReflowNotifying:NO], 0, @"elements are cached between layouts");
+  XCTAssertGreaterThan([self accessibilityHeightAfterReflowNotifying:YES], 0);
 }
 
 @end
