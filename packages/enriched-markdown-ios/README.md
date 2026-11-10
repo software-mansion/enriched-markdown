@@ -851,7 +851,8 @@ While `isStreaming` is true:
 
 - Only the unfinished end of the text re-renders: the open paragraph, list
   item or code block. The text above keeps its layout and selection, and
-  updates stay fast as the answer grows.
+  updates stay fast as the answer grows. Inside a scroll view, only the text
+  near the visible area is laid out and drawn.
 - Unfinished syntax such as `**bold` renders as if closed, following the
   rules of [remend](https://www.npmjs.com/package/remend). A link or image
   still being typed waits until it closes.
@@ -954,7 +955,7 @@ These scripts run `swift build` / `swift test` / `swift package clean` from the 
 
 ### Benchmarks
 
-`Tests/EnrichedMarkdownTests/PerformanceBenchmarks.swift` times rendering, first layout, the accessibility element build and the decoration display of long documents, and measures the heap a rendered document keeps and the heap and process footprint that showing one inside a scroll view adds. It is skipped in a normal test run; `scripts/benchmark.mjs` runs it on the booted simulator and, with `--base`, on another ref in a temporary worktree (with this checkout's benchmark file, so a new benchmark has a base too), and prints both with the ratio:
+`Tests/EnrichedMarkdownTests/PerformanceBenchmarks.swift` times rendering, first layout, the accessibility element build, the decoration display of long documents and the display of a change at their end, and measures the heap a rendered document keeps and the heap and process footprint that showing one inside a scroll view adds. It is skipped in a normal test run; `scripts/benchmark.mjs` runs it on the booted simulator and, with `--base`, on another ref in a temporary worktree (with this checkout's benchmark file, so a new benchmark has a base too), and prints both with the ratio:
 
 ```sh
 yarn workspace @enriched-markdown/ios bench:ios-native --base main
