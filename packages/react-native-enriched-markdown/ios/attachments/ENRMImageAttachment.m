@@ -123,9 +123,10 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
     _cachedResizeMode = [config imageResizeMode];
     _cachedBorderRadius = [config imageBorderRadius];
 
+    // The resolved font, so the alt text grows with the user's text size like the paragraph does.
     _failurePlaceholder = [[ENRMImageFailurePlaceholder alloc] initWithAltText:altText
                                                                          color:[config paragraphColor]
-                                                                      fontSize:[config paragraphFontSize]
+                                                                      fontSize:[config paragraphFont].pointSize
                                                                   borderRadius:_cachedBorderRadius];
     _loadFailed = [[ENRMImageAttachment failedImageKeys] objectForKey:_cacheKey] != nil;
 
