@@ -263,10 +263,14 @@ class FormattingStore {
   }
 }
 
+// Java's isWhitespace leaves out no-break spaces (U+00A0, U+2007, U+202F), which md4c and the iOS
+// and web inputs treat as whitespace, so space separators count too.
+private fun isWhitespaceCodePoint(codePoint: Int): Boolean = Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint)
+
 // md4c's character classes: a word character is neither whitespace nor Unicode punctuation (P) or
 // symbol (S), so an emoji counts as punctuation.
 private fun isWordCodePoint(codePoint: Int): Boolean {
-  if (Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint)) return false
+  if (isWhitespaceCodePoint(codePoint)) return false
   return when (Character.getType(codePoint).toByte()) {
     Character.CONNECTOR_PUNCTUATION,
     Character.DASH_PUNCTUATION,
@@ -298,9 +302,9 @@ private fun isWordBefore(
 private fun isWhitespaceAt(
   text: CharSequence,
   position: Int,
-): Boolean = position < text.length && Character.isWhitespace(Character.codePointAt(text, position))
+): Boolean = position < text.length && isWhitespaceCodePoint(Character.codePointAt(text, position))
 
 private fun isWhitespaceBefore(
   text: CharSequence,
   position: Int,
-): Boolean = position > 0 && Character.isWhitespace(Character.codePointBefore(text, position))
+): Boolean = position > 0 && isWhitespaceCodePoint(Character.codePointBefore(text, position))

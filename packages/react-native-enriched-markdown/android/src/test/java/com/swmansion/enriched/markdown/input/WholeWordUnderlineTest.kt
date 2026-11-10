@@ -83,6 +83,20 @@ class WholeWordUnderlineTest {
   }
 
   @Test
+  fun selectionStartingAtANoBreakSpaceDoesNotGrow() {
+    type("10\u00A0km")
+
+    assertEquals("10\u00A0_km_", underline(2, 5))
+  }
+
+  @Test
+  fun selectionEndingAtANoBreakSpaceDoesNotGrow() {
+    type("10\u00A0km")
+
+    assertEquals("_10_\u00A0km", underline(0, 3))
+  }
+
+  @Test
   fun punctuationEndsTheWord() {
     type("foo(bar)")
 
