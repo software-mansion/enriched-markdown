@@ -1448,6 +1448,13 @@ export class InputHost {
           end: range.end + start,
         });
       }
+      // The pipeline grew the underlines before the pasted ones were in, so
+      // a pasted "_bar_" right after "foo" is grown here.
+      this.formattingStore.growToWholeWords(
+        this.text,
+        start,
+        start + plainText.length
+      );
       // A block on the first inserted line only applies when that line
       // starts there; inserted mid-line, the line keeps its own block.
       const blocks = blockRanges.filter(

@@ -6,7 +6,9 @@
 import {
   lastState,
   mount,
+  pasteText,
   selectRangeFocused,
+  sendClipboard,
   sendInput,
   styledText,
   typeText,
@@ -301,6 +303,42 @@ describe('growing next to other styles', () => {
 
     expect(markdowns.at(-1)).toBe('_foobar_');
     expect(lastState(states).underline.isActive).toBe(true);
+  });
+});
+
+describe('growing after a paste or cut', () => {
+  it('grows a pasted underline over the word it lands against', async () => {
+    const { root, markdowns, states } = mount();
+    typeText(root, 'foo');
+    await pasteText(root, '_bar_');
+
+    expect(markdowns.at(-1)).toBe('_foobar_');
+    expect(styledText(root, 'underline')).toEqual(['foobar']);
+    expect(lastState(states).underline.isActive).toBe(true);
+  });
+
+  it('grows an underline inserted with insertText', async () => {
+    const { root, host, markdowns } = mount();
+    typeText(root, 'foo');
+    await host.insertText('_bar_');
+
+    expect(markdowns.at(-1)).toBe('_foobar_');
+  });
+
+  it('grows an underline over plain text pasted against it', async () => {
+    const { root, markdowns } = underline('foo', 1);
+    selectRangeFocused(root, 3, 3);
+    await pasteText(root, 'bar');
+
+    expect(markdowns.at(-1)).toBe('_foobar_');
+  });
+
+  it('glues on the word a cut leaves against an underline', () => {
+    const { root, markdowns } = underline('foo bar', 0, 3);
+    selectRangeFocused(root, 3, 4);
+    sendClipboard(root, 'cut');
+
+    expect(markdowns.at(-1)).toBe('_foobar_');
   });
 });
 

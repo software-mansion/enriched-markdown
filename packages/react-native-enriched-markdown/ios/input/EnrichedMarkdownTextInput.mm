@@ -770,6 +770,9 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
     [_blockStore setBlockType:block.type level:block.level forParagraphRange:shifted inText:plainText];
   }
 
+  // The edit pipeline, which grows underlines after an edit, doesn't run for this one.
+  [_formattingStore growToWholeWordsInText:plainText touchingRange:NSMakeRange(editLocation, text.length)];
+
   _lastTextLength = plainText.length;
   _lastSelectedRange = _textView.selectedRange;
 

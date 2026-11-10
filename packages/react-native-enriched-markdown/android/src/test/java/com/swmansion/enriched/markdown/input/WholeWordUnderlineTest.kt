@@ -358,4 +358,20 @@ class WholeWordUnderlineTest {
 
     assertEquals("[foo](https://example.com)_bar_", underline(4, 5))
   }
+
+  // Inserting a link and deleting one skip the edit pipeline, so they grow the underlines
+  // themselves. (A paste goes through the native markdown parser, which Robolectric can't load.)
+  @Test
+  fun deletingALinkGluesTheWordAfterItOn() {
+    type("foo bar")
+    underline(0, 3)
+    view.setSelection(3, 4)
+    view.insertLinkAtCursor("L", "https://example.com")
+    assertEquals("_foo_[L](https://example.com)bar", markdown())
+
+    view.setSelection(4)
+    assertTrue(view.deleteLinkBeforeCursor())
+    assertEquals("_foobar_", markdown())
+    assertTrue(isUnderlineActive())
+  }
 }

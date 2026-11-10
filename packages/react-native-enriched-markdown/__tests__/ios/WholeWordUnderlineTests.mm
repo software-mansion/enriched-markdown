@@ -181,6 +181,8 @@
 - (void)setValue:(NSString *)markdown;
 - (NSString *)currentMarkdown;
 - (BOOL)isEffectiveStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position;
+- (void)pasteMarkdown:(NSString *)markdown;
+- (void)replaceSelectedTextWith:(NSString *)text formattingRanges:(NSArray<ENRMFormattingRange *> *)ranges;
 @end
 
 // Drives the input through the text view delegate calls UIKit makes for a keystroke or a caret move.
@@ -374,6 +376,46 @@
   [_input setValue:@"*foo*_bar_"];
   [self select:NSMakeRange(0, 3)];
   [_input toggleInlineStyle:ENRMInputStyleTypeEmphasis];
+
+  XCTAssertEqualObjects([_input currentMarkdown], @"_foobar_");
+}
+
+// A paste, a cut and a link deletion skip the edit pipeline, so they grow the underlines themselves.
+- (void)testPastingAgainstAnUnderlinedWordGrowsTheUnderline
+{
+  [self type:@"foo"];
+  [self select:NSMakeRange(1, 0)];
+  [self toggleUnderline];
+  [self select:NSMakeRange(3, 0)];
+  [_input pasteMarkdown:@"bar"];
+
+  XCTAssertEqualObjects([_input currentMarkdown], @"_foobar_");
+}
+
+- (void)testPastingAnUnderlineAgainstAWordGrowsIt
+{
+  [self type:@"foo"];
+  [_input pasteMarkdown:@"_bar_"];
+
+  XCTAssertEqualObjects([_input currentMarkdown], @"_foobar_");
+  XCTAssertTrue([self isUnderlineActive]);
+}
+
+// What cut: does once the selection is on the pasteboard.
+- (void)testCuttingTheSpaceGluesTheNextWordOn
+{
+  [_input setValue:@"_foo_ bar"];
+  [self select:NSMakeRange(3, 1)];
+  [_input replaceSelectedTextWith:@"" formattingRanges:@[]];
+
+  XCTAssertEqualObjects([_input currentMarkdown], @"_foobar_");
+}
+
+- (void)testDeletingALinkGluesTheWordAfterItOn
+{
+  [_input setValue:@"_foo_[L](https://example.com)bar"];
+  [self select:NSMakeRange(4, 0)];
+  [self deleteBackward];
 
   XCTAssertEqualObjects([_input currentMarkdown], @"_foobar_");
 }

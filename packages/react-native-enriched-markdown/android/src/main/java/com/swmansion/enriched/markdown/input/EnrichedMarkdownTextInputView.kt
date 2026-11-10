@@ -542,6 +542,8 @@ class EnrichedMarkdownTextInputView(
       editable.replace(start, end, newText)
       adjustStoresForEdit(start, end - start, newText.length)
       postAdjust(editable)
+      // The pipeline, which grows underlines after an edit, doesn't run here either.
+      formattingStore.growToWholeWords(editable, start, start + newText.length)
       lastProcessedText = editable.toString()
       applyFormattingAndEmit()
       eventEmitter.emitChangeText()
