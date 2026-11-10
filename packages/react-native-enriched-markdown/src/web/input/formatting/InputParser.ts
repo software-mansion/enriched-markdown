@@ -1,5 +1,10 @@
 import type { ASTNode, NodeType } from '../../types';
-import { parseMarkdown, type WebMd4cFlags } from '../../parseMarkdown';
+import {
+  loadParser,
+  parseMarkdown,
+  type WebMd4cFlags,
+} from '../../parseMarkdown';
+import { parseWithCore } from './inputCore';
 import {
   normalizeBlockRanges,
   normalizeFormattingRanges,
@@ -303,7 +308,7 @@ function walkNode(
 // `2*3` or a `[` into formatting or into text the caller never passed. iOS
 // completes but then drops every range whose closer it appended, which comes
 // to the same result.
-export async function parseToPlainTextAndRanges(
+export async function parseToPlainTextAndRangesReference(
   markdown: string
 ): Promise<ParseResult> {
   if (markdown.length === 0) {
@@ -380,4 +385,22 @@ function restoreLeadingWhitespace(text: string): string {
   return text.replace(STAND_IN_RUN_RE, (run) =>
     run.replace(/./g, (c) => (c === TAB_STAND_IN ? '\t' : ' '))
   );
+}
+
+/**
+ * Markdown to plain text and ranges, by the C++ core: an unclosed delimiter
+ * stays literal text, and a failure leaves the markdown as plain text.
+ */
+export async function parseToPlainTextAndRanges(
+  markdown: string
+): Promise<ParseResult> {
+  if (markdown.length === 0) {
+    return { plainText: '', formattingRanges: [], blockRanges: [] };
+  }
+  try {
+    await loadParser();
+    return parseWithCore(markdown);
+  } catch {
+    return { plainText: markdown, formattingRanges: [], blockRanges: [] };
+  }
 }

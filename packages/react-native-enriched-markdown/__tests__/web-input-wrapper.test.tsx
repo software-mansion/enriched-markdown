@@ -14,7 +14,8 @@ import {
   type EnrichedMarkdownTextInputProps,
 } from '../src/EnrichedMarkdownTextInput.web';
 import { parseToPlainTextAndRanges } from '../src/web/input/formatting/InputParser';
-import { serialize } from '../src/web/input/formatting/MarkdownSerializer';
+import { serializeOrPlainText } from '../src/web/input/formatting/MarkdownSerializer';
+import { loadParser } from '../src/web/parseMarkdown';
 
 jest.mock('../src/web/input/formatting/InputParser', () => ({
   parseToPlainTextAndRanges: jest.fn(),
@@ -24,13 +25,20 @@ jest.mock('../src/web/input/formatting/MarkdownSerializer', () => {
   const actual = jest.requireActual(
     '../src/web/input/formatting/MarkdownSerializer'
   );
-  return { serialize: jest.fn(actual.serialize) };
+  return { serializeOrPlainText: jest.fn(actual.serializeOrPlainText) };
 });
 
 const parse = parseToPlainTextAndRanges as jest.MockedFunction<
   typeof parseToPlainTextAndRanges
 >;
-const serializeCalls = serialize as jest.MockedFunction<typeof serialize>;
+const serializeCalls = serializeOrPlainText as jest.MockedFunction<
+  typeof serializeOrPlainText
+>;
+
+// The real serializer is the C++ core in the WASM module, which loads
+// asynchronously: ready before the first test, as it is at runtime by the time
+// the app reads a value.
+beforeAll(() => loadParser());
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

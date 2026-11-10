@@ -1,3 +1,4 @@
+import { loadParser } from '../../../parseMarkdown';
 import {
   markdownLinePrefix,
   serialize,
@@ -5,6 +6,9 @@ import {
 } from '../MarkdownSerializer';
 import { createBlockRange, MAX_LIST_DEPTH } from '../../model/blocks';
 import { createFormattingRange as range } from '../../model/inlineStyles';
+
+// Import and export run in the WASM core, which loads asynchronously.
+beforeAll(() => loadParser());
 
 describe('serializeInline', () => {
   it('wraps each style in its dialect delimiters', () => {
