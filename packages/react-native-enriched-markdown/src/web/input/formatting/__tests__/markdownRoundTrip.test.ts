@@ -3,8 +3,19 @@ import { parseToPlainTextAndRanges } from '../InputParser';
 import { FormattingStore } from '../FormattingStore';
 import { BlockStore } from '../BlockStore';
 import { serialize } from '../MarkdownSerializer';
-import { createBlockRange } from '../../model/blocks';
-import { createFormattingRange } from '../../model/inlineStyles';
+import { createBlockRange, type BlockType } from '../../model/blocks';
+import {
+  createFormattingRange,
+  type InputStyleType,
+} from '../../model/inlineStyles';
+import {
+  canonical,
+  knownLimitations,
+  normalization,
+  plainText,
+  unsupported,
+  type ModelCase,
+} from './inputFixtures';
 
 // Import and export run in the WASM core, which loads asynchronously.
 beforeAll(() => loadParser());
@@ -21,118 +32,9 @@ async function roundTrip(markdown: string): Promise<string> {
   return serialize(plainText, styles.allRanges, blocks.allRanges);
 }
 
-// Canonical documents: already in the serializer's output form, so the
-// round trip must reproduce them byte for byte.
-const CANONICAL_FIXTURES = [
-  '',
-  // A single newline between blocks is no blank line and a blank line is one
-  // empty line, wherever the blocks are - including between list items.
-  '# h1\n## h2',
-  '# Head\nbody',
-  '# Head\n\nbody',
-  'para\n- item',
-  'para\n# h',
-  '- a\n\n- b',
-  '- a\n\n\n- b\n\nc\n\n\nd',
-  '- a\n\nb',
-  '1. a\n\n1. b',
-  'rebase the **feature** branch onto *main*',
-  'checkout _detached_, drop ~~WIP~~, hide ||the token||',
-  'read the [docs](https://git-scm.com) first',
-  // Bold and italic meeting inside a word: one "*" run between letters.
-  '***a***bcd',
-  '**a*b***cd',
-  'a***bc***d',
-  // "!" against a link's "[" would read as an image.
-  'Wow\\![docs](https://git-scm.com)',
-  'Wow! [docs](https://git-scm.com)',
-  '**Wow!**[docs](https://git-scm.com)',
-  'bare https://git-scm.com stays plain text',
-  '# Setup',
-  '## Rebase\n\n1. fetch\n2. merge',
-  '### Deploy **now**',
-  '***hotfix***',
-  '**_hotfix_**',
-  '- stack\n  - review',
-  '- a\n  - b\n    - c',
-  '- stack\n  - review\n  1. merge',
-  // A nested item is indented to its parent's rendered marker width, so an
-  // ordered parent ("1. ") indents a column further than a bullet ("- "),
-  // and a mixed chain accumulates the two widths.
-  '1. fetch\n   - nested',
-  '1. fetch\n   1. nested',
-  '- a\n  1. b\n     - c',
-  // An empty item keeps its marker wherever md4c reads it back as one.
-  '- a\n- \n- c',
-  '1. a\n2. \n3. c',
-  '- \n- b',
-  '- a\n- ',
-  '- a\n  - b\n- \n- d',
-  '- a\n  - b\n  - \n  - d',
-  '- \n  - b',
-  'a\n\n- \n- b',
-  '1. fetch\n2. merge\n\nrebase\n\n1. push',
-  'git fetch\n\n\n\ngit merge',
-  // latexMath is off for the input dialect, so dollar delimiters are text.
-  '$$x^2$$',
-  // Plain text that would read as markup is escaped on the way out.
-  '\\*not em\\*',
-  '\\# not a heading',
-  '2 \\*\\* 2',
-  'a \\|\\| b',
-  '# Use \\#',
-  '- \\- x',
-  '**bold \\* star**',
-  '[a\\]b](https://x.dev)',
-];
-
-// Non-canonical input: one pass normalizes it into the expected form.
-const NORMALIZATION_FIXTURES: Array<[before: string, after: string]> = [
-  // The model cannot hold an empty line above a nested item without
-  // de-nesting it, so that blank line is the one dropped.
-  ['- a\n  - b\n\n  - c', '- a\n  - b\n  - c'],
-  ['- a\n\n  - b', '- a\n  - b'],
-  // An unclosed delimiter is literal text: it comes back escaped, never
-  // closed, and never with characters the caller did not pass.
-  ['**force push', '\\*\\*force push'],
-  ['~~drop ||squash', '\\~\\~drop \\|\\|squash'],
-  ['[changelog](https://git-scm', '\\[changelog\\](https://git-scm'],
-  ['use snake_case here', 'use snake\\_case here'],
-  ['2*3 = 6', '2\\*3 = 6'],
-  ['a||b', 'a\\|\\|b'],
-  ['see [docs', 'see \\[docs'],
-  // Styles covering exactly the link text move inside the link.
-  ['**[docs](https://x.dev)**', '[**docs**](https://x.dev)'],
-  // An empty heading is an editing-time anchor; import drops it (as native).
-  ['# ', ''],
-  // Nesting indent is re-derived from the parent's marker width, so a wider
-  // hand-typed indent still nests and collapses to the canonical column.
-  ['- stack\n   - review', '- stack\n  - review'],
-  ['- a\n   - b\n      - c', '- a\n  - b\n    - c'],
-  ['- stack\n   - review\n   1. merge', '- stack\n  - review\n  1. merge'],
-  // Ordered markers come from the block store's renumbering, not the source.
-  ['9. a\n   - b', '1. a\n   - b'],
-];
-
-// Blocks md4c reports (TOP_LEVEL_BLOCK_TYPES in InputParser) that the input
-// model has no BlockType for. Their markers are dropped and the content
-// survives as plain paragraphs. Pinned so the loss stays a decision: a future
-// BlockType for any of these turns into a diff here.
-const UNSUPPORTED_BLOCK_FIXTURES: Array<[before: string, after: string]> = [
-  ['> quote', 'quote'],
-  ['> quote\n> more', 'quote\nmore'],
-  ['| a | b |\n| - | - |\n| 1 | 2 |', 'ab12'],
-  ['---', ''],
-  ['a\n\n---\n\nb', 'a\n\n\n\nb'],
-  ['`inline code`', 'inline code'],
-  // A code block keeps its lines and ends like any other block.
-  ['```\ncode\n```', 'code'],
-  ['```js\nconst a = 1;\n```', 'const a = 1;'],
-  ['```\ncode\n```\nafter', 'code\nafter'],
-  ['~~~\nt\n~~~', 't'],
-  ['a\n\n```\nx\ny\n```\n\nb', 'a\n\nx\ny\n\nb'],
-];
-
+const CANONICAL_FIXTURES = canonical();
+const NORMALIZATION_FIXTURES = normalization();
+const UNSUPPORTED_BLOCK_FIXTURES = unsupported();
 const ONE_PASS_FIXTURES = [
   ...NORMALIZATION_FIXTURES,
   ...UNSUPPORTED_BLOCK_FIXTURES,
@@ -166,52 +68,88 @@ describe('markdown round trip', () => {
   ])('is idempotent for the settled form %j', async (markdown) => {
     expect(await roundTrip(markdown)).toBe(markdown);
   });
+
+  // Any markdown reaches a fixed point after one round trip and keeps its text.
+  it.each([
+    ...CANONICAL_FIXTURES,
+    ...ONE_PASS_FIXTURES.flatMap(([before, after]) => [before, after]),
+  ])('settles %j after one pass without losing text', async (markdown) => {
+    const once = await roundTrip(markdown);
+
+    expect(await roundTrip(once)).toBe(once);
+    expect((await parseToPlainTextAndRanges(once)).plainText).toBe(
+      (await parseToPlainTextAndRanges(markdown)).plainText
+    );
+  });
+});
+
+// Behavior of the reference that looks wrong and is pinned on purpose, so that
+// changing it is a decision (cpp/tests/fixtures/input/known-limitations.json).
+describe('known limitations', () => {
+  const limitations = knownLimitations();
+  const chains = limitations.flatMap((entry) =>
+    entry.kind === 'chain' ? [entry] : []
+  );
+  const models = limitations.flatMap((entry) =>
+    entry.kind === 'model' ? [entry] : []
+  );
+
+  it.each(chains.map((entry) => [entry.description, entry] as const))(
+    'chain: %s',
+    async (_, entry) => {
+      let markdown = entry.markdown;
+      for (const expected of entry.trips) {
+        markdown = await roundTrip(markdown);
+        expect(markdown).toBe(expected);
+      }
+      expect(await roundTrip(markdown)).toBe(markdown);
+    }
+  );
+
+  const BLOCK_TYPES: Record<string, BlockType> = {
+    p: 'paragraph',
+    h1: 'h1',
+    h2: 'h2',
+    h3: 'h3',
+    h4: 'h4',
+    h5: 'h5',
+    h6: 'h6',
+    ul: 'unordered-list-item',
+    ol: 'ordered-list-item',
+  };
+
+  it.each(models.map((entry) => [entry.description, entry] as const))(
+    'model: %s',
+    async (_, entry: ModelCase) => {
+      const markdown = serialize(
+        entry.text,
+        entry.ranges.map(([type, start, end, url]) =>
+          createFormattingRange(type as InputStyleType, start, end, url)
+        ),
+        entry.blocks.map(([type, start, end, level]) =>
+          createBlockRange(BLOCK_TYPES[type]!, start, end, level)
+        )
+      );
+      expect(markdown).toBe(entry.markdown);
+
+      const parsed = await parseToPlainTextAndRanges(markdown);
+      expect(parsed.plainText).toBe(entry.parsedText);
+      if (entry.parsedLinks !== undefined) {
+        expect(parsed.formattingRanges.map((range) => range.url)).toEqual(
+          entry.parsedLinks
+        );
+      }
+      if (entry.parsedBlocks !== undefined) {
+        expect(parsed.blockRanges).toHaveLength(entry.parsedBlocks);
+      }
+    }
+  );
 });
 
 // Text the user typed, which carries no markup of its own, has to come back
 // as the same text with the same styles. Each case is serialized from the
 // model, not written as markdown, the way the editor saves it.
-const PLAIN_TEXT_CASES: string[] = [
-  '5 * 2 = 10',
-  'x = a_b',
-  'snake_case is fine',
-  'array[0',
-  'a]b',
-  'true || false',
-  'use ` here',
-  '&copy; 2024',
-  'Tom &amp; Jerry',
-  'AT&T and R&D',
-  '1984. A novel',
-  '3) third',
-  'a\n===',
-  'a\n---',
-  '- item typed as text',
-  '+ plus',
-  '# not a heading',
-  '###### six',
-  '> not a quote',
-  '~~ approx',
-  '~single~',
-  'back\\slash',
-  'line ends with \\',
-  '<div>hello</div>',
-  'a <b>c</b>',
-  '<https://x.dev>',
-  '![alt](img.png)',
-  '[x](y)',
-  '**not bold**',
-  '_under_',
-  '***',
-  '___',
-  '```',
-  '~~~',
-  '1. a\n2. b',
-  '#hashtag',
-  'ends with #',
-  'C# and F#',
-  '=',
-];
+const PLAIN_TEXT_CASES = plainText();
 
 async function modelOf(markdown: string) {
   const { plainText, formattingRanges, blockRanges } =
