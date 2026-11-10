@@ -11,7 +11,7 @@ final class InlineImagePlacementTests: XCTestCase {
             ("# HH {image} HH", nil),
             ("**HH {image} HH**", nil),
             ("HH {image} HH", 48),
-            ("> HH {image} HH", 48),
+            ("> HH {image} HH", 48)
         ]
         for (markdown, lineHeight) in cases {
             let label = "\(markdown), line height \(String(describing: lineHeight))"
