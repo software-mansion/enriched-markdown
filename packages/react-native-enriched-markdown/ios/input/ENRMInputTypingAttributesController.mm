@@ -84,6 +84,14 @@
   [_pendingStyleRemovals removeObject:key];
 }
 
+- (void)pendStyle:(ENRMInputStyleType)type isOn:(BOOL)isOn
+{
+  NSNumber *key = @(type);
+  [_pendingStyles removeObject:key];
+  [_pendingStyleRemovals removeObject:key];
+  [(isOn ? _pendingStyles : _pendingStyleRemovals) addObject:key];
+}
+
 #pragma mark - Typing attribute synchronization
 
 - (void)syncWithCursorBlock

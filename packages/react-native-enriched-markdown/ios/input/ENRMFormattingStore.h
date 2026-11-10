@@ -32,6 +32,27 @@ NS_ASSUME_NONNULL_BEGIN
               inRange:(NSRange)range
     conflictingStyles:(NSSet<NSNumber *> *)conflictingStyles;
 
+/// Strips `conflictingStyles` from `range` and adds `type` over it.
+- (void)addStyle:(ENRMInputStyleType)type
+              inRange:(NSRange)range
+    conflictingStyles:(NSSet<NSNumber *> *)conflictingStyles;
+
+/// The range toggling `type` over `range` should cover, or `range` itself when it needs no change.
+/// md4c ignores a `_` between two word characters ("Intra-word underscore doesn't have special
+/// meaning"), so an underline that starts or ends inside a word would be written as markdown that
+/// reads back with a literal `_`. Instead the toggle, on or off, grows to the word's edges:
+/// - a caret touching a word takes the whole word, also at the word's edge: letters typed there
+///   join the word, so "text|" takes "text" before "underline" is typed after it;
+/// - a selection edge inside a word moves out to the word's edge.
+/// A caret with no word on either side stays a caret. A link's edge stops the growth, since the
+/// link's own delimiters already separate the `_` from the word.
+- (NSRange)wholeWordRangeForStyle:(ENRMInputStyleType)type inText:(NSString *)text range:(NSRange)range;
+
+/// Grows every underline that an edit left starting or ending inside a word to that word's edges,
+/// by the selection rule of wholeWordRangeForStyle: letters typed or pasted right before or after
+/// an underlined word join it, and so does the word a deletion glued to it.
+- (void)growToWholeWordsInText:(NSString *)text;
+
 /// YES when toggling `type` ON at `position` should be refused because one of
 /// the `blockingStyles` is active there. Toggling OFF is never blocked.
 - (BOOL)isToggleBlocked:(ENRMInputStyleType)type

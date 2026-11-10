@@ -2,6 +2,69 @@
 #import "ENRMRangeEditAdjustment.h"
 #import "ENRMRangeStoreUtils.h"
 
+#pragma mark - Character classes
+
+static NSUInteger ENRMCodePointLengthAt(NSString *text, NSUInteger position)
+{
+  return position + 1 < text.length && CFStringIsSurrogateHighCharacter([text characterAtIndex:position]) &&
+                 CFStringIsSurrogateLowCharacter([text characterAtIndex:position + 1])
+             ? 2
+             : 1;
+}
+
+static NSUInteger ENRMCodePointLengthBefore(NSString *text, NSUInteger position)
+{
+  return position >= 2 && CFStringIsSurrogateLowCharacter([text characterAtIndex:position - 1]) &&
+                 CFStringIsSurrogateHighCharacter([text characterAtIndex:position - 2])
+             ? 2
+             : 1;
+}
+
+static UTF32Char ENRMCodePointAt(NSString *text, NSUInteger position)
+{
+  unichar high = [text characterAtIndex:position];
+  if (ENRMCodePointLengthAt(text, position) == 2) {
+    return CFStringGetLongCharacterForSurrogatePair(high, [text characterAtIndex:position + 1]);
+  }
+  return high;
+}
+
+// md4c's character classes: a word character is neither whitespace nor Unicode punctuation (P) or
+// symbol (S), so an emoji counts as punctuation.
+static BOOL ENRMIsWordCodePoint(UTF32Char codePoint)
+{
+  static NSCharacterSet *nonWord;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    NSMutableCharacterSet *set = [NSMutableCharacterSet whitespaceAndNewlineCharacterSet];
+    [set formUnionWithCharacterSet:[NSCharacterSet punctuationCharacterSet]];
+    [set formUnionWithCharacterSet:[NSCharacterSet symbolCharacterSet]];
+    nonWord = [set copy];
+  });
+  return ![nonWord longCharacterIsMember:codePoint];
+}
+
+static BOOL ENRMIsWordAt(NSString *text, NSUInteger position)
+{
+  return position < text.length && ENRMIsWordCodePoint(ENRMCodePointAt(text, position));
+}
+
+static BOOL ENRMIsWordBefore(NSString *text, NSUInteger position)
+{
+  return position > 0 && ENRMIsWordAt(text, position - ENRMCodePointLengthBefore(text, position));
+}
+
+static BOOL ENRMIsWhitespaceAt(NSString *text, NSUInteger position)
+{
+  return position < text.length && [[NSCharacterSet whitespaceAndNewlineCharacterSet]
+                                       characterIsMember:[text characterAtIndex:position]];
+}
+
+static BOOL ENRMIsWhitespaceBefore(NSString *text, NSUInteger position)
+{
+  return position > 0 && ENRMIsWhitespaceAt(text, position - 1);
+}
+
 @implementation ENRMFormattingStore {
   NSMutableArray<ENRMFormattingRange *> *_ranges;
 }
@@ -132,15 +195,73 @@
     if (wasActive) {
       [self removeType:type inRange:range];
     } else {
-      for (NSNumber *conflict in conflictingStyles) {
-        [self removeType:(ENRMInputStyleType)conflict.integerValue inRange:range];
-      }
-      [self addRange:[ENRMFormattingRange rangeWithType:type range:range]];
+      [self addStyle:type inRange:range conflictingStyles:conflictingStyles];
     }
   } else {
     wasActive = [self isStyleActive:type atPosition:range.location];
   }
   return wasActive;
+}
+
+- (void)addStyle:(ENRMInputStyleType)type
+              inRange:(NSRange)range
+    conflictingStyles:(NSSet<NSNumber *> *)conflictingStyles
+{
+  for (NSNumber *conflict in conflictingStyles) {
+    [self removeType:(ENRMInputStyleType)conflict.integerValue inRange:range];
+  }
+  [self addRange:[ENRMFormattingRange rangeWithType:type range:range]];
+}
+
+- (NSRange)wholeWordRangeForStyle:(ENRMInputStyleType)type inText:(NSString *)text range:(NSRange)range
+{
+  if (type != ENRMInputStyleTypeUnderline) {
+    return range;
+  }
+  NSUInteger start = range.location;
+  NSUInteger end = NSMaxRange(range);
+  BOOL isCaret = range.length == 0;
+  if (isCaret && !ENRMIsWordBefore(text, start) && !ENRMIsWordAt(text, start)) {
+    return range;
+  }
+  NSUInteger newStart = start;
+  if (isCaret || !ENRMIsWhitespaceAt(text, start)) {
+    while (ENRMIsWordBefore(text, newStart) && ![self isLinkEdge:newStart]) {
+      newStart -= ENRMCodePointLengthBefore(text, newStart);
+    }
+  }
+  NSUInteger newEnd = end;
+  if (isCaret || !ENRMIsWhitespaceBefore(text, end)) {
+    while (ENRMIsWordAt(text, newEnd) && ![self isLinkEdge:newEnd]) {
+      newEnd += ENRMCodePointLengthAt(text, newEnd);
+    }
+  }
+  return NSMakeRange(newStart, newEnd - newStart);
+}
+
+- (void)growToWholeWordsInText:(NSString *)text
+{
+  for (ENRMFormattingRange *existing in [_ranges copy]) {
+    NSRange range = existing.range;
+    if (existing.type != ENRMInputStyleTypeUnderline || range.length == 0 || NSMaxRange(range) > text.length) {
+      continue;
+    }
+    NSRange grown = [self wholeWordRangeForStyle:existing.type inText:text range:range];
+    if (!NSEqualRanges(grown, range)) {
+      [self addRange:[ENRMFormattingRange rangeWithType:existing.type range:grown]];
+    }
+  }
+}
+
+- (BOOL)isLinkEdge:(NSUInteger)position
+{
+  for (ENRMFormattingRange *existing in _ranges) {
+    if (existing.type == ENRMInputStyleTypeLink &&
+        (existing.range.location == position || NSMaxRange(existing.range) == position)) {
+      return YES;
+    }
+  }
+  return NO;
 }
 
 - (BOOL)isToggleBlocked:(ENRMInputStyleType)type

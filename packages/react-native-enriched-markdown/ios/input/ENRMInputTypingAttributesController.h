@@ -29,6 +29,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)isEffectiveStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position;
 - (void)togglePendingStyle:(ENRMInputStyleType)type wasActive:(BOOL)wasActive hasSelection:(BOOL)hasSelection;
 - (void)clearPendingStyle:(ENRMInputStyleType)type;
+/// Makes the next keystroke carry `type` (or drop it, with `isOn` NO), whatever was pending for it.
+- (void)pendStyle:(ENRMInputStyleType)type isOn:(BOOL)isOn;
 - (void)syncWithCursorBlock;
 - (void)syncWithPendingStyles;
 - (void)resetForSelectionChange;

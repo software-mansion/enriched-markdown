@@ -78,14 +78,74 @@ class FormattingStore {
       if (isActive) {
         removeType(type, start, end)
       } else {
-        for (conflict in conflictingStyles) {
-          removeType(conflict, start, end)
-        }
-        addRange(FormattingRange(type, start, end))
+        addStyle(type, start, end, conflictingStyles)
       }
     }
     return if (isActive) ToggleResult.WAS_ACTIVE else ToggleResult.WAS_INACTIVE
   }
+
+  /** Strips [conflictingStyles] from `[start, end)` and adds [type] over it. */
+  fun addStyle(
+    type: StyleType,
+    start: Int,
+    end: Int,
+    conflictingStyles: Set<StyleType>,
+  ) {
+    for (conflict in conflictingStyles) {
+      removeType(conflict, start, end)
+    }
+    addRange(FormattingRange(type, start, end))
+  }
+
+  /**
+   * The range toggling [type] over `[start, end)` should cover, or null when it is `[start, end)`
+   * itself. md4c ignores a `_` between two word characters ("Intra-word underscore doesn't have
+   * special meaning"), so an underline that starts or ends inside a word would be written as
+   * markdown that reads back with a literal `_`. Instead the toggle, on or off, grows to the word's
+   * edges:
+   * - a caret touching a word takes the whole word, also at the word's edge: letters typed there
+   *   join the word, so "text|" takes "text" before "underline" is typed after it;
+   * - a selection edge inside a word moves out to the word's edge.
+   * A caret with no word on either side stays a caret. A link's edge stops the growth, since the
+   * link's own delimiters already separate the `_` from the word.
+   */
+  fun wholeWordRange(
+    type: StyleType,
+    text: CharSequence,
+    start: Int,
+    end: Int,
+  ): Pair<Int, Int>? {
+    if (type != StyleType.UNDERLINE) return null
+    if (start == end && !isWordBefore(text, start) && !isWordAt(text, start)) return null
+    var newStart = start
+    if (start == end || !isWhitespaceAt(text, start)) {
+      while (isWordBefore(text, newStart) && !isLinkEdge(newStart)) {
+        newStart -= Character.charCount(Character.codePointBefore(text, newStart))
+      }
+    }
+    var newEnd = end
+    if (start == end || !isWhitespaceBefore(text, end)) {
+      while (isWordAt(text, newEnd) && !isLinkEdge(newEnd)) {
+        newEnd += Character.charCount(Character.codePointAt(text, newEnd))
+      }
+    }
+    return if (newStart != start || newEnd != end) Pair(newStart, newEnd) else null
+  }
+
+  /**
+   * Grows every underline that an edit left starting or ending inside a word to that word's edges,
+   * by the selection rule of [wholeWordRange]: letters typed or pasted right before or after an
+   * underlined word join it, and so does the word a deletion glued to it.
+   */
+  fun growToWholeWords(text: CharSequence) {
+    for (range in ranges.filter { it.type == StyleType.UNDERLINE }) {
+      if (range.start >= range.end || range.end > text.length) continue
+      val (start, end) = wholeWordRange(range.type, text, range.start, range.end) ?: continue
+      addRange(FormattingRange(range.type, start, end))
+    }
+  }
+
+  private fun isLinkEdge(position: Int): Boolean = ranges.any { it.type == StyleType.LINK && (it.start == position || it.end == position) }
 
   /**
    * Returns true when toggling [type] ON at [position] should be refused
@@ -202,3 +262,45 @@ class FormattingStore {
     }
   }
 }
+
+// md4c's character classes: a word character is neither whitespace nor Unicode punctuation (P) or
+// symbol (S), so an emoji counts as punctuation.
+private fun isWordCodePoint(codePoint: Int): Boolean {
+  if (Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint)) return false
+  return when (Character.getType(codePoint).toByte()) {
+    Character.CONNECTOR_PUNCTUATION,
+    Character.DASH_PUNCTUATION,
+    Character.START_PUNCTUATION,
+    Character.END_PUNCTUATION,
+    Character.INITIAL_QUOTE_PUNCTUATION,
+    Character.FINAL_QUOTE_PUNCTUATION,
+    Character.OTHER_PUNCTUATION,
+    Character.MATH_SYMBOL,
+    Character.CURRENCY_SYMBOL,
+    Character.MODIFIER_SYMBOL,
+    Character.OTHER_SYMBOL,
+    -> false
+
+    else -> true
+  }
+}
+
+private fun isWordAt(
+  text: CharSequence,
+  position: Int,
+): Boolean = position < text.length && isWordCodePoint(Character.codePointAt(text, position))
+
+private fun isWordBefore(
+  text: CharSequence,
+  position: Int,
+): Boolean = position > 0 && isWordCodePoint(Character.codePointBefore(text, position))
+
+private fun isWhitespaceAt(
+  text: CharSequence,
+  position: Int,
+): Boolean = position < text.length && Character.isWhitespace(Character.codePointAt(text, position))
+
+private fun isWhitespaceBefore(
+  text: CharSequence,
+  position: Int,
+): Boolean = position > 0 && Character.isWhitespace(Character.codePointBefore(text, position))

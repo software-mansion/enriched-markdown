@@ -87,6 +87,8 @@
     }
   }
 
+  [_formattingStore growToWholeWordsInText:[_host plainText]];
+
   // Determine whether the edit touched a newline (for full-vs-scoped formatting).
   BOOL touchedNewline = context.preEditReplacedNewline;
   if (!touchedNewline && insertedLength > 0) {

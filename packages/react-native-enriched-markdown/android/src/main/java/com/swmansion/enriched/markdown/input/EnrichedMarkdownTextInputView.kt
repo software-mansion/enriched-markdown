@@ -643,6 +643,32 @@ class EnrichedMarkdownTextInputView(
 
     if (formattingStore.isToggleBlocked(styleType, selStart, mergingConfig.blockingStyles)) return
 
+    // Underline can't start or end inside a word (see FormattingStore.wholeWordRange), so a toggle
+    // there turns it on or off for the whole word. At a caret the toggle also pends, so letters
+    // typed at the word's edge follow it.
+    val wordRange = text?.let { formattingStore.wholeWordRange(styleType, it, selStart, selEnd) }
+    if (wordRange != null) {
+      val (wordStart, wordEnd) = wordRange
+      val turnsOn = turnsStyleOn(styleType, selStart, selEnd)
+      if (turnsOn) {
+        formattingStore.addStyle(styleType, wordStart, wordEnd, mergingConfig.conflictingStyles)
+      } else {
+        formattingStore.removeType(styleType, wordStart, wordEnd)
+      }
+      pendingStyles.remove(styleType)
+      pendingStyleRemovals.remove(styleType)
+      if (selStart == selEnd) {
+        (if (turnsOn) pendingStyles else pendingStyleRemovals).add(styleType)
+      }
+      applyFormattingAndEmit()
+      if (selStart != selEnd) {
+        pendingStyles.clear()
+        pendingStyleRemovals.clear()
+        seedPendingStylesFromSelection(selStart, selEnd)
+      }
+      return
+    }
+
     val result = formattingStore.toggleStyle(styleType, selStart, selEnd, mergingConfig.conflictingStyles)
 
     if (selStart == selEnd) {
@@ -664,6 +690,18 @@ class EnrichedMarkdownTextInputView(
       pendingStyleRemovals.clear()
       seedPendingStylesFromSelection(selStart, selEnd)
     }
+  }
+
+  /** Whether [toggleInlineStyle] turns [styleType] on, by the rules it applies to the store and pending sets. */
+  private fun turnsStyleOn(
+    styleType: StyleType,
+    selStart: Int,
+    selEnd: Int,
+  ): Boolean {
+    if (selStart != selEnd) return !formattingStore.isStyleActive(styleType, selStart)
+    if (pendingStyleRemovals.contains(styleType)) return true
+    if (pendingStyles.contains(styleType)) return false
+    return !formattingStore.isStyleActive(styleType, selStart)
   }
 
   private fun listBlockAtCursor(): BlockRange? {

@@ -1,7 +1,9 @@
 import { adjustRangesForEdit } from './RangeEditAdjustment';
+import { classify, type Neighbor } from './characterClass';
 import { sortedInsertionIndex } from './rangeStoreUtils';
 import type { FormattingRange, InputStyleType } from '../model/inlineStyles';
 import type { RangeBounds } from '../model/rangeBounds';
+import { isLowSurrogate } from '../utils';
 
 // Invariants: ranges sorted by `start`; same-type ranges never overlap or
 // touch, except links with different urls, which may touch (adjacent
@@ -189,6 +191,86 @@ export class FormattingStore {
     return this.isStyleActive(type, start);
   }
 
+  // The range toggling `type` over [start, end) should cover, or null when
+  // it is [start, end) itself. md4c ignores a "_" between two word characters
+  // ("Intra-word underscore doesn't have special meaning"), so an underline
+  // starting or ending inside a word would be written as markdown that reads
+  // back with a literal "_" (and the serializer would drop it). Instead the
+  // toggle, on or off, grows to the word's edges:
+  // - a caret touching a word takes the whole word, also at the word's edge:
+  //   letters typed there join the word, so "text|" takes "text" before
+  //   "underline" is typed after it;
+  // - a selection edge inside a word moves out to the word's edge.
+  // A caret with no word on either side stays a caret. A link's edge stops
+  // the growth, since the link's own delimiters already separate the "_"
+  // from the word.
+  wholeWordRange(
+    type: InputStyleType,
+    text: string,
+    start: number,
+    end: number
+  ): RangeBounds | null {
+    if (type !== 'underline') {
+      return null;
+    }
+    const before = (position: number): Neighbor =>
+      position === 0
+        ? 'whitespace'
+        : classify(text.slice(codePointStartBefore(text, position), position));
+    const at = (position: number): Neighbor =>
+      position >= text.length
+        ? 'whitespace'
+        : classify(String.fromCodePoint(text.codePointAt(position)!));
+    const isLinkEdge = (position: number): boolean =>
+      this.ranges.some(
+        (range) =>
+          range.type === 'link' &&
+          (range.start === position || range.end === position)
+      );
+    if (start === end && before(start) !== 'word' && at(start) !== 'word') {
+      return null;
+    }
+    let newStart = start;
+    if (start === end || at(start) !== 'whitespace') {
+      while (before(newStart) === 'word' && !isLinkEdge(newStart)) {
+        newStart = codePointStartBefore(text, newStart);
+      }
+    }
+    let newEnd = end;
+    if (start === end || before(end) !== 'whitespace') {
+      while (at(newEnd) === 'word' && !isLinkEdge(newEnd)) {
+        newEnd += text.codePointAt(newEnd)! > 0xffff ? 2 : 1;
+      }
+    }
+    return newStart !== start || newEnd !== end
+      ? { start: newStart, end: newEnd }
+      : null;
+  }
+
+  // Grows every underline that an edit left starting or ending inside a word
+  // to that word's edges, by the selection rule of `wholeWordRange`: letters
+  // typed or pasted right before or after an underlined word join it, and so
+  // does the word a deletion glued to it.
+  growToWholeWords(text: string): void {
+    const underlines = this.ranges.filter(
+      (range) => range.type === 'underline'
+    );
+    for (const range of underlines) {
+      if (range.start >= range.end || range.end > text.length) {
+        continue;
+      }
+      const grown = this.wholeWordRange(
+        range.type,
+        text,
+        range.start,
+        range.end
+      );
+      if (grown !== null) {
+        this.addRange({ type: range.type, ...grown });
+      }
+    }
+  }
+
   // Toggling OFF is never blocked.
   isToggleBlocked(
     type: InputStyleType,
@@ -303,4 +385,10 @@ export class FormattingStore {
       range
     );
   }
+}
+
+function codePointStartBefore(text: string, position: number): number {
+  return isLowSurrogate(text.charCodeAt(position - 1)) && position >= 2
+    ? position - 2
+    : position - 1;
 }

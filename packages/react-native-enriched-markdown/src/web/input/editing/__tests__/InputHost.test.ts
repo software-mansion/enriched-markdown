@@ -529,18 +529,20 @@ describe('InputHost', () => {
       expect(styledText(root, 'strong')).toEqual(['cd']);
     });
 
+    // Underline can't start or end inside a word, so it takes all of "abcd"
+    // (see InputHostWholeWordUnderline.test.ts).
     it.each([
-      ['toggleItalic', 'em'],
-      ['toggleUnderline', 'underline'],
-      ['toggleStrikethrough', 'strikethrough'],
-      ['toggleSpoiler', 'spoiler'],
-    ] as const)('%s styles the selection', (method, style) => {
+      ['toggleItalic', 'em', 'bc'],
+      ['toggleUnderline', 'underline', 'abcd'],
+      ['toggleStrikethrough', 'strikethrough', 'bc'],
+      ['toggleSpoiler', 'spoiler', 'bc'],
+    ] as const)('%s styles the selection', (method, style, styled) => {
       const { root, host } = mount();
       typeText(root, 'abcd');
       selectRangeFocused(root, 1, 3);
       host[method]();
 
-      expect(styledText(root, style)).toEqual(['bc']);
+      expect(styledText(root, style)).toEqual([styled]);
     });
 
     // A caret moved by the user abandons the toggle they never used, however

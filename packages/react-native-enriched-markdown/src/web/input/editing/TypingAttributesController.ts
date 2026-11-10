@@ -59,6 +59,15 @@ export class TypingAttributesController {
     }
   }
 
+  // Makes the next keystroke carry `type` (or drop it, with `isOn` false),
+  // after a toggle that also changed the store around the caret (a
+  // whole-word underline).
+  pend(type: PendingStyleType, isOn: boolean): void {
+    this.pendingStyles.delete(type);
+    this.pendingStyleRemovals.delete(type);
+    (isOn ? this.pendingStyles : this.pendingStyleRemovals).add(type);
+  }
+
   // The styles a plain insert at the new selection would inherit.
   resetForSelectionChange(selection: RangeBounds): void {
     this.pendingStyles.clear();

@@ -1012,6 +1012,30 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
     return;
   }
 
+  // Underline can't start or end inside a word (see wholeWordRangeForStyle:), so a toggle there
+  // turns it on or off for the whole word. At a caret the toggle also pends, so letters typed at
+  // the word's edge follow it.
+  NSRange wordRange = [_formattingStore wholeWordRangeForStyle:styleType
+                                                        inText:ENRMGetPlainText(_textView)
+                                                         range:selection];
+  if (!NSEqualRanges(wordRange, selection)) {
+    BOOL turnsOn = [self inlineStyleToggleTurnsOn:styleType selection:selection];
+    if (turnsOn) {
+      [_formattingStore addStyle:styleType inRange:wordRange conflictingStyles:mergingConfig.conflictingStyles];
+    } else {
+      [_formattingStore removeType:styleType inRange:wordRange];
+    }
+    if (selection.length > 0) {
+      [_typingController clearPendingStyle:styleType];
+    } else {
+      [_typingController pendStyle:styleType isOn:turnsOn];
+    }
+    [self applyFormatting];
+    [_typingController syncWithPendingStyles];
+    [_inputEventEmitter emitFormattingChanged];
+    return;
+  }
+
   BOOL wasActive = [_formattingStore toggleStyle:styleType
                                          inRange:selection
                                conflictingStyles:mergingConfig.conflictingStyles];
@@ -1021,6 +1045,22 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   [self applyFormatting];
   [_typingController syncWithPendingStyles];
   [_inputEventEmitter emitFormattingChanged];
+}
+
+/// Whether toggleInlineStyle: turns `styleType` on, by the rules the store and togglePendingStyle: apply.
+- (BOOL)inlineStyleToggleTurnsOn:(ENRMInputStyleType)styleType selection:(NSRange)selection
+{
+  if (selection.length > 0) {
+    return ![_formattingStore isStyleFullyActive:styleType inRange:selection];
+  }
+  NSNumber *key = @(styleType);
+  if ([_typingController.pendingStyleRemovals containsObject:key]) {
+    return YES;
+  }
+  if ([_typingController.pendingStyles containsObject:key]) {
+    return NO;
+  }
+  return ![_formattingStore isStyleActive:styleType atPosition:selection.location];
 }
 
 - (void)toggleHeading:(NSInteger)level

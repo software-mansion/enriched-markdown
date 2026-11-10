@@ -1317,6 +1317,44 @@ export class InputHost {
   private toggleInlineStyle(type: PendingStyleType): void {
     this.command(() => {
       const { start, end } = this.selection;
+      // Underline can't start or end inside a word (see
+      // `FormattingStore.wholeWordRange`), so a toggle there turns it on or
+      // off for the whole word. At a caret the toggle also pends, so letters
+      // typed at the word's edge follow it.
+      const turnsOn =
+        start === end
+          ? !this.typing.isEffectiveStyleActive(type, start)
+          : !this.formattingStore.isStyleFullyActive(
+              type,
+              start,
+              end,
+              this.text
+            );
+      const word = this.formattingStore.wholeWordRange(
+        type,
+        this.text,
+        start,
+        end
+      );
+      if (word !== null) {
+        this.recordFormatting();
+        this.session.scoped('processing', () => {
+          if (turnsOn) {
+            this.formattingStore.addRange({ type, ...word });
+          } else {
+            this.formattingStore.removeType(type, word.start, word.end);
+          }
+        });
+        this.projector.stylesChanged(word.start, word.end);
+        if (start === end) {
+          this.typing.pend(type, turnsOn);
+        } else {
+          this.typing.resetForSelectionChange(this.selection);
+        }
+        this.render();
+        this.emitFormattingChanged();
+        return;
+      }
       // A caret toggle changes no store, so there is nothing to undo; what
       // is typed with it is a step of its own, though.
       if (start !== end) {
