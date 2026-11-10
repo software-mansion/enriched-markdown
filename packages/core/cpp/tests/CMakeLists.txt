@@ -82,7 +82,8 @@ set_source_files_properties(${ENRMRKD_SOURCES} PROPERTIES COMPILE_DEFINITIONS EN
 add_library(enriched_markdown_input STATIC ${INPUT_SOURCES} "${CPP_ROOT}/parser/MD4CParser.cpp" ${ENRMRKD_SOURCES})
 target_include_directories(enriched_markdown_input PUBLIC "${CPP_ROOT}/input" "${CPP_ROOT}/parser")
 target_include_directories(enriched_markdown_input PRIVATE "${CPP_ROOT}/enrmrkd")
-target_compile_options(enriched_markdown_input PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra -Wpedantic>)
+# Warnings for our sources only, not the vendored parser's.
+set_source_files_properties(${INPUT_SOURCES} PROPERTIES COMPILE_OPTIONS "-Wall;-Wextra;-Wpedantic")
 set_target_properties(enriched_markdown_input PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)
 
 # --- Test areas --------------------------------------------------------------
