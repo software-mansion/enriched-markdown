@@ -17,7 +17,7 @@ static CGFloat ENRMAlpha(UIColor *color)
 {
   ENRMStreamingEffects *effects = [[ENRMStreamingEffects alloc] init];
   [effects configureType:ENRMStreamingEffectGradient duration:0.2 length:4 startColor:nil endColor:nil];
-  [effects noteArrivalFrom:0 to:10 at:1];
+  [effects noteArrivalIn:@"0123456789" from:0 to:10 at:1];
   UIColor *own = [UIColor colorWithRed:0.2 green:0.4 blue:0.6 alpha:1];
   XCTAssertEqualWithAccuracy(ENRMAlpha([effects colorForCharacterAtIndex:9 ownColor:own time:2]), 0, 0.001);
   UIColor *second = [effects colorForCharacterAtIndex:8 ownColor:own time:2];
@@ -37,7 +37,7 @@ static CGFloat ENRMAlpha(UIColor *color)
                   length:4
               startColor:UIColor.blueColor
                 endColor:UIColor.clearColor];
-  [effects noteArrivalFrom:0 to:10 at:1];
+  [effects noteArrivalIn:@"0123456789" from:0 to:10 at:1];
   UIColor *oldest = [effects colorForCharacterAtIndex:6 ownColor:UIColor.blackColor time:2];
   CGFloat blue = 0;
   [oldest getRed:NULL green:NULL blue:&blue alpha:NULL];
@@ -55,7 +55,7 @@ static CGFloat ENRMAlpha(UIColor *color)
                   length:4
               startColor:UIColor.blueColor
                 endColor:UIColor.redColor];
-  [effects noteArrivalFrom:0 to:10 at:1];
+  [effects noteArrivalIn:@"0123456789" from:0 to:10 at:1];
   XCTAssertEqualWithAccuracy(ENRMAlpha([effects colorForCharacterAtIndex:8 ownColor:UIColor.clearColor time:2]), 0,
                              0.001);
 }
@@ -64,8 +64,8 @@ static CGFloat ENRMAlpha(UIColor *color)
 {
   ENRMStreamingEffects *effects = [[ENRMStreamingEffects alloc] init];
   [effects configureType:ENRMStreamingEffectFade duration:0.2 length:20 startColor:nil endColor:nil];
-  [effects noteArrivalFrom:0 to:5 at:1];
-  [effects noteArrivalFrom:5 to:10 at:1.016];
+  [effects noteArrivalIn:@"aaaa bbbb " from:0 to:5 at:1];
+  [effects noteArrivalIn:@"aaaa bbbb " from:5 to:10 at:1.016];
   UIColor *first = [effects colorForCharacterAtIndex:2 ownColor:UIColor.blackColor time:1.1];
   UIColor *second = [effects colorForCharacterAtIndex:7 ownColor:UIColor.blackColor time:1.1];
   XCTAssertGreaterThan(ENRMAlpha(first), ENRMAlpha(second));

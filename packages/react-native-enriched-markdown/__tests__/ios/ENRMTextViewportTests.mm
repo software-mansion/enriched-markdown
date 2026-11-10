@@ -246,7 +246,10 @@ static NSString *ENRMParagraphs(NSUInteger count)
                                     length:20
                                 startColor:nil
                                   endColor:nil];
-  [textView.streamingEffects noteArrivalFrom:length - 40 to:length at:CACurrentMediaTime()];
+  [textView.streamingEffects noteArrivalIn:textView.textStorage.string
+                                      from:length - 40
+                                        to:length
+                                        at:CACurrentMediaTime()];
   [textView streamingEffectsChanged];
   [textView layoutIfNeeded];
   XCTAssertTrue(tiles.lastObject.layer.needsDisplay);

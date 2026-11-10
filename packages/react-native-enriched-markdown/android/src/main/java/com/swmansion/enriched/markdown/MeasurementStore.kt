@@ -477,7 +477,7 @@ object MeasurementStore {
     var layoutHash = computePropsHashForMarkdown("", props, allowFontScaling, fontScale, maxFontSizeMultiplier)
     layoutHash = 31 * layoutHash + props.getBooleanOrDefault("isGFM", false).hashCode()
     layoutHash = 31 * layoutHash + props.getBooleanOrDefault("streaming", false).hashCode()
-    // Only the modes change what is laid out; the animation and its options do not.
+    // Only the modes change what is laid out; the animation, its options and pacing do not.
     val streamingConfig = props.getMapOrNull("streamingConfig")
     layoutHash = 31 * layoutHash + streamingConfig.getStringOrDefault("tableMode", "").hashCode()
     layoutHash = 31 * layoutHash + streamingConfig.getStringOrDefault("codeBlockMode", "").hashCode()
@@ -494,7 +494,7 @@ object MeasurementStore {
         chooseMeasurement(
           streamUpdate = previous.layoutHash == layoutHash && markdownExtends(previous.markdown, markdown),
           grew = markdown.length > previous.markdown.length,
-          viewLaidOutThisDocument = laidOut?.markdown == markdown,
+          viewLaidOutAgain = laidOut != null && (laidOut.markdown == markdown || laidOut.size != previous.size),
           hasLaidOutSize = laidOut != null,
           samePreviousWidth = previous.size != null && previous.widthPx == width,
         )
@@ -511,20 +511,21 @@ object MeasurementStore {
 
   /**
    * Picks the source of a measurement, as iOS's ENRMChooseMeasurement does. Android's
-   * measurement can't see the view's height counter, so "the view laid this document
-   * out" stands in for the view asking again, and a grown document never takes the
-   * previous answer: a view sized to its content would keep it for good.
+   * measurement can't see the view's height counter, so the view having laid out this
+   * document, or a size other than the last answer (smooth pacing renders part of it),
+   * stands in for the view asking again, and a grown document never takes the previous
+   * answer: a view sized to its content would keep it for good.
    */
   internal fun chooseMeasurement(
     streamUpdate: Boolean,
     grew: Boolean,
-    viewLaidOutThisDocument: Boolean,
+    viewLaidOutAgain: Boolean,
     hasLaidOutSize: Boolean,
     samePreviousWidth: Boolean,
   ): MeasurementSource =
     when {
       !streamUpdate -> MeasurementSource.FULL
-      hasLaidOutSize && (grew || viewLaidOutThisDocument) -> MeasurementSource.LAID_OUT
+      hasLaidOutSize && (grew || viewLaidOutAgain) -> MeasurementSource.LAID_OUT
       !grew && samePreviousWidth -> MeasurementSource.PREVIOUS
       else -> MeasurementSource.FULL
     }

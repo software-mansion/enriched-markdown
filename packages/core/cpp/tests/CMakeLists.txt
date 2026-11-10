@@ -73,7 +73,7 @@ add_library(enriched_markdown_latex STATIC ${LATEX_SOURCES})
 target_include_directories(enriched_markdown_latex PUBLIC "${CPP_ROOT}/latex")
 target_compile_options(enriched_markdown_latex PRIVATE -Wall -Wextra -Wpedantic)
 
-add_library(enriched_markdown_effects STATIC "${CPP_ROOT}/parser/StreamingEffects.cpp")
+add_library(enriched_markdown_effects STATIC "${CPP_ROOT}/parser/StreamingEffects.cpp" "${CPP_ROOT}/parser/StreamingPacer.cpp")
 target_include_directories(enriched_markdown_effects PUBLIC "${CPP_ROOT}/parser")
 target_compile_options(enriched_markdown_effects PRIVATE -Wall -Wextra -Wpedantic)
 

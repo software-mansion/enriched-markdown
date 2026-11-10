@@ -464,6 +464,7 @@ interface StreamingConfigInternal {
   animationLength?: CodegenTypes.Int32;
   animationStartColor?: ColorValue;
   animationEndColor?: ColorValue;
+  smooth?: boolean;
 }
 
 interface LinkContextMenuItemConfig {

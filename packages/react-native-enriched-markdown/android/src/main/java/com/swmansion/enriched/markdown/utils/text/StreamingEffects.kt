@@ -35,12 +35,18 @@ class StreamingEffects {
     }
   }
 
+  /** [text] grew from [start] to [end] at [time]. */
   fun noteArrival(
+    text: CharSequence,
     start: Int,
     end: Int,
     time: Double,
   ) {
-    if (handle != 0L) nativeNoteArrival(handle, start, end, time)
+    if (handle == 0L) return
+    val clampedEnd = end.coerceAtMost(text.length)
+    val added = if (start < clampedEnd) text.substring(start, clampedEnd) else ""
+    val previous = if (start in 1..text.length) text[start - 1] else ' '
+    nativeNoteArrival(handle, start, clampedEnd, time, added, previous)
   }
 
   fun finish(time: Double) {
@@ -148,6 +154,8 @@ class StreamingEffects {
       start: Int,
       end: Int,
       time: Double,
+      text: String,
+      previous: Char,
     )
 
     @JvmStatic private external fun nativeFinish(

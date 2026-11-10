@@ -40,7 +40,8 @@ class StreamingEffectsAnimator(
   ) {
     // Reduce Motion applies from the next arrival, as it does to blocks.
     if (effectiveType() != type) configureEffects()
-    effects.noteArrival(start, end, StreamingEffects.now())
+    val text = viewRef.get()?.text ?: ""
+    effects.noteArrival(text, start, end, StreamingEffects.now())
     if (end > start) finished = false
     refresh()
   }

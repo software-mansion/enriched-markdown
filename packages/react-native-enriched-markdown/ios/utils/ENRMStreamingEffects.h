@@ -23,8 +23,8 @@ typedef NS_ENUM(NSInteger, ENRMStreamingEffectType) {
              endColor:(nullable RCTUIColor *)endColor;
 @property (nonatomic, readonly) ENRMStreamingEffectType type;
 
-/// The text grew from `start` to `end` (UTF-16 offsets) at `time`.
-- (void)noteArrivalFrom:(NSUInteger)start to:(NSUInteger)end at:(CFTimeInterval)time;
+/// `text` grew from `start` to `end` (UTF-16 offsets) at `time`.
+- (void)noteArrivalIn:(NSString *)text from:(NSUInteger)start to:(NSUInteger)end at:(CFTimeInterval)time;
 /// The stream ended at `time`: what still animates settles.
 - (void)finishAt:(CFTimeInterval)time;
 - (void)reset;

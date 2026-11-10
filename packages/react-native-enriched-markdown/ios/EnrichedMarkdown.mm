@@ -10,6 +10,7 @@
 #import "ENRMMarkdownParser.h"
 #import "ENRMPreparedRenderStore.h"
 #import "ENRMStreamingEffectsProps.h"
+#import "ENRMStreamingPacer.h"
 #import "ENRMTextInteractionUtils.h"
 #import "ENRMTextRenderCache.h"
 #import "ENRMTextRenderer.h"
@@ -164,6 +165,8 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   BOOL _streaming;
   BOOL _streamEnding;
   BOOL _streamingFade;
+  // Smooth pacing (streamingConfig.smooth): the view renders the markdown revealed so far.
+  ENRMStreamingPacer *_pacer;
   ENRMTableStreamingMode _tableStreamingMode;
   ENRMCodeBlockStreamingMode _codeBlockStreamingMode;
   ENRMMediaStreamingMode _mediaStreamingMode;
@@ -294,6 +297,14 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
     _dynamicBlockProps.linkContextMenus = _linkContextMenus;
     _streaming = NO;
     _streamingFade = YES;
+    __weak EnrichedMarkdown *weakPacingSelf = self;
+    _pacer = [[ENRMStreamingPacer alloc]
+        initWithReveal:^(NSString *markdown) { [weakPacingSelf renderMarkdownContent:markdown]; }
+        done:^{
+          EnrichedMarkdown *strongSelf = weakPacingSelf;
+          [strongSelf stopStreaming];
+          [strongSelf renderMarkdownContent:strongSelf->_pacer.markdown];
+        }];
     _tableStreamingMode = ENRMTableStreamingModeProgressive;
     _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
     _mediaStreamingMode = ENRMMediaStreamingModeProgressive;
@@ -1492,7 +1503,9 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   }
   ENRMStreamingEffects *effects = ((ENRMMarkdownTextView *)view.textView).streamingEffects;
   CFTimeInterval now = CACurrentMediaTime();
-  [effects noteArrivalFrom:tailStart to:ENRMGetAttributedText(view.textView).length at:now];
+  // The text storage, not attributedText: that copies the whole text.
+  NSString *text = view.textView.textStorage.string;
+  [effects noteArrivalIn:text from:tailStart to:text.length at:now];
   if (_streamEnding) {
     [effects finishAt:now];
   }
@@ -1521,6 +1534,19 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 #endif
 }
 
+// The stream ended: the next render shows the whole document, and what still animates settles.
+- (void)stopStreaming
+{
+  _streaming = NO;
+  _streamEnding = YES;
+  if (auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter)) {
+    emitter->onStreamingEnd({});
+  }
+  _dirtyFlags |= ENRMDirtyForceHeight;
+  [self finishStreamingAnimations];
+  [self settleTextSegmentsBefore:nil];
+}
+
 // Shows the blocks still fading in at once.
 - (void)finishStreamingAnimations
 {
@@ -1547,7 +1573,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
 - (void)updateTextView:(EnrichedMarkdownInternalText *)view withRenderedSegment:(ENRMRenderResult *)segment
 {
-  NSUInteger tailStart = ENRMGetAttributedText(view.textView).length;
+  NSUInteger tailStart = view.textView.textStorage.length;
   [self configureTextView:view withRenderedSegment:segment];
   [self animateTextView:view fromTailStart:tailStart];
 }
@@ -1568,7 +1594,6 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
   BOOL markdownChanged = oldViewProps.markdown != newViewProps.markdown;
   if (markdownChanged) {
-    _dirtyFlags |= ENRMDirtyRender;
     // A task toggle renders its result locally before JS echoes it back as a
     // prop, so the rendered document is handed over for the echo check.
     if ([_codeBlockWrapState markdownPropDidChangeFrom:oldViewProps.markdown
@@ -1696,18 +1721,20 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     [self requestHeightUpdate];
   }
 
+  BOOL streamingEnded = NO;
   BOOL finishesAnimations = NO;
   if (newViewProps.streaming != oldViewProps.streaming) {
-    _streaming = newViewProps.streaming;
-    _streamEnding = !_streaming;
-    _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
-    if (!_streaming) {
-      finishesAnimations = YES;
-      [self settleTextSegmentsBefore:nil];
-      if (auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter)) {
-        emitter->onStreamingEnd({});
-      }
+    if (newViewProps.streaming) {
+      _streaming = YES;
+      _streamEnding = NO;
+      [_pacer resume];
+      _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
+    } else {
+      streamingEnded = YES;
     }
+  }
+  if (newViewProps.streamingConfig.smooth != oldViewProps.streamingConfig.smooth) {
+    _dirtyFlags |= ENRMDirtyRender;
   }
 
   BOOL animationChanged = !ENRMSameStreamingAnimation(newViewProps.streamingConfig, oldViewProps.streamingConfig);
@@ -1816,12 +1843,32 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     [self pushWritingDirectionToTableSegments];
   }
 
-  if (_dirtyFlags & ENRMDirtyRender) {
-    _pendingStyleFingerprint =
-        computeStyleFingerprint(newViewProps.markdownStyle) ^ std::hash<bool>{}(newViewProps.allowTrailingMargin);
-    // Rendered in finalizeUpdates, once per transaction (see
-    // applyBlockSlotPlacementsFromState).
-    _pendingRenderMarkdown = ENRMStringFromUTF8(newViewProps.markdown);
+  // With smooth pacing the words still waiting appear first (within 200 ms), then streaming stops.
+  if (streamingEnded) {
+    if (newViewProps.streamingConfig.smooth) {
+      [_pacer markdownToRender:ENRMStringFromUTF8(newViewProps.markdown) pacing:YES];
+      [_pacer finish];
+    }
+    if (_pacer.waiting) {
+      _dirtyFlags |= ENRMDirtyRender;
+    } else {
+      [self stopStreaming];
+      _dirtyFlags |= ENRMDirtyRender;
+    }
+  }
+
+  if (markdownChanged || (_dirtyFlags & ENRMDirtyRender)) {
+    // Smooth pacing renders what has been revealed and hands the rest over frame by frame, so new
+    // markdown that reveals nothing yet renders nothing.
+    NSString *markdown = [_pacer markdownToRender:ENRMStringFromUTF8(newViewProps.markdown)
+                                           pacing:_streaming && newViewProps.streamingConfig.smooth];
+    if ((_dirtyFlags & ENRMDirtyRender) || ![markdown isEqualToString:_cachedMarkdown]) {
+      _pendingStyleFingerprint =
+          computeStyleFingerprint(newViewProps.markdownStyle) ^ std::hash<bool>{}(newViewProps.allowTrailingMargin);
+      // Rendered in finalizeUpdates, once per transaction (see
+      // applyBlockSlotPlacementsFromState).
+      _pendingRenderMarkdown = markdown;
+    }
     _dirtyFlags &= ~ENRMDirtyRender;
   }
 
@@ -2032,6 +2079,7 @@ static void ENRMAfterCommit(dispatch_block_t block)
   _allowTrailingMargin = NO;
   _streaming = NO;
   _streamEnding = NO;
+  [_pacer reset];
   _streamingFade = YES;
   _tableStreamingMode = ENRMTableStreamingModeProgressive;
   _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;

@@ -306,6 +306,7 @@ class EnrichedMarkdownTextManager :
     )
     if (view != null) {
       view.setStreamingAnimation(StreamingEffects.Config.from(config, view.context))
+      view.setSmooth(config?.toHashMap()?.get("smooth") == true)
     }
   }
 

@@ -5,6 +5,7 @@
 #include "DocumentStore.hpp"
 #include "LatexSpeech.hpp"
 #include "StreamingEffects.hpp"
+#include "StreamingPacer.hpp"
 #include "TextLinkRecognizer.hpp"
 #include "Utf16.hpp"
 #include <algorithm>
@@ -349,7 +350,8 @@ static Md4cFlags md4cFlagsFromJava(JNIEnv *env, jobject flags) {
   return md4cFlags;
 }
 
-// The core's streaming effects (StreamingEffects.hpp), one per text view; Kotlin holds the pointer.
+// The core's streaming effects (StreamingEffects.hpp) and pacer (StreamingPacer.hpp), one per view; Kotlin holds
+// the pointer.
 namespace {
 Markdown::EffectColor effectColor(jint argb) {
   auto channel = [&](int shift) { return static_cast<float>((static_cast<uint32_t>(argb) >> shift) & 0xFF) / 255.0f; };
@@ -365,6 +367,10 @@ jint argbOf(const Markdown::EffectColor &color) {
 
 Markdown::StreamingEffects *effectsOf(jlong handle) {
   return reinterpret_cast<Markdown::StreamingEffects *>(handle);
+}
+
+Markdown::StreamingPacer *pacerOf(jlong handle) {
+  return reinterpret_cast<Markdown::StreamingPacer *>(handle);
 }
 } // namespace
 
@@ -580,8 +586,12 @@ JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_Streaming
 }
 
 JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeNoteArrival(
-    JNIEnv *, jclass, jlong handle, jint start, jint end, jdouble time) {
-  effectsOf(handle)->noteArrival(static_cast<size_t>(std::max(start, 0)), static_cast<size_t>(std::max(end, 0)), time);
+    JNIEnv *env, jclass, jlong handle, jint start, jint end, jdouble time, jstring text, jchar previous) {
+  const jchar *chars = env->GetStringChars(text, nullptr);
+  std::u16string_view added(reinterpret_cast<const char16_t *>(chars), static_cast<size_t>(env->GetStringLength(text)));
+  effectsOf(handle)->noteArrival(static_cast<size_t>(std::max(start, 0)), static_cast<size_t>(std::max(end, 0)), time,
+                                 added, static_cast<char16_t>(previous));
+  env->ReleaseStringChars(text, chars);
 }
 
 JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeFinish(JNIEnv *, jclass,
@@ -643,6 +653,48 @@ JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_Streaming
   if (tintValues) {
     env->ReleasePrimitiveArrayCritical(tints, tintValues, 0);
   }
+}
+
+JNIEXPORT jlong JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeCreate(JNIEnv *, jclass) {
+  return reinterpret_cast<jlong>(new Markdown::StreamingPacer());
+}
+
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeDestroy(JNIEnv *, jclass,
+                                                                                                    jlong handle) {
+  delete pacerOf(handle);
+}
+
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeAppend(
+    JNIEnv *env, jclass, jlong handle, jint start, jstring added, jdouble time) {
+  const jchar *chars = env->GetStringChars(added, nullptr);
+  std::u16string_view text(reinterpret_cast<const char16_t *>(chars), static_cast<size_t>(env->GetStringLength(added)));
+  pacerOf(handle)->append(static_cast<size_t>(std::max(start, 0)), text, time);
+  env->ReleaseStringChars(added, chars);
+}
+
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeReset(JNIEnv *, jclass,
+                                                                                                  jlong handle,
+                                                                                                  jint length) {
+  pacerOf(handle)->reset(static_cast<size_t>(std::max(length, 0)));
+}
+
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeFinish(JNIEnv *, jclass,
+                                                                                                   jlong handle,
+                                                                                                   jdouble time) {
+  pacerOf(handle)->finish(time);
+}
+
+JNIEXPORT jint JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeRevealed(JNIEnv *, jclass,
+                                                                                                     jlong handle,
+                                                                                                     jdouble time) {
+  return static_cast<jint>(pacerOf(handle)->revealed(time));
+}
+
+JNIEXPORT jboolean JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeWaiting(JNIEnv *,
+                                                                                                        jclass,
+                                                                                                        jlong handle,
+                                                                                                        jdouble time) {
+  return pacerOf(handle)->waiting(time) ? JNI_TRUE : JNI_FALSE;
 }
 
 } // extern "C"
