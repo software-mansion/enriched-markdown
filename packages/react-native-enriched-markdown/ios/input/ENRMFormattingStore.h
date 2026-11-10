@@ -42,21 +42,24 @@ NS_ASSUME_NONNULL_BEGIN
 /// meaning"), so an underline that starts or ends inside a word would be written as markdown that
 /// reads back with a literal `_`. Instead the toggle, on or off, grows to the word's edges:
 /// - a caret touching a word takes the whole word (at the word's edge the toggle only pends;
-///   growToWholeWordsInText: makes letters typed there join the word);
+///   growToWholeWordsInText:touchingRange: makes letters typed there join the word);
 /// - a selection edge inside a word moves out to the word's edge.
-/// A caret with no word on either side stays a caret. A link's edge stops the growth, since the
-/// link's own delimiters already separate the `_` from the word.
+/// A caret with no word on either side stays a caret. Another style's delimiter can stop the growth
+/// inside a word (see ENRMUnderlineSeparators in the implementation).
 - (NSRange)wholeWordRangeForStyle:(ENRMInputStyleType)type inText:(NSString *)text range:(NSRange)range;
 
 /// Whether the store gives `type` to text typed at a caret at `position`: a range covers it or, for
-/// underline, an underlined word ends there, since growToWholeWordsInText: pulls letters typed right
-/// after the word into it.
+/// underline, an underlined word ends there, since growToWholeWordsInText:touchingRange: pulls
+/// letters typed right after the word into it. A style starting there doesn't stop them: typing at
+/// its start moves it along.
 - (BOOL)isStyleActive:(ENRMInputStyleType)type atCaret:(NSUInteger)position inText:(NSString *)text;
 
-/// Grows every underline that an edit left starting or ending inside a word to that word's edges,
-/// by the selection rule of wholeWordRangeForStyle: letters typed or pasted right before or after
-/// an underlined word join it, and so does the word a deletion glued to it.
-- (void)growToWholeWordsInText:(NSString *)text;
+/// Grows the underlines touching `editRange` (the edited span in the text after the edit; touching
+/// it at an edge counts) when the edit left one starting or ending inside a word, to that word's
+/// edges, by the selection rule of wholeWordRangeForStyle: letters typed or pasted right before or
+/// after an underlined word join it, and so does the word a deletion glued to it. Underlines away
+/// from the edit are left as they are.
+- (void)growToWholeWordsInText:(NSString *)text touchingRange:(NSRange)editRange;
 
 /// YES when toggling `type` ON at `position` should be refused because one of
 /// the `blockingStyles` is active there. Toggling OFF is never blocked.

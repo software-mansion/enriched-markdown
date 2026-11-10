@@ -201,9 +201,8 @@ export class FormattingStore {
   //   toggle only pends; `growToWholeWords` makes letters typed there join
   //   the word);
   // - a selection edge inside a word moves out to the word's edge.
-  // A caret with no word on either side stays a caret. A link's edge stops
-  // the growth, since the link's own delimiters already separate the "_"
-  // from the word.
+  // A caret with no word on either side stays a caret. Another style's
+  // delimiter can stop the growth inside a word (see `underlineSeparators`).
   wholeWordRange(
     type: InputStyleType,
     text: string,
@@ -213,27 +212,50 @@ export class FormattingStore {
     if (type !== 'underline') {
       return null;
     }
-    const before = (position: number): Neighbor =>
-      position === 0
-        ? 'whitespace'
-        : classify(text.slice(codePointStartBefore(text, position), position));
-    const at = (position: number): Neighbor =>
-      position >= text.length
-        ? 'whitespace'
-        : classify(String.fromCodePoint(text.codePointAt(position)!));
-    if (start === end && before(start) !== 'word' && at(start) !== 'word') {
+    if (
+      start === end &&
+      neighborBefore(text, start) !== 'word' &&
+      neighborAt(text, start) !== 'word'
+    ) {
       return null;
     }
-    let newStart = start;
-    if (start === end || at(start) !== 'whitespace') {
-      while (before(newStart) === 'word' && !this.isLinkEdge(newStart)) {
-        newStart = codePointStartBefore(text, newStart);
+    return this.grownToWords(
+      text,
+      start,
+      end,
+      start === end,
+      this.underlineSeparators()
+    );
+  }
+
+  // `grows` makes both edges grow, as a caret does; otherwise an edge next to
+  // whitespace inside the range stays put.
+  private grownToWords(
+    text: string,
+    start: number,
+    end: number,
+    grows: boolean,
+    separators: UnderlineSeparators
+  ): RangeBounds | null {
+    // The end first: whether a delimiter at it is written outside the "_"
+    // depends on the start, and the start's walk stops at any delimiter the
+    // end's walk could have passed.
+    let newEnd = end;
+    if (grows || neighborBefore(text, end) !== 'whitespace') {
+      while (
+        neighborAt(text, newEnd) === 'word' &&
+        !separators.end(newEnd, start)
+      ) {
+        newEnd += text.codePointAt(newEnd)! > 0xffff ? 2 : 1;
       }
     }
-    let newEnd = end;
-    if (start === end || before(end) !== 'whitespace') {
-      while (at(newEnd) === 'word' && !this.isLinkEdge(newEnd)) {
-        newEnd += text.codePointAt(newEnd)! > 0xffff ? 2 : 1;
+    let newStart = start;
+    if (grows || neighborAt(text, start) !== 'whitespace') {
+      while (
+        neighborBefore(text, newStart) === 'word' &&
+        !separators.start(newStart, newEnd)
+      ) {
+        newStart = codePointStartBefore(text, newStart);
       }
     }
     return newStart !== start || newEnd !== end
@@ -243,7 +265,9 @@ export class FormattingStore {
 
   // Whether the store gives `type` to text typed at a caret at `position`: a
   // range covers it or, for underline, an underlined word ends there, since
-  // `growToWholeWords` pulls letters typed right after the word into it.
+  // `growToWholeWords` pulls letters typed right after the word into it -
+  // unless a delimiter written after the word's "_" stays between them. A
+  // style starting there doesn't: typing at its start moves it along.
   isStyleActiveAtCaret(
     type: InputStyleType,
     position: number,
@@ -254,46 +278,102 @@ export class FormattingStore {
     }
     if (
       type !== 'underline' ||
-      position === 0 ||
       position > text.length ||
-      this.isLinkEdge(position)
+      neighborBefore(text, position) !== 'word'
     ) {
       return false;
     }
-    const before = text.slice(codePointStartBefore(text, position), position);
+    const word = this.ranges.find(
+      (range) => range.type === 'underline' && range.end === position
+    );
     return (
-      classify(before) === 'word' &&
-      this.ranges.some(
-        (range) => range.type === 'underline' && range.end === position
-      )
+      word !== undefined &&
+      !this.underlineSeparators().closesOutside(position, word.start)
     );
   }
 
-  private isLinkEdge(position: number): boolean {
-    return this.ranges.some(
-      (range) =>
-        range.type === 'link' &&
-        (range.start === position || range.end === position)
-    );
-  }
-
-  // Grows every underline that an edit left starting or ending inside a word
-  // to that word's edges, by the selection rule of `wholeWordRange`: letters
-  // typed or pasted right before or after an underlined word join it, and so
-  // does the word a deletion glued to it.
-  growToWholeWords(text: string): void {
-    const underlines = this.ranges.filter(
-      (range) => range.type === 'underline'
-    );
-    for (const range of underlines) {
-      if (range.start >= range.end || range.end > text.length) {
+  // Where another style's delimiter, written between an underline's "_" and
+  // the letter beside it, already makes the "_" readable, so the underline
+  // needs no growth there (every delimiter character is punctuation to md4c).
+  // Growth follows one rule: it never changes an underline whose markdown
+  // reads back, along with the styles beside it, and fixes one that doesn't.
+  // So it follows where `MarkdownSerializer` writes delimiters:
+  // - At one position closings come before openings, so a style ending where
+  //   an underline starts, or starting where one ends, separates them:
+  //   "*foo*_bar_", "_foo_**bar**".
+  // - A style starting (or ending) along with the underline separates only
+  //   when it nests outside it, and only a link or spoiler does: a "*", "**"
+  //   or "~~" between a letter and "_" is one md4c wouldn't read, so the
+  //   serializer would drop it and then the underline, which takes the whole
+  //   word instead. The longer range nests outside, and of two over the same
+  //   text, the link or spoiler: "foo[_bar_](u)". (The natives nest links
+  //   inside, so there none does.)
+  // The ranges are collected once per call, and no underline is among them,
+  // so they stay valid while the underlines grow. A style md4c can't read at
+  // its other edge, as a strikethrough starting inside a word, is dropped by
+  // the serializer and so stops separating; that is not checked.
+  private underlineSeparators(): UnderlineSeparators {
+    const starts = new Set<number>();
+    const ends = new Set<number>();
+    // Per position, the furthest end of a link or spoiler starting there and
+    // the earliest start of one ending there.
+    const outerEnds = new Map<number, number>();
+    const outerStarts = new Map<number, number>();
+    for (const range of this.ranges) {
+      if (range.type === 'underline' || range.start >= range.end) {
         continue;
       }
-      const grown = this.wholeWordRange(
-        range.type,
+      starts.add(range.start);
+      ends.add(range.end);
+      if (range.type === 'link' || range.type === 'spoiler') {
+        outerEnds.set(
+          range.start,
+          Math.max(range.end, outerEnds.get(range.start) ?? range.end)
+        );
+        outerStarts.set(
+          range.end,
+          Math.min(range.start, outerStarts.get(range.end) ?? range.start)
+        );
+      }
+    }
+    const closesOutside = (position: number, underlineStart: number) =>
+      (outerStarts.get(position) ?? Infinity) <= underlineStart;
+    return {
+      start: (position, underlineEnd) =>
+        ends.has(position) ||
+        (outerEnds.get(position) ?? -Infinity) >= underlineEnd,
+      end: (position, underlineStart) =>
+        starts.has(position) || closesOutside(position, underlineStart),
+      closesOutside,
+    };
+  }
+
+  // Grows the underlines touching the edited span [editStart, editEnd) (in
+  // the text after the edit; touching it at an edge counts) when the edit
+  // left one starting or ending inside a word, to that word's edges, by the
+  // selection rule of `wholeWordRange`: letters typed or pasted right before
+  // or after an underlined word join it, and so does the word a deletion
+  // glued to it. Underlines away from the edit are left as they are.
+  growToWholeWords(text: string, editStart: number, editEnd: number): void {
+    const touching = this.ranges.filter(
+      (range) =>
+        range.type === 'underline' &&
+        range.start <= editEnd &&
+        range.end >= editStart &&
+        range.start < range.end &&
+        range.end <= text.length
+    );
+    if (touching.length === 0) {
+      return;
+    }
+    const separators = this.underlineSeparators();
+    for (const range of touching) {
+      const grown = this.grownToWords(
         text,
         range.start,
-        range.end
+        range.end,
+        false,
+        separators
       );
       if (grown !== null) {
         this.addRange({ type: range.type, ...grown });
@@ -415,6 +495,28 @@ export class FormattingStore {
       range
     );
   }
+}
+
+interface UnderlineSeparators {
+  // An underline [position, underlineEnd) needs no growth before `position`.
+  start(position: number, underlineEnd: number): boolean;
+  // An underline [underlineStart, position) needs no growth after `position`.
+  end(position: number, underlineStart: number): boolean;
+  // The part of `end` a letter typed at `position` keeps: a link or spoiler
+  // closing there outside the underline.
+  closesOutside(position: number, underlineStart: number): boolean;
+}
+
+function neighborBefore(text: string, position: number): Neighbor {
+  return position === 0
+    ? 'whitespace'
+    : classify(text.slice(codePointStartBefore(text, position), position));
+}
+
+function neighborAt(text: string, position: number): Neighbor {
+  return position >= text.length
+    ? 'whitespace'
+    : classify(String.fromCodePoint(text.codePointAt(position)!));
 }
 
 function codePointStartBefore(text: string, position: number): number {

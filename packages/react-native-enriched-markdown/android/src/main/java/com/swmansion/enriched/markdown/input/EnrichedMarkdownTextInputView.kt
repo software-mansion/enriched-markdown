@@ -680,6 +680,9 @@ class EnrichedMarkdownTextInputView(
     }
 
     val result = formattingStore.toggleStyle(styleType, selStart, selEnd, mergingConfig.conflictingStyles)
+    // Another style's edge can be what keeps an underline's `_` off a letter (`*foo*_bar_`); with it
+    // gone the underline takes the word.
+    if (selStart != selEnd) text?.let { formattingStore.growToWholeWords(it, selStart, selEnd) }
 
     if (selStart == selEnd) {
       if (pendingStyleRemovals.contains(styleType)) {
@@ -1137,7 +1140,10 @@ class EnrichedMarkdownTextInputView(
   }
 
   fun removeLinkAtCursor() {
+    val link = linkCoordinator.linkForSelection(selectionStart, selectionEnd) ?: return
     if (!linkCoordinator.removeLink(selectionStart, selectionEnd)) return
+    // The link's edge may have been what kept an underline's `_` off a letter.
+    text?.let { formattingStore.growToWholeWords(it, link.start, link.end) }
     applyFormattingAndEmit()
   }
 

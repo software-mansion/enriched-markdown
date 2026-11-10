@@ -78,7 +78,10 @@ class EditPipeline(
     convertMarkdownShortcut(context)
     host.editable?.let { blockStore.normalizeToLineBounds(it) }
     applyPendingStyles(context)
-    host.editable?.let { formattingStore.growToWholeWords(it) }
+    host.editable?.let {
+      val editStart = context.editStart.coerceIn(0, it.length)
+      formattingStore.growToWholeWords(it, editStart, (editStart + context.insertedLength).coerceAtMost(it.length))
+    }
 
     // Settle the ZWSP anchor BEFORE stamping spans, so block formatting runs
     // exactly once over the final text/ranges — otherwise a pre-ZWSP and

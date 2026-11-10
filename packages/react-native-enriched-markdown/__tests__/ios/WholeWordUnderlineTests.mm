@@ -71,7 +71,7 @@
 {
   ENRMFormattingStore *store = [ENRMFormattingStore new];
   [store addRange:[ENRMFormattingRange rangeWithType:ENRMInputStyleTypeUnderline range:NSMakeRange(2, 6)]];
-  [store growToWholeWordsInText:@"mnbergef rest"];
+  [store growToWholeWordsInText:@"mnbergef rest" touchingRange:NSMakeRange(0, 2)];
   XCTAssertEqual(store.allRanges.count, 1u);
   XCTAssertTrue(NSEqualRanges(store.allRanges.firstObject.range, NSMakeRange(0, 8)));
 }
@@ -81,7 +81,7 @@
   ENRMFormattingStore *store = [ENRMFormattingStore new];
   [store addRange:[ENRMFormattingRange rangeWithType:ENRMInputStyleTypeUnderline range:NSMakeRange(4, 3)]];
   [store addRange:[ENRMFormattingRange rangeWithType:ENRMInputStyleTypeStrong range:NSMakeRange(1, 1)]];
-  [store growToWholeWordsInText:@"foo bar"];
+  [store growToWholeWordsInText:@"foo bar" touchingRange:NSMakeRange(0, 7)];
   XCTAssertEqual(store.allRanges.count, 2u);
   for (ENRMFormattingRange *range in store.allRanges) {
     NSRange expected = range.type == ENRMInputStyleTypeUnderline ? NSMakeRange(4, 3) : NSMakeRange(1, 1);
@@ -107,14 +107,59 @@
   XCTAssertFalse([store isStyleActive:ENRMInputStyleTypeStrong atCaret:5 inText:@"hello"]);
 }
 
-- (void)testCaretAtALinkEdgeAfterAnUnderlineIsNotUnderlined
+// The serializer writes a link sharing an underline's edge inside the underline (`_[foo](u)_`), so
+// a letter typed after the link would sit against the `_`: it joins the underline instead.
+- (void)testCaretRightAfterAnUnderlinedLinkIsUnderlined
 {
   ENRMFormattingStore *store = [ENRMFormattingStore new];
   [store addRange:[ENRMFormattingRange rangeWithType:ENRMInputStyleTypeUnderline range:NSMakeRange(0, 3)]];
   [store addRange:[ENRMFormattingRange rangeWithType:ENRMInputStyleTypeLink
                                                range:NSMakeRange(0, 3)
                                                  url:@"https://example.com"]];
-  XCTAssertFalse([store isStyleActive:ENRMInputStyleTypeUnderline atCaret:3 inText:@"foo"]);
+  XCTAssertTrue([store isStyleActive:ENRMInputStyleTypeUnderline atCaret:3 inText:@"foo"]);
+}
+
+- (NSRange)underlineIn:(ENRMFormattingStore *)store
+{
+  return [store rangesOfType:ENRMInputStyleTypeUnderline].firstObject.range;
+}
+
+- (void)testGrowthLeavesUnderlinesAwayFromTheEditAlone
+{
+  ENRMFormattingStore *store = [ENRMFormattingStore new];
+  [store addRange:[ENRMFormattingRange rangeWithType:ENRMInputStyleTypeUnderline range:NSMakeRange(3, 3)]];
+  [store growToWholeWordsInText:@"foobar bazx" touchingRange:NSMakeRange(10, 1)];
+  XCTAssertTrue(NSEqualRanges([self underlineIn:store], NSMakeRange(3, 3)));
+}
+
+// A delimiter the serializer writes between the `_` and the letter separates them: `*foo*_barx_`.
+- (void)testItalicEndingWhereTheUnderlineStartsStopsTheGrowth
+{
+  ENRMFormattingStore *store = [ENRMFormattingStore new];
+  [store addRange:[ENRMFormattingRange rangeWithType:ENRMInputStyleTypeEmphasis range:NSMakeRange(0, 3)]];
+  [store addRange:[ENRMFormattingRange rangeWithType:ENRMInputStyleTypeUnderline range:NSMakeRange(3, 4)]];
+  [store growToWholeWordsInText:@"foobarx" touchingRange:NSMakeRange(6, 1)];
+  XCTAssertTrue(NSEqualRanges([self underlineIn:store], NSMakeRange(3, 4)));
+}
+
+- (void)testBoldStartingWhereTheUnderlineEndsStopsTheGrowth
+{
+  ENRMFormattingStore *store = [ENRMFormattingStore new];
+  [store addRange:[ENRMFormattingRange rangeWithType:ENRMInputStyleTypeUnderline range:NSMakeRange(0, 4)]];
+  [store addRange:[ENRMFormattingRange rangeWithType:ENRMInputStyleTypeStrong range:NSMakeRange(4, 3)]];
+  [store growToWholeWordsInText:@"xfoobar" touchingRange:NSMakeRange(0, 1)];
+  XCTAssertTrue(NSEqualRanges([self underlineIn:store], NSMakeRange(0, 4)));
+}
+
+// The serializer writes a link starting with the underline inside it (`foo_[bar](u)_`), so the
+// underline takes the word: `_foo[bar](u)_`.
+- (void)testUnderlineOverALinkInsideAWordTakesTheWord
+{
+  ENRMFormattingStore *store = [ENRMFormattingStore new];
+  [store addRange:[ENRMFormattingRange rangeWithType:ENRMInputStyleTypeLink
+                                               range:NSMakeRange(3, 3)
+                                                 url:@"https://example.com"]];
+  XCTAssertTrue(NSEqualRanges([self wordRangeIn:@"foobar" range:NSMakeRange(3, 3) store:store], NSMakeRange(0, 6)));
 }
 
 - (void)testOtherStylesAreUnchanged
@@ -301,6 +346,36 @@
   [self type:@"x"];
 
   XCTAssertEqualObjects([_input currentMarkdown], @"_foo_! xbar");
+}
+
+// Growth never changes an underline whose markdown reads back: another style's delimiter between
+// the `_` and a letter already separates them.
+- (void)testTypingAwayFromAnUnderlineLeavesItAlone
+{
+  [_input setValue:@"*foo*_bar_ baz"];
+  [self select:NSMakeRange(10, 0)];
+  [self type:@"x"];
+
+  XCTAssertEqualObjects([_input currentMarkdown], @"*foo*_bar_ bazx");
+}
+
+- (void)testTypingAfterAnUnderlineNextToItalicKeepsTheItalicOut
+{
+  [_input setValue:@"*foo*_bar_"];
+  [self select:NSMakeRange(6, 0)];
+  [self type:@"x"];
+
+  XCTAssertEqualObjects([_input currentMarkdown], @"*foo*_barx_");
+  XCTAssertTrue([self isUnderlineActive]);
+}
+
+- (void)testRemovingTheItalicBetweenGrowsTheUnderlineOverTheWord
+{
+  [_input setValue:@"*foo*_bar_"];
+  [self select:NSMakeRange(0, 3)];
+  [_input toggleInlineStyle:ENRMInputStyleTypeEmphasis];
+
+  XCTAssertEqualObjects([_input currentMarkdown], @"_foobar_");
 }
 
 // A chat input sends by calling setValue(""): what was pending at the old caret must not style the

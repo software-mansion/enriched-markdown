@@ -241,6 +241,69 @@ describe('a caret at the edge of an underlined word', () => {
   });
 });
 
+describe('growing next to other styles', () => {
+  // Growth never changes an underline whose markdown reads back: another
+  // style's delimiter between the "_" and a letter already separates them.
+  async function mountWith(markdown: string) {
+    const mounted = mount();
+    await mounted.host.setValue(markdown);
+    return mounted;
+  }
+
+  it('leaves an underline away from the edit alone', async () => {
+    const { root, markdowns } = await mountWith('*foo*_bar_ baz');
+    selectRangeFocused(root, 10, 10);
+    typeText(root, 'x');
+
+    expect(markdowns.at(-1)).toBe('*foo*_bar_ bazx');
+  });
+
+  it('stops at an italic word ending where the underline starts', async () => {
+    const { root, markdowns, states } = await mountWith('*foo*_bar_');
+    selectRangeFocused(root, 6, 6);
+    typeText(root, 'x');
+
+    expect(markdowns.at(-1)).toBe('*foo*_barx_');
+    expect(styledText(root, 'underline')).toEqual(['barx']);
+    expect(lastState(states).underline.isActive).toBe(true);
+  });
+
+  it('stops at a bold word starting where the underline ends', async () => {
+    const { root, markdowns } = await mountWith('_foo_**bar**');
+    selectRangeFocused(root, 0, 0);
+    typeText(root, 'x');
+
+    expect(markdowns.at(-1)).toBe('_xfoo_**bar**');
+  });
+
+  it('stops at a link ending where the underline starts', async () => {
+    const { root, markdowns } = await mountWith('[foo](https://e.com)_bar_');
+    selectRangeFocused(root, 6, 6);
+    typeText(root, 'x');
+
+    expect(markdowns.at(-1)).toBe('[foo](https://e.com)_barx_');
+  });
+
+  it('keeps an underline nested inside a link mid-word', async () => {
+    const { root, host, markdowns } = await mountWith(
+      'foo[bar](https://e.com)'
+    );
+    selectRangeFocused(root, 3, 6);
+    host.toggleUnderline();
+
+    expect(markdowns.at(-1)).toBe('foo[_bar_](https://e.com)');
+  });
+
+  it('grows over the word once the italic between is gone', async () => {
+    const { root, host, markdowns, states } = await mountWith('*foo*_bar_');
+    selectRangeFocused(root, 0, 3);
+    host.toggleItalic();
+
+    expect(markdowns.at(-1)).toBe('_foobar_');
+    expect(lastState(states).underline.isActive).toBe(true);
+  });
+});
+
 describe('clearing the value', () => {
   // A chat input sends by calling setValue(""): the underline pending at the
   // old caret must not style the next message.

@@ -1375,9 +1375,12 @@ export class InputHost {
         this.history.breakGroup();
       }
       if (start !== end) {
-        this.session.scoped('processing', () =>
-          this.formattingStore.toggleStyle(type, start, end, this.text)
-        );
+        this.session.scoped('processing', () => {
+          this.formattingStore.toggleStyle(type, start, end, this.text);
+          // Another style's edge can be what keeps an underline's "_" off a
+          // letter ("*foo*_bar_"); with it gone the underline takes the word.
+          this.formattingStore.growToWholeWords(this.text, start, end);
+        });
         this.projector.stylesChanged(start, end);
       }
       if (start === end) {

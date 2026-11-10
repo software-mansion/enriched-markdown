@@ -1052,6 +1052,11 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   BOOL wasActive = [_formattingStore toggleStyle:styleType
                                          inRange:selection
                                conflictingStyles:mergingConfig.conflictingStyles];
+  if (selection.length > 0) {
+    // Another style's edge can be what keeps an underline's `_` off a letter (`*foo*_bar_`); with
+    // it gone the underline takes the word.
+    [_formattingStore growToWholeWordsInText:ENRMGetPlainText(_textView) touchingRange:selection];
+  }
 
   [_typingController togglePendingStyle:styleType wasActive:wasActive hasSelection:(selection.length > 0)];
 
@@ -1485,9 +1490,12 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
 - (void)removeLink
 {
-  if (![_linkCoordinator removeLinkForSelection:_textView.selectedRange]) {
+  ENRMFormattingRange *link = [_linkCoordinator linkForSelection:_textView.selectedRange];
+  if (link == nil || ![_linkCoordinator removeLinkForSelection:_textView.selectedRange]) {
     return;
   }
+  // The link's edge may have been what kept an underline's `_` off a letter.
+  [_formattingStore growToWholeWordsInText:ENRMGetPlainText(_textView) touchingRange:link.range];
   [self applyFormatting];
   [_inputEventEmitter emitFormattingChanged];
 }

@@ -286,4 +286,76 @@ class WholeWordUnderlineTest {
 
     assertEquals("_foo_! xbar", markdown())
   }
+
+  // Growth never changes an underline whose markdown reads back: another style's delimiter between
+  // the `_` and a letter already separates them.
+  private fun italicFooUnderlinedBar(): String {
+    type("foobar baz")
+    view.setSelection(0, 3)
+    view.toggleInlineStyle(StyleType.ITALIC)
+    return underline(3, 6)
+  }
+
+  @Test
+  fun anItalicWordEndingThereStopsTheToggle() {
+    assertEquals("*foo*_bar_ baz", italicFooUnderlinedBar())
+  }
+
+  @Test
+  fun typingAwayFromAnUnderlineLeavesItAlone() {
+    italicFooUnderlinedBar()
+    view.setSelection(10)
+    type("x")
+
+    assertEquals("*foo*_bar_ bazx", markdown())
+  }
+
+  @Test
+  fun typingAfterAnUnderlineNextToItalicKeepsTheItalicOut() {
+    italicFooUnderlinedBar()
+    view.setSelection(6)
+    type("x")
+
+    assertEquals("*foo*_barx_ baz", markdown())
+    assertTrue(isUnderlineActive())
+  }
+
+  @Test
+  fun aBoldWordStartingThereStopsTheGrowth() {
+    type("foobar")
+    view.setSelection(3, 6)
+    view.toggleInlineStyle(StyleType.BOLD)
+    underline(0, 3)
+    view.setSelection(0)
+    type("x")
+
+    assertEquals("_xfoo_**bar**", markdown())
+  }
+
+  @Test
+  fun removingTheItalicBetweenGrowsTheUnderlineOverTheWord() {
+    italicFooUnderlinedBar()
+    view.setSelection(0, 3)
+    view.toggleInlineStyle(StyleType.ITALIC)
+
+    assertEquals("_foobar_ baz", markdown())
+  }
+
+  // The serializer writes a link starting with the underline inside it (`foo_[bar](u)_`), so the
+  // underline takes the word.
+  @Test
+  fun underliningALinkInsideAWordTakesTheWord() {
+    type("foobar")
+    view.setLinkForRange("https://example.com", 3, 6)
+
+    assertEquals("_foo[bar](https://example.com)_", underline(3, 6))
+  }
+
+  @Test
+  fun aLinkEndingWhereTheUnderlineStartsStopsTheGrowth() {
+    type("foobar")
+    view.setLinkForRange("https://example.com", 0, 3)
+
+    assertEquals("[foo](https://example.com)_bar_", underline(4, 5))
+  }
 }
