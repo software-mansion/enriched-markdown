@@ -1850,6 +1850,10 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     // markdown that reveals nothing yet renders nothing.
     NSString *markdown = [_pacer markdownToRender:ENRMStringFromUTF8(newViewProps.markdown)
                                            pacing:_streaming && newViewProps.streamingConfig.smooth];
+    // A reset while the last words drain (smooth turned off, or the text replaced) leaves nothing waiting.
+    if (_streaming && !newViewProps.streaming && !_pacer.waiting) {
+      [self stopStreaming];
+    }
     if ((_dirtyFlags & ENRMDirtyRender) || ![markdown isEqualToString:_cachedMarkdown]) {
       _pendingStyleFingerprint =
           computeStyleFingerprint(newViewProps.markdownStyle) ^ std::hash<bool>{}(newViewProps.allowTrailingMargin);

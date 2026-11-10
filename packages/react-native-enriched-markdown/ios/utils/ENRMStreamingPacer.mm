@@ -56,7 +56,7 @@
 - (NSString *)markdownToRender:(NSString *)markdown pacing:(BOOL)pacing
 {
   NSUInteger previous = _markdown.length;
-  BOOL continues = markdown.length >= previous && [markdown hasPrefix:_markdown];
+  BOOL continues = previous > 0 && markdown.length >= previous && [markdown hasPrefix:_markdown];
   _markdown = [markdown copy];
   if (!pacing || !continues) {
     _pacer.reset(markdown.length);
@@ -94,7 +94,7 @@
 
 - (BOOL)waiting
 {
-  return _pacer.waiting(CACurrentMediaTime());
+  return _finishing || _pacer.waiting(CACurrentMediaTime());
 }
 
 - (void)reset

@@ -372,6 +372,8 @@ class EnrichedMarkdownText
         }
         if (!pacer.waiting) stopStreaming()
       }
+      // A reset while the last words drain (smooth turned off, or the text replaced) leaves nothing waiting.
+      if (isStreaming && !streamingProp && !pacer.waiting) stopStreaming()
     }
 
     private fun updateMeasurementStoreFontScaling() {

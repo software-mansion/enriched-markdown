@@ -34,7 +34,7 @@ class StreamingPacer(
     pacing: Boolean,
   ): String {
     val previous = this.markdown.length
-    val continues = markdown.length >= previous && markdown.startsWith(this.markdown)
+    val continues = previous > 0 && markdown.length >= previous && markdown.startsWith(this.markdown)
     this.markdown = markdown
     if (handle == 0L) return markdown
     val now = StreamingEffects.now()
@@ -59,7 +59,7 @@ class StreamingPacer(
     if (handle == 0L) return
     nativeFinish(handle, StreamingEffects.now())
     update()
-    finishing = waiting
+    finishing = frameScheduled
   }
 
   /** Streaming started again: [done] no longer runs for the last [finish]. */
@@ -67,8 +67,8 @@ class StreamingPacer(
     finishing = false
   }
 
-  /** Whether more is still to be revealed. */
-  val waiting: Boolean get() = handle != 0L && nativeWaiting(handle, StreamingEffects.now())
+  /** Whether more is still to be revealed, or [done] still to run. */
+  val waiting: Boolean get() = finishing || (handle != 0L && nativeWaiting(handle, StreamingEffects.now()))
 
   /** Forgets everything and stops (a recycled view). */
   fun reset() {
