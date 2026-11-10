@@ -1,4 +1,5 @@
 import type { ASTNode } from './types';
+import type { Md4cModule } from './wasm/md4c';
 import type { Md4cFlags } from '../types/MarkdownStyle';
 
 type ParseFn = (
@@ -40,6 +41,9 @@ export type WebMd4cFlags = Md4cFlags & {
 let parserPromise: Promise<ParseFn> | null = null;
 // Set once the WASM is up, so later parses can run synchronously in render.
 let loadedParser: ParseFn | null = null;
+// The module the parser came from, for the exports that are not the parser
+// (the input's markdown import and export).
+let loadedModule: Md4cModule | null = null;
 const parserReadyListeners = new Set<() => void>();
 
 // SINGLE_FILE=1 inlines the WASM binary as base64 inside md4c.js, so no
@@ -48,8 +52,9 @@ function initializeParser(): Promise<ParseFn> {
   if (!parserPromise) {
     parserPromise = import('./wasm/md4c')
       .then((module) => module.default())
-      .then((wasmModule) =>
-        wasmModule.cwrap('parseMarkdown', 'string', [
+      .then((wasmModule) => {
+        loadedModule = wasmModule;
+        return wasmModule.cwrap('parseMarkdown', 'string', [
           'string',
           'number',
           'number',
@@ -60,8 +65,8 @@ function initializeParser(): Promise<ParseFn> {
           'number',
           'number',
           'number',
-        ])
-      )
+        ]);
+      })
       .then((wrapped) => {
         const parse = wrapped as ParseFn;
         loadedParser = parse;
@@ -84,6 +89,11 @@ export function loadParser(): Promise<void> {
 /** Whether {@link parseMarkdownSync} can run. */
 export function isParserReady(): boolean {
   return loadedParser !== null;
+}
+
+/** The loaded WASM module, or null until {@link isParserReady}. */
+export function getLoadedModule(): Md4cModule | null {
+  return loadedModule;
 }
 
 /** Calls `listener` once the WASM load finishes. */
