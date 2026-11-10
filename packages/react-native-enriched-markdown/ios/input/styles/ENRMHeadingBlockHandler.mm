@@ -28,14 +28,4 @@
   ENRMApplyLineHeightToParagraphStyle(paragraphStyle, [style derivedLineHeightForHeadingLevel:level]);
 }
 
-- (NSString *)markdownLinePrefixForBlockRange:(ENRMBlockRange *)blockRange
-{
-  NSInteger level = blockRange.level;
-  if (level < 1 || level > 6) {
-    return @"";
-  }
-  NSString *hashes = [@"" stringByPaddingToLength:level withString:@"#" startingAtIndex:0];
-  return [hashes stringByAppendingString:@" "];
-}
-
 @end
