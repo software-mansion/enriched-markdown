@@ -3,6 +3,7 @@
 #import "../../ios/utils/ENRMSpoilerOverlayView.h"
 #import "../../ios/utils/ENRMSpoilerTapUtils.h"
 #import "../../ios/utils/ENRMTextRenderer.h"
+#import "../../ios/views/ENRMMarkdownTextView.h"
 #import "../../ios/views/EnrichedMarkdownInternalText.h"
 #import <XCTest/XCTest.h>
 
@@ -196,6 +197,33 @@ static NSString *ENRMParagraphs(NSUInteger count)
   for (UIView *tile in tiles) {
     XCTAssertTrue(tile.layer.needsDisplay);
   }
+}
+
+// A streaming effect redraws the tiles holding the text's end, not the ones above.
+- (void)testAStreamingEffectRedrawsTheTileHoldingTheEnd
+{
+  EnrichedMarkdownInternalText *segment = [self segmentWithMarkdown:ENRMParagraphs(200) onScreen:YES];
+  _scrollView.contentOffset = CGPointMake(0, segment.bounds.size.height - kWindowHeight);
+  [segment layoutIfNeeded];
+  NSArray<UIView *> *tiles = [ENRMTiles(segment.textView) sortedArrayUsingComparator:^(UIView *a, UIView *b) {
+    return [@([a convertRect:a.bounds toView:nil].origin.y) compare:@([b convertRect:b.bounds toView:nil].origin.y)];
+  }];
+  XCTAssertGreaterThan(tiles.count, 1u);
+  for (UIView *tile in tiles) {
+    [tile.layer displayIfNeeded];
+  }
+  ENRMMarkdownTextView *textView = (ENRMMarkdownTextView *)segment.textView;
+  NSUInteger length = textView.textStorage.length;
+  [textView.streamingEffects configureType:ENRMStreamingEffectGradient
+                                  duration:0.2
+                                    length:20
+                                startColor:nil
+                                  endColor:nil];
+  [textView.streamingEffects noteArrivalFrom:length - 40 to:length at:CACurrentMediaTime()];
+  [textView streamingEffectsChanged];
+  [textView layoutIfNeeded];
+  XCTAssertTrue(tiles.lastObject.layer.needsDisplay);
+  XCTAssertFalse(tiles.firstObject.layer.needsDisplay);
 }
 
 - (void)testMeasurementAndAccessibilityCoverTheWholeText

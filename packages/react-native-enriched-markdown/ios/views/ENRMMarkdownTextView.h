@@ -2,6 +2,7 @@
 #import "ENRMUIKit.h"
 
 #import "ENRMLinkContextMenus.h"
+#import "ENRMStreamingEffects.h"
 #import "ENRMTextViewport.h"
 
 #if !TARGET_OS_OSX
@@ -20,6 +21,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// Copies a selection the way the menu Copy does. Set by the hosting view, which knows the
 /// source Markdown and style; without it the Copy key command writes plain text and RTF only.
 @property (nonatomic, copy, nullable) void (^copySelectionHandler)(NSRange selectedRange);
+/// How the newest streamed characters look (fade, gradient); call streamingEffectsChanged after
+/// telling them of new text.
+@property (nonatomic, readonly) ENRMStreamingEffects *streamingEffects;
+- (void)streamingEffectsChanged;
 @end
 
 NS_ASSUME_NONNULL_END

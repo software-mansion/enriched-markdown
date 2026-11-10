@@ -172,13 +172,52 @@ export interface StreamingConfig {
   mediaMode?: 'hidden' | 'progressive';
   /**
    * How newly arrived content appears during streaming.
-   * - `'fade'` (default): new text, blocks and table rows fade in.
+   * - `'fade'` (default): each new chunk of text fades in over 200 ms, and new
+   *   blocks and table rows fade in.
+   * - `'gradient'`: the last 20 characters run from their own color to
+   *   transparent, following the end of the text (see `StreamingGradient`).
    * - `'none'`: new content appears at once.
-   * Only effective when `streaming` is `true`.
+   * Only effective when `streaming` is `true`. Reduce Motion turns it off.
    * @default 'fade'
    * @platform ios, android
    */
-  animation?: 'fade' | 'none';
+  animation?: StreamingAnimation;
+}
+
+/** `streamingConfig.animation`: a preset name, or a preset with its options. */
+export type StreamingAnimation =
+  | 'fade'
+  | 'gradient'
+  | 'none'
+  | StreamingFade
+  | StreamingGradient;
+
+export interface StreamingFade {
+  type: 'fade';
+  /**
+   * How long a new chunk takes to appear, in milliseconds.
+   * @default 200
+   */
+  duration?: number;
+}
+
+export interface StreamingGradient {
+  type: 'gradient';
+  /**
+   * How many characters from the end the gradient covers.
+   * @default 20
+   */
+  length?: number;
+  /**
+   * The color where the gradient starts (older characters). Unset keeps each
+   * character's own color.
+   */
+  startColor?: ColorValue;
+  /**
+   * The color of the newest character.
+   * @default 'transparent'
+   */
+  endColor?: ColorValue;
 }
 
 export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {

@@ -35,6 +35,7 @@ import com.swmansion.enriched.markdown.utils.common.parseLinkPillContent
 import com.swmansion.enriched.markdown.utils.common.parseLinkRecognition
 import com.swmansion.enriched.markdown.utils.common.parseMd4cFlags
 import com.swmansion.enriched.markdown.utils.common.parseSelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.text.StreamingEffects
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListToggleUtils
 
 // A ViewGroupManager because the React slot children (`renderers`) mount into the
@@ -337,7 +338,7 @@ class EnrichedMarkdownManager :
     view.tableStreamingMode = TableStreamingMode.fromString(config?.getString("tableMode"))
     view.codeBlockStreamingMode = CodeBlockStreamingMode.fromString(config?.getString("codeBlockMode"))
     view.mediaStreamingMode = MediaStreamingMode.fromString(config?.getString("mediaMode"))
-    view.streamingFade = config?.getString("animation") != "none"
+    view.setStreamingAnimation(StreamingEffects.Config.from(config, view.context))
   }
 
   @ReactProp(name = "spoilerOverlay")

@@ -4,8 +4,10 @@
 #include "CodeBlockLanguages.hpp"
 #include "DocumentStore.hpp"
 #include "LatexSpeech.hpp"
+#include "StreamingEffects.hpp"
 #include "TextLinkRecognizer.hpp"
 #include "Utf16.hpp"
+#include <algorithm>
 #include <android/log.h>
 #include <jni.h>
 #include <string>
@@ -357,6 +359,25 @@ static Md4cFlags md4cFlagsFromJava(JNIEnv *env, jobject flags) {
   return md4cFlags;
 }
 
+// The core's streaming effects (StreamingEffects.hpp), one per text view; Kotlin holds the pointer.
+namespace {
+Markdown::EffectColor effectColor(jint argb) {
+  auto channel = [&](int shift) { return static_cast<float>((static_cast<uint32_t>(argb) >> shift) & 0xFF) / 255.0f; };
+  return {channel(16), channel(8), channel(0), channel(24)};
+}
+
+jint argbOf(const Markdown::EffectColor &color) {
+  auto channel = [](float value, int shift) {
+    return static_cast<uint32_t>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f) << shift;
+  };
+  return static_cast<jint>(channel(color.a, 24) | channel(color.r, 16) | channel(color.g, 8) | channel(color.b, 0));
+}
+
+Markdown::StreamingEffects *effectsOf(jlong handle) {
+  return reinterpret_cast<Markdown::StreamingEffects *>(handle);
+}
+} // namespace
+
 extern "C" {
 
 JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nativeParseMarkdown(
@@ -538,6 +559,87 @@ JNIEXPORT jintArray JNICALL Java_com_swmansion_enriched_markdown_utils_common_Co
   }
   env->SetIntArrayRegion(result, 0, static_cast<jsize>(flat.size()), flat.data());
   return result;
+}
+
+JNIEXPORT jlong JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeCreate(JNIEnv *,
+                                                                                                      jclass) {
+  return reinterpret_cast<jlong>(new Markdown::StreamingEffects());
+}
+
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeDestroy(JNIEnv *, jclass,
+                                                                                                      jlong handle) {
+  delete effectsOf(handle);
+}
+
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeConfigure(
+    JNIEnv *, jclass, jlong handle, jint type, jdouble duration, jint length, jboolean hasStartColor, jint startColor,
+    jboolean hasEndColor, jint endColor) {
+  Markdown::StreamingEffectConfig config;
+  config.type = type == 2   ? Markdown::StreamingEffectType::Gradient
+                : type == 1 ? Markdown::StreamingEffectType::Fade
+                            : Markdown::StreamingEffectType::None;
+  config.duration = duration;
+  config.length = static_cast<size_t>(std::max(length, 1));
+  if (hasStartColor == JNI_TRUE) {
+    config.startColor = effectColor(startColor);
+  }
+  if (hasEndColor == JNI_TRUE) {
+    config.endColor = effectColor(endColor);
+  }
+  effectsOf(handle)->configure(config);
+}
+
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeNoteArrival(
+    JNIEnv *, jclass, jlong handle, jint start, jint end, jdouble time) {
+  effectsOf(handle)->noteArrival(static_cast<size_t>(std::max(start, 0)), static_cast<size_t>(std::max(end, 0)), time);
+}
+
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeFinish(JNIEnv *, jclass,
+                                                                                                     jlong handle,
+                                                                                                     jdouble time) {
+  effectsOf(handle)->finish(time);
+}
+
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeReset(JNIEnv *, jclass,
+                                                                                                    jlong handle) {
+  effectsOf(handle)->reset();
+}
+
+JNIEXPORT jboolean JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeChangesOverTime(
+    JNIEnv *, jclass, jlong handle, jdouble time) {
+  return effectsOf(handle)->changesOverTime(time) ? JNI_TRUE : JNI_FALSE;
+}
+
+// The animated range as (start << 32 | length), or -1 for none.
+JNIEXPORT jlong JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeAnimatedRange(
+    JNIEnv *, jclass, jlong handle, jdouble time) {
+  auto range = effectsOf(handle)->animatedRange(time);
+  if (!range) {
+    return -1;
+  }
+  return (static_cast<jlong>(range->start) << 32) | static_cast<jlong>(range->length & 0xFFFFFFFF);
+}
+
+// The looks of `count` characters from `start`, in one call per frame.
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeLooks(
+    JNIEnv *env, jclass, jlong handle, jint start, jint count, jdouble time, jintArray tints, jfloatArray tintAmounts,
+    jfloatArray opacities) {
+  if (count <= 0) {
+    return;
+  }
+  std::vector<jint> tintValues(count);
+  std::vector<jfloat> amountValues(count);
+  std::vector<jfloat> opacityValues(count);
+  auto *effects = effectsOf(handle);
+  for (jint i = 0; i < count; i++) {
+    Markdown::CharacterLook look = effects->lookAt(static_cast<size_t>(start + i), time);
+    tintValues[i] = argbOf(look.tint);
+    amountValues[i] = look.tintAmount;
+    opacityValues[i] = look.opacity;
+  }
+  env->SetIntArrayRegion(tints, 0, count, tintValues.data());
+  env->SetFloatArrayRegion(tintAmounts, 0, count, amountValues.data());
+  env->SetFloatArrayRegion(opacities, 0, count, opacityValues.data());
 }
 
 } // extern "C"

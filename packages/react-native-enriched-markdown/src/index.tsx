@@ -8,6 +8,9 @@ export { default as EnrichedMarkdownText } from './native/EnrichedMarkdownText';
 export type {
   EnrichedMarkdownTextProps,
   StreamingConfig,
+  StreamingAnimation,
+  StreamingFade,
+  StreamingGradient,
   MarkdownStyle,
   Md4cFlags,
   ContextMenuItem as TextContextMenuItem,

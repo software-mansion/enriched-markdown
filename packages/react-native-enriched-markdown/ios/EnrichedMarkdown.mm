@@ -9,7 +9,7 @@
 #import "ENRMLinkRegexProps.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMPreparedRenderStore.h"
-#import "ENRMTailFadeInAnimator.h"
+#import "ENRMStreamingEffectsProps.h"
 #import "ENRMTextInteractionUtils.h"
 #import "ENRMTextRenderCache.h"
 #import "ENRMTextRenderer.h"
@@ -35,6 +35,7 @@
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMCodeBlockWrapState.h"
 #import "ENRMDynamicBlockProps.h"
+#import "ENRMMarkdownTextView.h"
 #import "ENRMSpoilerCapable.h"
 #import "ENRMSpoilerOverlayView.h"
 #import "ENRMSpoilerTapUtils.h"
@@ -89,7 +90,6 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   ENRMDirtyRender = 1 << 2,
 };
 
-static char kENRMSegmentFadeAnimatorKey;
 // A signature no segment has (they are FNV hashes salted per kind).
 static const uint64_t kENRMUnknownSignature = UINT64_MAX;
 
@@ -160,6 +160,8 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   BOOL _enableImagePress;
   BOOL _enableTextPress;
   BOOL _streaming;
+  // The stream ended and its last text has not been rendered yet: it still animates, then settles.
+  BOOL _streamEnding;
   BOOL _streamingFade;
   ENRMTableStreamingMode _tableStreamingMode;
   ENRMCodeBlockStreamingMode _codeBlockStreamingMode;
@@ -342,6 +344,7 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
 
                             EnrichedMarkdownInternalText *view =
                                 [strongSelf createTextViewForRenderedSegment:segment.textResult];
+                            [strongSelf configureStreamingEffectsOfTextSegment:view];
                             [strongSelf animateTextView:view fromTailStart:0];
                             return view;
                           }
@@ -1245,6 +1248,10 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
   _segmentViews = result.views;
   _segmentSignatures = result.signatures;
+  _streamEnding = NO;
+  if (_streaming) {
+    [self settleTextSegmentsBefore:_segmentViews.lastObject];
+  }
   // A view that missed a patch gets the whole text from a full render: forgetting its signature
   // makes the reconciler update it then, where it would keep a view whose segment it matches.
   NSIndexSet *missedPatches = ENRMSyncTextRevisions(renderedSegments, _segmentViews);
@@ -1459,34 +1466,63 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 #endif
 }
 
-- (void)animateTextView:(EnrichedMarkdownInternalText *)view fromTailStart:(NSUInteger)tailStart
+// Starts a text segment's effects over with the current props.
+- (void)configureStreamingEffectsOfTextSegment:(EnrichedMarkdownInternalText *)view
 {
-  if (!_streaming || !_streamingFade)
-    return;
-
-  ENRMTailFadeInAnimator *animator = objc_getAssociatedObject(view.textView, &kENRMSegmentFadeAnimatorKey);
-  if (!animator) {
-    animator = [[ENRMTailFadeInAnimator alloc] initWithTextView:view.textView];
-    objc_setAssociatedObject(view.textView, &kENRMSegmentFadeAnimatorKey, animator, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-  }
-
-  [animator animateFrom:tailStart to:ENRMGetAttributedText(view.textView).length];
+#if !TARGET_OS_OSX
+  ENRMMarkdownTextView *textView = (ENRMMarkdownTextView *)view.textView;
+  ENRMConfigureStreamingEffects(textView.streamingEffects,
+                                static_cast<const EnrichedMarkdownProps &>(*_props).streamingConfig);
+  [textView streamingEffectsChanged];
+#endif
 }
 
-// Shows what is still fading in at once.
+- (void)animateTextView:(EnrichedMarkdownInternalText *)view fromTailStart:(NSUInteger)tailStart
+{
+#if !TARGET_OS_OSX
+  if (!_streaming && !_streamEnding) {
+    return;
+  }
+  ENRMStreamingEffects *effects = ((ENRMMarkdownTextView *)view.textView).streamingEffects;
+  CFTimeInterval now = CACurrentMediaTime();
+  [effects noteArrivalFrom:tailStart to:ENRMGetAttributedText(view.textView).length at:now];
+  if (_streamEnding) {
+    [effects finishAt:now];
+  }
+  [(ENRMMarkdownTextView *)view.textView streamingEffectsChanged];
+#endif
+}
+
+// What still animates in text segments settles: all of them once the stream ends, or the ones the
+// document's end has left (a gradient follows only the end of the document).
+- (void)settleTextSegmentsBefore:(nullable RCTUIView *)last
+{
+#if !TARGET_OS_OSX
+  CFTimeInterval now = CACurrentMediaTime();
+  for (RCTUIView *segment in _segmentViews) {
+    if (segment == last || ![segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
+      continue;
+    }
+    ENRMStreamingEffects *effects =
+        ((ENRMMarkdownTextView *)((EnrichedMarkdownInternalText *)segment).textView).streamingEffects;
+    if (last == nil ? effects.type != ENRMStreamingEffectNone : effects.type == ENRMStreamingEffectGradient) {
+      [effects finishAt:now];
+      [(ENRMMarkdownTextView *)((EnrichedMarkdownInternalText *)segment).textView streamingEffectsChanged];
+    }
+  }
+#endif
+}
+
+// Shows the blocks still fading in at once.
 - (void)finishStreamingAnimations
 {
   [_blockSlotReveal cancel];
   [self applyBlockSlotReveal];
   [self setNeedsLayout];
   for (RCTUIView *segment in _segmentViews) {
-    if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
-      ENRMPlatformTextView *textView = ((EnrichedMarkdownInternalText *)segment).textView;
-      [(ENRMTailFadeInAnimator *)objc_getAssociatedObject(textView, &kENRMSegmentFadeAnimatorKey) cancel];
-      objc_setAssociatedObject(textView, &kENRMSegmentFadeAnimatorKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    } else if ([segment isKindOfClass:[TableContainerView class]]) {
+    if ([segment isKindOfClass:[TableContainerView class]]) {
       [(TableContainerView *)segment finishRowFade];
-    } else {
+    } else if (![segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
       // A block fading in (animateBlockViewIfNeeded:).
       [segment.layer removeAnimationForKey:@"opacity"];
     }
@@ -1495,8 +1531,6 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
 - (void)updateTextView:(EnrichedMarkdownInternalText *)view withRenderedSegment:(ENRMRenderResult *)segment
 {
-  // Restores the faded colors onto the text they came from.
-  [(ENRMTailFadeInAnimator *)objc_getAssociatedObject(view.textView, &kENRMSegmentFadeAnimatorKey) cancel];
   NSUInteger tailStart = ENRMGetAttributedText(view.textView).length;
   [self configureTextView:view withRenderedSegment:segment];
   [self animateTextView:view fromTailStart:tailStart];
@@ -1648,16 +1682,19 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
   if (newViewProps.streaming != oldViewProps.streaming) {
     _streaming = newViewProps.streaming;
+    _streamEnding = !_streaming;
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
     if (!_streaming) {
       [self finishStreamingAnimations];
+      [self settleTextSegmentsBefore:nil];
       if (auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter)) {
         emitter->onStreamingEnd({});
       }
     }
   }
 
-  if (newViewProps.streamingConfig.animation != oldViewProps.streamingConfig.animation) {
+  BOOL animationChanged = !ENRMSameStreamingAnimation(newViewProps.streamingConfig, oldViewProps.streamingConfig);
+  if (animationChanged) {
     _streamingFade = newViewProps.streamingConfig.animation != "none";
     if (!_streamingFade) {
       [self finishStreamingAnimations];
@@ -1777,6 +1814,16 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   }
 
   [super updateProps:props oldProps:oldProps];
+
+  // Text segments start over with the new animation, from `_props` (set by super): 'none' shows
+  // what still animates at once.
+  if (animationChanged) {
+    for (RCTUIView *segment in _segmentViews) {
+      if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
+        [self configureStreamingEffectsOfTextSegment:(EnrichedMarkdownInternalText *)segment];
+      }
+    }
+  }
 }
 
 #if !TARGET_OS_OSX
@@ -1948,13 +1995,6 @@ static void ENRMAfterCommit(dispatch_block_t block)
   _laidOutMarkdown = nullptr;
 
   for (RCTUIView *segment in _segmentViews) {
-    if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
-      EnrichedMarkdownInternalText *textSegment = (EnrichedMarkdownInternalText *)segment;
-      ENRMTailFadeInAnimator *animator = objc_getAssociatedObject(textSegment.textView, &kENRMSegmentFadeAnimatorKey);
-      [animator cancel];
-      objc_setAssociatedObject(textSegment.textView, &kENRMSegmentFadeAnimatorKey, nil,
-                               OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    }
     [segment removeFromSuperview];
   }
   [_segmentViews removeAllObjects];
@@ -1977,6 +2017,7 @@ static void ENRMAfterCommit(dispatch_block_t block)
   _maxFontSizeMultiplier = 0;
   _allowTrailingMargin = NO;
   _streaming = NO;
+  _streamEnding = NO;
   _streamingFade = YES;
   _tableStreamingMode = ENRMTableStreamingModeProgressive;
   _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;

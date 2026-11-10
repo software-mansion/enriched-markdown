@@ -8,9 +8,43 @@
 #import "StyleConfig.h"
 #import <objc/runtime.h>
 
-@implementation TextViewLayoutManager
+@implementation TextViewLayoutManager {
+#if !TARGET_OS_OSX
+  UIColor *_glyphColor;
+#endif
+}
 
 #if !TARGET_OS_OSX
+- (void)drawGlyphsForGlyphRange:(NSRange)glyphRange atPoint:(CGPoint)origin color:(UIColor *)color
+{
+  _glyphColor = color;
+  [self drawGlyphsForGlyphRange:glyphRange atPoint:origin];
+  _glyphColor = nil;
+}
+
+- (void)showCGGlyphs:(const CGGlyph *)glyphs
+           positions:(const CGPoint *)positions
+               count:(NSInteger)glyphCount
+                font:(UIFont *)font
+          textMatrix:(CGAffineTransform)textMatrix
+          attributes:(NSDictionary<NSAttributedStringKey, id> *)attributes
+           inContext:(CGContextRef)context
+{
+  if (_glyphColor != nil) {
+    NSMutableDictionary<NSAttributedStringKey, id> *colored = [attributes mutableCopy];
+    colored[NSForegroundColorAttributeName] = _glyphColor;
+    attributes = colored;
+    CGContextSetFillColorWithColor(context, _glyphColor.CGColor);
+  }
+  [super showCGGlyphs:glyphs
+            positions:positions
+                count:glyphCount
+                 font:font
+           textMatrix:textMatrix
+           attributes:attributes
+            inContext:context];
+}
+
 // A text view drawing its text itself (ENRMTextViewportView) hears of what to redraw from here too.
 // Called while the text storage edits too: nothing here may generate glyphs.
 - (void)invalidateDisplayForGlyphRange:(NSRange)glyphRange

@@ -14,7 +14,7 @@
 #import "ENRMPreparedRenderStore.h"
 #import "ENRMSpoilerOverlayManager.h"
 #import "ENRMSpoilerTapUtils.h"
-#import "ENRMTailFadeInAnimator.h"
+#import "ENRMStreamingEffectsProps.h"
 #import "ENRMTextInteractionUtils.h"
 #import "ENRMTextRenderCache.h"
 #import "ENRMTextRenderer.h"
@@ -119,7 +119,6 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   BOOL _enableTextPress;
   BOOL _enableCodeBlockPress;
   BOOL _streaming;
-  BOOL _streamingFade;
   ENRMTableStreamingMode _tableStreamingMode;
   ENRMCodeBlockStreamingMode _codeBlockStreamingMode;
   ENRMMediaStreamingMode _mediaStreamingMode;
@@ -129,7 +128,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   size_t _pendingStyleFingerprint;
 
   NSUInteger _previousTextLength;
-  ENRMTailFadeInAnimator *_fadeAnimator;
+  // The stream ended and its last text has not been rendered yet: it still animates, then settles.
+  BOOL _streamEnding;
 
   // Reused by the next render on the render queue (see ENRMTextRenderCache); a recycled view
   // starts a new epoch, which drops it.
@@ -358,7 +358,6 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _resolvedLayoutDirection =
         [[RCTI18nUtil sharedInstance] isRTL] ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight;
     _dirtyFlags = ENRMDirtyNone;
-    _streamingFade = YES;
     _tableStreamingMode = ENRMTableStreamingModeProgressive;
     _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
     _mediaStreamingMode = ENRMMediaStreamingModeProgressive;
@@ -658,8 +657,6 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _accessibilityElements = nil;
   _accessibilityNeedsRebuild = YES;
 
-  // Restores the faded colors onto the text they came from.
-  [_fadeAnimator cancel];
   if (patches) {
     NSTextStorage *storage = _textView.textStorage;
     [storage beginEditing];
@@ -710,14 +707,18 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     dispatch_async(dispatch_get_main_queue(), ^{ self->_textView.hidden = NO; });
   }
 
-  if (_streaming) {
-    if (_streamingFade) {
-      if (!_fadeAnimator) {
-        _fadeAnimator = [[ENRMTailFadeInAnimator alloc] initWithTextView:_textView];
-      }
-      [_fadeAnimator animateFrom:tailStart to:result.textLength];
+  if (_streaming || _streamEnding) {
+#if !TARGET_OS_OSX
+    ENRMMarkdownTextView *markdownTextView = (ENRMMarkdownTextView *)_textView;
+    CFTimeInterval now = CACurrentMediaTime();
+    [markdownTextView.streamingEffects noteArrivalFrom:tailStart to:result.textLength at:now];
+    if (_streamEnding) {
+      [markdownTextView.streamingEffects finishAt:now];
     }
-    _previousTextLength = result.textLength;
+    [markdownTextView streamingEffectsChanged];
+#endif
+    _previousTextLength = _streaming ? result.textLength : 0;
+    _streamEnding = NO;
   }
 }
 
@@ -891,12 +892,15 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _streaming = newViewProps.streaming;
     // The streaming session decides what renders, so the text renders again.
     _dirtyFlags |= ENRMDirtyRender;
+    _streamEnding = !_streaming;
     if (_streaming) {
       _previousTextLength = ENRMGetAttributedText(_textView).length;
     } else {
-      [_fadeAnimator cancel];
-      _fadeAnimator = nil;
-      _previousTextLength = 0;
+#if !TARGET_OS_OSX
+      // What still animates settles.
+      [((ENRMMarkdownTextView *)_textView).streamingEffects finishAt:CACurrentMediaTime()];
+      [(ENRMMarkdownTextView *)_textView streamingEffectsChanged];
+#endif
       if (auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter)) {
         emitter->onStreamingEnd({});
       }
@@ -919,12 +923,13 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
                                                                              : ENRMMediaStreamingModeProgressive;
     _dirtyFlags |= ENRMDirtyRender;
   }
-  if (newViewProps.streamingConfig.animation != oldViewProps.streamingConfig.animation) {
-    _streamingFade = newViewProps.streamingConfig.animation != "none";
-    if (!_streamingFade) {
-      [_fadeAnimator cancel];
-    }
+#if !TARGET_OS_OSX
+  if (!ENRMSameStreamingAnimation(newViewProps.streamingConfig, oldViewProps.streamingConfig)) {
+    // Starts over: 'none' shows what still animates at once.
+    ENRMConfigureStreamingEffects(((ENRMMarkdownTextView *)_textView).streamingEffects, newViewProps.streamingConfig);
+    [(ENRMMarkdownTextView *)_textView streamingEffectsChanged];
   }
+#endif
 
   if (newViewProps.spoilerOverlay != oldViewProps.spoilerOverlay) {
     NSString *modeStr = [[NSString alloc] initWithUTF8String:newViewProps.spoilerOverlay.c_str()];
@@ -1034,11 +1039,12 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _laidOutSize.clear();
   _laidOutMarkdown = nullptr;
 
-  [_fadeAnimator cancel];
-  _fadeAnimator = nil;
   _previousTextLength = 0;
+  _streamEnding = NO;
   _streaming = NO;
-  _streamingFade = YES;
+#if !TARGET_OS_OSX
+  [((ENRMMarkdownTextView *)_textView).streamingEffects reset];
+#endif
   _tableStreamingMode = ENRMTableStreamingModeProgressive;
   _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
   _mediaStreamingMode = ENRMMediaStreamingModeProgressive;

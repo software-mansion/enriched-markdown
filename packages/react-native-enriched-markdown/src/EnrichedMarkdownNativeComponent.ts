@@ -451,6 +451,11 @@ interface StreamingConfigInternal {
   codeBlockMode: string;
   mediaMode?: string;
   animation: string;
+  // The options of `animation`: duration in ms, length in characters.
+  animationDuration?: CodegenTypes.Float;
+  animationLength?: CodegenTypes.Int32;
+  animationStartColor?: ColorValue;
+  animationEndColor?: ColorValue;
 }
 
 interface LinkContextMenuItemConfig {

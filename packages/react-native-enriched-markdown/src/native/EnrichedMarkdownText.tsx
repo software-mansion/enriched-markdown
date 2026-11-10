@@ -26,6 +26,7 @@ import {
 import { hasRenderers } from '../blockRenderers';
 import { useImageSources } from './useImageSources';
 import { useLinksChange } from '../linkOccurrences';
+import { normalizeStreamingAnimation } from '../streamingAnimation';
 import {
   setNativeMarkdownStreams,
   useMarkdownStreamSnapshot,
@@ -40,6 +41,9 @@ import type { MarkdownStyle, Md4cFlags } from '../types/MarkdownStyle';
 import type {
   EnrichedMarkdownTextProps,
   StreamingConfig,
+  StreamingAnimation,
+  StreamingFade,
+  StreamingGradient,
   ContextMenuItem,
   SelectionMenuConfig,
   SelectionMenuPluralLabels,
@@ -74,6 +78,9 @@ export type { MarkdownStyle, Md4cFlags };
 export type {
   EnrichedMarkdownTextProps,
   StreamingConfig,
+  StreamingAnimation,
+  StreamingFade,
+  StreamingGradient,
   ContextMenuItem,
   SelectionMenuConfig,
   SelectionMenuPluralLabels,
@@ -458,10 +465,34 @@ export const EnrichedMarkdownText = ({
   const tableMode = streamingConfig?.tableMode ?? 'progressive';
   const codeBlockMode = streamingConfig?.codeBlockMode ?? 'progressive';
   const mediaMode = streamingConfig?.mediaMode ?? 'progressive';
-  const animation = streamingConfig?.animation ?? 'fade';
+  const {
+    animation,
+    animationDuration,
+    animationLength,
+    animationStartColor,
+    animationEndColor,
+  } = normalizeStreamingAnimation(streamingConfig?.animation);
   const normalizedStreamingConfig = useMemo(
-    () => ({ tableMode, codeBlockMode, mediaMode, animation }),
-    [tableMode, codeBlockMode, mediaMode, animation]
+    () => ({
+      tableMode,
+      codeBlockMode,
+      mediaMode,
+      animation,
+      animationDuration,
+      animationLength,
+      animationStartColor,
+      animationEndColor,
+    }),
+    [
+      tableMode,
+      codeBlockMode,
+      mediaMode,
+      animation,
+      animationDuration,
+      animationLength,
+      animationStartColor,
+      animationEndColor,
+    ]
   );
   const normalizedSelectionMenuConfig = useMemo(() => {
     // The boolean acceptance is confined to this wrapper boundary via a single

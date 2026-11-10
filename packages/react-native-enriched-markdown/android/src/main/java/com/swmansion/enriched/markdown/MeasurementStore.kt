@@ -477,12 +477,12 @@ object MeasurementStore {
     var layoutHash = computePropsHashForMarkdown("", props, allowFontScaling, fontScale, maxFontSizeMultiplier)
     layoutHash = 31 * layoutHash + props.getBooleanOrDefault("isGFM", false).hashCode()
     layoutHash = 31 * layoutHash + props.getBooleanOrDefault("streaming", false).hashCode()
-    // The animation changes no layout.
+    // The animation and its options change no layout.
     layoutHash = 31 * layoutHash + (
       props
         .getMapOrNull("streamingConfig")
         ?.toHashMap()
-        ?.minus("animation")
+        ?.filterKeys { !it.startsWith("animation") }
         ?.hashCode() ?: 0
     )
     layoutHash = 31 * layoutHash + splitTableSegments.hashCode()
