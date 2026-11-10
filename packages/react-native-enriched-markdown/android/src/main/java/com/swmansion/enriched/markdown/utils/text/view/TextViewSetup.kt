@@ -3,9 +3,11 @@ package com.swmansion.enriched.markdown.utils.text.view
 import android.graphics.Color
 import android.os.Build
 import android.text.GetChars
+import android.text.SpanWatcher
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.SpannableStringBuilder
+import android.text.style.UpdateLayout
 import android.view.textclassifier.TextClassifier
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.view.ViewCompat
@@ -36,9 +38,13 @@ private object NoCopySpannableFactory : Spannable.Factory() {
  * path the framework reserves for builders. The `layout` benchmark in the example app's
  * `display-benchmark` covers that cost, so it is already accounted for. Do not
  * "optimise" this wrapper away.
+ *
+ * The builder also names itself to its span watchers, and `DynamicLayout` ignores changes
+ * from any text but the one it was built over. [setSpan] reports the change again as this
+ * wrapper, so that setting a span again still reflows its line.
  */
 private class InsertionOrderedSpannable(
-  private val buffer: SpannableStringBuilder,
+  val buffer: SpannableStringBuilder,
 ) : Spannable,
   GetChars {
   override val length: Int get() = buffer.length
@@ -80,11 +86,32 @@ private class InsertionOrderedSpannable(
     start: Int,
     end: Int,
     flags: Int,
-  ) = buffer.setSpan(what, start, end, flags)
+  ) {
+    val oldStart = buffer.getSpanStart(what)
+    val oldEnd = buffer.getSpanEnd(what)
+    buffer.setSpan(what, start, end, flags)
+    if (what !is UpdateLayout || oldStart < 0) return
+    buffer
+      .getSpans(minOf(oldStart, start), minOf(maxOf(oldEnd, end), length), SpanWatcher::class.java)
+      .forEach { it.onSpanChanged(this, what, oldStart, oldEnd, start, end) }
+  }
 
   override fun removeSpan(what: Any) = buffer.removeSpan(what)
 
   override fun toString(): String = buffer.toString()
+}
+
+/**
+ * Repaints [what] without laying the text out again, for a span whose size did not change.
+ * Invalidating is not enough: a selectable TextView draws from display lists that only a
+ * span change records again. The buffer's own report reaches the view but not its
+ * `DynamicLayout`, see [InsertionOrderedSpannable].
+ */
+fun Spannable.repaintSpan(what: Any) {
+  val start = getSpanStart(what)
+  if (start < 0) return
+  val target = (this as? InsertionOrderedSpannable)?.buffer ?: this
+  target.setSpan(what, start, getSpanEnd(what), getSpanFlags(what))
 }
 
 fun AccessibleMarkdownTextView.setupAsMarkdownTextView() {
@@ -122,4 +149,13 @@ fun AppCompatTextView.applySelectableState(selectable: Boolean) {
   setTextIsSelectable(selectable)
   movementMethod = LinkLongPressMovementMethod.createInstance()
   if (!selectable && !isClickable) isClickable = true
+}
+
+// Editor disables selection if the first layout is built before the view is in a window, and
+// doesn't re-check on attach. setMovementMethod does re-check, but only when given a different
+// object, so this must be a new instance rather than the current one.
+fun AppCompatTextView.refreshSelectionControllers() {
+  if (isTextSelectable && layout != null) {
+    movementMethod = LinkLongPressMovementMethod.createInstance()
+  }
 }

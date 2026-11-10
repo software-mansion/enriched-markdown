@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.text.Spannable
+import android.util.Log
 import android.view.ActionMode
 import android.view.Menu
 import android.view.MenuItem
@@ -11,6 +12,7 @@ import android.view.ViewParent
 import android.widget.TextView
 import com.swmansion.enriched.markdown.EnrichedMarkdown
 import com.swmansion.enriched.markdown.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
@@ -21,6 +23,7 @@ private const val MENU_ITEM_COPY_MARKDOWN = 1000
 private const val MENU_ITEM_COPY_IMAGE_URL = 1001
 private const val MENU_ITEM_CUSTOM_BASE = 2000
 private const val MENU_ITEM_CUSTOM_GROUP = 2001
+private const val TAG = "SelectionActionMode"
 
 data class SelectionMenuConfig(
   val copyAsMarkdown: Boolean = true,
@@ -33,6 +36,18 @@ data class SelectionMenuConfig(
   // are set; counts > 100 use copyImageUrlsLabel (the "other" form).
   val copyImageUrlPluralTemplates: List<String> = emptyList(),
 )
+
+/** What a selection copy put on the clipboard; [value] is the JS `format`. */
+enum class SelectionCopyFormat(
+  val value: String,
+) {
+  PLAIN("plain"),
+  MARKDOWN("markdown"),
+  IMAGE_URLS("imageUrls"),
+}
+
+/** Reports a selection copy: the copied plain text, its format, and the copied range. */
+typealias OnSelectionCopy = (text: String, format: SelectionCopyFormat, selectionStart: Int, selectionEnd: Int) -> Unit
 
 /**
  * Resolves the "Copy Image URL(s)" menu title for the given image count. Uses the
@@ -59,12 +74,16 @@ fun createSelectionActionModeCallback(
   getSelectionMenuConfig: () -> SelectionMenuConfig = { SelectionMenuConfig() },
   onCustomItemPress: (itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit =
     { _, _, _, _ -> },
+  onSelectionCopy: OnSelectionCopy? = null,
 ): ActionMode.Callback =
   object : ActionMode.Callback {
     override fun onCreateActionMode(
       mode: ActionMode?,
       menu: Menu?,
-    ): Boolean = true
+    ): Boolean {
+      (textView as? AccessibleMarkdownTextView)?.selectionActionMode = mode
+      return true
+    }
 
     override fun onPrepareActionMode(
       mode: ActionMode?,
@@ -127,24 +146,18 @@ fun createSelectionActionModeCallback(
     ): Boolean {
       val itemId = item?.itemId ?: return false
 
-      when (itemId) {
-        android.R.id.copy -> {
-          textView.copyWithHTML()
-          mode?.finish()
-          return true
-        }
+      // Unhandled items go to onTextContextMenuItem, which is where Copy is handled for Ctrl+C too.
+      if (itemId == android.R.id.copy) return false
 
-        MENU_ITEM_COPY_MARKDOWN -> {
-          textView.copyMarkdownToClipboard()
-          mode?.finish()
-          return true
+      val copyFormat =
+        when (itemId) {
+          MENU_ITEM_COPY_MARKDOWN -> SelectionCopyFormat.MARKDOWN
+          MENU_ITEM_COPY_IMAGE_URL -> SelectionCopyFormat.IMAGE_URLS
+          else -> null
         }
-
-        MENU_ITEM_COPY_IMAGE_URL -> {
-          textView.copyImageUrlsToClipboard()
-          mode?.finish()
-          return true
-        }
+      if (copyFormat != null) {
+        if (textView.copySelection(copyFormat, onSelectionCopy)) mode?.finish()
+        return true
       }
 
       val customItems = getCustomItemTexts()
@@ -161,23 +174,60 @@ fun createSelectionActionModeCallback(
       return false
     }
 
-    override fun onDestroyActionMode(mode: ActionMode?) {}
+    override fun onDestroyActionMode(mode: ActionMode?) {
+      (textView as? AccessibleMarkdownTextView)?.selectionActionMode = null
+    }
   }
 
-/** Copies selection as both plain text and HTML with inline styles. */
-private fun TextView.copyWithHTML() {
-  val start = selectionStart
-  val end = selectionEnd
-  if (start < 0 || end < 0 || start >= end) return
+/**
+ * Copies the selection in [format] and reports it to [onSelectionCopy]. Shared by
+ * the selection menu's copy items and `onTextContextMenuItem(android.R.id.copy)`,
+ * which handles the menu's plain Copy and the keyboard shortcut.
+ * Returns whether anything reached the clipboard.
+ */
+fun TextView.copySelection(
+  format: SelectionCopyFormat,
+  onSelectionCopy: OnSelectionCopy?,
+): Boolean {
+  // A keyboard selection made backwards has its start after its end.
+  val start = minOf(selectionStart, selectionEnd)
+  val end = maxOf(selectionStart, selectionEnd)
+  val copied =
+    when (format) {
+      SelectionCopyFormat.PLAIN -> copyWithHTML(start, end)
+      SelectionCopyFormat.MARKDOWN -> copyMarkdownToClipboard()
+      SelectionCopyFormat.IMAGE_URLS -> copyImageUrlsToClipboard()
+    } ?: return false
+  onSelectionCopy?.invoke(copied, format, start, end)
+  return true
+}
 
-  val spannable = text as? Spannable ?: return
+/** The clipboard service throws on a clip over the binder limit, so a large selection can fail. */
+private fun TextView.writeClip(clip: ClipData): Boolean {
+  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+  return try {
+    clipboard.setPrimaryClip(clip)
+    true
+  } catch (e: RuntimeException) {
+    Log.w(TAG, "Failed to copy to the clipboard", e)
+    false
+  }
+}
+
+/** Copies selection as both plain text and HTML with inline styles. Returns the plain text. */
+private fun TextView.copyWithHTML(
+  start: Int,
+  end: Int,
+): String? {
+  if (start < 0 || start >= end) return null
+
+  val spannable = text as? Spannable ?: return null
   val selectedText = spannable.subSequence(start, end)
   val plainText = selectedText.toString()
 
   val styleConfig =
     (this as? EnrichedMarkdownText)?.markdownStyle
       ?: findParentMarkdownStyle()
-  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 
   if (styleConfig != null && selectedText is Spannable) {
     // Density values convert device pixels back to CSS pixels
@@ -191,16 +241,15 @@ private fun TextView.copyWithHTML() {
         displayMetrics.density,
         isRTL,
       )
-    clipboard.setPrimaryClip(ClipData.newHtmlText("EnrichedMarkdown", plainText, html))
-  } else {
-    clipboard.setPrimaryClip(ClipData.newPlainText("Text", plainText))
+    if (writeClip(ClipData.newHtmlText("EnrichedMarkdown", plainText, html))) return plainText
+    // The HTML can be what took the clip over the limit, so plain text may still fit.
   }
+  return plainText.takeIf { writeClip(ClipData.newPlainText("Text", plainText)) }
 }
 
-private fun TextView.copyMarkdownToClipboard() {
-  val markdown = MarkdownExtractor.getMarkdownForSelection(this) ?: return
-  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-  clipboard.setPrimaryClip(ClipData.newPlainText("Markdown", markdown))
+private fun TextView.copyMarkdownToClipboard(): String? {
+  val markdown = MarkdownExtractor.getMarkdownForSelection(this) ?: return null
+  return markdown.takeIf { writeClip(ClipData.newPlainText("Markdown", markdown)) }
 }
 
 /** Returns remote image URLs (http/https only) from the current selection. */
@@ -216,12 +265,12 @@ private fun TextView.getImageUrlsInSelection(): List<String> {
     .filter { it.startsWith("http://") || it.startsWith("https://") }
 }
 
-private fun TextView.copyImageUrlsToClipboard() {
+private fun TextView.copyImageUrlsToClipboard(): String? {
   val urls = getImageUrlsInSelection()
-  if (urls.isEmpty()) return
+  if (urls.isEmpty()) return null
 
-  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-  clipboard.setPrimaryClip(ClipData.newPlainText("Image URLs", urls.joinToString("\n")))
+  val joined = urls.joinToString("\n")
+  return joined.takeIf { writeClip(ClipData.newPlainText("Image URLs", joined)) }
 }
 
 private fun TextView.findParentMarkdownStyle(): StyleConfig? {

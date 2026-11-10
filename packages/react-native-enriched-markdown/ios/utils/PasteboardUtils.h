@@ -25,9 +25,10 @@ void copyItemsToPasteboard(NSDictionary<NSString *, id> *items);
 /**
  * Copies attributed string to pasteboard with multiple representations
  * (plain text, Markdown, HTML, RTFD, RTF). Receiving apps pick the richest format they support.
+ * Returns the plain text it wrote, or nil when there was nothing to copy.
  */
-void copyAttributedStringToPasteboard(NSAttributedString *attributedString, NSString *_Nullable markdown,
-                                      StyleConfig *_Nullable styleConfig);
+NSString *_Nullable copyAttributedStringToPasteboard(NSAttributedString *attributedString, NSString *_Nullable markdown,
+                                                     StyleConfig *_Nullable styleConfig);
 
 /**
  * Extracts markdown for the given range.

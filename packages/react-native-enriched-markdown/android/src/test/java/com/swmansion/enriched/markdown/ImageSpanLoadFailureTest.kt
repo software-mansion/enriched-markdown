@@ -8,6 +8,7 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.view.View.MeasureSpec
 import android.view.ViewGroup
+import android.widget.TextView
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.ImageSourceOverride
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.styleConfig
@@ -99,15 +100,19 @@ class ImageSpanLoadFailureTest {
     assertTrue(bitmap.getPixel(WIDTH / 2, 2) != Color.TRANSPARENT)
   }
 
-  // The failure can come before the view has a width, as it does for table cells and quotes.
-  // The box is zero wide until then, so the text after it shares its line until the view is laid out again.
+  // The failure can come before the view has a width. A plain TextView doesn't size the image
+  // before its first layout, so the zero-wide box shares its line with the text after it until
+  // the view is laid out again.
   @Test
   fun failedBlockImageIsLaidOutAgainOnceItsWidthIsKnown() {
     val span = ImageSpan(context, "test://width-later", styleConfig(), isInline = false, altText = "a diagram")
     val view =
-      EnrichedMarkdownInternalText(context).apply {
+      TextView(context).apply {
         layoutParams = ViewGroup.LayoutParams(WIDTH, ViewGroup.LayoutParams.WRAP_CONTENT)
-        applyStyledText(SpannableStringBuilder("￼ after").apply { setSpan(span, 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) })
+        setText(
+          SpannableStringBuilder("￼ after").apply { setSpan(span, 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) },
+          TextView.BufferType.SPANNABLE,
+        )
       }
     layOut(view)
     assertEquals(1, view.layout.lineCount)
@@ -118,7 +123,7 @@ class ImageSpanLoadFailureTest {
     assertEquals(2, view.layout.lineCount)
   }
 
-  private fun layOut(view: EnrichedMarkdownInternalText) {
+  private fun layOut(view: TextView) {
     view.measure(
       MeasureSpec.makeMeasureSpec(WIDTH, MeasureSpec.EXACTLY),
       MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED),
