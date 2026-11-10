@@ -77,8 +77,6 @@ Lcom/swmansion/enriched/markdown/input/formatting/FormattingStore;
 Lcom/swmansion/enriched/markdown/input/formatting/FormattingStore$EditOverlap;
 Lcom/swmansion/enriched/markdown/input/formatting/InputFormatter;
 Lcom/swmansion/enriched/markdown/input/formatting/InputParser;
-Lcom/swmansion/enriched/markdown/input/formatting/InputRemend;
-Lcom/swmansion/enriched/markdown/input/formatting/InputRemend$DelimiterPair;
 Lcom/swmansion/enriched/markdown/input/formatting/MarkdownSerializer;
 Lcom/swmansion/enriched/markdown/input/formatting/MarkdownSerializer$BoundaryEvent;
 Lcom/swmansion/enriched/markdown/input/formatting/MarkdownSpan;
