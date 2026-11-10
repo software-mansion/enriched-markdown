@@ -1,3 +1,4 @@
+/* eslint-disable no-bitwise -- heap addresses and int32 offsets */
 import { getLoadedModule } from '../../parseMarkdown';
 import type { Md4cModule } from '../../wasm/md4c';
 import {
