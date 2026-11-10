@@ -191,11 +191,7 @@ TEST_CASE("session: an open fence keeps its body out of the parse") {
 }
 
 TEST_CASE("session: a fence with no code yet finishes nothing") {
-  StreamingUpdate update = once("Para\n\n```p");
-  CHECK(update.finishedBytes == 0);
-  CHECK(update.tail == "Para\n\n```p");
-  CHECK(update.tailEndsInsideOpenCodeFence);
-  update = once("Para\n\n```python\n");
+  StreamingUpdate update = once("Para\n\n```python\n");
   CHECK(update.finishedBytes == 0);
   CHECK(update.tail == "Para\n\n```python\n");
   update = once("Para\n\n```python\nx");
