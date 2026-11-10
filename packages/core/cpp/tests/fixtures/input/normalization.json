@@ -1,0 +1,26 @@
+{
+  "description": "Non-canonical input as [markdown, expected]: one round trip normalizes it into the expected form.",
+  "cases": [
+    ["- a\n  - b\n\n  - c","- a\n  - b\n  - c"],
+    ["- a\n\n  - b","- a\n  - b"],
+    ["**force push","\\*\\*force push"],
+    ["~~drop ||squash","\\~\\~drop \\|\\|squash"],
+    ["[changelog](https://git-scm","\\[changelog\\](https://git-scm"],
+    ["use snake_case here","use snake\\_case here"],
+    ["2*3 = 6","2\\*3 = 6"],
+    ["a||b","a\\|\\|b"],
+    ["see [docs","see \\[docs"],
+    ["**[docs](https://x.dev)**","[**docs**](https://x.dev)"],
+    ["# ",""],
+    ["- stack\n   - review","- stack\n  - review"],
+    ["- a\n   - b\n      - c","- a\n  - b\n    - c"],
+    ["- stack\n   - review\n   1. merge","- stack\n  - review\n  1. merge"],
+    ["9. a\n   - b","1. a\n   - b"],
+    ["## Title [wip","## Title \\[wip"],
+    ["- a\n- b\n- c [","- a\n- b\n- c \\["],
+    ["- a\n   - b\n9) c","- a\n  - b\n1. c"],
+    ["* a\n* b","- a\n- b"],
+    ["  \n  a","  a"],
+    ["1) x\n2) y","1. x\n2. y"]
+  ]
+}
