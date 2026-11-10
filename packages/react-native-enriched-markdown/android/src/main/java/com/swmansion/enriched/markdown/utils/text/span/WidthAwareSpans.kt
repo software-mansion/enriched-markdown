@@ -6,10 +6,10 @@ import com.swmansion.enriched.markdown.spans.LinkPillSpan
 
 /**
  * Primes every span whose size depends on the layout width (pills, images). Call it
- * before building any layout over [text]. [includeImages] is off for a visible text
- * view, whose image spans size themselves from the view they are registered with.
+ * before building any layout over [text]. Pass false for [includeImages] when [widthPx]
+ * is only an upper bound, not the width the text will be laid out at.
  *
- * Returns true when a pill's width limit changed, i.e. an existing layout is stale.
+ * Returns true when a span's size changed, i.e. an existing layout is stale.
  */
 fun prepareWidthAwareSpans(
   text: CharSequence?,
@@ -20,11 +20,11 @@ fun prepareWidthAwareSpans(
   // widthPx == 1 is the coerceAtLeast(1) fallback for a not-yet-measured view. Priming
   // with it would squeeze pills on screen to a sliver until the next real measure.
   if (widthPx <= 1) return false
-  val pillsChanged = LinkPillSpan.prepareForMeasurement(spanned, widthPx)
+  var changed = LinkPillSpan.prepareForMeasurement(spanned, widthPx)
   if (includeImages) {
     spanned
       .getSpans(0, spanned.length, ImageSpan::class.java)
-      .forEach { it.prepareForMeasurement(spanned, widthPx) }
+      .forEach { changed = it.prepareForMeasurement(spanned, widthPx) || changed }
   }
-  return pillsChanged
+  return changed
 }
