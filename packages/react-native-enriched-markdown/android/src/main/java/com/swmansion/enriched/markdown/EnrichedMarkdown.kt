@@ -423,6 +423,8 @@ class EnrichedMarkdown(
       // Smooth pacing renders what has been revealed and hands the rest over frame by frame, so
       // new markdown that reveals nothing yet renders nothing.
       val source = pacer.markdownToRender(currentMarkdown, pacing = streaming && smooth)
+      // A reset while the last words drain (smooth turned off, or the text replaced) leaves nothing waiting.
+      if (streaming && !streamingProp && !pacer.waiting) stopStreaming()
       if (renderPending || source != renderedSource) {
         renderedSource = source
         scheduleRenderIfNeeded()

@@ -20,7 +20,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)finish;
 /// Streaming started again: `done` no longer runs for the last `finish`.
 - (void)resume;
-/// Whether more is still to be revealed.
+/// Whether more is still to be revealed, or `done` still to run.
 @property (nonatomic, readonly) BOOL waiting;
 /// The whole markdown last given.
 @property (nonatomic, readonly, copy) NSString *markdown;
