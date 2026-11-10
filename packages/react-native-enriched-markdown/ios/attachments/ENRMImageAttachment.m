@@ -98,7 +98,7 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
     _cacheKey = ENRMImageCacheKey(_requestURL, _requestHeaders);
     _isInline = isInline;
 
-    _cachedHeight = isInline ? [config inlineImageSize] : [config imageHeight];
+    _cachedHeight = isInline ? [config scaledInlineImageSize] : [config imageHeight];
     _cachedMaxHeight = [config imageMaxHeight];
     _cachedAspectRatio = [config imageAspectRatio];
     _cachedResizeMode = [config imageResizeMode];
