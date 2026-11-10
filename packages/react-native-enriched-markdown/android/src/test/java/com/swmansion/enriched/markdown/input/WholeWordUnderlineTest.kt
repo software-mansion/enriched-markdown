@@ -228,30 +228,50 @@ class WholeWordUnderlineTest {
   }
 
   @Test
-  fun oneTapAtTheEndOfAnUnderlinedWordTurnsItOff() {
-    type("hello")
-    underline(3)
-    view.setSelection(5)
-    type("xy")
+  fun oneTapAtTheEndOfAnUnderlinedWordKeepsItAndStopsWhatFollows() {
+    type("on web")
+    underline(0, 6)
 
-    assertEquals("helloxy", underline(7))
+    assertEquals("_on web_", underline(6))
     assertFalse(isUnderlineActive())
-    type("z")
-    assertEquals("helloxyz", markdown())
+    type(" x")
+    assertEquals("_on web_ x", markdown())
     assertFalse(isUnderlineActive())
   }
 
   @Test
-  fun oneTapAtTheStartOfAnUnderlinedWordTurnsItOff() {
+  fun aLetterTypedRightAfterTurningItOffJoinsTheWord() {
+    type("hello")
+    underline(3)
+    underline(5)
+    type("x")
+
+    assertEquals("_hellox_", markdown())
+    assertTrue(isUnderlineActive())
+  }
+
+  @Test
+  fun oneTapAtTheStartOfAnUnderlinedWordKeepsIt() {
     type("hello")
     underline(3)
     view.setSelection(0)
 
     assertTrue(isUnderlineActive())
-    assertEquals("hello", underline(0))
+    assertEquals("_hello_", underline(0))
     assertFalse(isUnderlineActive())
     type("a")
-    assertEquals("ahello", markdown())
+    assertEquals("_ahello_", markdown())
+    assertTrue(isUnderlineActive())
+  }
+
+  @Test
+  fun turningItOnAtTheEndOfAPlainWordOnlyPends() {
+    type("hello")
+
+    assertEquals("hello", underline(5))
+    assertTrue(isUnderlineActive())
+    type(" world")
+    assertEquals("hello _world_", markdown())
   }
 
   @Test

@@ -76,6 +76,19 @@ export class TypingAttributesController {
     (isOn ? this.pendingStyles : this.pendingStyleRemovals).add(type);
   }
 
+  // After an edit: a pending underline removal can't keep letters typed
+  // against an underlined word plain, since `growToWholeWords` pulls them into
+  // the word. Once they have joined it, the removal no longer describes the
+  // next keystroke, so it goes and the state shows underline again.
+  dropRemovalsOutgrown(caret: number, text: string): void {
+    if (
+      this.pendingStyleRemovals.has('underline') &&
+      this.formattingStore.isStyleActiveAtCaret('underline', caret, text)
+    ) {
+      this.pendingStyleRemovals.delete('underline');
+    }
+  }
+
   // The styles a plain insert at the new selection would inherit.
   resetForSelectionChange(selection: RangeBounds): void {
     this.pendingStyles.clear();

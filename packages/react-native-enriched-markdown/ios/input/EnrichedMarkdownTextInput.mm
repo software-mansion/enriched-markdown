@@ -1017,11 +1017,20 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   }
 
   // Underline can't start or end inside a word (see wholeWordRangeForStyle:), so a toggle there
-  // turns it on or off for the whole word. At a caret the toggle also pends, so letters typed at
-  // the word's edge follow it.
+  // turns it on or off for the whole word. At a caret the toggle also pends.
   NSRange wordRange = [_formattingStore wholeWordRangeForStyle:styleType
                                                         inText:ENRMGetPlainText(_textView)
                                                          range:selection];
+  if (!NSEqualRanges(wordRange, selection) && selection.length == 0 &&
+      (wordRange.location == selection.location || NSMaxRange(wordRange) == selection.location)) {
+    // At a word's edge the toggle only decides what is typed next: the word keeps its state, and
+    // letters typed against it still join it (growToWholeWordsInText:).
+    BOOL turnsOn = [self inlineStyleToggleTurnsOn:styleType selection:selection];
+    [_typingController pendStyle:styleType isOn:turnsOn];
+    [_typingController syncWithPendingStyles];
+    [_inputEventEmitter emitFormattingChanged];
+    return;
+  }
   if (!NSEqualRanges(wordRange, selection)) {
     BOOL turnsOn = [self inlineStyleToggleTurnsOn:styleType selection:selection];
     if (turnsOn) {
@@ -1831,6 +1840,14 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
                                                       pendingStyleRemovals:_typingController.pendingStyleRemovals];
 
   BOOL touchedNewline = [_editPipeline processTextChangeWithContext:context];
+
+  // A pending underline removal can't keep letters typed against an underlined word plain, since
+  // growToWholeWordsInText: pulls them into the word. Once they have joined it, the removal no
+  // longer describes the next keystroke, so it goes and the state shows underline again.
+  if ([_typingController.pendingStyleRemovals containsObject:@(ENRMInputStyleTypeUnderline)] &&
+      [self isStyleActive:ENRMInputStyleTypeUnderline atCaret:_textView.selectedRange.location]) {
+    [_typingController clearPendingStyle:ENRMInputStyleTypeUnderline];
+  }
 
   // Consumed: clear pre-edit state so stale values can't leak to the next edit.
   _preEditBlockType = ENRMInputBlockTypeParagraph;

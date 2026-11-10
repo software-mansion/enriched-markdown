@@ -197,9 +197,9 @@ export class FormattingStore {
   // starting or ending inside a word would be written as markdown that reads
   // back with a literal "_" (and the serializer would drop it). Instead the
   // toggle, on or off, grows to the word's edges:
-  // - a caret touching a word takes the whole word, also at the word's edge:
-  //   letters typed there join the word, so "text|" takes "text" before
-  //   "underline" is typed after it;
+  // - a caret touching a word takes the whole word (at the word's edge the
+  //   toggle only pends; `growToWholeWords` makes letters typed there join
+  //   the word);
   // - a selection edge inside a word moves out to the word's edge.
   // A caret with no word on either side stays a caret. A link's edge stops
   // the growth, since the link's own delimiters already separate the "_"

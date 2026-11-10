@@ -234,23 +234,35 @@
   XCTAssertEqualObjects([_input currentMarkdown], @"_hellox_");
 }
 
-- (void)testOneToggleAtTheEndOfAnUnderlinedWordTurnsItOff
+- (void)testOneToggleAtTheEndOfAnUnderlinedWordKeepsItAndStopsWhatFollows
 {
-  [self type:@"hello "];
-  [self select:NSMakeRange(0, 5)];
+  [self type:@"on web"];
+  [self select:NSMakeRange(0, 6)];
   [self toggleUnderline];
   [self select:NSMakeRange(6, 0)];
-  [self deleteBackward];
   [self toggleUnderline];
 
-  XCTAssertEqualObjects([_input currentMarkdown], @"hello");
+  XCTAssertEqualObjects([_input currentMarkdown], @"_on web_");
   XCTAssertFalse([self isUnderlineActive]);
-  [self type:@"x"];
-  XCTAssertEqualObjects([_input currentMarkdown], @"hellox");
+  [self type:@" x"];
+  XCTAssertEqualObjects([_input currentMarkdown], @"_on web_ x");
   XCTAssertFalse([self isUnderlineActive]);
 }
 
-- (void)testOneToggleAtTheStartOfAnUnderlinedWordTurnsItOff
+- (void)testALetterTypedRightAfterTurningItOffJoinsTheWord
+{
+  [self type:@"hello"];
+  [self select:NSMakeRange(3, 0)];
+  [self toggleUnderline];
+  [self select:NSMakeRange(5, 0)];
+  [self toggleUnderline];
+  [self type:@"x"];
+
+  XCTAssertEqualObjects([_input currentMarkdown], @"_hellox_");
+  XCTAssertTrue([self isUnderlineActive]);
+}
+
+- (void)testOneToggleAtTheStartOfAnUnderlinedWordKeepsIt
 {
   [self type:@"hello"];
   [self select:NSMakeRange(3, 0)];
@@ -259,10 +271,22 @@
 
   XCTAssertTrue([self isUnderlineActive]);
   [self toggleUnderline];
-  XCTAssertEqualObjects([_input currentMarkdown], @"hello");
+  XCTAssertEqualObjects([_input currentMarkdown], @"_hello_");
   XCTAssertFalse([self isUnderlineActive]);
   [self type:@"a"];
-  XCTAssertEqualObjects([_input currentMarkdown], @"ahello");
+  XCTAssertEqualObjects([_input currentMarkdown], @"_ahello_");
+  XCTAssertTrue([self isUnderlineActive]);
+}
+
+- (void)testTurningItOnAtTheEndOfAPlainWordOnlyPends
+{
+  [self type:@"hello"];
+  [self toggleUnderline];
+
+  XCTAssertEqualObjects([_input currentMarkdown], @"hello");
+  XCTAssertTrue([self isUnderlineActive]);
+  [self type:@" world"];
+  XCTAssertEqualObjects([_input currentMarkdown], @"hello _world_");
 }
 
 - (void)testCaretPastASpaceOrPunctuationShowsNoUnderline

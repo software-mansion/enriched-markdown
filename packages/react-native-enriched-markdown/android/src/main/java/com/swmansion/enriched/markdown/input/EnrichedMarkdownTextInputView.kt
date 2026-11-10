@@ -428,6 +428,7 @@ class EnrichedMarkdownTextInputView(
           pendingStyleRemovals = pendingStyleRemovals.toSet(),
         )
       editPipeline.processTextChange(context)
+      dropUnderlineRemovalIfOutgrown()
       // Measure only once the pipeline has settled the text and its formatting
       // (list continuation, shortcuts, the ZWSP anchor), never mid-edit.
       layoutManager.invalidateLayout()
@@ -644,9 +645,18 @@ class EnrichedMarkdownTextInputView(
     if (formattingStore.isToggleBlocked(styleType, selStart, mergingConfig.blockingStyles)) return
 
     // Underline can't start or end inside a word (see FormattingStore.wholeWordRange), so a toggle
-    // there turns it on or off for the whole word. At a caret the toggle also pends, so letters
-    // typed at the word's edge follow it.
+    // there turns it on or off for the whole word. At a caret the toggle also pends.
     val wordRange = text?.let { formattingStore.wholeWordRange(styleType, it, selStart, selEnd) }
+    if (wordRange != null && selStart == selEnd && (wordRange.first == selStart || wordRange.second == selStart)) {
+      // At a word's edge the toggle only decides what is typed next: the word keeps its state,
+      // and letters typed against it still join it (FormattingStore.growToWholeWords).
+      val turnsOn = turnsStyleOn(styleType, selStart, selEnd)
+      pendingStyles.remove(styleType)
+      pendingStyleRemovals.remove(styleType)
+      (if (turnsOn) pendingStyles else pendingStyleRemovals).add(styleType)
+      eventEmitter.emitState()
+      return
+    }
     if (wordRange != null) {
       val (wordStart, wordEnd) = wordRange
       val turnsOn = turnsStyleOn(styleType, selStart, selEnd)
@@ -689,6 +699,20 @@ class EnrichedMarkdownTextInputView(
       pendingStyles.clear()
       pendingStyleRemovals.clear()
       seedPendingStylesFromSelection(selStart, selEnd)
+    }
+  }
+
+  /**
+   * A pending underline removal can't keep letters typed against an underlined word plain, since
+   * [FormattingStore.growToWholeWords] pulls them into the word. Once they have joined it, the
+   * removal no longer describes the next keystroke, so it goes and the state shows underline again.
+   */
+  private fun dropUnderlineRemovalIfOutgrown() {
+    val editable = text ?: return
+    if (StyleType.UNDERLINE in pendingStyleRemovals &&
+      formattingStore.isStyleActiveAtCaret(StyleType.UNDERLINE, editable, selectionStart)
+    ) {
+      pendingStyleRemovals.remove(StyleType.UNDERLINE)
     }
   }
 

@@ -183,32 +183,50 @@ describe('a caret at the edge of an underlined word', () => {
     expect(markdowns.at(-1)).toBe('_hellox_');
   });
 
-  it('turns it off for the whole word with one toggle at the end', () => {
-    const { root, host, states, markdowns } = mount();
-    typeText(root, 'hello ');
-    selectRangeFocused(root, 0, 5);
-    host.toggleUnderline();
+  it('keeps the word and stops what follows with one toggle at the end', () => {
+    const { root, host, states, markdowns } = underline('on web', 0, 6);
     selectRangeFocused(root, 6, 6);
-    sendInput(root, 'deleteContentBackward');
     host.toggleUnderline();
 
-    expect(markdowns.at(-1)).toBe('hello');
+    expect(markdowns.at(-1)).toBe('_on web_');
     expect(lastState(states).underline.isActive).toBe(false);
-    typeText(root, 'x');
-    expect(markdowns.at(-1)).toBe('hellox');
+    typeText(root, ' x');
+    expect(markdowns.at(-1)).toBe('_on web_ x');
     expect(lastState(states).underline.isActive).toBe(false);
   });
 
-  it('turns it off for the whole word with one toggle at the start', () => {
+  it('lets a letter typed right after turning it off join the word', () => {
+    const { root, host, states, markdowns } = underline('hello', 3);
+    selectRangeFocused(root, 5, 5);
+    host.toggleUnderline();
+    typeText(root, 'x');
+
+    expect(markdowns.at(-1)).toBe('_hellox_');
+    expect(lastState(states).underline.isActive).toBe(true);
+  });
+
+  it('keeps the word with one toggle at the start', () => {
     const { root, host, states, markdowns } = underline('hello', 3);
     selectRangeFocused(root, 0, 0);
 
     expect(lastState(states).underline.isActive).toBe(true);
     host.toggleUnderline();
-    expect(markdowns.at(-1)).toBe('hello');
+    expect(markdowns.at(-1)).toBe('_hello_');
     expect(lastState(states).underline.isActive).toBe(false);
     typeText(root, 'a');
-    expect(markdowns.at(-1)).toBe('ahello');
+    expect(markdowns.at(-1)).toBe('_ahello_');
+    expect(lastState(states).underline.isActive).toBe(true);
+  });
+
+  it('only pends when turned on at the end of a plain word', () => {
+    const { root, host, states, markdowns } = mount();
+    typeText(root, 'hello');
+    host.toggleUnderline();
+
+    expect(markdowns.at(-1)).toBe('hello');
+    expect(lastState(states).underline.isActive).toBe(true);
+    typeText(root, ' world');
+    expect(markdowns.at(-1)).toBe('hello _world_');
   });
 
   it('shows no underline past a space or punctuation', () => {

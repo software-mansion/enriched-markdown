@@ -1319,8 +1319,7 @@ export class InputHost {
       const { start, end } = this.selection;
       // Underline can't start or end inside a word (see
       // `FormattingStore.wholeWordRange`), so a toggle there turns it on or
-      // off for the whole word. At a caret the toggle also pends, so letters
-      // typed at the word's edge follow it.
+      // off for the whole word. At a caret the toggle also pends.
       const turnsOn =
         start === end
           ? !this.typing.isEffectiveStyleActive(type, start, this.text)
@@ -1336,6 +1335,19 @@ export class InputHost {
         start,
         end
       );
+      // At a word's edge the toggle only decides what is typed next: the
+      // word keeps its state, and letters typed against it still join it
+      // (`growToWholeWords`).
+      if (
+        word !== null &&
+        start === end &&
+        (word.start === start || word.end === start)
+      ) {
+        this.history.breakGroup();
+        this.typing.pend(type, turnsOn);
+        this.emitState();
+        return;
+      }
       if (word !== null) {
         this.recordFormatting();
         this.session.scoped('processing', () => {
@@ -1660,6 +1672,7 @@ export class InputHost {
       this.selection = { start: landing, end: landing };
       this.selectionBackward = false;
     });
+    this.typing.dropRemovalsOutgrown(landing, this.text);
   }
 
   // The history packs what it keeps, so the live ranges are handed over as
