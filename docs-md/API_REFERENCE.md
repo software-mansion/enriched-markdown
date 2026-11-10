@@ -547,7 +547,7 @@ Configuration for streaming behavior. Controls how incomplete tables, fenced cod
 
 | Type                                        | Default Value                                          | Platform |
 | ------------------------------------------- | ------------------------------------------------------ | -------- |
-| `StreamingConfig` (`{ tableMode?: 'hidden' \| 'progressive'; codeBlockMode?: 'hidden' \| 'progressive'; mediaMode?: 'hidden' \| 'progressive'; animation?: 'fade' \| 'none' }`) | `{ tableMode: 'progressive', codeBlockMode: 'progressive', mediaMode: 'progressive', animation: 'fade' }` | Both     |
+| `StreamingConfig` (`{ tableMode?: 'hidden' \| 'progressive'; codeBlockMode?: 'hidden' \| 'progressive'; mediaMode?: 'hidden' \| 'progressive'; animation?: StreamingAnimation }`) | `{ tableMode: 'progressive', codeBlockMode: 'progressive', mediaMode: 'progressive', animation: 'fade' }` | Both     |
 
 #### `tableMode`
 
@@ -574,10 +574,11 @@ Controls how a fenced code block whose closing fence has not arrived yet is rend
 
 #### `animation`
 
-Controls how newly arrived content appears while `streaming` is `true`:
+Controls how newly arrived content appears while `streaming` is `true`. Reduce Motion turns it off.
 
-- **`'fade'`** (default): new text, blocks and table rows fade in, and blocks drawn by `renderers` grow into place. Reduce Motion turns it off.
-- **`'none'`**: new content appears at once.
+- **`'fade'`** (default): each new chunk of text fades in over its own 200 ms; new blocks and table rows fade in, and blocks drawn by `renderers` grow into place. `{ type: 'fade', duration }` sets the time in milliseconds.
+- **`'gradient'`**: the last 20 characters run from their own color to transparent, following the end of the text. `{ type: 'gradient', length, startColor, endColor }` sets how many characters it covers and its colors.
+- **`'none'`**: new content appears at once, as with a `duration` or `length` of 0.
 
 ### `spoilerOverlay`
 
