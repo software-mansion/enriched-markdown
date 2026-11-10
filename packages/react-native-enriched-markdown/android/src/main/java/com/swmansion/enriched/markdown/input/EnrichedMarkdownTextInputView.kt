@@ -701,7 +701,20 @@ class EnrichedMarkdownTextInputView(
     if (selStart != selEnd) return !formattingStore.isStyleActive(styleType, selStart)
     if (pendingStyleRemovals.contains(styleType)) return true
     if (pendingStyles.contains(styleType)) return false
-    return !formattingStore.isStyleActive(styleType, selStart)
+    return !isStoredStyleActive(styleType, selStart, selEnd)
+  }
+
+  /** Whether the store gives [styleType] to the selection or, at a caret, to the text typed there. */
+  fun isStoredStyleActive(
+    styleType: StyleType,
+    selStart: Int,
+    selEnd: Int,
+  ): Boolean {
+    val editable = text
+    if (selStart == selEnd && editable != null) {
+      return formattingStore.isStyleActiveAtCaret(styleType, editable, selStart)
+    }
+    return formattingStore.isStyleActive(styleType, selStart)
   }
 
   private fun listBlockAtCursor(): BlockRange? {

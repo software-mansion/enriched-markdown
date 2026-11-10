@@ -45,7 +45,9 @@
 
 - (BOOL)isEffectiveStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position
 {
-  BOOL inRange = [_dataSource isStyleActive:type atPosition:position];
+  // At a caret the store's answer is the one for typing there (an underlined word's end counts).
+  BOOL inRange = [_dataSource selectedRange].length == 0 ? [_dataSource isStyleActive:type atCaret:position]
+                                                         : [_dataSource isStyleActive:type atPosition:position];
   NSNumber *key = @(type);
   if ([_pendingStyleRemovals containsObject:key]) {
     return NO;

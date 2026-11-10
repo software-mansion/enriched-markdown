@@ -7,6 +7,7 @@ import {
   lastState,
   mount,
   selectRangeFocused,
+  sendInput,
   styledText,
   typeText,
 } from './inputHostKit';
@@ -152,5 +153,72 @@ describe('turning underline on inside a word', () => {
     host.undo();
 
     expect(markdowns.at(-1)).toBe('underline');
+  });
+});
+
+describe('a caret at the edge of an underlined word', () => {
+  // Letters typed there join the word, so the state shows underline and one
+  // toggle takes it off the whole word.
+  it('shows underline at the end of the word and grows over typing', () => {
+    const { root, states, markdowns } = underline('hello', 3);
+    selectRangeFocused(root, 5, 5);
+
+    expect(lastState(states).underline.isActive).toBe(true);
+    typeText(root, 'xy');
+    expect(markdowns.at(-1)).toBe('_helloxy_');
+    expect(lastState(states).underline.isActive).toBe(true);
+  });
+
+  it('shows underline when a deletion leaves the caret at the word end', () => {
+    const { root, host, states, markdowns } = mount();
+    typeText(root, 'hello ');
+    selectRangeFocused(root, 0, 5);
+    host.toggleUnderline();
+    selectRangeFocused(root, 6, 6);
+    expect(lastState(states).underline.isActive).toBe(false);
+    sendInput(root, 'deleteContentBackward');
+
+    expect(lastState(states).underline.isActive).toBe(true);
+    typeText(root, 'x');
+    expect(markdowns.at(-1)).toBe('_hellox_');
+  });
+
+  it('turns it off for the whole word with one toggle at the end', () => {
+    const { root, host, states, markdowns } = mount();
+    typeText(root, 'hello ');
+    selectRangeFocused(root, 0, 5);
+    host.toggleUnderline();
+    selectRangeFocused(root, 6, 6);
+    sendInput(root, 'deleteContentBackward');
+    host.toggleUnderline();
+
+    expect(markdowns.at(-1)).toBe('hello');
+    expect(lastState(states).underline.isActive).toBe(false);
+    typeText(root, 'x');
+    expect(markdowns.at(-1)).toBe('hellox');
+    expect(lastState(states).underline.isActive).toBe(false);
+  });
+
+  it('turns it off for the whole word with one toggle at the start', () => {
+    const { root, host, states, markdowns } = underline('hello', 3);
+    selectRangeFocused(root, 0, 0);
+
+    expect(lastState(states).underline.isActive).toBe(true);
+    host.toggleUnderline();
+    expect(markdowns.at(-1)).toBe('hello');
+    expect(lastState(states).underline.isActive).toBe(false);
+    typeText(root, 'a');
+    expect(markdowns.at(-1)).toBe('ahello');
+  });
+
+  it('shows no underline past a space or punctuation', () => {
+    const { root, states, markdowns } = underline('foo! bar', 0, 3);
+    selectRangeFocused(root, 4, 4);
+    expect(lastState(states).underline.isActive).toBe(false);
+    selectRangeFocused(root, 5, 5);
+    expect(lastState(states).underline.isActive).toBe(false);
+    typeText(root, 'x');
+
+    expect(markdowns.at(-1)).toBe('_foo_! xbar');
   });
 });

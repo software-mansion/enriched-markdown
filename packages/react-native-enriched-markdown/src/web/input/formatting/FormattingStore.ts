@@ -221,30 +221,60 @@ export class FormattingStore {
       position >= text.length
         ? 'whitespace'
         : classify(String.fromCodePoint(text.codePointAt(position)!));
-    const isLinkEdge = (position: number): boolean =>
-      this.ranges.some(
-        (range) =>
-          range.type === 'link' &&
-          (range.start === position || range.end === position)
-      );
     if (start === end && before(start) !== 'word' && at(start) !== 'word') {
       return null;
     }
     let newStart = start;
     if (start === end || at(start) !== 'whitespace') {
-      while (before(newStart) === 'word' && !isLinkEdge(newStart)) {
+      while (before(newStart) === 'word' && !this.isLinkEdge(newStart)) {
         newStart = codePointStartBefore(text, newStart);
       }
     }
     let newEnd = end;
     if (start === end || before(end) !== 'whitespace') {
-      while (at(newEnd) === 'word' && !isLinkEdge(newEnd)) {
+      while (at(newEnd) === 'word' && !this.isLinkEdge(newEnd)) {
         newEnd += text.codePointAt(newEnd)! > 0xffff ? 2 : 1;
       }
     }
     return newStart !== start || newEnd !== end
       ? { start: newStart, end: newEnd }
       : null;
+  }
+
+  // Whether the store gives `type` to text typed at a caret at `position`: a
+  // range covers it or, for underline, an underlined word ends there, since
+  // `growToWholeWords` pulls letters typed right after the word into it.
+  isStyleActiveAtCaret(
+    type: InputStyleType,
+    position: number,
+    text: string
+  ): boolean {
+    if (this.isStyleActive(type, position)) {
+      return true;
+    }
+    if (
+      type !== 'underline' ||
+      position === 0 ||
+      position > text.length ||
+      this.isLinkEdge(position)
+    ) {
+      return false;
+    }
+    const before = text.slice(codePointStartBefore(text, position), position);
+    return (
+      classify(before) === 'word' &&
+      this.ranges.some(
+        (range) => range.type === 'underline' && range.end === position
+      )
+    );
+  }
+
+  private isLinkEdge(position: number): boolean {
+    return this.ranges.some(
+      (range) =>
+        range.type === 'link' &&
+        (range.start === position || range.end === position)
+    );
   }
 
   // Grows every underline that an edit left starting or ending inside a word

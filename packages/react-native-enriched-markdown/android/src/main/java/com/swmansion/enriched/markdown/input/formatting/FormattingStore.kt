@@ -145,6 +145,21 @@ class FormattingStore {
     }
   }
 
+  /**
+   * Whether the store gives [type] to text typed at a caret at [position]: a range covers it or, for
+   * underline, an underlined word ends there, since [growToWholeWords] pulls letters typed right
+   * after the word into its underline.
+   */
+  fun isStyleActiveAtCaret(
+    type: StyleType,
+    text: CharSequence,
+    position: Int,
+  ): Boolean {
+    if (isStyleActive(type, position)) return true
+    if (type != StyleType.UNDERLINE || !isWordBefore(text, position) || isLinkEdge(position)) return false
+    return ranges.any { it.type == type && it.end == position }
+  }
+
   private fun isLinkEdge(position: Int): Boolean = ranges.any { it.type == StyleType.LINK && (it.start == position || it.end == position) }
 
   /**

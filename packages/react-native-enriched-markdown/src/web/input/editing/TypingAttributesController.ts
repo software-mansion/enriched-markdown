@@ -28,8 +28,14 @@ export class TypingAttributesController {
 
   // Takes any style, not just a pendable one, because the state a toolbar
   // reads covers links too. A link never pends (see `PendingStyleType`), so
-  // its answer comes straight from the store.
-  isEffectiveStyleActive(type: InputStyleType, position: number): boolean {
+  // its answer comes straight from the store. Given the text, the store's
+  // answer is the one for typing at the caret (see
+  // `FormattingStore.isStyleActiveAtCaret`).
+  isEffectiveStyleActive(
+    type: InputStyleType,
+    position: number,
+    text?: string
+  ): boolean {
     if (type !== 'link') {
       if (this.pendingStyleRemovals.has(type)) {
         return false;
@@ -38,7 +44,9 @@ export class TypingAttributesController {
         return true;
       }
     }
-    return this.formattingStore.isStyleActive(type, position);
+    return text === undefined
+      ? this.formattingStore.isStyleActive(type, position)
+      : this.formattingStore.isStyleActiveAtCaret(type, position, text);
   }
 
   // A toggle at a caret (`caret` is its offset) flips what the next keystroke

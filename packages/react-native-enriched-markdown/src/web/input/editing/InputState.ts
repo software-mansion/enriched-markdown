@@ -51,7 +51,7 @@ function inlineStates(
 > {
   const active = (type: Parameters<FormattingStore['isStyleActive']>[0]) =>
     selection.start === selection.end
-      ? typing.isEffectiveStyleActive(type, selection.start)
+      ? typing.isEffectiveStyleActive(type, selection.start, text)
       : formattingStore.isStyleFullyActive(
           type,
           selection.start,

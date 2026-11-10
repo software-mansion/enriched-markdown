@@ -1060,7 +1060,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   if ([_typingController.pendingStyles containsObject:key]) {
     return NO;
   }
-  return ![_formattingStore isStyleActive:styleType atPosition:selection.location];
+  return ![self isStyleActive:styleType atCaret:selection.location];
 }
 
 - (void)toggleHeading:(NSInteger)level
@@ -1605,6 +1605,11 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 - (BOOL)isStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position
 {
   return [_formattingStore isStyleActive:type atPosition:position];
+}
+
+- (BOOL)isStyleActive:(ENRMInputStyleType)type atCaret:(NSUInteger)position
+{
+  return [_formattingStore isStyleActive:type atCaret:position inText:ENRMGetPlainText(_textView)];
 }
 
 - (NSString *)currentMarkdown

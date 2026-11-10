@@ -48,6 +48,11 @@ NS_ASSUME_NONNULL_BEGIN
 /// link's own delimiters already separate the `_` from the word.
 - (NSRange)wholeWordRangeForStyle:(ENRMInputStyleType)type inText:(NSString *)text range:(NSRange)range;
 
+/// Whether the store gives `type` to text typed at a caret at `position`: a range covers it or, for
+/// underline, an underlined word ends there, since growToWholeWordsInText: pulls letters typed right
+/// after the word into it.
+- (BOOL)isStyleActive:(ENRMInputStyleType)type atCaret:(NSUInteger)position inText:(NSString *)text;
+
 /// Grows every underline that an edit left starting or ending inside a word to that word's edges,
 /// by the selection rule of wholeWordRangeForStyle: letters typed or pasted right before or after
 /// an underlined word join it, and so does the word a deletion glued to it.

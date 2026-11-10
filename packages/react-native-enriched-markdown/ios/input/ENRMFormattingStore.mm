@@ -253,6 +253,23 @@ static BOOL ENRMIsWhitespaceBefore(NSString *text, NSUInteger position)
   }
 }
 
+- (BOOL)isStyleActive:(ENRMInputStyleType)type atCaret:(NSUInteger)position inText:(NSString *)text
+{
+  if ([self isStyleActive:type atPosition:position]) {
+    return YES;
+  }
+  if (type != ENRMInputStyleTypeUnderline || position > text.length || !ENRMIsWordBefore(text, position) ||
+      [self isLinkEdge:position]) {
+    return NO;
+  }
+  for (ENRMFormattingRange *existing in _ranges) {
+    if (existing.type == ENRMInputStyleTypeUnderline && NSMaxRange(existing.range) == position) {
+      return YES;
+    }
+  }
+  return NO;
+}
+
 - (BOOL)isLinkEdge:(NSUInteger)position
 {
   for (ENRMFormattingRange *existing in _ranges) {

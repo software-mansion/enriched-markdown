@@ -1323,7 +1323,7 @@ export class InputHost {
       // typed at the word's edge follow it.
       const turnsOn =
         start === end
-          ? !this.typing.isEffectiveStyleActive(type, start)
+          ? !this.typing.isEffectiveStyleActive(type, start, this.text)
           : !this.formattingStore.isStyleFullyActive(
               type,
               start,

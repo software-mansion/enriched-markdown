@@ -16,6 +16,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable ENRMBlockRange *)listBlockForCursorParagraph;
 - (BOOL)isStyleAdjacentBefore:(ENRMInputStyleType)type position:(NSUInteger)position;
 - (BOOL)isStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position;
+/// Whether the store gives `type` to text typed at a caret at `position`.
+- (BOOL)isStyleActive:(ENRMInputStyleType)type atCaret:(NSUInteger)position;
 
 @end
 

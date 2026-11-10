@@ -3,6 +3,8 @@ package com.swmansion.enriched.markdown.input
 import com.swmansion.enriched.markdown.input.formatting.MarkdownSerializer
 import com.swmansion.enriched.markdown.input.model.StyleType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -35,6 +37,9 @@ class WholeWordUnderlineTest {
     view.toggleInlineStyle(StyleType.UNDERLINE)
     return markdown()
   }
+
+  // The underline state the toolbar gets for the current caret or selection.
+  private fun isUnderlineActive(): Boolean = view.eventEmitter.isStyleEffectivelyActive(StyleType.UNDERLINE)
 
   @Test
   fun caretInsideAWordUnderlinesTheWord() {
@@ -107,9 +112,11 @@ class WholeWordUnderlineTest {
   fun caretAtAWordsEndTakesTheWordAndKeepsTyping() {
     type("text")
     underline(4)
+    assertTrue(isUnderlineActive())
     type("underline")
 
     assertEquals("_textunderline_", markdown())
+    assertTrue(isUnderlineActive())
   }
 
   @Test
@@ -206,5 +213,57 @@ class WholeWordUnderlineTest {
     view.toggleInlineStyle(StyleType.ITALIC)
 
     assertEquals("**b*ol*d**", markdown())
+  }
+
+  @Test
+  fun caretAtTheEndOfAnUnderlinedWordShowsUnderline() {
+    type("hello")
+    underline(3)
+    view.setSelection(5)
+
+    assertTrue(isUnderlineActive())
+    type("xy")
+    assertEquals("_helloxy_", markdown())
+    assertTrue(isUnderlineActive())
+  }
+
+  @Test
+  fun oneTapAtTheEndOfAnUnderlinedWordTurnsItOff() {
+    type("hello")
+    underline(3)
+    view.setSelection(5)
+    type("xy")
+
+    assertEquals("helloxy", underline(7))
+    assertFalse(isUnderlineActive())
+    type("z")
+    assertEquals("helloxyz", markdown())
+    assertFalse(isUnderlineActive())
+  }
+
+  @Test
+  fun oneTapAtTheStartOfAnUnderlinedWordTurnsItOff() {
+    type("hello")
+    underline(3)
+    view.setSelection(0)
+
+    assertTrue(isUnderlineActive())
+    assertEquals("hello", underline(0))
+    assertFalse(isUnderlineActive())
+    type("a")
+    assertEquals("ahello", markdown())
+  }
+
+  @Test
+  fun caretPastASpaceOrPunctuationAfterAnUnderlinedWordShowsNoUnderline() {
+    type("foo! bar")
+    underline(0, 3)
+    view.setSelection(4)
+    assertFalse(isUnderlineActive())
+    view.setSelection(5)
+    assertFalse(isUnderlineActive())
+    type("x")
+
+    assertEquals("_foo_! xbar", markdown())
   }
 }
