@@ -100,18 +100,34 @@ enum ParagraphStyleHelpers {
         guard maximumLineHeight > 0 else { return }
 
         output.enumerateAttribute(.font, in: range) { value, subrange, _ in
-            guard let font = value as? UIFont else { return }
-            guard output.attribute(.baselineOffset, at: subrange.location, effectiveRange: nil) == nil else {
-                return
-            }
-
-            let naturalHeight = typographicLineHeight(for: font)
-            guard naturalHeight > 0, maximumLineHeight >= naturalHeight else { return }
-
-            let leading = maximumLineHeight - naturalHeight
-            let baselineOffset = ceil(leading / 2)
-            output.addAttribute(.baselineOffset, value: baselineOffset, range: subrange)
+            guard let font = value as? UIFont,
+                  !isInlineImage(output, at: subrange.location),
+                  output.attribute(.baselineOffset, at: subrange.location, effectiveRange: nil) == nil,
+                  let offset = baselineOffset(centring: font, in: maximumLineHeight)
+            else { return }
+            output.addAttribute(.baselineOffset, value: offset, range: subrange)
         }
+
+        // Inline images take the same offset through their bounds: TextKit moves an attachment by
+        // `.baselineOffset` without growing the line for it. The first block to set it wins.
+        output.enumerateAttribute(.attachment, in: range) { value, _, _ in
+            guard let image = value as? MarkdownImageAttachment, image.isInline,
+                  image.lineHeightOffset == nil,
+                  let font = image.textFont,
+                  let offset = baselineOffset(centring: font, in: maximumLineHeight)
+            else { return }
+            image.lineHeightOffset = offset
+        }
+    }
+
+    private static func isInlineImage(_ output: NSAttributedString, at index: Int) -> Bool {
+        (output.attribute(.attachment, at: index, effectiveRange: nil) as? MarkdownImageAttachment)?.isInline == true
+    }
+
+    private static func baselineOffset(centring font: UIFont, in maximumLineHeight: CGFloat) -> CGFloat? {
+        let naturalHeight = typographicLineHeight(for: font)
+        guard naturalHeight > 0, maximumLineHeight >= naturalHeight else { return nil }
+        return ceil((maximumLineHeight - naturalHeight) / 2)
     }
 
     static func applyBlockLineHeight(

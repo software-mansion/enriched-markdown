@@ -244,7 +244,7 @@ final class MarkdownImageAttachmentTests: XCTestCase {
         XCTAssertEqual(explicit.contentMode, .fit)
     }
 
-    func testInlineImagesAlwaysFillTheirSquare() {
+    func testInlineImagesFitInsideTheirSquare() {
         let downloader = DeferredImageDownloader()
         let attachment = MarkdownImageAttachment.attachment(
             for: "https://example.com/\(#function).png",
@@ -254,7 +254,7 @@ final class MarkdownImageAttachmentTests: XCTestCase {
             downloader: downloader
         )
 
-        XCTAssertEqual(attachment.contentMode, .stretch)
+        XCTAssertEqual(attachment.contentMode, .fit)
     }
 
     func testLoadArrivingOffTheMainThreadIsAppliedOnMain() {

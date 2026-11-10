@@ -7,6 +7,8 @@
 
 #define CACHE_KEY_PROCESSED(url, w, h, r, m) [NSString stringWithFormat:@"%@_w%.1f_h%.1f_r%.1f_m%@", url, w, h, r, m]
 
+static NSString *const kInlineDrawingMode = @"contain";
+
 static NSCache<NSString *, RCTUIImage *> *_originalImageCache;
 static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 
@@ -150,17 +152,9 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
     return CGRectMake(0, 0, width, height);
   }
 
-  UIFont *appliedFont = nil;
-  NSLayoutManager *layoutManager = textContainer.layoutManager;
-  NSTextStorage *textStorage = layoutManager.textStorage;
-
-  if (textStorage && characterIndex < textStorage.length) {
-    appliedFont = [textStorage attribute:NSFontAttributeName atIndex:characterIndex effectiveRange:NULL];
-  }
-
   CGFloat verticalOffset;
-  if (appliedFont) {
-    verticalOffset = (appliedFont.capHeight - height) / 2.0;
+  if (self.textFont) {
+    verticalOffset = (self.textFont.capHeight - height) / 2.0;
   } else {
     verticalOffset = (lineFragment.size.height - height) / 2.0;
   }
@@ -213,8 +207,9 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 
   CGFloat boxHeight = self.isInline ? self.cachedHeight : [self resolvedBoxHeightForWidth:targetWidth];
 
+  NSString *drawingMode = self.isInline ? @"inline" : self.cachedResizeMode;
   NSString *processedKey =
-      CACHE_KEY_PROCESSED(self.cacheKey, targetWidth, boxHeight, self.cachedBorderRadius, self.cachedResizeMode);
+      CACHE_KEY_PROCESSED(self.cacheKey, targetWidth, boxHeight, self.cachedBorderRadius, drawingMode);
 
   if ([processedKey isEqualToString:self.lastProcessedKey])
     return;
@@ -270,18 +265,11 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
   BOOL legacy = [self isLegacyBlockSizing];
 
   CGRect drawingRect;
-  if (self.isInline || legacy) {
-    CGFloat drawingWidth, drawingHeight;
-    if (!self.isInline) {
-      CGFloat aspectRatioScale = targetWidth / sourceWidth;
-      drawingWidth = targetWidth;
-      drawingHeight = sourceHeight * aspectRatioScale;
-    } else {
-      drawingWidth = targetWidth;
-      drawingHeight = targetHeight;
-    }
-    drawingRect = CGRectMake((targetWidth - drawingWidth) / 2.0, (targetHeight - drawingHeight) / 2.0, drawingWidth,
-                             drawingHeight);
+  if (self.isInline) {
+    drawingRect = [self drawingRectForResizeMode:kInlineDrawingMode source:source box:box];
+  } else if (legacy) {
+    CGFloat drawingHeight = sourceHeight * (targetWidth / sourceWidth);
+    drawingRect = CGRectMake(0, (targetHeight - drawingHeight) / 2.0, targetWidth, drawingHeight);
   } else {
     drawingRect = [self drawingRectForResizeMode:self.cachedResizeMode source:source box:box];
   }
@@ -291,8 +279,16 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
   return [renderer imageWithActions:^(RCTUIGraphicsImageRendererContext *context) {
     if (radius > 0) {
       CGRect clipRect = CGRectIntersection(CGRectMake(0, 0, targetWidth, targetHeight), drawingRect);
-      UIBezierPath *path = UIBezierPathWithRoundedRect(clipRect, radius);
-      [path addClip];
+      if (self.isInline) {
+        CGFloat cornerRadius = MIN(radius, MIN(clipRect.size.width, clipRect.size.height) / 2.0);
+        CGPathRef path = CGPathCreateWithRoundedRect(clipRect, cornerRadius, cornerRadius, NULL);
+        CGContextAddPath(context.CGContext, path);
+        CGContextClip(context.CGContext);
+        CGPathRelease(path);
+      } else {
+        UIBezierPath *path = UIBezierPathWithRoundedRect(clipRect, radius);
+        [path addClip];
+      }
     }
     [image drawInRect:drawingRect];
   }];
@@ -410,3 +406,19 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 }
 
 @end
+
+void ENRMImageAttachmentsAdoptTextFonts(NSAttributedString *text)
+{
+  [text enumerateAttribute:NSAttachmentAttributeName
+                   inRange:NSMakeRange(0, text.length)
+                   options:0
+                usingBlock:^(id value, NSRange range, __unused BOOL *stop) {
+                  if (![value isKindOfClass:[ENRMImageAttachment class]] || !((ENRMImageAttachment *)value).isInline) {
+                    return;
+                  }
+                  UIFont *font = [text attribute:NSFontAttributeName atIndex:range.location effectiveRange:NULL];
+                  if (font) {
+                    ((ENRMImageAttachment *)value).textFont = font;
+                  }
+                }];
+}

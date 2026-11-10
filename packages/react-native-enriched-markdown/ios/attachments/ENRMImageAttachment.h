@@ -37,6 +37,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// when the override says to show the placeholder only).
 @property (nonatomic, readonly) NSString *requestURL;
 @property (nonatomic, readonly) BOOL isInline;
+@property (nonatomic, strong, nullable) UIFont *textFont;
 
 /**
  * Invoked on the main thread whenever the image finishes loading/processing.
@@ -57,5 +58,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSCache<NSString *, RCTUIImage *> *)processedImageCache;
 
 @end
+
+FOUNDATION_EXPORT void ENRMImageAttachmentsAdoptTextFonts(NSAttributedString *text);
 
 NS_ASSUME_NONNULL_END

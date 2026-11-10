@@ -38,6 +38,8 @@ final class MarkdownImageAttachment: NSTextAttachment {
     let contentMode: ImageContentMode
 
     weak var layoutObserver: MarkdownAttachmentLayoutObserver?
+    var textFont: UIFont?
+    var lineHeightOffset: CGFloat?
 
     private let requestKey: String
     /// The processed-cache key less the box, which is all that varies per pass.
@@ -94,8 +96,8 @@ final class MarkdownImageAttachment: NSTextAttachment {
         self.downloader = downloader
         let sizing = config.image.sizing ?? .height(ImageSizing.fallbackHeight)
         self.sizing = sizing
-        // Inline images fill their square exactly.
-        contentMode = isInline ? .stretch : (config.image.contentMode ?? sizing.defaultContentMode)
+        // Inline images fit inside their square (contain).
+        contentMode = isInline ? .fit : (config.image.contentMode ?? sizing.defaultContentMode)
         cachedHeight = isInline ? (config.inlineImage.size ?? 20) : sizing.placeholderHeight
         cachedBorderRadius = config.image.cornerRadius ?? 0
         processedKeyPrefix = "\(requestKey)_r\(cachedBorderRadius)_m\(contentMode.rawValue)"
@@ -119,27 +121,21 @@ final class MarkdownImageAttachment: NSTextAttachment {
         adopt(textContainer)
 
         if isInline {
-            let size = cachedHeight
-            var appliedFont: UIFont?
-            if let textStorage = textStorage(from: textContainer),
-               charIndex >= 0,
-               charIndex < textStorage.length {
-                appliedFont = textStorage.attribute(.font, at: charIndex, effectiveRange: nil) as? UIFont
-            }
-
-            let verticalOffset: CGFloat
-            if let appliedFont {
-                verticalOffset = (appliedFont.capHeight - size) / 2
-            } else {
-                verticalOffset = (lineFragmentRect.height - size) / 2
-            }
-            return CGRect(x: 0, y: verticalOffset, width: size, height: size)
+            var rect = inlineBounds(lineFragmentRect: lineFragmentRect)
+            rect.origin.y += lineHeightOffset ?? 0
+            return rect
         }
 
         let width = lineFragmentRect.width > 0 ? lineFragmentRect.width : cachedHeight
         let box = CGSize(width: width, height: sizing.boxHeight(width: width, intrinsicSize: originalImage?.size))
         lastLaidOutBox = box
         return CGRect(origin: .zero, size: box)
+    }
+
+    private func inlineBounds(lineFragmentRect: CGRect) -> CGRect {
+        let size = cachedHeight
+        let verticalOffset = textFont.map { ($0.capHeight - size) / 2 } ?? (lineFragmentRect.height - size) / 2
+        return CGRect(x: 0, y: verticalOffset, width: size, height: size)
     }
 
     override func image(
@@ -259,10 +255,18 @@ final class MarkdownImageAttachment: NSTextAttachment {
 
         let drawingRect = ImageDrawing.rect(mode: contentMode, source: image.size, box: box)
         let renderer = UIGraphicsImageRenderer(size: box)
-        return renderer.image { _ in
+        return renderer.image { context in
             if borderRadius > 0 {
                 let clippingRect = drawingRect.intersection(CGRect(origin: .zero, size: box))
-                UIBezierPath(roundedRect: clippingRect, cornerRadius: borderRadius).addClip()
+                if isInline {
+                    let radius = min(borderRadius, min(clippingRect.width, clippingRect.height) / 2)
+                    context.cgContext.addPath(
+                        CGPath(roundedRect: clippingRect, cornerWidth: radius, cornerHeight: radius, transform: nil)
+                    )
+                    context.cgContext.clip()
+                } else {
+                    UIBezierPath(roundedRect: clippingRect, cornerRadius: borderRadius).addClip()
+                }
             }
             image.draw(in: drawingRect)
         }
