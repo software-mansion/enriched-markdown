@@ -148,12 +148,17 @@ TEST_CASE("languages without a grammar stay plain") {
 
 TEST_CASE("kotlin") {
   const std::string code =
+      "import kotlin.math.abs\n"
       "fun greet(name: String): String {\n"
       "    val n = 42\n"
+      "    if (n > 0) { for (i in 1..n) { try { abs(i) } catch (e: Exception) {} } }\n"
       "    return \"hi $name\" // note\n"
       "}";
   CHECK(contains(texts(code, "kotlin", HighlightTokenType::Keyword), "fun"));
   CHECK(contains(texts(code, "kotlin", HighlightTokenType::Keyword), "val"));
+  for (const char *keyword : {"import", "if", "for", "try", "catch"}) {
+    CHECK(contains(texts(code, "kotlin", HighlightTokenType::Keyword), keyword));
+  }
   CHECK(contains(texts(code, "kotlin", HighlightTokenType::Function), "greet"));
   CHECK(contains(texts(code, "kotlin", HighlightTokenType::Type), "String"));
   CHECK(contains(texts(code, "kotlin", HighlightTokenType::Number), "42"));
@@ -179,11 +184,19 @@ TEST_CASE("swift") {
 
 TEST_CASE("dart") {
   const std::string code =
+      "import 'dart:math';\n"
+      "class Greeter {}\n"
       "void main() {\n"
       "  var n = 42;\n"
+      "  if (n > 0) { for (var i = 0; i < n; i++) { try {} catch (e) {} } }\n"
       "  print('hi'); // note\n"
       "}";
   CHECK(contains(texts(code, "dart", HighlightTokenType::Keyword), "var"));
+  for (const char *keyword : {"import", "if", "for", "try", "catch"}) {
+    CHECK(contains(texts(code, "dart", HighlightTokenType::Keyword), keyword));
+  }
+  CHECK(contains(texts(code, "dart", HighlightTokenType::Function), "main"));
+  CHECK(contains(texts(code, "dart", HighlightTokenType::Type), "Greeter"));
   CHECK(contains(texts(code, "dart", HighlightTokenType::Type), "void"));
   CHECK(contains(texts(code, "dart", HighlightTokenType::String), "'hi'"));
   CHECK(contains(texts(code, "dart", HighlightTokenType::Number), "42"));

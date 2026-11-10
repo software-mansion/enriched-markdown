@@ -49,6 +49,10 @@ struct CaptureMapping {
 
 constexpr CaptureMapping kCaptureMappings[] = {
     {"keyword", HighlightTokenType::Keyword},
+    {"conditional", HighlightTokenType::Keyword},
+    {"repeat", HighlightTokenType::Keyword},
+    {"exception", HighlightTokenType::Keyword},
+    {"include", HighlightTokenType::Keyword},
     {"operator", HighlightTokenType::Operator},
     {"punctuation", HighlightTokenType::Punctuation},
     {"string", HighlightTokenType::String},
@@ -390,6 +394,15 @@ std::vector<HighlightToken> highlightCode(const std::string &code, const std::st
     TSQueryMatch match;
     uint32_t captureIndex = 0;
     while (ts_query_cursor_next_capture(cursor.get(), &match, &captureIndex)) {
+      // Dart's predicate rules capture every identifier without evaluation and
+      // overwrite its structural function/type captures.
+      if (grammarId == "dart") {
+        uint32_t predicateCount = 0;
+        ts_query_predicates_for_pattern(query, match.pattern_index, &predicateCount);
+        if (predicateCount > 0) {
+          continue;
+        }
+      }
       const TSQueryCapture &capture = match.captures[captureIndex];
       uint32_t nameLength = 0;
       const char *name = ts_query_capture_name_for_id(query, capture.index, &nameLength);
