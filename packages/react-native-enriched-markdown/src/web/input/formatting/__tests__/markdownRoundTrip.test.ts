@@ -12,7 +12,7 @@ import {
   canonical,
   knownLimitations,
   normalization,
-  plainText,
+  plainText as plainTextCases,
   unsupported,
   type ModelCase,
 } from './inputFixtures';
@@ -149,7 +149,7 @@ describe('known limitations', () => {
 // Text the user typed, which carries no markup of its own, has to come back
 // as the same text with the same styles. Each case is serialized from the
 // model, not written as markdown, the way the editor saves it.
-const PLAIN_TEXT_CASES = plainText();
+const PLAIN_TEXT_CASES = plainTextCases();
 
 async function modelOf(markdown: string) {
   const { plainText, formattingRanges, blockRanges } =
