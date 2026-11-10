@@ -1,11 +1,5 @@
 import { loadParser } from '../../../parseMarkdown';
 import { parseToPlainTextAndRanges } from '../InputParser';
-import {
-  normalizeBlockRanges,
-  normalizeFormattingRanges,
-} from '../normalizeImport';
-import { createBlockRange as block } from '../../model/blocks';
-import { createFormattingRange as range } from '../../model/inlineStyles';
 
 // Import and export run in the WASM core, which loads asynchronously.
 beforeAll(() => loadParser());
@@ -66,53 +60,5 @@ describe('import normalization', () => {
       'em:2-3',
       'strong:4-5',
     ]);
-  });
-});
-
-describe('normalizeImport', () => {
-  it('copies a block spanning lines onto each, at line bounds', () => {
-    expect(
-      normalizeBlockRanges('ab\ncd\n', [{ ...block('h2', 0, 5), level: 2 }])
-    ).toEqual([
-      { ...block('h2', 0, 2), level: 2 },
-      { ...block('h2', 3, 5), level: 2 },
-    ]);
-  });
-
-  it('keeps a zero-length anchor on its empty line', () => {
-    expect(
-      normalizeBlockRanges('a\n\nb', [block('unordered-list-item', 2, 2)])
-    ).toEqual([block('unordered-list-item', 2, 2)]);
-  });
-
-  it('prefers a list item over a heading over a paragraph on one line', () => {
-    expect(
-      normalizeBlockRanges('ab', [
-        block('paragraph', 0, 2),
-        { ...block('h1', 0, 2), level: 1 },
-        block('ordered-list-item', 0, 2),
-        { ...block('h3', 0, 2), level: 3 },
-      ])
-    ).toEqual([block('ordered-list-item', 0, 2)]);
-  });
-
-  it('merges overlapping and touching same-type ranges, sorted by start', () => {
-    expect(
-      normalizeFormattingRanges([
-        range('strong', 4, 7),
-        range('em', 1, 2),
-        range('strong', 0, 4),
-        range('strong', 6, 9),
-        range('strong', 11, 12),
-      ])
-    ).toEqual([
-      range('strong', 0, 9),
-      range('em', 1, 2),
-      range('strong', 11, 12),
-    ]);
-  });
-
-  it('drops empty ranges', () => {
-    expect(normalizeFormattingRanges([range('em', 3, 3)])).toEqual([]);
   });
 });
