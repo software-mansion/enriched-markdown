@@ -345,6 +345,7 @@ interface StreamingConfig {
   codeBlockMode?: 'hidden' | 'progressive';
   mediaMode?: 'hidden' | 'progressive';
   animation?: StreamingAnimation;
+  smooth?: boolean;
 }
 
 type StreamingAnimation =
@@ -367,9 +368,10 @@ type StreamingAnimation =
   - `'progressive'` **(default)** shows a trailing image paragraph, link paragraph or `<video>` block as soon as its syntax is complete (the closing `)` or `>`); until then the partial line is withheld instead of rendering as text. A bare URL on its own line can always grow, so it is withheld until the next line arrives.
   - `'hidden'` withholds the block until a blank line or another block follows it, like `tableMode: 'hidden'`, so it never appears before the content after it. Applies to native images and to blocks drawn by [`renderers`](#renderers) alike.
 - `animation` - how new content appears. Reduce Motion turns it off. See [Animations](/rich-text-formatting/markdown-streaming#animations).
-  - `'fade'` **(default)** fades each new chunk of text in over its own 200 ms (`duration` in milliseconds), and fades in new blocks and table rows and grows a block drawn by [`renderers`](#renderers) into place.
+  - `'fade'` **(default)** fades each new word in over its own 200 ms (`duration` in milliseconds), and fades in new blocks and table rows and grows a block drawn by [`renderers`](#renderers) into place.
   - `'gradient'` runs the last 20 characters (`length`) from their own color to transparent, following the end of the text. `startColor` replaces their own color, and `endColor` (transparent by default) is the newest character's color. Blocks fade in as with `'fade'`.
   - `'none'` shows new content at once, as does a `duration` or `length` of 0.
+- `smooth` - reveals new text word by word at a steady pace instead of in the bursts it arrives in. The view shows the text revealed so far, so its layout, list items and blocks grow with the words. Each chunk spreads over the time until the next one, at most a second behind, and what is left shows within 200 ms when the stream ends. Works with every `animation`; with `'none'` words appear without fading. Defaults to `false`. See [Smooth pacing](/rich-text-formatting/markdown-streaming#smooth-pacing).
 
 An unterminated block-math (`$$`) block is also withheld until its closing `$$` arrives. That behavior is unconditional and has no key here.
 

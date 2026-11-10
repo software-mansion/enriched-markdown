@@ -38,7 +38,7 @@ The tail is found by **length**, not by diffing: everything past the previous st
 New content animates in through [`streamingConfig.animation`](/react-native/api-reference/enriched-markdown-text#streamingconfig):
 
 ```tsx
-// Each new chunk fades in over its own 200 ms (the default).
+// Each new word fades in over its own 200 ms (the default).
 <EnrichedMarkdownText markdown={partial} streaming streamingConfig={{ animation: 'fade' }} />
 
 // The last characters fade toward the end of the text, like a typewriter.
@@ -51,11 +51,21 @@ New content animates in through [`streamingConfig.animation`](/react-native/api-
 />
 ```
 
-- **`'fade'`** keeps time for each chunk on its own, so chunks arriving every frame still fade in fully, overlapping. `duration` sets the time in milliseconds.
+- **`'fade'`** keeps time for each word on its own, so chunks arriving every frame still fade in fully, overlapping, and a word split across two chunks fades in as one. `duration` sets the time in milliseconds.
 - **`'gradient'`** depends on each character's distance from the end, not on time: it follows the end of the text as it grows, and settles to the text's own colors over 200 ms when the stream ends. Without `startColor` each character keeps its own color (links, code, bold) and only fades toward the end.
 - **`'none'`** shows new content at once; so does Reduce Motion.
 
 Animations change only how characters are drawn, never the text, so selection, copy and accessibility see the text as it is. Blocks (tables, code blocks, images) fade in as a whole with `'fade'` and `'gradient'`.
+
+### Smooth pacing
+
+Models and networks deliver text in bursts. `streamingConfig.smooth` reveals it word by word at a steady pace instead, the way chat apps do:
+
+```tsx
+<EnrichedMarkdownText markdown={partial} streaming streamingConfig={{ smooth: true }} />
+```
+
+The view shows the text revealed so far, so lines, list items and blocks (tables, code blocks, images) grow with the words, and a view that scrolls to its end follows them line by line. Each chunk spreads over the time until the next one, so the pace follows the stream, at most a second behind; a word a chunk ends inside waits for the rest of it, and markdown such as a list marker or a heading's `##` waits for the word after it. When the stream ends, what is left shows within 200 ms. It works with every animation: words fade in with `'fade'`, the gradient follows the words, and with `'none'` words appear without fading.
 
 ### Streaming without re-rendering
 
