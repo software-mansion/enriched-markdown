@@ -1,0 +1,16 @@
+{
+  "description": "Syntax the input has no model for as [markdown, expected]: the markers are dropped, the content survives as plain lines.",
+  "cases": [
+    ["> quote","quote"],
+    ["> quote\n> more","quote\nmore"],
+    ["| a | b |\n| - | - |\n| 1 | 2 |","ab12"],
+    ["---",""],
+    ["a\n\n---\n\nb","a\n\n\n\nb"],
+    ["`inline code`","inline code"],
+    ["```\ncode\n```","code"],
+    ["```js\nconst a = 1;\n```","const a = 1;"],
+    ["```\ncode\n```\nafter","code\nafter"],
+    ["~~~\nt\n~~~","t"],
+    ["a\n\n```\nx\ny\n```\n\nb","a\n\nx\ny\n\nb"]
+  ]
+}
