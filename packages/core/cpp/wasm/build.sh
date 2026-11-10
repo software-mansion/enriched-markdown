@@ -59,18 +59,21 @@ em++ \
   "$SCRIPT_DIR/md4c_wasm.cpp" \
   "$SCRIPT_DIR/ASTSerializer.cpp" \
   "$CPP_ROOT/parser/MD4CParser.cpp" \
+  "$CPP_ROOT"/input/*.cpp \
   "$WORK/enrmrkd.o" \
   "$WORK/enrmrkd-entity.o" \
   -I "$CPP_ROOT" \
   -I "$CPP_ROOT/enrmrkd" \
+  -I "$CPP_ROOT/parser" \
+  -I "$CPP_ROOT/input" \
   -I "$SCRIPT_DIR" \
   -O2 \
   -std=c++17 \
   -Wswitch \
   -s WASM=1 \
   -s SINGLE_FILE=1 \
-  -s EXPORTED_FUNCTIONS='["_parseMarkdown"]' \
-  -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","UTF8ToString"]' \
+  -s EXPORTED_FUNCTIONS='["_parseMarkdown","_parseInput","_serializeInput","_malloc","_free"]' \
+  -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","UTF8ToString","HEAP16","HEAPU16","HEAP32"]' \
   -s ENVIRONMENT='web' \
   -s MODULARIZE=1 \
   -s EXPORT_NAME='createMd4cModule' \
