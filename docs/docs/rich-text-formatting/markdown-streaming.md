@@ -33,6 +33,30 @@ Feed the growing Markdown string to the display component and set [`streaming`](
 The tail is found by **length**, not by diffing: everything past the previous string's length fades in. Streaming therefore assumes **append-only** updates. If you replace `markdown` wholesale - a retry, a regeneration, switching to a different response - the fade will not line up with what actually changed.
 :::
 
+### Animations
+
+New content animates in through [`streamingConfig.animation`](/react-native/api-reference/enriched-markdown-text#streamingconfig):
+
+```tsx
+// Each new chunk fades in over its own 200 ms (the default).
+<EnrichedMarkdownText markdown={partial} streaming streamingConfig={{ animation: 'fade' }} />
+
+// The last characters fade toward the end of the text, like a typewriter.
+<EnrichedMarkdownText
+  markdown={partial}
+  streaming
+  streamingConfig={{
+    animation: { type: 'gradient', length: 15, startColor: '#107ACA', endColor: 'transparent' },
+  }}
+/>
+```
+
+- **`'fade'`** keeps time for each chunk on its own, so chunks arriving every frame still fade in fully, overlapping. `duration` sets the time in milliseconds.
+- **`'gradient'`** depends on each character's distance from the end, not on time: it follows the end of the text as it grows, and settles to the text's own colors over 200 ms when the stream ends. Without `startColor` each character keeps its own color (links, code, bold) and only fades toward the end.
+- **`'none'`** shows new content at once; so does Reduce Motion.
+
+Animations change only how characters are drawn, never the text, so selection, copy and accessibility see the text as it is. Blocks (tables, code blocks, images) fade in as a whole with `'fade'` and `'gradient'`.
+
 ### Streaming without re-rendering
 
 Passing a growing `markdown` re-renders your component on every chunk, and hands the whole text from JavaScript to native code each time. With a stream, your component doesn't re-render: append chunks to it, and the view updates once per frame on its own. Its text stays in native memory, so only each chunk crosses from JavaScript.
@@ -99,6 +123,6 @@ Blocks that have finished are never touched again, so the cost of each update de
 - [`streaming`](/react-native/api-reference/enriched-markdown-text#streaming) - set while the markdown is still arriving. Defaults to `false`. Replaces the deprecated `streamingAnimation`.
 - [`stream`](/react-native/api-reference/enriched-markdown-text#stream) - markdown from `createMarkdownStream()`, updated once per frame without re-rendering your component.
 - [`onStreamingEnd`](/react-native/api-reference/enriched-markdown-text#onstreamingend) - called when the view stops streaming.
-- [`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig) - `tableMode`, `codeBlockMode` and `mediaMode`, each `'progressive'` or `'hidden'`, and `animation`, `'fade'` or `'none'`. Needs `streaming`.
+- [`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig) - `tableMode`, `codeBlockMode` and `mediaMode`, each `'progressive'` or `'hidden'`, and `animation`: `'fade'`, `'gradient'`, `'none'`, or a preset with its options. Needs `streaming`.
 - [Markdown flavors](/react-native/guides/markdown-flavors) - what else the flavor switch changes.
 - [`react-native-streamdown`](https://enriched.swmansion.com/streamdown) - sibling library for LLM output: incomplete-Markdown repair ([remend](https://www.npmjs.com/package/remend)) and off-thread processing (react-native-worklets Bundle Mode). Accepts every `EnrichedMarkdownText` prop plus a `remendConfig`: `<StreamdownText markdown={partial} />`. See the setup caveat above.
