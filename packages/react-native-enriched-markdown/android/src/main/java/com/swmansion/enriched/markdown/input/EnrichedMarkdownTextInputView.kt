@@ -1180,8 +1180,19 @@ class EnrichedMarkdownTextInputView(
       // No invalidateLayout() needed: applyFormatting() already re-measures.
       lastProcessedText = text?.toString() ?: ""
     }
+    // A style toggled at the caret belongs to the old document. The import's caret move is
+    // suppressed, so nothing else drops it, and after a send's setValue("") it would style the
+    // next message.
+    pendingStyles.clear()
+    pendingStyleRemovals.clear()
     syncHintVisibility()
     emitSelectionIfChanged()
+  }
+
+  /** The setValue command: loads [markdown] and reports the new state, as iOS's setValue: does. */
+  fun setValueFromCommand(markdown: String) {
+    setValueFromJS(markdown)
+    eventEmitter.emitState()
   }
 
   override fun setBackgroundColor(color: Int) {

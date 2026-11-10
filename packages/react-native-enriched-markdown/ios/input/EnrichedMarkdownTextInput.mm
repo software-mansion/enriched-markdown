@@ -735,6 +735,10 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   [_editSession exitPhase];
   [self applyFormatting];
   [self updatePlaceholderVisibility];
+  // A style toggled at the caret belongs to the old document. The import's caret move is
+  // suppressed, so nothing else drops it, and after a send's setValue("") it would style the next
+  // message.
+  [_typingController resetPendingStyles];
 
   if (parsed.plainText.length == 0) {
     [self resetBaseTypingAttributes];

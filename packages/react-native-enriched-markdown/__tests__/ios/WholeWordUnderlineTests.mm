@@ -279,4 +279,31 @@
   XCTAssertEqualObjects([_input currentMarkdown], @"_foo_! xbar");
 }
 
+// A chat input sends by calling setValue(""): what was pending at the old caret must not style the
+// next message.
+- (void)testClearingDropsAnUnderlinePendingAtTheCaret
+{
+  [self type:@"hello"];
+  [self select:NSMakeRange(3, 0)];
+  [self toggleUnderline];
+  XCTAssertTrue([self isUnderlineActive]);
+
+  [_input setValue:@""];
+  XCTAssertFalse([self isUnderlineActive]);
+  [self type:@"next"];
+  XCTAssertEqualObjects([_input currentMarkdown], @"next");
+}
+
+- (void)testClearingDropsABoldPendingAtTheCaret
+{
+  [self type:@"hello"];
+  [_input toggleInlineStyle:ENRMInputStyleTypeStrong];
+  XCTAssertTrue([_input isEffectiveStyleActive:ENRMInputStyleTypeStrong atPosition:5]);
+
+  [_input setValue:@""];
+  XCTAssertFalse([_input isEffectiveStyleActive:ENRMInputStyleTypeStrong atPosition:0]);
+  [self type:@"next"];
+  XCTAssertEqualObjects([_input currentMarkdown], @"next");
+}
+
 @end

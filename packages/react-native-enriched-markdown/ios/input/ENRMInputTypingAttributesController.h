@@ -36,6 +36,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)syncWithCursorBlock;
 - (void)syncWithPendingStyles;
 - (void)resetForSelectionChange;
+/// Drops the pending styles and re-reads them from what the selection sits next to, even right after
+/// an edit (a new document).
+- (void)resetPendingStyles;
 - (void)clearListParagraphStyle;
 
 @property (nonatomic, readonly) NSSet<NSNumber *> *pendingStyles;

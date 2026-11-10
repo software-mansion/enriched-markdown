@@ -403,7 +403,7 @@ class EnrichedMarkdownTextInputManager :
     markdown: String?,
   ) {
     if (markdown != null) {
-      view?.setValueFromJS(markdown)
+      view?.setValueFromCommand(markdown)
     }
   }
 

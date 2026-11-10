@@ -222,3 +222,17 @@ describe('a caret at the edge of an underlined word', () => {
     expect(markdowns.at(-1)).toBe('_foo_! xbar');
   });
 });
+
+describe('clearing the value', () => {
+  // A chat input sends by calling setValue(""): the underline pending at the
+  // old caret must not style the next message.
+  it('drops the underline pending at the caret', async () => {
+    const { root, host, states, markdowns } = underline('hello', 3);
+    expect(lastState(states).underline.isActive).toBe(true);
+
+    await host.setValue('');
+    expect(lastState(states).underline.isActive).toBe(false);
+    typeText(root, 'next');
+    expect(markdowns.at(-1)).toBe('next');
+  });
+});

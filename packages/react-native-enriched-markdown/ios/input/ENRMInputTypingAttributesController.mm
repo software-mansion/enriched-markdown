@@ -161,6 +161,11 @@
   if (_editSession.isPostEditGracePeriod) {
     return;
   }
+  [self resetPendingStyles];
+}
+
+- (void)resetPendingStyles
+{
   [_pendingStyles removeAllObjects];
   [_pendingStyleRemovals removeAllObjects];
   [self rebuildFromContext];
