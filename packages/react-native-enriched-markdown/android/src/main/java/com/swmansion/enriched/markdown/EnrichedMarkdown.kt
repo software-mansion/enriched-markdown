@@ -48,7 +48,8 @@ import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.animatorDurationScale
 import com.swmansion.enriched.markdown.utils.common.isReducedMotionEnabled
-import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
+import com.swmansion.enriched.markdown.utils.text.StreamingEffects
+import com.swmansion.enriched.markdown.utils.text.StreamingEffectsAnimator
 import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
 import com.swmansion.enriched.markdown.utils.text.view.OnSelectionCopy
 import com.swmansion.enriched.markdown.utils.text.view.SelectionCopyFormat
@@ -94,26 +95,36 @@ class EnrichedMarkdown(
   // not disposal: a view renders before its first attach and while detached.
   private var isDisposed = false
   internal val dirtyFlags = EnumSet.noneOf(DirtyFlag::class.java)
-  private val textFadeAnimators = WeakHashMap<EnrichedMarkdownInternalText, TailFadeInAnimator>()
+  private val textEffects = WeakHashMap<EnrichedMarkdownInternalText, StreamingEffectsAnimator>()
+  private var effectsConfig = StreamingEffects.Config()
+
+  // The stream ended and its last text has not been rendered yet: it still animates, then settles.
+  private var streamEnding = false
   var streaming: Boolean = false
     set(value) {
       if (field == value) return
       field = value
+      streamEnding = !value
       // The streaming filter only applies while this is on, so re-render to
       // show or hide the content it holds back.
       dirtyFlags += DirtyFlag.FORCE_HEIGHT
       renderPending = true
       if (!value) {
         finishStreamingAnimations()
+        settleTextSegments(except = null)
         emitStreamingEndEvent()
       }
     }
-  var streamingFade: Boolean = true
-    set(value) {
-      if (field == value) return
-      field = value
-      if (!value) finishStreamingAnimations()
-    }
+  private var streamingFade: Boolean = true
+
+  /** Text segments start over with the new animation: 'none' shows what still animates at once. */
+  fun setStreamingAnimation(config: StreamingEffects.Config) {
+    if (config == effectsConfig) return
+    effectsConfig = config
+    textEffects.values.forEach { it.configure(config) }
+    streamingFade = config.type != StreamingEffects.Type.NONE
+    if (!streamingFade) finishStreamingAnimations()
+  }
 
   // used to force a Yoga re-measure when a block image resolves its box height
   var stateWrapper: StateWrapper? = null
@@ -718,6 +729,8 @@ class EnrichedMarkdown(
     val remeasure = DirtyFlag.REMEASURE in flags
 
     val topologyChanged = applySegments(renderedSegments, reset)
+    streamEnding = false
+    if (streaming) settleTextSegments(except = segmentViews.lastOrNull())
     // A view that missed a patch gets the whole text from a full render: forgetting its signature
     // makes the reconciler update it then, where it would keep a view whose segment it matches.
     val missedPatches = SegmentViewCreators.syncTextRevisions(renderedSegments, segmentViews)
@@ -908,14 +921,29 @@ class EnrichedMarkdown(
     }
   }
 
+  private fun effectsOf(view: EnrichedMarkdownInternalText): StreamingEffectsAnimator =
+    textEffects.getOrPut(view) {
+      StreamingEffectsAnimator(view).also { it.configure(effectsConfig) }
+    }
+
   private fun animateTextViewTail(
     view: EnrichedMarkdownInternalText,
     tailStart: Int,
   ) {
-    if (!streaming || !streamingFade) return
-    val textLength = view.text?.length ?: 0
-    if (textLength <= tailStart) return
-    textFadeAnimators.getOrPut(view) { TailFadeInAnimator(view) }.animate(tailStart, textLength)
+    if (!streaming && !streamEnding) return
+    val effects = effectsOf(view)
+    effects.noteArrival(tailStart, view.text?.length ?: 0)
+    if (streamEnding) effects.finish()
+  }
+
+  // What still animates in text segments settles: all of them once the stream ends, or the ones the
+  // document's end has left (a gradient follows only the end of the document).
+  private fun settleTextSegments(except: View?) {
+    for (view in segmentViews) {
+      if (view === except || view !is EnrichedMarkdownInternalText) continue
+      val effects = textEffects[view] ?: continue
+      if (except == null || effects.type == StreamingEffects.Type.GRADIENT) effects.finish()
+    }
   }
 
   // New streamed content fades in and slots grow in, unless the animation is off or Reduce Motion is on.
@@ -996,8 +1024,6 @@ class EnrichedMarkdown(
   private fun finishStreamingAnimations() {
     blockSlotReveal.cancel()
     stepBlockSlotReveal()
-    textFadeAnimators.values.forEach { it.cancelAll() }
-    textFadeAnimators.clear()
     for (view in segmentViews) {
       when {
         view is TableContainerView -> {
@@ -1035,6 +1061,8 @@ class EnrichedMarkdown(
     executor.shutdownNow()
     mainHandler.removeCallbacksAndMessages(null)
     stateWrapper = null
+    textEffects.values.forEach { it.release() }
+    textEffects.clear()
   }
 
   companion object {

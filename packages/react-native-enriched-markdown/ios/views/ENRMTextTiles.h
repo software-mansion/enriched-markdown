@@ -1,4 +1,5 @@
 #pragma once
+#import "ENRMStreamingEffects.h"
 #import "ENRMUIKit.h"
 
 #if !TARGET_OS_OSX
@@ -20,6 +21,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setNeedsDisplayFromGlyphIndex:(NSUInteger)glyphIndex;
 /// Called from the text view's layoutSubviews.
 - (void)layout;
+
+/// How the streaming text's newest characters look; the tiles draw them so.
+@property (nonatomic, readonly) ENRMStreamingEffects *streamingEffects;
+/// Redraws the characters the effects animate, every frame while they do.
+- (void)streamingEffectsChanged;
 
 @end
 

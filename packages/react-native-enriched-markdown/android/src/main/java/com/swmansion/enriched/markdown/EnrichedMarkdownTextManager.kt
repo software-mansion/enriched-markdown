@@ -32,6 +32,7 @@ import com.swmansion.enriched.markdown.utils.common.parseLinkPillContent
 import com.swmansion.enriched.markdown.utils.common.parseLinkRecognition
 import com.swmansion.enriched.markdown.utils.common.parseMd4cFlags
 import com.swmansion.enriched.markdown.utils.common.parseSelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.text.StreamingEffects
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListTapUtils
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListToggleUtils
 
@@ -303,7 +304,9 @@ class EnrichedMarkdownTextManager :
       CodeBlockStreamingMode.fromString(config?.getString("codeBlockMode")),
       MediaStreamingMode.fromString(config?.getString("mediaMode")),
     )
-    view?.setStreamingFade(config?.getString("animation") != "none")
+    if (view != null) {
+      view.setStreamingAnimation(StreamingEffects.Config.from(config, view.context))
+    }
   }
 
   @ReactProp(name = "spoilerOverlay")

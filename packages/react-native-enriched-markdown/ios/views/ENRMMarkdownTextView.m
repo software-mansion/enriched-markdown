@@ -69,6 +69,16 @@
   [_tiles layout];
 }
 
+- (ENRMStreamingEffects *)streamingEffects
+{
+  return _tiles.streamingEffects;
+}
+
+- (void)streamingEffectsChanged
+{
+  [_tiles streamingEffectsChanged];
+}
+
 /// New text moves or replaces the pill under its lifted image.
 - (void)setAttributedText:(NSAttributedString *)attributedText
 {

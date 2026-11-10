@@ -43,7 +43,8 @@ import com.swmansion.enriched.markdown.utils.common.RenderCoordinator
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.emitCodeBlockPress
-import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
+import com.swmansion.enriched.markdown.utils.text.StreamingEffects
+import com.swmansion.enriched.markdown.utils.text.StreamingEffectsAnimator
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
 import com.swmansion.enriched.markdown.utils.text.view.CodeBlockPressHost
 import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
@@ -132,14 +133,19 @@ class EnrichedMarkdownText
 
     var isStreaming: Boolean = false
       private set
-    private var streamingFade = true
 
     val isJustified: Boolean get() = markdownStyle?.needsJustify == true
     private var tableStreamingMode = TableStreamingMode.PROGRESSIVE
     private var codeBlockStreamingMode = CodeBlockStreamingMode.PROGRESSIVE
     private var mediaStreamingMode = MediaStreamingMode.PROGRESSIVE
     private var previousTextLength: Int = 0
-    private var fadeAnimator: TailFadeInAnimator? = null
+
+    // The stream ended and its last text has not been rendered yet: it still animates, then settles.
+    private var streamEnding = false
+    private var effectsConfig = StreamingEffects.Config()
+
+    // Made with the first streamed text.
+    private var effectsAnimator: StreamingEffectsAnimator? = null
     override var spoilerOverlayDrawer: SpoilerOverlayDrawer? = null
       private set
     var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
@@ -285,12 +291,11 @@ class EnrichedMarkdownText
     fun setStreaming(enabled: Boolean) {
       if (isStreaming == enabled) return
       isStreaming = enabled
+      streamEnding = !enabled
       if (enabled) {
         previousTextLength = text?.length ?: 0
       } else {
-        fadeAnimator?.cancelAll()
-        fadeAnimator = null
-        previousTextLength = 0
+        effectsAnimator?.finish()
         emitStreamingEndEvent()
       }
       // The streaming session decides what renders, so the text renders again.
@@ -309,10 +314,10 @@ class EnrichedMarkdownText
       if (isStreaming) scheduleRenderIfNeeded()
     }
 
-    fun setStreamingFade(enabled: Boolean) {
-      if (streamingFade == enabled) return
-      streamingFade = enabled
-      if (!enabled) fadeAnimator?.cancelAll()
+    fun setStreamingAnimation(config: StreamingEffects.Config) {
+      if (config == effectsConfig) return
+      effectsConfig = config
+      effectsAnimator?.configure(config)
     }
 
     fun commitProps() {
@@ -429,6 +434,11 @@ class EnrichedMarkdownText
       // The cache handed back the segment this view shows.
       if (rendered.revision == renderedRevision) {
         renderedMarkdown = markdown
+        // The stream ended on text this view already shows.
+        if (streamEnding) {
+          previousTextLength = 0
+          streamEnding = false
+        }
         return
       }
       // A patch applies only to the text it was made against.
@@ -463,14 +473,16 @@ class EnrichedMarkdownText
 
       layoutManager.invalidateLayout(changedFrom)
 
-      if (isStreaming) {
-        if (streamingFade) {
-          if (fadeAnimator == null) {
-            fadeAnimator = TailFadeInAnimator(this)
+      if (isStreaming || streamEnding) {
+        val animator =
+          effectsAnimator ?: StreamingEffectsAnimator(this).also {
+            it.configure(effectsConfig)
+            effectsAnimator = it
           }
-          fadeAnimator?.animate(tailStart, styledText.length)
-        }
-        previousTextLength = styledText.length
+        animator.noteArrival(tailStart, styledText.length)
+        if (streamEnding) animator.finish()
+        previousTextLength = if (isStreaming) styledText.length else 0
+        streamEnding = false
       }
 
       applySelectionColors(selectionColor, selectionHandleColor)
@@ -648,8 +660,8 @@ class EnrichedMarkdownText
       mainHandler.removeCallbacksAndMessages(null)
       pendingText = null
       pendingRenderedMarkdown = ""
-      fadeAnimator?.cancelAll()
-      fadeAnimator = null
+      effectsAnimator?.release()
+      effectsAnimator = null
     }
 
     override fun setPadding(

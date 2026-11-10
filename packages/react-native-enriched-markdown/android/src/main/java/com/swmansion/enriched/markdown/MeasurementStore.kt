@@ -477,7 +477,7 @@ object MeasurementStore {
     var layoutHash = computePropsHashForMarkdown("", props, allowFontScaling, fontScale, maxFontSizeMultiplier)
     layoutHash = 31 * layoutHash + props.getBooleanOrDefault("isGFM", false).hashCode()
     layoutHash = 31 * layoutHash + props.getBooleanOrDefault("streaming", false).hashCode()
-    // Only the modes change what is laid out; the animation does not.
+    // Only the modes change what is laid out; the animation and its options do not.
     val streamingConfig = props.getMapOrNull("streamingConfig")
     layoutHash = 31 * layoutHash + streamingConfig.getStringOrDefault("tableMode", "").hashCode()
     layoutHash = 31 * layoutHash + streamingConfig.getStringOrDefault("codeBlockMode", "").hashCode()
