@@ -63,6 +63,14 @@ public:
       pos_++;
       return json;
     }
+    if (c == '-' || (c >= '0' && c <= '9')) {
+      // A number stays text: callers that want one convert it.
+      Json json;
+      while (pos_ < text_.size() && std::string("+-.eE0123456789").find(text_[pos_]) != std::string::npos) {
+        json.string.push_back(static_cast<char16_t>(text_[pos_++]));
+      }
+      return json;
+    }
     throw std::runtime_error("unsupported JSON value in a fixture file");
   }
 
@@ -137,15 +145,29 @@ private:
   size_t pos_ = 0;
 };
 
-// The "cases" of a fixture file: one string per case, or two for a pair.
-inline std::vector<std::vector<std::u16string>> load(const std::string &name) {
+inline Json read(const std::string &name) {
   std::ifstream file(std::string(INPUT_FIXTURES_DIR) + "/" + name, std::ios::binary);
   if (!file) {
     throw std::runtime_error("cannot open fixture " + name);
   }
   std::stringstream buffer;
   buffer << file.rdbuf();
-  const Json root = Reader(buffer.str()).value();
+  return Reader(buffer.str()).value();
+}
+
+// A member of an object, or null.
+inline const Json *member(const Json &object, const std::string &key) {
+  for (const auto &entry : object.members) {
+    if (entry.first == key) {
+      return &entry.second;
+    }
+  }
+  return nullptr;
+}
+
+// The "cases" of a fixture file: one string per case, or two for a pair.
+inline std::vector<std::vector<std::u16string>> load(const std::string &name) {
+  const Json root = read(name);
   std::vector<std::vector<std::u16string>> cases;
   for (const auto &member : root.members) {
     if (member.first != "cases") {
