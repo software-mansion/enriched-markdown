@@ -50,13 +50,21 @@ internal class ImageLoadFailureDrawable(
 
   private fun chipFontSize(height: Int): Float = min(fontSize, height * CHIP_FONT_RATIO)
 
-  /** Square without alt text, otherwise as wide as the alt text needs, up to the chip cap. */
-  fun chipWidth(height: Int): Int {
+  /**
+   * Square without alt text, otherwise as wide as the alt text needs, up to the chip cap
+   * and [maxWidth], the line's width (0 when unknown).
+   */
+  fun chipWidth(
+    height: Int,
+    maxWidth: Int,
+  ): Int {
     if (altText.isEmpty()) return height
     textPaint.textSize = chipFontSize(height)
     val padding = height * CHIP_PADDING_RATIO
     val width = padding + height * CHIP_GLYPH_RATIO + padding + ceil(textPaint.measureText(altText)) + padding
-    return min(ceil(width).toInt(), (CHIP_MAX_WIDTH_DP * density).toInt()).coerceAtLeast(height)
+    val chipCap = (CHIP_MAX_WIDTH_DP * density).toInt()
+    val cap = if (maxWidth > 0) min(chipCap, maxWidth) else chipCap
+    return min(ceil(width).toInt(), cap).coerceAtLeast(height)
   }
 
   override fun draw(canvas: Canvas) {

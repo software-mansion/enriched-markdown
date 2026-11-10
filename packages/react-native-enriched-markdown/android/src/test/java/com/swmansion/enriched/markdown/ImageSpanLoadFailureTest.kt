@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.style.LeadingMarginSpan
 import android.view.View.MeasureSpec
 import android.view.ViewGroup
 import android.widget.TextView
@@ -52,6 +53,28 @@ class ImageSpanLoadFailureTest {
   @Test
   fun failedInlineChipIsCapped() {
     assertEquals(CHIP_CAP, width(inlineSpan("test://capped", "a very long description ".repeat(20))))
+  }
+
+  // A deep list or a narrow component can leave less room than the cap: the chip shrinks to
+  // the line, after leading margins, so its label is ellipsized instead of clipped.
+  @Test
+  fun failedInlineChipFitsTheLineAfterLeadingMargins() {
+    val span = inlineSpan("test://narrow", "a very long description ".repeat(20))
+    val view =
+      EnrichedMarkdownInternalText(context).apply {
+        layoutParams = ViewGroup.LayoutParams(NARROW_WIDTH, ViewGroup.LayoutParams.WRAP_CONTENT)
+        applyStyledText(
+          SpannableStringBuilder("￼").apply {
+            setSpan(span, 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            setSpan(LeadingMarginSpan.Standard(MARGIN), 0, 1, Spanned.SPAN_INCLUSIVE_INCLUSIVE)
+          },
+        )
+      }
+    layOut(view, NARROW_WIDTH)
+
+    assertEquals(NARROW_WIDTH - MARGIN, width(span))
+    // The layout the view draws ends the chip at the view's edge, not past it.
+    assertEquals(NARROW_WIDTH.toFloat(), view.layout.getLineRight(0), 0f)
   }
 
   @Test
@@ -123,9 +146,12 @@ class ImageSpanLoadFailureTest {
     assertEquals(2, view.layout.lineCount)
   }
 
-  private fun layOut(view: TextView) {
+  private fun layOut(
+    view: TextView,
+    width: Int = WIDTH,
+  ) {
     view.measure(
-      MeasureSpec.makeMeasureSpec(WIDTH, MeasureSpec.EXACTLY),
+      MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
       MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED),
     )
     view.layout(0, 0, view.measuredWidth, view.measuredHeight)
@@ -136,5 +162,7 @@ class ImageSpanLoadFailureTest {
     const val CHIP_CAP = 200
     const val WIDTH = 400
     const val BLOCK_HEIGHT = 100
+    const val NARROW_WIDTH = 120
+    const val MARGIN = 30
   }
 }

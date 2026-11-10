@@ -128,13 +128,19 @@ class ImageSpan(
     return height
   }
 
-  /** Sizes a block image for a layout about to be built over [text]; returns true when its size changed. */
+  /** Sizes the image for a layout about to be built over [text]; returns true when its size changed. */
   fun prepareForMeasurement(
     text: Spanned,
     widthPx: Int,
   ): Boolean {
-    if (isInline || widthPx <= 0) return false
+    if (widthPx <= 0) return false
     val available = availableWidthIn(text, widthPx)
+    if (isInline) {
+      // Only a failure chip depends on the width: it is no wider than its line.
+      val previousWidth = getDrawable().bounds.right
+      cachedWidth = available
+      return getDrawable().bounds.right != previousWidth
+    }
     if (available <= 0) return false
     // The height can change at the same width: a download caches the image before its callback runs.
     val fittedHeight = if (dynamicBoxHeight) resolveBoxHeight(available) else boxHeight
@@ -336,7 +342,8 @@ class ImageSpan(
 
   override fun getDrawable(): Drawable {
     if (loadFailed) {
-      val width = if (isInline) failureDrawable.chipWidth(height) else cachedWidth
+      // An inline image's cachedWidth is its line's width after leading margins.
+      val width = if (isInline) failureDrawable.chipWidth(height, cachedWidth) else cachedWidth
       failureDrawable.setBounds(0, 0, width.coerceAtLeast(0), boxHeight.coerceAtLeast(0))
       return failureDrawable
     }
