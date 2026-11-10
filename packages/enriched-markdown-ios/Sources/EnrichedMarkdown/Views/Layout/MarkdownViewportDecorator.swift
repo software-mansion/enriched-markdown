@@ -19,6 +19,14 @@ final class MarkdownViewportDecorator {
         config = BlockDecorationConfig(styleConfig: styleConfig)
     }
 
+    func setTile(_ tile: CGRect) {
+        backgroundView?.frame = tile
+        foregroundView?.frame = tile
+        // `.redraw` repaints on a size change only; a moved tile shows
+        // other paragraphs.
+        setNeedsDisplay()
+    }
+
     func setNeedsDisplay() {
         backgroundView?.setNeedsDisplay()
         foregroundView?.setNeedsDisplay()
