@@ -4,7 +4,6 @@ import android.text.Editable
 import com.swmansion.enriched.markdown.input.detection.DetectorPipeline
 import com.swmansion.enriched.markdown.input.formatting.BlockStore
 import com.swmansion.enriched.markdown.input.formatting.FormattingStore
-import com.swmansion.enriched.markdown.input.formatting.InputFormatter
 import com.swmansion.enriched.markdown.input.formatting.MarkdownSerializer
 import com.swmansion.enriched.markdown.input.model.BlockRange
 import com.swmansion.enriched.markdown.input.model.FormattingRange
@@ -13,7 +12,6 @@ class ClipboardCoordinator(
   private val formattingStore: FormattingStore,
   private val blockStore: BlockStore,
   private val detectorPipeline: DetectorPipeline,
-  private val formatter: InputFormatter,
 ) {
   fun allRangesForSerialization(editable: Editable?): List<FormattingRange> {
     if (editable == null) return formattingStore.allRanges
@@ -25,10 +23,7 @@ class ClipboardCoordinator(
   fun serializeFullDocument(
     text: String,
     editable: Editable?,
-  ): String =
-    MarkdownSerializer.serialize(text, allRangesForSerialization(editable), blockStore.allRanges) { block ->
-      formatter.handlerForBlock(block.type)?.markdownLinePrefix(block) ?: ""
-    }
+  ): String = MarkdownSerializer.serialize(text, allRangesForSerialization(editable), blockStore.allRanges)
 
   fun serializeSelectedRange(
     fullText: String,
@@ -52,11 +47,10 @@ class ClipboardCoordinator(
       if (block.end <= selStart || block.start >= selEnd) continue
       val clippedStart = maxOf(block.start, selStart)
       val clippedEnd = minOf(block.end, selEnd)
-      clippedBlockRanges.add(BlockRange(block.type, clippedStart - selStart, clippedEnd - selStart, block.level))
+      // The core writes the ordinal it is given, so a copy of items 3 and 4 keeps "3." and "4.".
+      clippedBlockRanges.add(BlockRange(block.type, clippedStart - selStart, clippedEnd - selStart, block.level, block.ordinal))
     }
 
-    return MarkdownSerializer.serialize(selectedText, clippedRanges, clippedBlockRanges) { block ->
-      formatter.handlerForBlock(block.type)?.markdownLinePrefix(block) ?: ""
-    }
+    return MarkdownSerializer.serialize(selectedText, clippedRanges, clippedBlockRanges)
   }
 }
