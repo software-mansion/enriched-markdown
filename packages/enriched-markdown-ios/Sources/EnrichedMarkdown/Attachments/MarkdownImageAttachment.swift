@@ -177,18 +177,22 @@ final class MarkdownImageAttachment: NSTextAttachment {
         }
     }()
 
-    private static var paddedPlaceholders: [String: UIImage] = [:]
+    private static let paddedPlaceholderCache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 20
+        return cache
+    }()
 
     private static func paddedPlaceholder(box: CGSize, padding: CGFloat) -> UIImage {
-        let key = "\(box.width)x\(box.height)_p\(padding)"
-        if let cached = paddedPlaceholders[key] {
+        let key = "\(box.width)x\(box.height)_p\(padding)" as NSString
+        if let cached = paddedPlaceholderCache.object(forKey: key) {
             return cached
         }
         let rendered = UIGraphicsImageRenderer(size: box).image { context in
             UIColor.systemGray5.setFill()
             context.fill(CGRect(origin: .zero, size: box).insetBy(dx: padding, dy: padding))
         }
-        paddedPlaceholders[key] = rendered
+        paddedPlaceholderCache.setObject(rendered, forKey: key)
         return rendered
     }
 

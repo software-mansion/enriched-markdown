@@ -72,8 +72,9 @@ struct InlineBackground: Hashable {
             }
         }
         let fixed = max(style?.minimumLineHeight ?? 0, style?.maximumLineHeight ?? 0)
+        let current = fixed > 0 ? fixed : natural
         let target = max(needed, ceil(natural))
-        guard target > (fixed > 0 ? fixed : natural) else { return }
+        guard target > current else { return }
         output.removeAttribute(.baselineOffset, range: paragraph)
         ParagraphStyleHelpers.applyBlockLineHeight(to: output, range: paragraph, lineHeight: target)
     }

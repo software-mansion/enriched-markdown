@@ -85,6 +85,25 @@ final class MarkdownImageAttachmentTests: XCTestCase {
         XCTAssertEqual(pixel(in: rows, column: 13, row: 13).sorted(), [0, 0, 255, 255], "the image fills the box inside the padding")
     }
 
+    func testPaddedPlaceholdersAreBuiltSafelyFromSeveralQueuesAtOnce() {
+        let config = makeConfig()
+
+        DispatchQueue.concurrentPerform(iterations: 400) { index in
+            let attachment = MarkdownImageAttachment.attachment(
+                for: "",
+                config: config,
+                isInline: true,
+                altText: "",
+                downloader: MockImageDownloader()
+            )
+            let padding = CGFloat(index % 40 + 1)
+            attachment.padding = padding
+
+            let side = 20 + 2 * padding
+            XCTAssertEqual(attachment.image?.size, CGSize(width: side, height: side), "the placeholder covers the padded box")
+        }
+    }
+
     func testAttachmentExposesAltTextAsAccessibilityLabel() {
         let downloader = MockImageDownloader()
         let url = "https://example.com/\(#function).png"
