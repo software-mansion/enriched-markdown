@@ -44,6 +44,7 @@ file(GLOB PARSER_SOURCES "${CPP_ROOT}/parser/*.cpp")
 file(GLOB REPAIR_SOURCES "${CPP_ROOT}/repair/*.cpp")
 file(GLOB HIGHLIGHT_SOURCES "${CPP_ROOT}/highlight/*.cpp")
 file(GLOB LATEX_SOURCES "${CPP_ROOT}/latex/*.cpp")
+file(GLOB INPUT_SOURCES "${CPP_ROOT}/input/*.cpp")
 
 # The vendored parser is C code, build as separate static library with C flags
 add_library(enrmrkd_lib STATIC ${ENRMRKD_SOURCES})
@@ -66,7 +67,9 @@ add_library(
   ${REPAIR_SOURCES}
   ${HIGHLIGHT_SOURCES}
   ${LATEX_SOURCES}
+  ${INPUT_SOURCES}
   ${ANDROID_CPP_DIR}/jni-adapter.cpp
+  ${ANDROID_CPP_DIR}/input-jni.cpp
   ${COMMON_CPP_DIR}/EnrichedMarkdownParser.cpp
   ${COMMON_CPP_DIR}/ENRMMarkdownStreams.cpp
 )
@@ -85,6 +88,7 @@ target_include_directories(
   ${CPP_ROOT}/repair
   ${CPP_ROOT}/highlight
   ${CPP_ROOT}/latex
+  ${CPP_ROOT}/input
 )
 
 target_compile_definitions(${LIB_TARGET_NAME} PRIVATE ENRMRKD_USE_UTF8=1)
