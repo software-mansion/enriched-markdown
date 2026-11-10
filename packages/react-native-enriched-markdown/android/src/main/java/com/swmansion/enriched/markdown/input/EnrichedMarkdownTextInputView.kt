@@ -149,7 +149,7 @@ class EnrichedMarkdownTextInputView(
   /** Typed `# `, `- `, `1. ` become blocks (opt-in per family from JS). */
   var markdownShortcuts: MarkdownShortcutsConfig = MarkdownShortcutsConfig()
 
-  private val clipboardCoordinator = ClipboardCoordinator(formattingStore, blockStore, detectorPipeline, formatter)
+  private val clipboardCoordinator = ClipboardCoordinator(formattingStore, blockStore, detectorPipeline)
 
   private var bodySizeBeforeHeadingOverridePx: Float? = null
   private var baseHintColor: Int? = null
@@ -924,6 +924,8 @@ class EnrichedMarkdownTextInputView(
       for (block in parsed.blockRanges) {
         blockStore.setBlock(block.type, block.level, block.start + contentStart, block.end + contentStart, editable)
       }
+      // Empty list items arrive with their ZWSP anchor already seeded.
+      zwspAnchorCount += parsed.plainText.count { it == ZWSP }
       setSelection(selStart + plainText.length)
       detectorPipeline.processTextChange(editable, editable.toString(), selStart, plainText.length)
     }
@@ -1123,7 +1125,8 @@ class EnrichedMarkdownTextInputView(
       blockStore.setRanges(parsed.blockRanges)
       setText(parsed.plainText)
       setSelection(text?.length ?: 0)
-      zwspAnchorCount = 0
+      // Empty list items arrive with their ZWSP anchor already seeded.
+      zwspAnchorCount = parsed.plainText.count { it == ZWSP }
       applyFormatting()
       forceScrollToSelection()
       // No invalidateLayout() needed: applyFormatting() already re-measures.
