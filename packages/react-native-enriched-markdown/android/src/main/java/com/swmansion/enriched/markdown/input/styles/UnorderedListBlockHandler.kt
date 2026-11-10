@@ -10,7 +10,7 @@ import com.swmansion.enriched.markdown.input.spans.InputListItemSpacingSpan
 /**
  * Block handler for unordered (bullet) list items. One instance serves every
  * nesting depth — the 0-based depth rides in [BlockRange.level] and drives the
- * indent, marker glyph, and serialized indentation.
+ * indent and marker glyph.
  */
 class UnorderedListBlockHandler(
   private val density: Float,
@@ -33,7 +33,4 @@ class UnorderedListBlockHandler(
   }
 
   override fun spanClasses(): List<Class<*>> = listOf(InputBulletSpan::class.java, InputListItemSpacingSpan::class.java)
-
-  /** `"- "` for a top-level item, indented three spaces per nesting depth (wide enough for ordered markers). */
-  override fun markdownLinePrefix(blockRange: BlockRange): String = "   ".repeat(blockRange.level.coerceAtLeast(0)) + "- "
 }
