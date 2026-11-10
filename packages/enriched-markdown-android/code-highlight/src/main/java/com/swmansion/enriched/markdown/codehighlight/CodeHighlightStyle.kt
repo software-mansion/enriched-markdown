@@ -25,6 +25,8 @@ data class CodeHighlightStyle(
   val tag: Int? = null,
   val attribute: Int? = null,
   val embedded: Int? = null,
+  val inserted: Int? = null,
+  val deleted: Int? = null,
 ) {
   /** The color for [type], or null when this style leaves it unset. */
   operator fun get(type: SyntaxTokenType): Int? =
@@ -43,6 +45,8 @@ data class CodeHighlightStyle(
       SyntaxTokenType.TAG -> tag
       SyntaxTokenType.ATTRIBUTE -> attribute
       SyntaxTokenType.EMBEDDED -> embedded
+      SyntaxTokenType.INSERTED -> inserted
+      SyntaxTokenType.DELETED -> deleted
     }
 
   /** This style's colors, with [fallback]'s for every type this one leaves unset. */
@@ -66,6 +70,8 @@ data class CodeHighlightStyle(
         property = opaque(0x79C0FF),
         tag = opaque(0x7EE787),
         attribute = opaque(0x79C0FF),
+        inserted = opaque(0x3FB950),
+        deleted = opaque(0xF85149),
       )
 
     /** A style with [color]'s result for every token type. */
@@ -85,6 +91,8 @@ data class CodeHighlightStyle(
         tag = color(SyntaxTokenType.TAG),
         attribute = color(SyntaxTokenType.ATTRIBUTE),
         embedded = color(SyntaxTokenType.EMBEDDED),
+        inserted = color(SyntaxTokenType.INSERTED),
+        deleted = color(SyntaxTokenType.DELETED),
       )
 
     private fun opaque(rgb: Int): Int = 0xFF000000.toInt() or rgb

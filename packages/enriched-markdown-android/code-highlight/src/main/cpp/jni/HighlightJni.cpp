@@ -18,7 +18,8 @@ constexpr HighlightTokenType kTokenTypeOrder[] = {
     HighlightTokenType::String,    HighlightTokenType::Number,   HighlightTokenType::Constant,
     HighlightTokenType::Comment,   HighlightTokenType::Function, HighlightTokenType::Type,
     HighlightTokenType::Variable,  HighlightTokenType::Property, HighlightTokenType::Tag,
-    HighlightTokenType::Attribute, HighlightTokenType::Embedded,
+    HighlightTokenType::Attribute, HighlightTokenType::Embedded, HighlightTokenType::Inserted,
+    HighlightTokenType::Deleted,
 };
 
 constexpr bool tokenTypeOrderMatches() {
@@ -30,7 +31,7 @@ constexpr bool tokenTypeOrderMatches() {
   return true;
 }
 
-static_assert(sizeof(kTokenTypeOrder) / sizeof(kTokenTypeOrder[0]) == 14,
+static_assert(sizeof(kTokenTypeOrder) / sizeof(kTokenTypeOrder[0]) == 16,
               "HighlightTokenType count changed; update SyntaxTokenType.kt to match");
 static_assert(tokenTypeOrderMatches(), "HighlightTokenType order changed; update SyntaxTokenType.kt to match");
 

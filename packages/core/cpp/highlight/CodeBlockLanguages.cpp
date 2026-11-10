@@ -18,7 +18,7 @@ struct LanguageName {
 };
 
 // Sorted by key; both lookups below binary-search this table.
-constexpr std::array<LanguageName, 42> kLanguageNames{{
+constexpr std::array<LanguageName, 53> kLanguageNames{{
     {"bash", "Bash", "bash"},
     {"c", "C", "c"},
     {"cc", "C++", "cpp"},
@@ -27,6 +27,8 @@ constexpr std::array<LanguageName, 42> kLanguageNames{{
     {"csharp", "C#", "c-sharp"},
     {"css", "CSS", "css"},
     {"cxx", "C++", "cpp"},
+    {"dart", "Dart", "dart"},
+    {"diff", "Diff", "diff"},
     {"dockerfile", "Dockerfile", ""},
     {"go", "Go", "go"},
     {"golang", "Go", "go"},
@@ -37,11 +39,19 @@ constexpr std::array<LanguageName, 42> kLanguageNames{{
     {"js", "JavaScript", "javascript"},
     {"json", "JSON", "json"},
     {"jsx", "JSX", "javascript"},
+    {"kotlin", "Kotlin", "kotlin"},
+    {"kt", "Kotlin", "kotlin"},
+    {"kts", "Kotlin", "kotlin"},
     {"markdown", "Markdown", "markdown"},
     {"md", "Markdown", "markdown"},
+    {"mysql", "MySQL", "sql"},
     {"objc", "Objective-C", ""},
     {"objectivec", "Objective-C", ""},
+    {"patch", "Patch", "diff"},
+    {"pgsql", "PostgreSQL", "sql"},
     {"php", "PHP", "php"},
+    {"postgres", "PostgreSQL", "sql"},
+    {"postgresql", "PostgreSQL", "sql"},
     {"py", "Python", "python"},
     {"python", "Python", "python"},
     {"rb", "Ruby", "ruby"},
@@ -51,7 +61,8 @@ constexpr std::array<LanguageName, 42> kLanguageNames{{
     {"scss", "SCSS", ""},
     {"sh", "Shell", "bash"},
     {"shell", "Shell", "bash"},
-    {"sql", "SQL", ""},
+    {"sql", "SQL", "sql"},
+    {"sqlite", "SQLite", "sql"},
     {"swift", "Swift", "swift"},
     {"toml", "TOML", ""},
     {"ts", "TypeScript", "typescript"},

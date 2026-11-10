@@ -131,6 +131,28 @@
       "default": false,
       "size": "18 MB"
     },
+    "kotlin": {
+      "package": "tree-sitter-kotlin",
+      "version": "0.3.8",
+      "scanner": true,
+      "default": false,
+      "size": "23 MB",
+      "$comment": "fwcd's grammar. @tree-sitter-grammars/tree-sitter-kotlin does not ship queries/highlights.scm in its npm package."
+    },
+    "dart": {
+      "package": "tree-sitter-dart",
+      "version": "1.0.0",
+      "scanner": true,
+      "default": false,
+      "size": "4.6 MB"
+    },
+    "sql": {
+      "package": "@derekstride/tree-sitter-sql",
+      "version": "0.3.11",
+      "scanner": true,
+      "default": false,
+      "size": "17 MB"
+    },
     "php": {
       "package": "tree-sitter-php",
       "version": "0.24.2",

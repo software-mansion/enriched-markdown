@@ -77,3 +77,60 @@ target_compile_options(enriched_markdown_latex PRIVATE -Wall -Wextra -Wpedantic)
 
 add_core_test(repair enriched_markdown_repair)
 add_core_test(latex enriched_markdown_latex)
+
+# --- Code-block syntax highlighting -----------------------------------------
+#
+# Needs the gitignored tree-sitter runtime and grammars, restored by
+# `node vendor/vendor-grammars.mjs`. Only the grammars these tests exercise are
+# compiled, through a registry generated for exactly that set.
+set(CORE_HIGHLIGHT_LANGUAGES "python;swift;kotlin;dart;sql" CACHE STRING
+  "Grammar ids compiled into highlight_tests")
+set(HIGHLIGHT_ROOT "${CPP_ROOT}/highlight")
+set(HIGHLIGHT_VENDOR "${HIGHLIGHT_ROOT}/vendor")
+if(EXISTS "${HIGHLIGHT_VENDOR}/tree-sitter/src/lib.c")
+  enable_language(C)
+  set(CMAKE_C_STANDARD 11)
+  find_program(NODE_EXECUTABLE node REQUIRED)
+  set(HIGHLIGHT_REGISTRY_DIR "${CMAKE_CURRENT_BINARY_DIR}/highlight-registry")
+  list(JOIN CORE_HIGHLIGHT_LANGUAGES "," HIGHLIGHT_LANGUAGE_LIST)
+  execute_process(
+    COMMAND "${NODE_EXECUTABLE}" "${CPP_ROOT}/../../../vendor/gen-registry.mjs"
+      --vendor-dir "${HIGHLIGHT_VENDOR}" --languages "${HIGHLIGHT_LANGUAGE_LIST}" --out "${HIGHLIGHT_REGISTRY_DIR}"
+    RESULT_VARIABLE HIGHLIGHT_REGISTRY_RESULT)
+  if(NOT HIGHLIGHT_REGISTRY_RESULT EQUAL 0)
+    message(FATAL_ERROR "gen-registry.mjs failed for [${HIGHLIGHT_LANGUAGE_LIST}]; run node vendor/vendor-grammars.mjs")
+  endif()
+
+  set(HIGHLIGHT_GRAMMAR_SOURCES "")
+  foreach(lang IN LISTS CORE_HIGHLIGHT_LANGUAGES)
+    set(gdir "${HIGHLIGHT_VENDOR}/grammars/${lang}")
+    set(gsrcs "${gdir}/parser.c")
+    if(EXISTS "${gdir}/scanner.c")
+      list(APPEND gsrcs "${gdir}/scanner.c")
+    endif()
+    add_library(ts_grammar_${lang} OBJECT ${gsrcs})
+    target_include_directories(ts_grammar_${lang} PRIVATE "${gdir}")
+    # Generated parser tables are not ours to warn about, and their size makes
+    # sanitizer instrumentation the slowest part of the build for no benefit.
+    target_compile_options(ts_grammar_${lang} PRIVATE -w -fno-sanitize=all)
+    list(APPEND HIGHLIGHT_GRAMMAR_SOURCES $<TARGET_OBJECTS:ts_grammar_${lang}>)
+  endforeach()
+
+  add_library(enriched_markdown_highlight STATIC
+    "${HIGHLIGHT_VENDOR}/tree-sitter/src/lib.c"
+    "${HIGHLIGHT_ROOT}/CodeBlockHighlighter.cpp"
+    "${HIGHLIGHT_ROOT}/CodeBlockLanguages.cpp"
+    "${HIGHLIGHT_REGISTRY_DIR}/generated_registry.cpp"
+    ${HIGHLIGHT_GRAMMAR_SOURCES})
+  set_source_files_properties("${HIGHLIGHT_VENDOR}/tree-sitter/src/lib.c" PROPERTIES COMPILE_OPTIONS "-w")
+  target_include_directories(enriched_markdown_highlight
+    PUBLIC "${HIGHLIGHT_ROOT}" "${HIGHLIGHT_VENDOR}/tree-sitter/include"
+    PRIVATE "${HIGHLIGHT_VENDOR}/tree-sitter/src" "${HIGHLIGHT_REGISTRY_DIR}")
+  target_compile_definitions(enriched_markdown_highlight PRIVATE ENRICHED_MARKDOWN_CODE_HIGHLIGHT=1)
+
+  add_core_test(highlight enriched_markdown_highlight)
+  set_tests_properties(highlight_tests PROPERTIES
+    ENVIRONMENT "LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/highlight/lsan.supp")
+else()
+  message(STATUS "highlight_tests skipped: tree-sitter is not vendored; run node vendor/vendor-grammars.mjs")
+endif()

@@ -104,6 +104,10 @@ interface CodeBlockSyntaxColors {
   tag?: string;
   attribute?: string;
   embedded?: string;
+  /** Added lines in a `diff` block. */
+  inserted?: string;
+  /** Removed lines in a `diff` block. */
+  deleted?: string;
 }
 
 interface CodeBlockStyle extends BaseBlockStyle {

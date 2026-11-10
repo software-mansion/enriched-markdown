@@ -22,6 +22,7 @@ std::vector<HighlightToken> highlightCode(const std::string & /*code*/, const st
 #include <tree_sitter/api.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <memory>
 #include <mutex>
@@ -157,6 +158,161 @@ std::vector<uint32_t> buildUtf16PrefixMap(const std::string &code) {
   return prefix;
 }
 
+bool startsWith(const std::string &code, size_t at, size_t end, const char *prefix) {
+  const size_t length = std::strlen(prefix);
+  return end - at >= length && code.compare(at, length, prefix) == 0;
+}
+
+// Reads a hunk range count ("12" or "12,3") at pos, advancing past it. The
+// count after the comma is the line count; without one the range spans 1 line.
+bool readRange(const std::string &code, size_t &pos, size_t end, long &count) {
+  size_t digits = pos;
+  while (digits < end && std::isdigit(static_cast<unsigned char>(code[digits]))) {
+    ++digits;
+  }
+  if (digits == pos) {
+    return false;
+  }
+  count = 1;
+  pos = digits;
+  if (pos < end && code[pos] == ',') {
+    size_t countStart = ++pos;
+    while (pos < end && std::isdigit(static_cast<unsigned char>(code[pos]))) {
+      ++pos;
+    }
+    if (pos == countStart || pos - countStart > 9) {
+      return false;
+    }
+    count = std::stol(code.substr(countStart, pos - countStart));
+  }
+  return true;
+}
+
+// Parses "@@ -a,b +c,d @@" into the old and new line counts the hunk spans.
+bool parseHunkHeader(const std::string &code, size_t at, size_t end, long &oldLines, long &newLines) {
+  size_t pos = at + 2;
+  if (!startsWith(code, pos, end, " -")) {
+    return false;
+  }
+  pos += 2;
+  if (!readRange(code, pos, end, oldLines) || !startsWith(code, pos, end, " +")) {
+    return false;
+  }
+  pos += 2;
+  return readRange(code, pos, end, newLines) && startsWith(code, pos, end, " @@");
+}
+
+bool isFileHeader(const std::string &code, size_t at, size_t end) {
+  static constexpr const char *kPrefixes[] = {
+      "diff ",         "index ",     "new file mode ",    "deleted file mode ",
+      "old mode ",     "new mode ",  "similarity index ", "dissimilarity index ",
+      "rename from ",  "rename to ", "copy from ",        "copy to ",
+      "Binary files ", "Only in ",
+  };
+  for (const char *prefix : kPrefixes) {
+    if (startsWith(code, at, end, prefix)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Unified diffs are line-oriented, so they are classified line by line rather
+// than parsed with a grammar. Inside a hunk whose header gave line counts,
+// "--- x" and "+++ x" are a removed "-- x" and an added "++ x"; elsewhere a
+// "--- " line directly followed by a "+++ " line is a file header pair. Lines
+// keep their base color when they are context or not diff syntax at all.
+std::vector<HighlightToken> highlightDiff(const std::string &code) {
+  struct Line {
+    size_t start;
+    size_t end; // Excludes the line break.
+  };
+  std::vector<Line> lines;
+  for (size_t start = 0; start <= code.size();) {
+    size_t newline = code.find('\n', start);
+    size_t next = newline == std::string::npos ? code.size() + 1 : newline + 1;
+    size_t end = newline == std::string::npos ? code.size() : newline;
+    if (end > start && code[end - 1] == '\r') {
+      --end;
+    }
+    lines.push_back({start, end});
+    start = next;
+  }
+
+  struct Span {
+    size_t start;
+    size_t end;
+    HighlightTokenType type;
+  };
+  std::vector<Span> spans;
+  long oldLeft = 0;
+  long newLeft = 0;
+  for (size_t i = 0; i < lines.size(); ++i) {
+    const size_t start = lines[i].start;
+    const size_t end = lines[i].end;
+    const char first = end > start ? code[start] : '\0';
+
+    if (oldLeft > 0 || newLeft > 0) {
+      if (first == '-' && oldLeft > 0) {
+        spans.push_back({start, end, HighlightTokenType::Deleted});
+        --oldLeft;
+        continue;
+      }
+      if (first == '+' && newLeft > 0) {
+        spans.push_back({start, end, HighlightTokenType::Inserted});
+        --newLeft;
+        continue;
+      }
+      if (first == ' ' || first == '\0') {
+        --oldLeft;
+        --newLeft;
+        continue;
+      }
+      if (first == '\\') {
+        spans.push_back({start, end, HighlightTokenType::Comment});
+        continue;
+      }
+      oldLeft = newLeft = 0;
+    }
+
+    if (startsWith(code, start, end, "@@")) {
+      size_t close = code.find(" @@", start + 2);
+      size_t rangeEnd = close != std::string::npos && close < end ? close + 3 : end;
+      spans.push_back({start, rangeEnd, HighlightTokenType::Function});
+      long oldLines = 0;
+      long newLines = 0;
+      if (parseHunkHeader(code, start, end, oldLines, newLines)) {
+        oldLeft = oldLines;
+        newLeft = newLines;
+      }
+    } else if (startsWith(code, start, end, "--- ") && i + 1 < lines.size() &&
+               startsWith(code, lines[i + 1].start, lines[i + 1].end, "+++ ")) {
+      spans.push_back({start, end, HighlightTokenType::Constant});
+      spans.push_back({lines[i + 1].start, lines[i + 1].end, HighlightTokenType::Constant});
+      ++i;
+    } else if (isFileHeader(code, start, end)) {
+      spans.push_back({start, end, HighlightTokenType::Constant});
+    } else if (first == '-') {
+      spans.push_back({start, end, HighlightTokenType::Deleted});
+    } else if (first == '+') {
+      spans.push_back({start, end, HighlightTokenType::Inserted});
+    } else if (first == '\\') {
+      spans.push_back({start, end, HighlightTokenType::Comment});
+    }
+  }
+
+  if (spans.empty()) {
+    return {};
+  }
+  std::vector<uint32_t> u16 = buildUtf16PrefixMap(code);
+  std::vector<HighlightToken> tokens;
+  tokens.reserve(spans.size());
+  for (const Span &span : spans) {
+    tokens.push_back({u16[span.start], u16[span.end], span.type});
+  }
+  return tokens;
+}
+
 using ParserPtr = std::unique_ptr<TSParser, decltype(&ts_parser_delete)>;
 using TreePtr = std::unique_ptr<TSTree, decltype(&ts_tree_delete)>;
 using CursorPtr = std::unique_ptr<TSQueryCursor, decltype(&ts_query_cursor_delete)>;
@@ -178,10 +334,6 @@ std::vector<HighlightToken> highlightCode(const std::string &code, const std::st
     if (grammarId.empty()) {
       return {};
     }
-    const GrammarEntry *grammar = findGrammar(grammarId.c_str());
-    if (grammar == nullptr) {
-      return {};
-    }
 
     if (code.size() > kMaxBytes) {
       return {};
@@ -191,6 +343,14 @@ std::vector<HighlightToken> highlightCode(const std::string &code, const std::st
       if (c == '\n' && ++lines > kMaxLines) {
         return {};
       }
+    }
+
+    if (grammarId == "diff") {
+      return highlightDiff(code);
+    }
+    const GrammarEntry *grammar = findGrammar(grammarId.c_str());
+    if (grammar == nullptr) {
+      return {};
     }
 
     ParserPtr parser(ts_parser_new(), ts_parser_delete);
