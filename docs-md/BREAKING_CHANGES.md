@@ -5,6 +5,40 @@ This file tracks breaking changes and how to migrate for each. Entries are newes
 
 ## Unreleased
 
+### EnrichedMarkdownTextInput on iOS writes and reads markdown with the shared web rules
+
+`getMarkdown()`, `onChangeMarkdown`, copy and `setValue()` now go through one implementation shared with the web
+input, so a value saved on one platform loads unchanged on another. Documents still load; only a value that is
+re-saved can come out different from what the previous version stored. If your app compares saved strings (dirty
+checks, sync), expect one diff the first time a document is re-saved.
+
+What changes in the markdown the input writes:
+
+- Plain text that would read as markup is escaped: `*`, `_`, `~`, `|`, `[`, `]`, `` ` ``, `<`, `\`, `&` before an
+  entity, `#`, `-`, `+`, `>` and `1.` at the start of a line, trailing `#` runs, and `!` before a link. `2 *x* 6`
+  is saved as `2 \*x\* 6`, and a heading titled `Use #` as `## Use \#`. Previously this text came back as
+  formatting after a reload.
+- Link destinations are escaped, and wrapped in `<...>` when they contain whitespace or unbalanced parentheses.
+- A delimiter next to a word character is written so it still reads as formatting (`***a***bcd`).
+- Link and spoiler are written outside bold, italic, underline and strikethrough over the same text:
+  `[**docs**](url)` instead of `**[docs](url)**`.
+- Nested list items indent by the width of their parent's marker (`- ` is 2 columns, `1. ` is 3, `10. ` is 4)
+  instead of 3 columns per level.
+- Spaces after a list marker are kept as text (`1.  x`) instead of collapsing to one.
+- Text such as `- > x` (a list item that starts with a quote marker) is saved as `- \> x`; it is no longer stripped.
+
+What changes in how markdown is read:
+
+- An unclosed `*`, `_`, `~~`, `||` or `[` stays literal text. It used to be closed automatically, and an unclosed
+  `[` dropped the rest of its block. `## Title [wip` followed by a paragraph now loads as both.
+- Quotes, code spans, code blocks, tables and rules lose their markers and keep their content as plain lines
+  (`> quote` loads as `quote`). iOS used to keep the raw characters as text, so they survived a save; they no
+  longer do.
+- A list item with no text is kept (`- a`, `- `, `- c` loads as three items) instead of being dropped.
+- Blank lines between blocks are kept as empty lines, one per blank line.
+
+**Migrate:** nothing is required. If you store markdown and compare it, re-save once, or compare the parsed value.
+
 ## v1.1.1
 
 No breaking changes. v1.1.1 is a patch release over v1.1.0 - every public prop, method, event and style
