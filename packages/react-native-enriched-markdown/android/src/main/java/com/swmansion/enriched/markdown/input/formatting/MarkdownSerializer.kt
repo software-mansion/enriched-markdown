@@ -1,17 +1,40 @@
 package com.swmansion.enriched.markdown.input.formatting
 
 import android.util.Log
+import com.swmansion.enriched.markdown.input.editing.ZWSP
 import com.swmansion.enriched.markdown.input.model.BlockRange
-import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.FormattingRange
-import com.swmansion.enriched.markdown.input.model.StyleType
 
+/**
+ * Markdown export for the input. The serialization itself lives in the shared C++ input
+ * core (`cpp/input`, the same code iOS and web run), which knows nothing about the
+ * editor's empty-line ZWSP anchor; this wrapper strips it and shifts the ranges first.
+ */
 object MarkdownSerializer {
   private const val TAG = "MarkdownSerializer"
+  private const val FORMATTING_STRIDE = 3
+  private const val BLOCK_STRIDE = 5
 
-  // Zero-width space used by the editor to anchor an empty bullet line; it is an
-  // internal editing aid and must never appear in serialized markdown.
-  private const val ZWSP = "\u200B"
+  init {
+    try {
+      // The unit tests load a host build of the input core under another name; see build.gradle.
+      System.loadLibrary(System.getProperty("enriched.markdown.input.library") ?: "react_codegen_EnrichedMarkdownTextSpec")
+    } catch (e: UnsatisfiedLinkError) {
+      Log.e(TAG, "Failed to load native library", e)
+    }
+  }
+
+  /**
+   * [formatting] is `(type, start, end)` per range and [blocks] is
+   * `(type, start, end, level, ordinal)` per range; [urls] runs parallel to [formatting].
+   * Returns null on any failure.
+   */
+  private external fun nativeSerialize(
+    text: String,
+    formatting: IntArray,
+    urls: Array<String?>,
+    blocks: IntArray,
+  ): String?
 
   /**
    * Single choke point for scrubbing the empty-line ZWSP anchor out of anything
@@ -19,212 +42,80 @@ object MarkdownSerializer {
    * Route new output paths through this rather than scattering `replace(ZWSP, "")`
    * calls, so the anchor can never leak because one path forgot to strip.
    */
-  fun stripZwsp(text: String): String = text.replace(ZWSP, "")
+  fun stripZwsp(text: String): String = text.replace(ZWSP.toString(), "")
 
   /**
-   * Block-aware serialization: serializes inline styles exactly as the inline-only
-   * overload, then prepends each line's block prefix. [blockPrefixProvider] is
-   * asked, per block range, for the markdown line marker (e.g. `"# "`, `"- "`);
-   * returning `""` leaves the line unprefixed. With empty [blockRanges] the output
-   * is identical to the inline-only overload. Any ZWSP empty-line anchor is stripped
-   * so an empty bullet still serializes to a bare `"- "` rather than `"- ​"`.
+   * Serializes [text] with its inline [ranges] and [blockRanges] (one per line, sorted by
+   * start). A block's marker is derived by the core from its type, level and ordinal, so the
+   * ordinal is written as given. An empty list item serializes to a bare marker. If the
+   * native core is unavailable the text comes back without markup.
    */
   fun serialize(
     text: String,
     ranges: List<FormattingRange>,
-    blockRanges: List<BlockRange>,
-    blockPrefixProvider: (BlockRange) -> String,
-  ): String = stripZwsp(serializeWithAnchors(text, ranges, blockRanges, blockPrefixProvider))
-
-  private fun serializeWithAnchors(
-    text: String,
-    ranges: List<FormattingRange>,
-    blockRanges: List<BlockRange>,
-    blockPrefixProvider: (BlockRange) -> String,
+    blockRanges: List<BlockRange> = emptyList(),
   ): String {
-    val inlineMarkdown = serialize(text, ranges)
-    if (blockRanges.isEmpty()) return inlineMarkdown
+    if (text.isEmpty()) return ""
 
-    // Block prefixes attach per line. Inline serialization only inserts inline
-    // delimiters (never newlines), so the serialized output has the same line
-    // count as the plain text — we map a block's plain-text range to line indices
-    // and prefix the corresponding serialized lines.
-    val plainLines = text.split("\n")
-    val markdownLines = inlineMarkdown.split("\n").toMutableList()
-
-    // Inline ranges are split at every newline, so delimiters never cross one and
-    // the line partition is preserved.
-    // If this ever breaks, prefixes would land on the wrong lines. Contract on
-    // both platforms: log and fall back to inline-only output — a library must
-    // not crash the host app over lost block prefixes.
-    if (plainLines.size != markdownLines.size) {
-      Log.e(TAG, "Block serialization line-count invariant violated: plain=${plainLines.size} markdown=${markdownLines.size}")
-      return inlineMarkdown
+    // Positions of the anchors in [text]; offsets shift left by the anchors before them.
+    var anchors = IntArray(0)
+    var anchorCount = 0
+    var index = text.indexOf(ZWSP)
+    while (index >= 0) {
+      if (anchorCount == anchors.size) anchors = anchors.copyOf(maxOf(4, anchors.size * 2))
+      anchors[anchorCount++] = index
+      index = text.indexOf(ZWSP, index + 1)
     }
+    val plainText = if (anchorCount == 0) text else stripZwsp(text)
 
-    // Plain-text character offset at the start of each line.
-    val lineStartOffsets = IntArray(plainLines.size)
-    var runningOffset = 0
-    for (i in plainLines.indices) {
-      lineStartOffsets[i] = runningOffset
-      runningOffset += plainLines[i].length + 1 // +1 for the '\n' separator
-    }
-
-    for (blockRange in blockRanges) {
-      val prefix = blockPrefixProvider(blockRange)
-      if (prefix.isEmpty()) continue
-
-      val isZeroLength = blockRange.length == 0
-      val isListItem = blockRange.type in BlockType.LIST_ITEMS
-      for (lineIndex in plainLines.indices) {
-        val lineStart = lineStartOffsets[lineIndex]
-        val lineEnd = lineStart + plainLines[lineIndex].length
-        val overlaps = if (isZeroLength) lineStart == blockRange.start else lineEnd >= blockRange.start && lineStart < blockRange.end
-        if (overlaps) {
-          // A marker-only list line ("- " with no content) re-parses as a setext
-          // underline for the previous line; emit an empty list line bare. An
-          // empty "# " heading is valid ATX and keeps its prefix.
-          if (isListItem && stripZwsp(plainLines[lineIndex]).isEmpty()) continue
-          markdownLines[lineIndex] = prefix + markdownLines[lineIndex]
-        }
+    fun shifted(offset: Int): Int {
+      val clamped = offset.coerceIn(0, text.length)
+      if (anchorCount == 0) return clamped
+      var low = 0
+      var high = anchorCount
+      while (low < high) {
+        val mid = (low + high) ushr 1
+        if (anchors[mid] < clamped) low = mid + 1 else high = mid
       }
+      return clamped - low
     }
 
-    return markdownLines.joinToString("\n")
-  }
-
-  fun serialize(
-    text: String,
-    ranges: List<FormattingRange>,
-  ): String {
-    if (ranges.isEmpty()) return text
-
-    val events = ArrayList<BoundaryEvent>(ranges.size * 2)
+    val formatting = IntArray(ranges.size * FORMATTING_STRIDE)
+    val urls = arrayOfNulls<String>(ranges.size)
+    var formattingCount = 0
     for (range in ranges) {
-      val rangeStart = range.start.coerceIn(0, text.length)
-      val rangeEnd = range.end.coerceIn(0, text.length)
-
-      // One delimiter pair per line. Block prefixes ("- ", "# ") attach per line,
-      // so a span that crosses a newline crosses a block boundary: "- **One\n- Two**"
-      // re-parses as two items with literal asterisks. Inside a single paragraph
-      // the split is harmless — "**a**\n**b**" renders the same as "**a\nb**".
-      var segmentStart = rangeStart
-      for (index in rangeStart until rangeEnd) {
-        if (text[index] == '\n') {
-          addSegmentEvents(events, text, segmentStart, index, range)
-          segmentStart = index + 1
-        }
-      }
-      addSegmentEvents(events, text, segmentStart, rangeEnd, range)
+      val start = shifted(range.start)
+      val end = shifted(range.end)
+      // A style that covered only an anchor has nothing left to wrap.
+      if (start >= end) continue
+      val base = formattingCount * FORMATTING_STRIDE
+      formatting[base] = range.type.ordinal
+      formatting[base + 1] = start
+      formatting[base + 2] = end
+      urls[formattingCount] = range.url
+      formattingCount++
     }
 
-    events.sortWith(BOUNDARY_COMPARATOR)
-
-    val markdown = StringBuilder(text.length + events.size * 4)
-    var lastPosition = 0
-
-    for (event in events) {
-      val position = event.position.coerceAtMost(text.length)
-
-      if (position > lastPosition) {
-        markdown.append(text, lastPosition, position)
-        lastPosition = position
-      }
-
-      if (event.isOpening) {
-        markdown.append(openingDelimiter(event.type))
-      } else {
-        markdown.append(closingDelimiter(event.type, event.url))
-      }
+    val blocks = IntArray(blockRanges.size * BLOCK_STRIDE)
+    for ((i, block) in blockRanges.withIndex()) {
+      val base = i * BLOCK_STRIDE
+      blocks[base] = block.type.ordinal
+      blocks[base + 1] = shifted(block.start)
+      blocks[base + 2] = shifted(block.end)
+      blocks[base + 3] = block.level
+      blocks[base + 4] = block.ordinal
     }
 
-    if (lastPosition < text.length) {
-      markdown.append(text, lastPosition, text.length)
-    }
-
-    return markdown.toString()
+    return try {
+      nativeSerialize(
+        plainText,
+        formatting.copyOf(formattingCount * FORMATTING_STRIDE),
+        urls.copyOf(formattingCount),
+        blocks,
+      )
+    } catch (e: UnsatisfiedLinkError) {
+      Log.e(TAG, "Native input serializer unavailable", e)
+      null
+    } ?: plainText
   }
-
-  private fun addSegmentEvents(
-    events: MutableList<BoundaryEvent>,
-    text: String,
-    segmentStart: Int,
-    segmentEnd: Int,
-    range: FormattingRange,
-  ) {
-    var start = segmentStart
-    var end = segmentEnd
-
-    // Trim leading/trailing whitespace so delimiters hug non-whitespace content.
-    // The empty-bullet ZWSP anchor is trimmed too: once stripped it would leave a
-    // bare "****", which re-parses as a thematic break.
-    while (start < end && isTrimmable(text[start])) start++
-    while (end > start && isTrimmable(text[end - 1])) end--
-
-    if (start >= end) return
-
-    events.add(BoundaryEvent(start, true, range.type, range.url))
-    events.add(BoundaryEvent(end, false, range.type, range.url))
-  }
-
-  private fun isTrimmable(char: Char): Boolean = char.isWhitespace() || char == ZWSP.single()
-
-  private fun openingDelimiter(type: StyleType): String =
-    when (type) {
-      StyleType.BOLD -> "**"
-      StyleType.ITALIC -> "*"
-      StyleType.UNDERLINE -> "_"
-      StyleType.STRIKETHROUGH -> "~~"
-      StyleType.LINK -> "["
-      StyleType.SPOILER -> "||"
-    }
-
-  private fun closingDelimiter(
-    type: StyleType,
-    url: String?,
-  ): String =
-    when (type) {
-      StyleType.BOLD -> "**"
-      StyleType.ITALIC -> "*"
-      StyleType.UNDERLINE -> "_"
-      StyleType.STRIKETHROUGH -> "~~"
-      StyleType.LINK -> "](${url ?: ""})"
-      StyleType.SPOILER -> "||"
-    }
-
-  // Lower value = outermost wrapper. Font styles wrap around structural styles (link).
-  private fun nestingPriority(type: StyleType): Int =
-    when (type) {
-      StyleType.ITALIC -> 0
-      StyleType.BOLD -> 1
-      StyleType.UNDERLINE -> 2
-      StyleType.STRIKETHROUGH -> 3
-      StyleType.SPOILER -> 4
-      StyleType.LINK -> 5
-    }
-
-  private data class BoundaryEvent(
-    val position: Int,
-    val isOpening: Boolean,
-    val type: StyleType,
-    val url: String?,
-  )
-
-  private val BOUNDARY_COMPARATOR =
-    Comparator<BoundaryEvent> { a, b ->
-      if (a.position != b.position) {
-        return@Comparator a.position - b.position
-      }
-      // Closing events before opening events at the same position
-      if (a.isOpening != b.isOpening) {
-        return@Comparator if (a.isOpening) 1 else -1
-      }
-      // Among openings: outer first (lower priority emitted first)
-      // Among closings: inner first (higher priority emitted first) — LIFO order
-      if (a.isOpening) {
-        nestingPriority(a.type) - nestingPriority(b.type)
-      } else {
-        nestingPriority(b.type) - nestingPriority(a.type)
-      }
-    }
 }

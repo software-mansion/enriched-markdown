@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.input
 
 import com.swmansion.enriched.markdown.input.editing.ZWSP
 import com.swmansion.enriched.markdown.input.formatting.MarkdownSerializer
+import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.StyleType
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -21,14 +22,19 @@ class ListItemReturnTest {
     }
   }
 
-  // Each line with its block's Markdown prefix. Unlike the serializer, this keeps
-  // empty items, so an inserted item shows up as a bare marker.
+  // Each line with its list marker, whatever the nesting. Unlike the markdown export,
+  // this is the editor's own view, so an inserted item shows up as a bare marker.
   private fun lines(): List<String> {
     val text = view.text.toString()
     var lineStart = 0
     return text.split('\n').map { line ->
       val block = view.blockStore.blockStartingAt(lineStart)
-      val prefix = block?.let { view.formatter.handlerForBlock(it.type)?.markdownLinePrefix(it) } ?: ""
+      val prefix =
+        when (block?.type) {
+          BlockType.UNORDERED_LIST_ITEM -> "- "
+          BlockType.ORDERED_LIST_ITEM -> "${block.ordinal}. "
+          else -> ""
+        }
       lineStart += line.length + 1
       prefix + line.replace(ZWSP.toString(), "")
     }
@@ -39,7 +45,7 @@ class ListItemReturnTest {
       view.text.toString(),
       view.allFormattingRangesForSerialization(),
       view.blockStore.allRanges,
-    ) { block -> view.formatter.handlerForBlock(block.type)?.markdownLinePrefix(block) ?: "" }
+    )
 
   private fun lineAt(index: Int): String = view.text.toString().split('\n')[index]
 
