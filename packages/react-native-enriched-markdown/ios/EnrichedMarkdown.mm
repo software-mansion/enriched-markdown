@@ -34,6 +34,7 @@
 #import "ENRMBlockquoteContainerView.h"
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMCodeBlockWrapState.h"
+#import "ENRMDroppableContent.h"
 #import "ENRMDynamicBlockProps.h"
 #import "ENRMSpoilerCapable.h"
 #import "ENRMSpoilerOverlayView.h"
@@ -1778,25 +1779,14 @@ static void ENRMUpdateNestedViewports(UIView *view, ENRMVisibleArea *area)
   }
 }
 
-static BOOL ENRMDrawsItself(UIView *view)
-{
-  static IMP viewDrawRect;
-  static dispatch_once_t once;
-  dispatch_once(&once, ^{ viewDrawRect = class_getMethodImplementation([UIView class], @selector(drawRect:)); });
-  return class_getMethodImplementation([view class], @selector(drawRect:)) != viewDrawRect;
-}
-
-// Drops (`draws` NO) or redraws the bitmaps of the library's views in `view` that draw themselves.
-// Text views draw only their drawn rect already; a UIKit view may keep its contents some other way.
+// Drops (`draws` NO) or redraws the bitmaps of the views in `view` that draw their own
+// (ENRMDroppableContent). Text views draw only their drawn rect already.
 static void ENRMSetViewDrawsContent(UIView *view, BOOL draws)
 {
   if ([view isKindOfClass:[UITextView class]]) {
     return;
   }
-  static NSBundle *uiKit;
-  static dispatch_once_t uiKitOnce;
-  dispatch_once(&uiKitOnce, ^{ uiKit = [NSBundle bundleForClass:[UIView class]]; });
-  if (ENRMDrawsItself(view) && [NSBundle bundleForClass:[view class]] != uiKit) {
+  if ([view conformsToProtocol:@protocol(ENRMDroppableContent)]) {
     if (draws) {
       [view setNeedsDisplay];
     } else {
@@ -1808,15 +1798,20 @@ static void ENRMSetViewDrawsContent(UIView *view, BOOL draws)
   }
 }
 
-// Runs `block` once Core Animation committed this run loop turn (its observer has order 2000000).
+// Core Animation commits (and draws the layers that need it) from a before-waiting observer of order
+// 2000000: not API, but what UIKit has long used. Ordered after it, a dropped bitmap stays dropped;
+// ordered before, the commit would draw it again.
+static const CFIndex kENRMAfterCoreAnimationCommitOrder = 2000001;
+
+// Runs `block` once Core Animation committed this run loop turn.
 static void ENRMAfterCommit(dispatch_block_t block)
 {
-  CFRunLoopObserverRef observer =
-      CFRunLoopObserverCreateWithHandler(kCFAllocatorDefault, kCFRunLoopBeforeWaiting, false, 2000001,
-                                         ^(CFRunLoopObserverRef firing, CFRunLoopActivity activity) {
-                                           CFRunLoopRemoveObserver(CFRunLoopGetMain(), firing, kCFRunLoopCommonModes);
-                                           block();
-                                         });
+  CFRunLoopObserverRef observer = CFRunLoopObserverCreateWithHandler(
+      kCFAllocatorDefault, kCFRunLoopBeforeWaiting, false, kENRMAfterCoreAnimationCommitOrder,
+      ^(CFRunLoopObserverRef firing, CFRunLoopActivity activity) {
+        CFRunLoopRemoveObserver(CFRunLoopGetMain(), firing, kCFRunLoopCommonModes);
+        block();
+      });
   CFRunLoopAddObserver(CFRunLoopGetMain(), observer, kCFRunLoopCommonModes);
   CFRelease(observer);
 }

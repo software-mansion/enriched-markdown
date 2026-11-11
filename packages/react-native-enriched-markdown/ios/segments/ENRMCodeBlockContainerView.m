@@ -2,6 +2,7 @@
 #import "ENRMAccessibilityLabels.h"
 #import "ENRMCodeBlockContent.h"
 #import "ENRMCodeBlockHighlighter.h"
+#import "ENRMDroppableContent.h"
 #import "ENRMHorizontalScrollView.h"
 #import "MarkdownASTNode.h"
 #import "PasteboardUtils.h"
@@ -173,7 +174,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 // unbounded (lines never wrap) with zero line-fragment padding and font leading
 // disabled, matching the NSStringDrawing origin the block used before. A
 // positive wrapWidth bounds it instead, so lines wrap at that width.
-@interface ENRMCodeBlockContentView : RCTUIView
+@interface ENRMCodeBlockContentView : RCTUIView <ENRMDroppableContent>
 @property (nonatomic, strong, nullable) NSAttributedString *attributedCode;
 @property (nonatomic, assign) CGPoint textOrigin;
 @property (nonatomic, assign) CGFloat wrapWidth;
@@ -268,7 +269,8 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 @end
 
 #if !TARGET_OS_OSX
-@interface ENRMCodeBlockContainerView () <UIContextMenuInteractionDelegate, UIGestureRecognizerDelegate>
+@interface ENRMCodeBlockContainerView () <UIContextMenuInteractionDelegate, UIGestureRecognizerDelegate,
+                                          ENRMDroppableContent>
 @end
 #endif
 
