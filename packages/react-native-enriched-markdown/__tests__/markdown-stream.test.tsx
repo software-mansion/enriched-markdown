@@ -196,6 +196,22 @@ it('collects block slots from the stream without its text crossing to JS', () =>
   );
 });
 
+it('collects again only when the stream grows', () => {
+  const stream = createMarkdownStream('![a](https://e.com/a.png)');
+  render(
+    <EnrichedMarkdownText
+      stream={stream}
+      streaming
+      flavor="github"
+      renderers={{ image: () => undefined }}
+    />
+  );
+  const calls = mockCollectStream.mock.calls.length;
+  stream.end();
+  nextFrame();
+  expect(mockCollectStream.mock.calls.length).toBe(calls);
+});
+
 it('keeps the native text while a view shows a disposed stream', () => {
   const stream = createMarkdownStream('kept');
   const root = render(<EnrichedMarkdownText stream={stream} />);

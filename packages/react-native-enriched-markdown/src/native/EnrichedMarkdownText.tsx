@@ -106,11 +106,11 @@ export type {
   SelectionCopyEvent,
 };
 
-// Default English labels for the built-in selection menu actions. Defaults are
-// resolved here (JS-side) so the native code always receives a concrete string.
 // Streams keep their text in the parser module's C++ buffers.
 setNativeMarkdownStreams(NativeEnrichedMarkdownParser);
 
+// Default English labels for the built-in selection menu actions. Defaults are
+// resolved here (JS-side) so the native code always receives a concrete string.
 const DEFAULT_COPY_LABEL = 'Copy';
 const DEFAULT_COPY_AS_MARKDOWN_LABEL = 'Copy as Markdown';
 const DEFAULT_COPY_IMAGE_URL_LABEL = 'Copy Image URL';
@@ -563,7 +563,8 @@ export const EnrichedMarkdownText = ({
   );
   const collected = useCollectedMarkdown(
     markdown,
-    nativeStream,
+    nativeStream?.streamId ?? 0,
+    nativeStream?.length ?? 0,
     normalizedMd4cFlags,
     isGFM,
     collectEnabled,
