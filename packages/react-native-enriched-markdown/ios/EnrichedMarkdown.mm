@@ -1172,14 +1172,15 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   }
 }
 
-/// `scheduledFlags` are the ones set when this render was scheduled: it takes those
-/// still set, and flags set since stay for the newer render they belong to.
+/// `scheduledFlags` are the ones set when this render was scheduled: it takes them all, though an
+/// earlier render took them too (a second style change in flight has its own), and flags set since
+/// stay for the newer render they belong to.
 - (void)applyRenderedSegments:(NSArray *)renderedSegments
              renderedMarkdown:(NSString *)renderedMarkdown
       endsInsideOpenCodeFence:(BOOL)endsInsideOpenCodeFence
                    dirtyFlags:(ENRMDirtyFlags)scheduledFlags
 {
-  const ENRMDirtyFlags dirtyFlags = scheduledFlags & _dirtyFlags;
+  const ENRMDirtyFlags dirtyFlags = scheduledFlags;
   _renderedMarkdown = [renderedMarkdown copy];
   [self updatePendingCodeBlockSegment:endsInsideOpenCodeFence segments:renderedSegments];
   BOOL segmentTopologyChanged = _streamingAnimation && [self renderedSegmentsChangeTopology:renderedSegments];

@@ -669,8 +669,9 @@ class EnrichedMarkdown(
   // Trailing code block whose closing fence hasn't streamed in yet, if any.
   private var pendingCodeBlockSegment: RenderedSegment.CodeBlock? = null
 
-  // [scheduledFlags] are the ones set when this render was scheduled: it takes those
-  // still set, and flags set since stay for the newer render they belong to.
+  // [scheduledFlags] are the ones set when this render was scheduled: it takes them all, though an
+  // earlier render took them too (a second style change in flight has its own), and flags set since
+  // stay for the newer render they belong to.
   internal fun applyRenderedSegments(
     renderedSegments: List<RenderedSegment>,
     hasPendingCodeBlock: Boolean,
@@ -681,7 +682,7 @@ class EnrichedMarkdown(
     pendingCodeBlockSegment =
       if (hasPendingCodeBlock) renderedSegments.lastOrNull() as? RenderedSegment.CodeBlock else null
 
-    val flags = dirtyFlags.intersect(scheduledFlags)
+    val flags = scheduledFlags
     dirtyFlags.removeAll(flags)
     val reset = DirtyFlag.RECREATE_SEGMENTS in flags
     val forceHeight = DirtyFlag.FORCE_HEIGHT in flags
