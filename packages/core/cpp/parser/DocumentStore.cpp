@@ -170,9 +170,10 @@ DocumentStore::Parsed DocumentStore::parseStreamed(const std::string &markdown, 
     std::string added = markdown.substr(known, finishedBytes - known);
     added.append(kProbe).append("\n");
     std::shared_ptr<MarkdownASTNode> root = MD4CParser().parse(added, flags, isGFM);
-    auto next = std::make_shared<FinishedBlocks>(finished ? *finished : FinishedBlocks{});
+    std::shared_ptr<FinishedBlocks> next;
     if (root && !root->children.empty() && isProbe(*root->children.back())) {
       root->children.pop_back();
+      next = std::make_shared<FinishedBlocks>(finished ? *finished : FinishedBlocks{});
       next->bytes = finishedBytes;
       for (auto &node : root->children) {
         next->collector.add(*node);
@@ -180,8 +181,8 @@ DocumentStore::Parsed DocumentStore::parseStreamed(const std::string &markdown, 
       }
     } else {
       // Kept under the text it happened for, so only this stream's later states find it.
+      next = std::make_shared<FinishedBlocks>();
       next->bytes = finishedBytes;
-      next->nodes.clear();
       next->extendable = false;
       splittable = false;
     }
@@ -194,6 +195,7 @@ DocumentStore::Parsed DocumentStore::parseStreamed(const std::string &markdown, 
   extendedParses_++;
   auto document = std::make_shared<ParsedDocument>();
   auto root = std::make_shared<MarkdownASTNode>(NodeType::Document);
+  // Still linear in the finished blocks: their node pointers and collector are copied, not parsed.
   root->children = finished->nodes;
   BlockCollector collector = finished->collector;
   if (finishedBytes < markdown.size()) {
