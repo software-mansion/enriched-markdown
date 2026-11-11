@@ -252,16 +252,10 @@ struct ENRMConversion {
   // finished blocks keep their nodes from one update to the next (DocumentStore).
   size_t sharedBlocks(const ENRMConversion &other) const
   {
-    const auto &blocks = document->ast->children;
-    const auto &converted = other.document->ast->children;
-    if (!sameOptions(other) || other.node.children.count != converted.size()) {
+    if (!sameOptions(other) || other.node.children.count != other.document->ast->children.size()) {
       return 0;
     }
-    size_t shared = 0;
-    while (shared < blocks.size() && shared < converted.size() && blocks[shared] == converted[shared]) {
-      shared++;
-    }
-    return shared;
+    return Markdown::sharedLeadingBlocks(*document, *other.document);
   }
 };
 

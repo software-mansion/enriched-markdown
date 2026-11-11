@@ -151,24 +151,11 @@ public:
       jobject first = env_->CallObjectMethod(converted, listSubList_, 0, static_cast<jint>(shared));
       env_->CallBooleanMethod(children, listAddAll_, first);
     }
-    MarkdownASTNode added(NodeType::Document);
-    added.children.assign(blocks.begin() + static_cast<std::ptrdiff_t>(shared), blocks.end());
-    overlay.forEachChild(added, [&](const std::shared_ptr<MarkdownASTNode> &child) {
-      if (jobject javaChild = create(*child, overlay)) {
-        env_->CallBooleanMethod(children, listAdd_, javaChild);
-        env_->DeleteLocalRef(javaChild);
-      }
-    });
-    jobject nodeType = env_->GetObjectArrayElement(nodeTypes_, nodeTypeToJavaOrdinal(NodeType::Document));
+    // The overlay replaces only Text and Code nodes, never a top-level block.
+    for (size_t i = shared; i < blocks.size(); i++)
+      addChild(children, *blocks[i], overlay);
     jobject attributes = env_->NewObject(mapClass_, mapInit_, 0);
-    jobject javaNode = env_->NewObject(nodeClass_, constructor_, nodeType, javaString(env_, ""), attributes, children);
-    if (env_->ExceptionCheck()) {
-      env_->ExceptionDescribe();
-      env_->ExceptionClear();
-      env_->PopLocalFrame(nullptr);
-      return nullptr;
-    }
-    return env_->PopLocalFrame(javaNode);
+    return popNode(NodeType::Document, "", attributes, children);
   }
 
   // How many children a converted Document has.
@@ -191,7 +178,6 @@ public:
   jobject create(const MarkdownASTNode &node, const AstOverlay &overlay) {
     if (!ready_ || env_->PushLocalFrame(16) != JNI_OK)
       return nullptr;
-    jobject nodeType = env_->GetObjectArrayElement(nodeTypes_, nodeTypeToJavaOrdinal(node.type));
     jobject attributes = env_->NewObject(mapClass_, mapInit_, static_cast<jint>(node.attributes.size()));
     auto put = [&](std::string_view key, std::string_view value) {
       env_->CallObjectMethod(attributes, mapPut_, javaString(env_, key), javaString(env_, value));
@@ -201,15 +187,24 @@ public:
     overlay.forEachAttribute(node, [&](const char *key, const std::string &value) { put(key, value); });
 
     jobject children = env_->NewObject(listClass_, listInit_, static_cast<jint>(node.children.size()));
-    overlay.forEachChild(node, [&](const std::shared_ptr<MarkdownASTNode> &child) {
-      if (jobject javaChild = create(*child, overlay)) {
-        env_->CallBooleanMethod(children, listAdd_, javaChild);
-        env_->DeleteLocalRef(javaChild);
-      }
-    });
+    overlay.forEachChild(node,
+                         [&](const std::shared_ptr<MarkdownASTNode> &child) { addChild(children, *child, overlay); });
+    return popNode(node.type, node.content, attributes, children);
+  }
 
+private:
+  void addChild(jobject children, const MarkdownASTNode &child, const AstOverlay &overlay) {
+    if (jobject javaChild = create(child, overlay)) {
+      env_->CallBooleanMethod(children, listAdd_, javaChild);
+      env_->DeleteLocalRef(javaChild);
+    }
+  }
+
+  // Builds the node and pops the local frame its caller pushed; null if the node failed.
+  jobject popNode(NodeType type, std::string_view content, jobject attributes, jobject children) {
+    jobject nodeType = env_->GetObjectArrayElement(nodeTypes_, nodeTypeToJavaOrdinal(type));
     jobject javaNode =
-        env_->NewObject(nodeClass_, constructor_, nodeType, javaString(env_, node.content), attributes, children);
+        env_->NewObject(nodeClass_, constructor_, nodeType, javaString(env_, content), attributes, children);
     if (env_->ExceptionCheck()) {
       env_->ExceptionDescribe();
       env_->ExceptionClear();
@@ -219,7 +214,6 @@ public:
     return env_->PopLocalFrame(javaNode);
   }
 
-private:
   bool lookUp() {
     nodeClass_ = env_->FindClass("com/swmansion/enriched/markdown/parser/MarkdownASTNode");
     if (!nodeClass_)
@@ -288,6 +282,8 @@ struct Conversion {
   size_t children;
 };
 std::mutex recentConversionsMutex;
+// Holds up to kRecentConversions Kotlin trees for the life of the process, outside the
+// DocumentStore's budget: the last streamed documents a view converted.
 std::vector<Conversion> recentConversions; // most recent first
 constexpr size_t kRecentConversions = 4;
 
@@ -509,11 +505,8 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
           std::rotate(recentConversions.begin(), recent, std::next(recent));
           return env->NewLocalRef(recentConversions.front().root);
         }
-        const auto &other = recent->document->ast->children;
-        size_t same = 0;
-        while (same < blocks.size() && same < other.size() && blocks[same] == other[same])
-          same++;
-        if (same > shared && recent->children == other.size()) {
+        size_t same = sharedLeadingBlocks(*document, *recent->document);
+        if (same > shared && recent->children == recent->document->ast->children.size()) {
           shared = same;
           if (converted)
             env->DeleteLocalRef(converted);
