@@ -524,8 +524,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   const size_t styleFingerprint = _pendingStyleFingerprint;
   const BOOL forceHeightUpdate = _forceHeightUpdateOnNextRender;
   dispatch_block_t apply = ^{
-    if (!result.attributedText && result.revision != self->_renderedRevision &&
-        !(result.patchTail && result.patchBaseRevision == self->_renderedRevision)) {
+    if (!result.attributedText && result.revision != self->_renderedRevision && ![self patchFits:result]) {
       // A patch to text this view doesn't show (a render it skipped): render in full.
       self->_textRenderCacheEpoch++;
       [self renderMarkdownContent:self->_cachedMarkdown];
@@ -624,9 +623,16 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 /// `scheduledForceHeight` is the forced-height request set when this render was
 /// scheduled; one set since stays for the newer render it belongs to.
+// A patch fits only the text it was made from: one past the end of the shown text is missed too.
+- (BOOL)patchFits:(ENRMRenderResult *)result
+{
+  return result.patchTail && result.patchBaseRevision == _renderedRevision &&
+         result.patchStart <= _textView.textStorage.length;
+}
+
 - (void)applyRenderedText:(ENRMRenderResult *)result forceHeightUpdate:(BOOL)scheduledForceHeight
 {
-  const BOOL patches = result.patchTail && result.patchBaseRevision == _renderedRevision;
+  const BOOL patches = [self patchFits:result];
   NSMutableAttributedString *attributedText = result.attributedText;
   NSUInteger tailStart = _previousTextLength;
 
