@@ -256,6 +256,22 @@ static void ENRMShow(EnrichedMarkdownInternalText *view, ENRMRenderedSegment *se
   XCTAssertEqualObjects(view.textView.textStorage.string, full.string);
 }
 
+// A link reference definition shows as text until its URL arrives, then renders nothing.
+- (void)testALastNodeThatGoesAwayLeavesTheTextOfAFullRender
+{
+  NSString *before = @"# Title\n\nThat's it, see [the docs](https://e.com).\n\n[api]:";
+  NSString *after = @"# Title\n\nThat's it, see [the docs](https://e.com).\n\n[api]: https://e.com";
+  ENRMTextRenderCache *cache = [[ENRMTextRenderCache alloc] init];
+  NSTextStorage *shown =
+      [[NSTextStorage alloc] initWithAttributedString:[self lastTextOf:before cache:cache].textResult.attributedText];
+  ENRMRenderResult *result = [self lastTextOf:after cache:cache].textResult;
+  XCTAssertNotNil(result.patchTail);
+  [shown replaceCharactersInRange:NSMakeRange(result.patchStart, shown.length - result.patchStart)
+             withAttributedString:result.patchTail];
+  NSAttributedString *full = [self lastTextOf:after cache:nil].textResult.attributedText;
+  XCTAssertNil(ENRMDifference(shown, [[NSTextStorage alloc] initWithAttributedString:full]));
+}
+
 // The view keeps it: same signature and revision, and the cache keeps no copy of its text.
 - (void)testAnUnchangedSegmentIsHandedBackUnderItsRevision
 {

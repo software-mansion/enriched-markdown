@@ -59,7 +59,8 @@ fun Renderer.textRenderResult(
  *   in its text. When the new segment starts with the same nodes, only the nodes from the old
  *   last one on render, and the view patches its live buffer from there: the result is only that
  *   patch ([RenderedSegment.Text.patch]), so no update copies the text. The old last node renders
- *   again because it was the last one: its trailing margin was trimmed.
+ *   again because it was the last one: its trailing margin was trimmed. So does the new last node
+ *   when the ones after it are gone (a link reference definition completing renders nothing).
  *
  * Drop it with [clear] whenever views are recreated.
  */
@@ -157,7 +158,8 @@ class TextRenderCache {
     while (common < nodes.size && common < old.nodeSignatures.size && nodeSignatures[common] == old.nodeSignatures[common]) {
       common++
     }
-    val from = minOf(common, old.nodeSignatures.size - 1)
+    // So does the new last one when the nodes after it are gone: it still ends in the spacing before them.
+    val from = minOf(common, old.nodeSignatures.size - 1, nodes.size - 1)
     if (from <= 0) return null
     val start = old.blockStarts[from]
     if (start > old.textLength) return null
