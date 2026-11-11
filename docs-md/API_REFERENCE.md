@@ -267,7 +267,7 @@ Fires **at most once per distinct failing expression** per component instance - 
 
 ### `onStreamingEnd`
 
-Callback when the view stops streaming: once `streaming` turns `false`. Fires once per stream, and not when the view unmounts while streaming.
+Callback when the view stops streaming: once `streaming` turns `false` or the `stream` ends. Fires once per stream, and not when the view unmounts while streaming.
 
 | Type         | Default Value | Platform     |
 | ------------ | ------------- | ------------ |
