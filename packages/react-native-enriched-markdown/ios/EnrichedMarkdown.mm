@@ -304,8 +304,8 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
     __weak EnrichedMarkdown *weakSelf = self;
     _blockSlotReveal =
         [[ENRMBlockSlotRevealController alloc] initWithFrameHandler:^{ [weakSelf stepBlockSlotReveal]; }];
-    // Text segments follow the scroll views themselves.
-    _visibleArea = [[ENRMVisibleArea alloc] initWithView:self onChange:^{ [weakSelf updateDrawnBlocks]; }];
+    // One area for the whole document: its text segments follow it too.
+    _visibleArea = [[ENRMVisibleArea alloc] initWithView:self onChange:^{ [weakSelf updateDrawnSegments]; }];
     _drawnVisibleRect = CGRectNull;
     _undrawnSegments = [NSHashTable weakObjectsHashTable];
     _fontScaleObserver.onChange = ^{
@@ -1323,6 +1323,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 - (EnrichedMarkdownInternalText *)createTextViewForRenderedSegment:(ENRMRenderResult *)segment
 {
   EnrichedMarkdownInternalText *view = [[EnrichedMarkdownInternalText alloc] initWithConfig:_config];
+  view.visibleArea = _visibleArea;
   [self configureTextView:view withRenderedSegment:segment];
   view.onSelectionCopy = [self selectionCopyHandler];
 
@@ -1758,13 +1759,21 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 }
 
 #if !TARGET_OS_OSX
-static void ENRMUpdateNestedViewports(UIView *view)
+static void ENRMUpdateViewport(EnrichedMarkdownInternalText *text, ENRMVisibleArea *area)
+{
+  text.visibleArea = area;
+  [text updateViewport];
+}
+
+static void ENRMUpdateNestedViewports(UIView *view, ENRMVisibleArea *area)
 {
   for (UIView *subview in view.subviews) {
     if ([subview isKindOfClass:[EnrichedMarkdownInternalText class]]) {
-      [(EnrichedMarkdownInternalText *)subview updateViewport];
-    } else if (![subview isKindOfClass:[UITextView class]]) {
-      ENRMUpdateNestedViewports(subview);
+      ENRMUpdateViewport((EnrichedMarkdownInternalText *)subview, area);
+    } else if (![subview isKindOfClass:[UITextView class]] &&
+               ![subview isKindOfClass:[ENRMBlockSlotSegmentView class]]) {
+      // A renderer's view in a quote may hold a document of its own, which drives its own text.
+      ENRMUpdateNestedViewports(subview, area);
     }
   }
 }
@@ -1833,17 +1842,17 @@ static void ENRMAfterCommit(dispatch_block_t block)
 #if !TARGET_OS_OSX
   for (RCTUIView *segment in _segmentViews) {
     if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
-      [(EnrichedMarkdownInternalText *)segment updateViewport];
+      ENRMUpdateViewport((EnrichedMarkdownInternalText *)segment, _visibleArea);
     } else if (![segment isKindOfClass:[ENRMBlockSlotSegmentView class]]) {
       // A quote holds text segments of its own, moved with it.
-      ENRMUpdateNestedViewports(segment);
+      ENRMUpdateNestedViewports(segment, _visibleArea);
     }
   }
-  [self updateDrawnBlocks];
+  [self updateBlockBitmaps];
 #endif
 }
 
-- (void)updateDrawnBlocks
+- (void)updateBlockBitmaps
 {
 #if !TARGET_OS_OSX
   CGRect visible = [_visibleArea visibleRect];

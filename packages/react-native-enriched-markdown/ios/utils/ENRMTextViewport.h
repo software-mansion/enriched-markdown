@@ -1,6 +1,8 @@
 #pragma once
 #import "ENRMUIKit.h"
 
+@class ENRMVisibleArea;
+
 NS_ASSUME_NONNULL_BEGIN
 
 /// Draws a long text view only around the part of it on screen.
@@ -18,6 +20,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// The text view's frame in its superview, set through the viewport.
 @property (nonatomic, assign) CGRect contentFrame;
+
+/// The area of the document the text is in, shared by its texts (EnrichedMarkdown's); its owner
+/// calls `update` when it changes. Without one the viewport follows the scroll views itself.
+@property (nonatomic, weak, nullable) ENRMVisibleArea *visibleArea;
 
 /// Lays out the whole text at `width`: the used rect and the extra line fragment, as
 /// `ENRMMeasureTextLayout` gives them. At another width than the frame's, the next `update` lays the

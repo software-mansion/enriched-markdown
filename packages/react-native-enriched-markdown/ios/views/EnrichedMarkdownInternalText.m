@@ -156,6 +156,16 @@
 }
 #endif
 
+- (void)setVisibleArea:(ENRMVisibleArea *)visibleArea
+{
+  _viewport.visibleArea = visibleArea;
+}
+
+- (ENRMVisibleArea *)visibleArea
+{
+  return _viewport.visibleArea;
+}
+
 - (void)updateViewport
 {
   [_viewport update];

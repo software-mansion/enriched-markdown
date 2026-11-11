@@ -61,6 +61,22 @@ static void *kENRMVisibleAreaContext = &kENRMVisibleAreaContext;
   return CGRectMake(-CGFLOAT_MAX / 4, top, CGFLOAT_MAX / 2, bottom - top);
 }
 
+- (CGRect)visibleRectInView:(RCTUIView *)view
+{
+  CGRect visible = [self visibleRect];
+  UIView *areaView = _view;
+  if (CGRectIsNull(visible) || ![view isDescendantOfView:areaView]) {
+    return CGRectNull;
+  }
+  if (view == areaView || CGRectIsInfinite(visible) || CGRectIsEmpty(visible)) {
+    return visible;
+  }
+  // Vertically only, as visibleRect: the rect is too wide to convert.
+  CGFloat top = [areaView convertPoint:CGPointMake(0, CGRectGetMinY(visible)) toView:view].y;
+  CGFloat bottom = [areaView convertPoint:CGPointMake(0, CGRectGetMaxY(visible)) toView:view].y;
+  return CGRectMake(-CGFLOAT_MAX / 4, top, CGFLOAT_MAX / 2, bottom - top);
+}
+
 // Scrolls, and transforms below the outermost scroll view (Animated's native driver sets them with
 // no layout): a transform above it moves the scroll views along.
 - (void)observeAncestorsOfView:(nullable UIView *)view
@@ -105,6 +121,11 @@ static void *kENRMVisibleAreaContext = &kENRMVisibleAreaContext;
 }
 #else
 - (CGRect)visibleRect
+{
+  return CGRectNull;
+}
+
+- (CGRect)visibleRectInView:(RCTUIView *)view
 {
   return CGRectNull;
 }

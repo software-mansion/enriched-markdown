@@ -28,8 +28,9 @@ static const CGFloat kENRMViewportStep = 256;
 @implementation ENRMTextViewport {
   __weak ENRMPlatformTextView *_textView;
 #if !TARGET_OS_OSX
-  ENRMVisibleArea *_visibleArea;
-  __weak UIView *_visibleAreaView;
+  // Followed without a document's area.
+  ENRMVisibleArea *_ownArea;
+  __weak UIView *_ownAreaView;
   CGFloat _drawnTop;
   CGFloat _drawnBottom;
   CGRect _appliedContentFrame;
@@ -82,20 +83,30 @@ static const CGFloat kENRMViewportStep = 256;
   return result;
 }
 
+- (CGRect)visibleRectInHost:(nullable UIView *)host
+{
+  ENRMVisibleArea *area = self.visibleArea;
+  if (area != nil) {
+    _ownArea = nil;
+    _ownAreaView = nil;
+    return [area visibleRectInView:host];
+  }
+  if (host != _ownAreaView) {
+    _ownAreaView = host;
+    __weak ENRMTextViewport *weakSelf = self;
+    _ownArea = host != nil ? [[ENRMVisibleArea alloc] initWithView:host onChange:^{ [weakSelf update]; }] : nil;
+  }
+  return _ownArea != nil ? [_ownArea visibleRect] : CGRectNull;
+}
+
 - (void)update
 {
   UITextView *textView = _textView;
   if (textView == nil) {
     return;
   }
-  UIView *host = textView.superview;
-  if (host != _visibleAreaView) {
-    _visibleAreaView = host;
-    __weak ENRMTextViewport *weakSelf = self;
-    _visibleArea = host != nil ? [[ENRMVisibleArea alloc] initWithView:host onChange:^{ [weakSelf update]; }] : nil;
-  }
   // Read first: it stops observing the scroll views once the text view left the window.
-  CGRect visible = _visibleArea != nil ? [_visibleArea visibleRect] : CGRectNull;
+  CGRect visible = [self visibleRectInHost:textView.superview];
   CGRect content = _contentFrame;
   if (content.size.width <= 0) {
     // Not laid out yet: the text view keeps the frame it has.

@@ -20,6 +20,10 @@ FOUNDATION_EXTERN const CGFloat ENRMVisibleAreaMargin;
 /// once the view is in a window.
 - (CGRect)visibleRect;
 
+/// The same in the coordinates of `view`, a view inside the area's view; CGRectNull when it is not in
+/// it. Lets the views of a document follow one area.
+- (CGRect)visibleRectInView:(RCTUIView *)view;
+
 @end
 
 NS_ASSUME_NONNULL_END

@@ -11,6 +11,7 @@
 @class AccessibilityInfo;
 @class ENRMAccessibilityLabels;
 @class ENRMSpoilerOverlayManager;
+@class ENRMVisibleArea;
 
 @class ENRMRenderedSegment;
 
@@ -47,6 +48,8 @@ NS_ASSUME_NONNULL_BEGIN
 // The ENRMRenderResult revision shown, which a patch must be based on.
 @property (nonatomic, assign) uint64_t renderedRevision;
 
+/// The visible area of the document the text is in (see ENRMTextViewport's).
+@property (nonatomic, weak, nullable) ENRMVisibleArea *visibleArea;
 /// Moves the drawn part of a long text to where it shows now (see ENRMTextViewport).
 - (void)updateViewport;
 /// Lays the text out again after the view joined a window.
