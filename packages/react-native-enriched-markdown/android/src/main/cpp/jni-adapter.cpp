@@ -7,6 +7,7 @@
 #include "TextLinkRecognizer.hpp"
 #include "Utf16.hpp"
 #include <android/log.h>
+#include <array>
 #include <jni.h>
 #include <string>
 #include <string_view>
@@ -308,51 +309,40 @@ static Markdown::TextLinkMatchers makeTextLinkMatchers(JNIEnv *env, jobject text
 // The Kotlin Md4cFlags data class as the core's flags; defaults for null.
 static Md4cFlags md4cFlagsFromJava(JNIEnv *env, jobject flags) {
   Md4cFlags md4cFlags;
-  if (flags) {
+  if (!flags)
+    return md4cFlags;
+  struct Field {
+    bool Md4cFlags::*member;
+    const char *name;
+  };
+  static constexpr Field kFields[] = {
+      {&Md4cFlags::underline, "underline"},
+      {&Md4cFlags::latexMath, "latexMath"},
+      {&Md4cFlags::superscript, "superscript"},
+      {&Md4cFlags::subscript, "subscript"},
+      {&Md4cFlags::strikethrough, "strikethrough"},
+      {&Md4cFlags::highlight, "highlight"},
+      {&Md4cFlags::permissiveAutolinks, "permissiveAutolinks"},
+      {&Md4cFlags::hardSoftBreaks, "hardSoftBreaks"},
+      {&Md4cFlags::preserveBlankLines, "preserveBlankLines"},
+      {&Md4cFlags::admonitions, "admonitions"},
+  };
+  constexpr size_t kFieldCount = sizeof(kFields) / sizeof(kFields[0]);
+  // Looked up once: a field id stays valid while the class is loaded.
+  static const std::array<jfieldID, kFieldCount> fieldIds = [env, flags] {
+    std::array<jfieldID, kFieldCount> ids{};
     jclass flagsClass = env->GetObjectClass(flags);
-    if (flagsClass) {
-      jfieldID underlineField = env->GetFieldID(flagsClass, "underline", "Z");
-      if (underlineField) {
-        md4cFlags.underline = env->GetBooleanField(flags, underlineField) == JNI_TRUE;
-      }
-      jfieldID latexMathField = env->GetFieldID(flagsClass, "latexMath", "Z");
-      if (latexMathField) {
-        md4cFlags.latexMath = env->GetBooleanField(flags, latexMathField) == JNI_TRUE;
-      }
-      jfieldID superscriptField = env->GetFieldID(flagsClass, "superscript", "Z");
-      if (superscriptField) {
-        md4cFlags.superscript = env->GetBooleanField(flags, superscriptField) == JNI_TRUE;
-      }
-      jfieldID subscriptField = env->GetFieldID(flagsClass, "subscript", "Z");
-      if (subscriptField) {
-        md4cFlags.subscript = env->GetBooleanField(flags, subscriptField) == JNI_TRUE;
-      }
-      jfieldID strikethroughField = env->GetFieldID(flagsClass, "strikethrough", "Z");
-      if (strikethroughField) {
-        md4cFlags.strikethrough = env->GetBooleanField(flags, strikethroughField) == JNI_TRUE;
-      }
-      jfieldID highlightField = env->GetFieldID(flagsClass, "highlight", "Z");
-      if (highlightField) {
-        md4cFlags.highlight = env->GetBooleanField(flags, highlightField) == JNI_TRUE;
-      }
-      jfieldID permissiveAutolinksField = env->GetFieldID(flagsClass, "permissiveAutolinks", "Z");
-      if (permissiveAutolinksField) {
-        md4cFlags.permissiveAutolinks = env->GetBooleanField(flags, permissiveAutolinksField) == JNI_TRUE;
-      }
-      jfieldID hardSoftBreaksField = env->GetFieldID(flagsClass, "hardSoftBreaks", "Z");
-      if (hardSoftBreaksField) {
-        md4cFlags.hardSoftBreaks = env->GetBooleanField(flags, hardSoftBreaksField) == JNI_TRUE;
-      }
-      jfieldID preserveBlankLinesField = env->GetFieldID(flagsClass, "preserveBlankLines", "Z");
-      if (preserveBlankLinesField) {
-        md4cFlags.preserveBlankLines = env->GetBooleanField(flags, preserveBlankLinesField) == JNI_TRUE;
-      }
-      jfieldID admonitionsField = env->GetFieldID(flagsClass, "admonitions", "Z");
-      if (admonitionsField) {
-        md4cFlags.admonitions = env->GetBooleanField(flags, admonitionsField) == JNI_TRUE;
-      }
-      env->DeleteLocalRef(flagsClass);
+    for (size_t i = 0; i < kFieldCount; i++) {
+      ids[i] = env->GetFieldID(flagsClass, kFields[i].name, "Z");
+      if (!ids[i])
+        clearHostException(env);
     }
+    env->DeleteLocalRef(flagsClass);
+    return ids;
+  }();
+  for (size_t i = 0; i < kFieldCount; i++) {
+    if (fieldIds[i])
+      md4cFlags.*kFields[i].member = env->GetBooleanField(flags, fieldIds[i]) == JNI_TRUE;
   }
   return md4cFlags;
 }
