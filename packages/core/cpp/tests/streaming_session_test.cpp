@@ -163,11 +163,19 @@ int main(int argc, char **argv) {
   check(finished("```\na\n\nb\n") == 0, "inside an open fence");
   check(finished("```\na\n```\n\nb\n") == 11, "after a closed fence");
   check(finished("$$\nx\n\ny\n") == 0, "inside open display math");
-  check(finished("<pre>\n\nx\n\ny\n") == 0, "after HTML that may hold blank lines");
+  check(finished("<pre>\n\nx\n\ny\n") == 0, "inside HTML that may hold blank lines");
+  check(finished("<!-- c -->\n\nOne\n\nTwo\n") == 17, "after a closed comment");
+  check(finished("<pre>\n\nx\n</pre>\n\nOne\n\nTwo\n") == 22, "after a closed raw block");
+  check(finished("One\n\n<PRE>\n\n**x\n\ny\n") == 0, "a raw tag in capitals");
+  check(finished("<prefix>\n\nOne\n\nTwo\n") == 15, "a tag that only starts like a raw one");
+  check(finished("<!--\na\n\nb\n-->\n\nOne\n\nTwo\n") == 20, "a comment closed lines later");
   check(finished("> quote\n\nPara\n") == 9, "after a blockquote");
 
   for (int i = 1; i < argc; i++)
     checkPrefixes(argv[i], readFile(argv[i]));
+  checkPrefixes("HTML blocks with blank lines",
+                "Intro\n\n<!--\nnote\n\nmore\n-->\n\n| A | B |\n| - | - |\n| 1 | 2 |\n\n<PRE>\n**x\n\ny\n</pre>\n\n"
+                "```js\nlet a\n```\n\n<?php\n\n?>\n\nEnd **bold**\n");
 
   if (failures != 0) {
     std::cerr << failures << " streaming session check(s) failed\n";

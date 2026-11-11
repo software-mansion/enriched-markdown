@@ -333,27 +333,57 @@ void cutPendingTable(Document &doc, StreamingBlockMode mode) {
 
 // ---- media and inline syntax
 
-// HTML blocks whose content is raw: nothing in them is Markdown to cut.
+bool equalsIgnoringCase(char a, char b) {
+  return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+}
+
+// HTML blocks whose content is raw: nothing in them is Markdown to cut. Tag names compare as md4c
+// does, ignoring case and ending at a space, `>` or the line's end.
 bool startsRawHtmlBlock(std::string_view body) {
-  static const char *const kOpeners[] = {"<!--",   "<pre",    "<script",  "<style", "<div", "<details", "<summary",
-                                         "<table", "<figure", "<section", "<p>",    "<p ",  "<center"};
-  for (const char *opener : kOpeners) {
-    if (startsWith(body, opener))
+  if (startsWith(body, "<!--"))
+    return true;
+  static const std::string_view kTags[] = {"pre",   "script", "style",   "div", "details", "summary",
+                                           "table", "figure", "section", "p",   "center"};
+  if (body.empty() || body[0] != '<')
+    return false;
+  for (std::string_view tag : kTags) {
+    size_t after = tag.size() + 1;
+    if (body.size() >= after && std::equal(tag.begin(), tag.end(), body.begin() + 1, equalsIgnoringCase) &&
+        (after == body.size() || body[after] == ' ' || body[after] == '\t' || body[after] == '>'))
       return true;
   }
   return false;
 }
 
-// HTML blocks that may hold blank lines: they end at their closing tag, so what
-// follows a blank line inside them is still part of them.
-bool startsHtmlBlockWithBlankLines(std::string_view body) {
-  static const char *const kOpeners[] = {"<!--", "<?", "<!", "<pre", "<script", "<style", "<textarea"};
+bool containsIgnoringCase(std::string_view text, std::string_view needle) {
+  return std::search(text.begin(), text.end(), needle.begin(), needle.end(), equalsIgnoringCase) != text.end();
+}
+
+// HTML blocks that may hold blank lines (CommonMark types 1-5) end at a closing text, not at a blank
+// line: the text that closes the one `body` opens, empty when it opens none. Tag names compare as
+// md4c does, ignoring case and ending at a space, `>` or the line's end.
+std::string_view htmlBlockCloser(std::string_view body) {
   std::string_view text = body.substr(std::min(leadingSpaces(body), body.size()));
-  for (const char *opener : kOpeners) {
-    if (startsWith(text, opener))
-      return true;
+  if (startsWith(text, "<!--"))
+    return "-->";
+  if (startsWith(text, "<![CDATA["))
+    return "]]>";
+  if (startsWith(text, "<?"))
+    return "?>";
+  if (text.size() > 2 && startsWith(text, "<!") && std::isalpha(static_cast<unsigned char>(text[2])))
+    return ">";
+  static const std::string_view kRawTags[][2] = {
+      {"pre", "</pre>"}, {"script", "</script>"}, {"style", "</style>"}, {"textarea", "</textarea>"}};
+  for (const auto &tag : kRawTags) {
+    std::string_view name = tag[0];
+    if (text.size() <= name.size() || text[0] != '<' ||
+        !std::equal(name.begin(), name.end(), text.begin() + 1, equalsIgnoringCase))
+      continue;
+    size_t after = name.size() + 1;
+    if (after == text.size() || text[after] == ' ' || text[after] == '\t' || text[after] == '>')
+      return tag[1];
   }
-  return false;
+  return {};
 }
 
 // A line that starts a block of its own at the top level: not indented (code,
@@ -448,13 +478,23 @@ size_t finishedBlocksEnd(std::string_view markdown) {
   scanFences(lines);
   size_t end = 0;
   bool openMath = false;
+  // While an HTML block that may hold blank lines is open, what closes it.
+  std::string_view htmlCloser;
   for (size_t i = 0; i < lines.size(); i++) {
     const Line &line = lines[i];
     if (line.code)
       continue;
     std::string_view body = stripQuotes(line.text).body;
-    if (startsHtmlBlockWithBlankLines(body))
-      break;
+    if (!htmlCloser.empty()) {
+      if (containsIgnoringCase(body, htmlCloser))
+        htmlCloser = {};
+      continue;
+    }
+    if (std::string_view closer = htmlBlockCloser(body); !closer.empty()) {
+      if (!containsIgnoringCase(body.substr(body.find('<') + 2), closer))
+        htmlCloser = closer;
+      continue;
+    }
     bool startsBlock =
         i > 0 && !openMath && isBlank(lines[i - 1].text) && !lines[i - 1].code && startsTopLevelBlock(line.text);
     // A line still arriving can start the tail once its first character rules
