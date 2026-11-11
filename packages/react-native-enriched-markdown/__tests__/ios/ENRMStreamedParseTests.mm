@@ -1,6 +1,7 @@
 #import "../../ios/parser/ENRMMarkdownParser.h"
 #import "../../ios/parser/MarkdownASTNode.h"
 #import "../../ios/segments/RenderedMarkdownSegment.h"
+#import "../../ios/utils/ENRMLinkRegexConfig.h"
 #import "../../ios/utils/StreamingMarkdownFilter.h"
 #import <XCTest/XCTest.h>
 
@@ -53,17 +54,22 @@ static NSString *ENRMDescription(MarkdownASTNode *node)
 
 // A slot id no block has changes nothing in the tree, and a new one each time makes the parser
 // convert every block again.
-- (MarkdownASTNode *)parseAfresh:(NSString *)snapshot
+- (MarkdownASTNode *)parseAfresh:(NSString *)snapshot linkRegex:(ENRMLinkRegexConfig *)linkRegex
 {
   static NSUInteger count = 0;
   NSString *unused = [NSString stringWithFormat:@"unused-%lu", (unsigned long)count++];
   return [_parser parseMarkdown:snapshot
                           flags:[ENRMMd4cFlags defaultFlags]
                           isGFM:YES
-                      linkRegex:nil
-            inlineCodeLinkRegex:nil
+                      linkRegex:linkRegex
+            inlineCodeLinkRegex:linkRegex
              activeBlockSlotIds:[NSSet setWithObject:unused]
                  annotateImages:NO];
+}
+
+- (MarkdownASTNode *)parseAfresh:(NSString *)snapshot
+{
+  return [self parseAfresh:snapshot linkRegex:nil];
 }
 
 - (void)testAStreamKeepsTheNodesOfItsFinishedBlocks
@@ -92,6 +98,38 @@ static NSString *ENRMDescription(MarkdownASTNode *node)
     }
   }
   XCTAssertGreaterThan(reused, updates * 2);
+}
+
+// Links are recognized in the blocks converted anew; the ones taken over keep theirs.
+- (void)testAStreamWithLinkRecognitionConvertsAsAWhole
+{
+  ENRMLinkRegexConfig *regex = [ENRMLinkRegexConfig cachedConfigWithPattern:@"repo|setup|code"
+                                                            caseInsensitive:NO
+                                                                     dotAll:NO];
+  MarkdownASTNode *previous = nil;
+  NSUInteger reused = 0;
+  for (NSUInteger length = 5; length <= kStreamed.length; length = MIN(length + 7, kStreamed.length)) {
+    NSString *snapshot = [self snapshotOf:[kStreamed substringToIndex:length]];
+    MarkdownASTNode *root = [_parser parseMarkdown:snapshot
+                                             flags:[ENRMMd4cFlags defaultFlags]
+                                             isGFM:YES
+                                         linkRegex:regex
+                               inlineCodeLinkRegex:regex];
+    XCTAssertEqualObjects(ENRMDescription(root), ENRMDescription([self parseAfresh:snapshot linkRegex:regex]), @"%@",
+                          snapshot);
+    for (NSUInteger i = 0; i < previous.children.count && i < root.children.count; i++) {
+      if (previous.children[i] != root.children[i]) {
+        break;
+      }
+      reused++;
+    }
+    previous = root;
+    if (length == kStreamed.length) {
+      break;
+    }
+  }
+  XCTAssertGreaterThan(reused, (NSUInteger)0);
+  XCTAssertNotEqualObjects(ENRMDescription(previous), ENRMDescription([self parseAfresh:[self snapshotOf:kStreamed]]));
 }
 
 - (void)testASignatureIsComputedOncePerNode
