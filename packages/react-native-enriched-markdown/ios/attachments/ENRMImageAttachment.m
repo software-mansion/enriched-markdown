@@ -202,16 +202,15 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
   self.originalImage = image;
   // UIKit reads the plain image property for save/drag/copy — it must hold the original
   self.image = image;
-  CGFloat targetWidth = self.isInline ? self.cachedHeight : self.bounds.size.width;
-
-  // Defer processing if we don't have valid bounds yet (common for non-inline block images). Its box
-  // can take the image's height before it is drawn, though: lay it out again.
-  if (!self.isInline && targetWidth <= 0) {
-    [self invalidateBoxLayout];
+  // A block image is scaled for the width its line gives it, known when it is drawn (imageForBounds:),
+  // not for the placeholder's: that would scale every image twice. Its box can take the image's height
+  // before that, though: lay it out and draw it again.
+  if (!self.isInline) {
+    [self refreshDisplay];
     return;
   }
 
-  [self processAndApplyImage:image withTargetWidth:targetWidth];
+  [self processAndApplyImage:image withTargetWidth:self.cachedHeight];
 }
 
 - (void)processAndApplyImage:(RCTUIImage *)image withTargetWidth:(CGFloat)targetWidth
@@ -341,21 +340,6 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
   [[ENRMImageDownloader shared] downloadURL:self.requestURL
                                     headers:self.requestHeaders
                                  completion:^(RCTUIImage *image) { [weakSelf handleLoadedImage:image]; }];
-}
-
-- (void)invalidateBoxLayout
-{
-  // Only maxHeight/aspectRatio boxes take the image's height.
-  if (self.cachedMaxHeight <= 0 && self.cachedAspectRatio <= 0) {
-    return;
-  }
-  ENRMPlatformTextView *textView = [self fetchAssociatedTextView];
-  NSRange range = textView ? [self findAttachmentRangeInText:textView.textStorage] : NSMakeRange(NSNotFound, 0);
-  if (range.location != NSNotFound) {
-    [textView.layoutManager invalidateDisplayForCharacterRange:range];
-    [textView.layoutManager invalidateLayoutForCharacterRange:range actualCharacterRange:NULL];
-    [self notifyImageLayoutObserver:textView];
-  }
 }
 
 - (void)refreshDisplay
