@@ -17,7 +17,7 @@
  * the API gains a prop or ref method the mock does not cover -- it cannot
  * silently drift from the real component.
  */
-import { useImperativeHandle, useRef, useState } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { ComponentRef, ReactNode } from 'react';
 import { Text, TextInput } from 'react-native';
 import type {
@@ -307,9 +307,10 @@ export const EnrichedMarkdownText = ({
   maxFontSizeMultiplier: _maxFontSizeMultiplier,
   allowTrailingMargin: _allowTrailingMargin,
   flavor: _flavor,
-  streaming: _streaming,
-  streamingAnimation: _streamingAnimation,
+  streaming,
+  streamingAnimation,
   streamingConfig: _streamingConfig,
+  onStreamingEnd,
   spoilerOverlay: _spoilerOverlay,
   contextMenuItems: _contextMenuItems,
   linkContextMenuItems: _linkContextMenuItems,
@@ -325,6 +326,14 @@ export const EnrichedMarkdownText = ({
   lineBreakStrategyIOS: _lineBreakStrategyIOS,
   writingDirection: _writingDirection,
 }: EnrichedMarkdownTextProps) => {
+  // Called when streaming turns off, as the native view does.
+  const isStreaming = streaming ?? streamingAnimation ?? false;
+  const wasStreaming = useRef(isStreaming);
+  useEffect(() => {
+    if (wasStreaming.current && !isStreaming) onStreamingEnd?.();
+    wasStreaming.current = isStreaming;
+  }, [isStreaming, onStreamingEnd]);
+
   return (
     <Text
       style={containerStyle}

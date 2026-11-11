@@ -902,6 +902,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
       [_fadeAnimator cancel];
       _fadeAnimator = nil;
       _previousTextLength = 0;
+      if (auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter)) {
+        emitter->onStreamingEnd({});
+      }
     }
   }
 

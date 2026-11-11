@@ -284,3 +284,41 @@ describe('EnrichedMarkdownText mock', () => {
     });
   });
 });
+
+describe('EnrichedMarkdownText mock streaming', () => {
+  it('calls onStreamingEnd once when streaming turns off', () => {
+    const onStreamingEnd = jest.fn();
+    const { root } = renderMock(
+      <EnrichedMarkdownText
+        markdown="a"
+        streaming
+        onStreamingEnd={onStreamingEnd}
+      />
+    );
+    act(() => {
+      root.render(
+        <EnrichedMarkdownText
+          markdown="ab"
+          streaming
+          onStreamingEnd={onStreamingEnd}
+        />
+      );
+    });
+    expect(onStreamingEnd).not.toHaveBeenCalled();
+    act(() => {
+      root.render(
+        <EnrichedMarkdownText
+          markdown="ab"
+          streaming={false}
+          onStreamingEnd={onStreamingEnd}
+        />
+      );
+    });
+    act(() => {
+      root.render(
+        <EnrichedMarkdownText markdown="ab" onStreamingEnd={onStreamingEnd} />
+      );
+    });
+    expect(onStreamingEnd).toHaveBeenCalledTimes(1);
+  });
+});

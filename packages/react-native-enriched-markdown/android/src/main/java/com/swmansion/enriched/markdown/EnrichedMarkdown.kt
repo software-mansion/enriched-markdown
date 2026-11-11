@@ -56,6 +56,7 @@ import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.text.view.TextPressHost
 import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
 import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
+import com.swmansion.enriched.markdown.utils.text.view.emitStreamingEndEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitTextPressEvent
 import java.util.EnumSet
 import java.util.WeakHashMap
@@ -102,7 +103,10 @@ class EnrichedMarkdown(
       // show or hide the content it holds back.
       dirtyFlags += DirtyFlag.FORCE_HEIGHT
       renderPending = true
-      if (!value) finishStreamingAnimations()
+      if (!value) {
+        finishStreamingAnimations()
+        emitStreamingEndEvent()
+      }
     }
   var streamingFade: Boolean = true
     set(value) {

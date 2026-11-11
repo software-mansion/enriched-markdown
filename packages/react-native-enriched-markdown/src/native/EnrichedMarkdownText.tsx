@@ -201,6 +201,7 @@ export const EnrichedMarkdownText = ({
   streaming: streamingProp,
   streamingAnimation,
   streamingConfig,
+  onStreamingEnd,
   spoilerOverlay = 'particles',
   contextMenuItems,
   linkContextMenuItems,
@@ -419,6 +420,11 @@ export const EnrichedMarkdownText = ({
     [onCopyPress]
   );
 
+  const handleStreamingEnd = useCallback(
+    () => onStreamingEnd?.(),
+    [onStreamingEnd]
+  );
+
   const handleLatexError = useCallback(
     (e: NativeSyntheticEvent<LatexErrorEvent>) => {
       const { source, message, displayMode } = e.nativeEvent;
@@ -567,6 +573,7 @@ export const EnrichedMarkdownText = ({
     allowTrailingMargin,
     streaming,
     streamingConfig: normalizedStreamingConfig,
+    onStreamingEnd: handleStreamingEnd,
     spoilerOverlay,
     style: containerStyle,
     contextMenuItems: nativeContextMenuItems,

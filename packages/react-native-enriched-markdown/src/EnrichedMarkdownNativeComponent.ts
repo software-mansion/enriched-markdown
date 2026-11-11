@@ -661,6 +661,7 @@ export interface NativeProps extends ViewProps {
    * Fine-grained control over streaming behavior.
    */
   streamingConfig?: StreamingConfigInternal;
+  onStreamingEnd?: CodegenTypes.DirectEventHandler<null>;
   /**
    * Controls how spoiler text is displayed before being revealed.
    * - 'particles' (default): animated particle overlay.
