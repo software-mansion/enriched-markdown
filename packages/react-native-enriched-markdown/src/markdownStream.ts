@@ -18,8 +18,7 @@ export interface MarkdownStream {
   reset(text?: string): void;
   /**
    * Ends the stream, if `end()` wasn't called, and frees the text once no view
-   * shows it. A view that mounts after this shows
-   * nothing. A stream JS no longer references is freed too, where the engine
+   * shows it. A view that mounts once it is freed shows nothing. A stream JS no longer references is freed too, where the engine
    * supports FinalizationRegistry.
    */
   dispose(): void;
@@ -56,19 +55,22 @@ const scheduleFrame: (callback: () => void) => void =
     ? (callback) => requestAnimationFrame(callback)
     : (callback) => setTimeout(callback, 16);
 
+// The native stream's id and the module holding it.
+type NativeStream = { id: number; module: NativeStreams | null };
+
 // Frees a stream's native text once JS drops the stream without dispose().
 const finalizer =
   typeof FinalizationRegistry === 'function'
-    ? new FinalizationRegistry<{ id: number }>((native) => {
+    ? new FinalizationRegistry<NativeStream>((native) => {
         if (native.id !== 0) {
-          nativeStreams?.disposeStream(native.id);
+          native.module?.disposeStream(native.id);
         }
       })
     : null;
 
 class Stream implements MarkdownStream {
-  // The native stream's id, apart from the stream so the finalizer can hold it.
-  private readonly native = { id: 0 };
+  // Apart from the stream so the finalizer can hold it.
+  private readonly native: NativeStream = { id: 0, module: null };
   private length = 0;
   private text = '';
   // A chunk ending halfway through a surrogate pair: UTF-8 has no half characters.
@@ -77,7 +79,7 @@ class Stream implements MarkdownStream {
   private disposed = false;
   private framePending = false;
   // Native streams a reset replaced, freed once the new one is published.
-  private retiredIds: number[] = [];
+  private retired: NativeStream[] = [];
   private snapshot: MarkdownStreamSnapshot;
   private readonly listeners = new Set<() => void>();
 
@@ -101,10 +103,8 @@ class Stream implements MarkdownStream {
 
   getText(): string {
     if (this.disposed) return '';
-    const text =
-      this.native.id !== 0
-        ? nativeStreams!.readStream(this.native.id)
-        : this.text;
+    const { id, module } = this.native;
+    const text = id !== 0 && module != null ? module.readStream(id) : this.text;
     return text + this.highSurrogate;
   }
 
@@ -118,7 +118,7 @@ class Stream implements MarkdownStream {
 
   reset(text = ''): void {
     // A stream only grows, so a reset starts a new one.
-    if (this.native.id !== 0) this.retiredIds.push(this.native.id);
+    if (this.native.id !== 0) this.retired.push({ ...this.native });
     this.native.id = 0;
     this.highSurrogate = '';
     this.disposed = false;
@@ -149,8 +149,9 @@ class Stream implements MarkdownStream {
 
   private write(text: string) {
     if (text === '') return;
-    if (this.native.id !== 0) {
-      this.length = nativeStreams!.appendToStream(this.native.id, text);
+    const { id, module } = this.native;
+    if (id !== 0 && module != null) {
+      this.length = module.appendToStream(id, text);
     } else {
       this.text += text;
     }
@@ -159,12 +160,13 @@ class Stream implements MarkdownStream {
 
   // Writes the text as a chunk: append also gives its length in bytes.
   private start(text: string) {
-    const native = nativeStreams;
+    const module = nativeStreams;
     const complete = this.holdBack(text);
-    if (native != null) {
-      this.native.id = native.createStream('');
+    this.native.module = module;
+    if (module != null) {
+      this.native.id = module.createStream('');
       this.length =
-        complete === '' ? 0 : native.appendToStream(this.native.id, complete);
+        complete === '' ? 0 : module.appendToStream(this.native.id, complete);
     } else {
       this.text = complete;
     }
@@ -181,9 +183,10 @@ class Stream implements MarkdownStream {
   // Only once no view shows the stream, so the snapshot can change at once.
   private release() {
     if (this.native.id !== 0) {
-      nativeStreams?.disposeStream(this.native.id);
+      this.native.module?.disposeStream(this.native.id);
       this.native.id = 0;
     }
+    this.length = 0;
     this.text = '';
     this.snapshot = this.takeSnapshot();
   }
@@ -203,8 +206,8 @@ class Stream implements MarkdownStream {
     scheduleFrame(() => {
       this.framePending = false;
       this.snapshot = this.takeSnapshot();
-      this.retiredIds.forEach((id) => nativeStreams?.disposeStream(id));
-      this.retiredIds = [];
+      this.retired.forEach((stream) => stream.module?.disposeStream(stream.id));
+      this.retired = [];
       this.listeners.forEach((listener) => listener());
     });
   }

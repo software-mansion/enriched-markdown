@@ -249,6 +249,36 @@ it('holds back half a surrogate pair in the initial and reset text', () => {
   expect(mockStreams.get(secondId)).toBe('c' + emoji[0]);
 });
 
+it('frees the native text of a stream JS dropped without dispose()', () => {
+  const realRegistry = global.FinalizationRegistry;
+  let cleanup: ((held: unknown) => void) | undefined;
+  const held: unknown[] = [];
+  global.FinalizationRegistry = class {
+    constructor(callback: (held: unknown) => void) {
+      cleanup = callback;
+    }
+    register(_target: object, value: unknown) {
+      held.push(value);
+    }
+    unregister() {
+      return false;
+    }
+  } as unknown as typeof FinalizationRegistry;
+  try {
+    jest.isolateModules(() => {
+      const streams = require('../src/markdownStream');
+      streams.setNativeMarkdownStreams(NativeEnrichedMarkdownParser);
+      streams.createMarkdownStream('dropped');
+    });
+    const [id] = [...mockStreams.keys()];
+    expect(mockStreams.get(id!)).toBe('dropped');
+    cleanup!(held[0]);
+    expect(mockStreams.has(id!)).toBe(false);
+  } finally {
+    global.FinalizationRegistry = realRegistry;
+  }
+});
+
 it('holds back half a surrogate pair until the next chunk', () => {
   setNativeMarkdownStreams(null);
   const stream = createMarkdownStream();
