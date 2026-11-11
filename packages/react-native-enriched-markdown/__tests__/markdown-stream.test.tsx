@@ -201,7 +201,10 @@ it('keeps the native text while a view shows a disposed stream', () => {
   const root = render(<EnrichedMarkdownText stream={stream} />);
   const { streamId } = view(root).props;
   stream.dispose();
+  nextFrame();
   expect(mockStreams.get(streamId)).toBe('kept');
+  // Disposing ends it: the view renders it in full and stops streaming.
+  expect(view(root).props.streaming).toBe(false);
   act(() => root.unmount());
   expect(mockStreams.has(streamId)).toBe(false);
 });

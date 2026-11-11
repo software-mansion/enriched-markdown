@@ -20,7 +20,7 @@ Markdown arriving in pieces, from `createMarkdownStream()`: an alternative to `m
 - `getText()` returns the text appended so far; empty after `dispose()`.
 - `end()` marks the text complete: the view stops streaming and shows everything.
 - `reset(text?)` replaces the text and streams again.
-- `dispose()` frees the text once no view shows it.
+- `dispose()` ends the stream, if `end()` wasn't called, and frees the text once no view shows it.
 
 | Type             | Default Value | Platform |
 | ---------------- | ------------- | -------- |

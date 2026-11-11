@@ -114,7 +114,7 @@ stream.end();
 - `getText()` returns the text appended so far, for example to save or copy the message. After `dispose()` it is empty.
 - `end()` marks the text complete: the view stops [`streaming`](#streaming) and shows everything.
 - `reset(text?)` replaces the text (empty by default) and streams again, for a retry or a regeneration. It also works after `dispose()`.
-- `dispose()` frees the text once no view shows it; a view that mounts after that shows nothing. Call it when the message is gone. A stream that JavaScript no longer references is freed too, where the engine supports `FinalizationRegistry`.
+- `dispose()` ends the stream, if `end()` wasn't called, and frees the text once no view shows it; a view that mounts after that shows nothing. Call it when the message is gone. A stream that JavaScript no longer references is freed too, where the engine supports `FinalizationRegistry`.
 
 The view streams until `end()`; an explicit `streaming` prop takes precedence. A task-list checkbox toggled while streaming is reset by the next update. Create the stream outside the component (for example next to the message in your store), so it outlives views that unmount and mount again, such as rows of a list. For the same reason, don't dispose it in an effect cleanup of the component that renders it: StrictMode runs cleanups during development.
 

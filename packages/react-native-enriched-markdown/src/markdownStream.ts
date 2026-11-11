@@ -17,7 +17,8 @@ export interface MarkdownStream {
   /** Replaces the text (empty by default) and streams again, also after `dispose()`. */
   reset(text?: string): void;
   /**
-   * Frees the text once no view shows it. A view that mounts after this shows
+   * Ends the stream, if `end()` wasn't called, and frees the text once no view
+   * shows it. A view that mounts after this shows
    * nothing. A stream JS no longer references is freed too, where the engine
    * supports FinalizationRegistry.
    */
@@ -131,6 +132,8 @@ class Stream implements MarkdownStream {
   }
 
   dispose(): void {
+    // A disposed stream has ended: a view still showing it renders it in full.
+    this.end();
     this.disposed = true;
     // Views showing the stream keep its text until they unmount.
     if (this.listeners.size === 0) this.release();
