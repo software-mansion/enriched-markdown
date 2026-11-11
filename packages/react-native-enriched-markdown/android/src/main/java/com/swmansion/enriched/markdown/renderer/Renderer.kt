@@ -108,7 +108,9 @@ class Renderer {
   /**
    * Where each top-level node of the last [renderContent] starts in its buffer, and the task
    * count before it. Rendering resumes at any of them: between top-level nodes the context is
-   * back at its baseline, so rendering the nodes from one on gives that part of the buffer.
+   * back at its baseline, and the buffer is empty or ends in "\n", which renderers treat alike.
+   * So rendering the nodes from one on gives that part of the buffer, as long as every top-level
+   * node renders nothing or ends in "\n" (TextRenderCacheTest covers each kind).
    */
   fun getBlockStarts(): IntArray = blockStarts
 

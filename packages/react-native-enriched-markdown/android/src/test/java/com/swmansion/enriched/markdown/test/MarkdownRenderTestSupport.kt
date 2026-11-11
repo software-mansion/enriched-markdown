@@ -69,6 +69,7 @@ object MarkdownRenderTestSupport {
     style.putMap("taskList", JavaOnlyMap().apply { putAll(defaultTaskList + taskList) })
     style.putMap("list", textElement().apply { putAll(defaultList + list) })
     style.putMap("codeBlock", textElement().apply { putAll(defaultCodeBlock + codeBlock) })
+    style.putMap("thematicBreak", JavaOnlyMap.of("color", Color.BLACK, "height", 1.0, "marginTop", 0.0, "marginBottom", 0.0))
     style.putMap("image", JavaOnlyMap().apply { putAll(defaultImage + image) })
     style.putMap("inlineImage", JavaOnlyMap.of("size", 20.0))
     return StyleConfig(style, context, false, 0f)

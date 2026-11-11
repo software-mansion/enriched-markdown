@@ -39,6 +39,13 @@ class TextRenderCacheTest {
     url: String,
   ) = MarkdownASTNode(NodeType.Link, attributes = mapOf("url" to url), children = listOf(text(label)))
 
+  private fun blockquote(vararg children: MarkdownASTNode) = MarkdownASTNode(NodeType.Blockquote, children = children.toList())
+
+  private fun codeBlock(code: String) = MarkdownASTNode(NodeType.CodeBlock, children = listOf(text(code)))
+
+  // A block image: alone in its paragraph. The URL loads nothing, so it keeps its placeholder.
+  private fun blockImage(name: String) = paragraph(MarkdownASTNode(NodeType.Image, attributes = mapOf("url" to "test://$name")))
+
   // Each block in the versions a stream shows while it arrives, the last one complete.
   private val blocks: List<List<MarkdownASTNode>> =
     listOf(
@@ -61,6 +68,15 @@ class TextRenderCacheTest {
         unorderedList(taskListItem(true, paragraph(text("Done"))), taskListItem(false, paragraph(text("Next")))),
       ),
       listOf(heading(2, "Key"), heading(2, "Key steps")),
+      listOf(blockImage("diagram")),
+      listOf(
+        blockquote(paragraph(text("Note"))),
+        blockquote(paragraph(text("Note: keep the "), strong("key"))),
+        blockquote(paragraph(text("Note: keep the "), strong("key")), paragraph(text("somewhere safe"))),
+      ),
+      listOf(codeBlock("npm"), codeBlock("npm install\n"), codeBlock("npm install\nnpm test\n")),
+      listOf(MarkdownASTNode(NodeType.ThematicBreak)),
+      listOf(blockImage("result")),
       listOf(paragraph(text("That's")), paragraph(text("That's it, you now have a "), strong("working setup"), text("."))),
     )
 
@@ -118,7 +134,10 @@ class TextRenderCacheTest {
         shown = cached.styledText as SpannableStringBuilder
       }
       shownRevision = cached.revision
-      assertEquals(describe(fullText), describe(shown!!))
+      val shownText = shown!!
+      assertEquals(describe(fullText), describe(shownText))
+      // A patch's image spans are the kept ones before it and the tail's.
+      assertEquals(full.imageSpans.map { fullText.getSpanStart(it) }, cached.imageSpans.map { shownText.getSpanStart(it) })
     }
     assertTrue("patched $patches of ${states.size}", patches >= states.size - blocks.size)
   }
