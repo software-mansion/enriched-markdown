@@ -1,9 +1,10 @@
 /*
  * A streamed document is parsed in parts: its finished blocks once, the rest on
- * every update (DocumentStore). Streams the fixtures, a corpus and generated
- * documents through the store in every chunking and checks each state against
- * parsing its text whole: the same tree, slots, images and links. Also checks
- * that the finished blocks keep their nodes from one update to the next.
+ * every update (DocumentStore). Streams the fixtures and generated documents
+ * through the store a byte at a time and in three random chunkings, and checks
+ * each state against parsing its text whole: the same tree, slots, images and
+ * links. Also checks that the finished blocks keep their nodes from one update
+ * to the next.
  * See scripts/test-core-parser.sh.
  */
 #include "DocumentStore.hpp"
@@ -129,6 +130,9 @@ void checkStream(const std::string &name, const std::string &document, const Var
   auto &store = DocumentStore::shared();
   store.clear();
   std::shared_ptr<const ParsedDocument> previous;
+  StreamingSnapshot previousSnapshot;
+  bool previousInParts = false;
+  size_t mostFinished = 0; // finishedBytes can go back, as when `$$` opens a block
   size_t reported = 0;
   for (size_t length = 0; length < document.size() && reported < 3;) {
     length += maxStep == 0 ? 1 : 1 + random() % maxStep;
@@ -136,7 +140,10 @@ void checkStream(const std::string &name, const std::string &document, const Var
     while (length < document.size() && (static_cast<unsigned char>(document[length]) & 0xC0) == 0x80)
       length++;
     StreamingSnapshot snapshot = store.snapshot(document.substr(0, length), variant.options);
+    size_t inPartsBefore = store.extendedParseCount();
     auto parsed = store.parse(snapshot.markdown, variant.options.flags, variant.isGFM);
+    // Parsed now, not found: a found document keeps the finished blocks it was parsed with.
+    bool inParts = store.extendedParseCount() > inPartsBefore;
     std::string expected = describe(parseWhole(snapshot.markdown, variant.options.flags, variant.isGFM));
     std::string actual = describe(*parsed);
     if (actual != expected) {
@@ -148,14 +155,27 @@ void checkStream(const std::string &name, const std::string &document, const Var
       failures++;
       reported++;
     }
-    // The blocks two states share are the same nodes.
-    if (previous && previous->ast && parsed->ast) {
-      const auto &before = previous->ast->children;
-      const auto &now = parsed->ast->children;
-      for (size_t i = 0; i < before.size() && i < now.size() && before[i] == now[i]; i++)
-        reused++;
+    // Two states parsed in parts share the nodes of the earlier one's finished blocks, unless an
+    // older state finished more.
+    const size_t known = previousSnapshot.finishedBytes;
+    if (previousInParts && inParts && known > 0 && known == mostFinished && snapshot.finishedBytes >= known &&
+        snapshot.markdown.compare(0, known, previousSnapshot.markdown, 0, known) == 0) {
+      std::shared_ptr<MarkdownASTNode> finished =
+          MD4CParser().parse(snapshot.markdown.substr(0, known), variant.options.flags, variant.isGFM);
+      size_t blocks = finished ? finished->children.size() : 0;
+      size_t shared = sharedLeadingBlocks(*parsed, *previous);
+      if (shared < blocks) {
+        std::cerr << "FAIL: " << name << " (" << variant.name << ") after " << length << " bytes shares " << shared
+                  << " of the previous state's " << blocks << " finished blocks\n";
+        failures++;
+        reported++;
+      }
+      reused += shared;
     }
     previous = parsed;
+    previousSnapshot = snapshot;
+    previousInParts = inParts;
+    mostFinished = std::max(mostFinished, snapshot.finishedBytes);
   }
   extended += store.extendedParseCount();
 }
@@ -300,6 +320,22 @@ int main(int argc, char **argv) {
   }
   if (store.extendedParseCount() < 198 || !last->ast || last->ast->children.size() != 201) {
     std::cerr << "FAIL: a growing answer is parsed in parts (" << store.extendedParseCount() << " of 200 updates)\n";
+    failures++;
+  }
+
+  // Another text with the same finished start, where the line after it continues the list above:
+  // parsed whole, not after the start's nodes.
+  store.clear();
+  for (const char *text : {"- a\n\nNext", "- a\n\n- b\n\nAfter"}) {
+    StreamingSnapshot snapshot = store.snapshot(text, {});
+    auto parsed = store.parse(snapshot.markdown, {}, true);
+    if (describe(*parsed) != describe(parseWhole(snapshot.markdown, {}, true))) {
+      std::cerr << "FAIL: a text sharing another's finished start parses differently:\n" << text << "\n";
+      failures++;
+    }
+  }
+  if (sharedLeadingBlocks(ParsedDocument{}, *last) != 0) {
+    std::cerr << "FAIL: an empty document shares blocks\n";
     failures++;
   }
 

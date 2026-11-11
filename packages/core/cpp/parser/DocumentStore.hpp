@@ -33,6 +33,10 @@ struct FinishedBlocks {
   bool extendable = true;
 };
 
+// How many of `a`'s first top-level blocks are the very nodes `b` starts with: the finished blocks
+// two states of a stream share, whose conversions a host can take over.
+size_t sharedLeadingBlocks(const ParsedDocument &a, const ParsedDocument &b);
+
 // A streaming snapshot or parse is computed once per input and process: a
 // tick's collect on the JS thread, measurement on the layout thread and the
 // render on the main or a background thread all ask for the same text one

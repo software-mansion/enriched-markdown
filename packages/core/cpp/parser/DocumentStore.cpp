@@ -77,6 +77,17 @@ bool startsBlockAt(const std::string &markdown, size_t offset) {
 
 } // namespace
 
+size_t sharedLeadingBlocks(const ParsedDocument &a, const ParsedDocument &b) {
+  if (!a.ast || !b.ast)
+    return 0;
+  const auto &first = a.ast->children;
+  const auto &second = b.ast->children;
+  size_t shared = 0;
+  while (shared < first.size() && shared < second.size() && first[shared] == second[shared])
+    shared++;
+  return shared;
+}
+
 DocumentStore &DocumentStore::shared() {
   static DocumentStore store;
   return store;
