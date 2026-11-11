@@ -66,6 +66,17 @@ template <typename PropsT> static inline bool ENRMStreamingRenderEqual(const Pro
          a.streamingConfig.mediaMode == b.streamingConfig.mediaMode;
 }
 
+/// Whether `props` is a stream's update on what `previous` measured: the markdown
+/// kept all of the previous and nothing else that sizes the content changed.
+template <typename PropsT>
+static inline bool ENRMIsStreamUpdate(const ENRMPreviousMeasurement<PropsT> &previous, const PropsT &props,
+                                      const MeasurementCacheKey &layoutKey, NSWritingDirection layoutDirection)
+{
+  return previous.props && previous.layoutKey == layoutKey && previous.layoutDirection == layoutDirection &&
+         ENRMStreamingRenderEqual(*previous.props, props) &&
+         ENRMMarkdownExtends(previous.props->markdown, props.markdown);
+}
+
 /**
  * Renders the content of a view that has not mounted yet (and is not
  * streaming) for its first apply to take (ENRMPreparedRenderStore), so a newly
@@ -116,29 +127,28 @@ static inline Size ENRMMeasureMarkdownContent(
   const bool shouldUseMeasurementCache = !typedProps.streamingAnimation;
   CGFloat fontScale = ENRMFontScaleForMeasurement(typedProps.allowFontScaling, layoutContext);
 
-  // A stream's update: the markdown kept all of the previous and nothing else that
-  // sizes the content changed. The view lays out every render it applies and asks
-  // for a new layout when its height changes, so the size it laid out at spares
-  // measuring the whole document again on every update (ENRMChooseMeasurement).
-  // New content, another width or a view that hasn't laid anything out measure in full.
-  MeasurementCacheKey layoutKey =
-      buildMeasurementCacheKey(typedProps, 0, fontScale, flavor, wrappedCodeBlocksFingerprint, false);
-  const bool streamUpdate = previous.props && previous.layoutKey == layoutKey &&
-                            previous.layoutDirection == static_cast<int>(resolvedLayoutDirection) &&
-                            ENRMStreamingRenderEqual(*previous.props, typedProps) &&
-                            ENRMMarkdownExtends(previous.props->markdown, typedProps.markdown);
+  // The view lays out every render it applies and asks for a new layout when its
+  // height changes, so for a stream's update the size it laid out at spares
+  // measuring the whole document again (ENRMChooseMeasurement). New content,
+  // another width or a view that hasn't laid anything out measure in full.
+  MeasurementCacheKey layoutKey = buildLayoutCacheKey(typedProps, fontScale, flavor, wrappedCodeBlocksFingerprint);
+  const bool streamUpdate = ENRMIsStreamUpdate(previous, typedProps, layoutKey, resolvedLayoutDirection);
   const CGSize laidOut = streamUpdate && view ? [view laidOutSizeForWidth:maxWidth
                                                          pointScaleFactor:layoutContext.pointScaleFactor
                                                                  markdown:typedProps.markdown]
                                               : CGSizeZero;
-  const ENRMMeasurementSource source =
-      ENRMChooseMeasurement(streamUpdate, streamUpdate && typedProps.markdown.size() > previous.props->markdown.size(),
-                            previous.heightCounter != heightCounter, view != nil, laidOut.height > 0,
-                            std::abs(previous.maxWidth - maxWidth) * layoutContext.pointScaleFactor < 1);
+  const ENRMMeasurementSource source = ENRMChooseMeasurement({
+      .streamUpdate = streamUpdate,
+      .grew = streamUpdate && typedProps.markdown.size() > previous.props->markdown.size(),
+      .viewAskedForHeight = previous.heightCounter != heightCounter,
+      .hasView = view != nil,
+      .hasLaidOutSize = laidOut.height > 0,
+      .samePreviousWidth = std::abs(previous.maxWidth - maxWidth) * layoutContext.pointScaleFactor < 1,
+  });
 
   previous.props = props;
   previous.layoutKey = std::move(layoutKey);
-  previous.layoutDirection = static_cast<int>(resolvedLayoutDirection);
+  previous.layoutDirection = resolvedLayoutDirection;
   previous.heightCounter = heightCounter;
   previous.maxWidth = maxWidth;
   if (source == ENRMMeasurementSource::Previous) {
@@ -154,10 +164,14 @@ static inline Size ENRMMeasureMarkdownContent(
       ENRMPrepareFirstRender(view != nil, typedProps.streamingAnimation,
                              {props, fontScale, resolvedLayoutDirection, nil}, ^id { return render(fontScale); });
 
+  std::optional<MeasurementCacheKey> cacheKey;
   if (shouldUseMeasurementCache && !typedProps.markdown.empty()) {
-    auto cacheKey = buildMeasurementCacheKey(typedProps, maxWidth, fontScale, flavor, wrappedCodeBlocksFingerprint);
+    // The layout key just stored, with the markdown and width it leaves out.
+    cacheKey = *previous.layoutKey;
+    cacheKey->markdown = typedProps.markdown;
+    cacheKey->maxWidth = maxWidth;
     CachedSize cached;
-    if (MeasurementCache::shared().get(cacheKey, cached)) {
+    if (MeasurementCache::shared().get(*cacheKey, cached)) {
       previous.width = cached.width;
       previous.height = cached.height;
       return ENRMClampMeasuredSize(CGSizeMake(cached.width, cached.height), layoutConstraints);
@@ -166,9 +180,8 @@ static inline Size ENRMMeasureMarkdownContent(
 
   CGSize size = measureUncached(view, maxWidth, fontScale, rendered);
 
-  if (shouldUseMeasurementCache && !typedProps.markdown.empty()) {
-    auto cacheKey = buildMeasurementCacheKey(typedProps, maxWidth, fontScale, flavor, wrappedCodeBlocksFingerprint);
-    MeasurementCache::shared().set(cacheKey, {size.width, size.height});
+  if (cacheKey) {
+    MeasurementCache::shared().set(*cacheKey, {size.width, size.height});
   }
 
   previous.width = size.width;
