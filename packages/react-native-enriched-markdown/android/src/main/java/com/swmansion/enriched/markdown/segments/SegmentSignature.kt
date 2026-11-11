@@ -53,6 +53,8 @@ object SegmentSignature {
 
   fun signatureForNode(node: MarkdownASTNode?): Long {
     if (node == null) return FNV_OFFSET_BASIS
+    val cached = node.cachedSignature
+    if (cached != 0L) return cached
 
     var hash = FNV_OFFSET_BASIS
     hash = fnvMixLong(hash, node.type.ordinal.toLong())
@@ -69,6 +71,7 @@ object SegmentSignature {
       hash = fnvMixLong(hash, signatureForNode(child))
     }
 
+    node.cachedSignature = hash
     return hash
   }
 

@@ -12,6 +12,7 @@
 #include <android/log.h>
 #include <array>
 #include <jni.h>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -138,6 +139,48 @@ public:
     }
   }
 
+  // The Document node of `blocks`, whose first `shared` are the first children of `convertedRoot`,
+  // a Document converted earlier: those are taken from it, and only the rest is converted.
+  jobject createDocument(const std::vector<std::shared_ptr<MarkdownASTNode>> &blocks, size_t shared,
+                         jobject convertedRoot, const AstOverlay &overlay) {
+    if (!ready_ || env_->PushLocalFrame(16) != JNI_OK)
+      return nullptr;
+    jobject children = env_->NewObject(listClass_, listInit_, static_cast<jint>(blocks.size()));
+    if (shared > 0) {
+      jobject converted = env_->CallObjectMethod(convertedRoot, getChildren_);
+      jobject first = env_->CallObjectMethod(converted, listSubList_, 0, static_cast<jint>(shared));
+      env_->CallBooleanMethod(children, listAddAll_, first);
+    }
+    MarkdownASTNode added(NodeType::Document);
+    added.children.assign(blocks.begin() + static_cast<std::ptrdiff_t>(shared), blocks.end());
+    overlay.forEachChild(added, [&](const std::shared_ptr<MarkdownASTNode> &child) {
+      if (jobject javaChild = create(*child, overlay)) {
+        env_->CallBooleanMethod(children, listAdd_, javaChild);
+        env_->DeleteLocalRef(javaChild);
+      }
+    });
+    jobject nodeType = env_->GetObjectArrayElement(nodeTypes_, nodeTypeToJavaOrdinal(NodeType::Document));
+    jobject attributes = env_->NewObject(mapClass_, mapInit_, 0);
+    jobject javaNode = env_->NewObject(nodeClass_, constructor_, nodeType, javaString(env_, ""), attributes, children);
+    if (env_->ExceptionCheck()) {
+      env_->ExceptionDescribe();
+      env_->ExceptionClear();
+      env_->PopLocalFrame(nullptr);
+      return nullptr;
+    }
+    return env_->PopLocalFrame(javaNode);
+  }
+
+  // How many children a converted Document has.
+  size_t childCount(jobject convertedRoot) {
+    if (!ready_)
+      return 0;
+    jobject converted = env_->CallObjectMethod(convertedRoot, getChildren_);
+    jint count = converted ? env_->CallIntMethod(converted, listSize_) : 0;
+    env_->DeleteLocalRef(converted);
+    return static_cast<size_t>(count);
+  }
+
   // Each node gets its own local frame, so a deep tree never runs out of local
   // references and only the returned node outlives the call.
   jobject create(const MarkdownASTNode &node, const AstOverlay &overlay) {
@@ -200,7 +243,15 @@ private:
       return false;
     listInit_ = env_->GetMethodID(listClass_, "<init>", "(I)V");
     listAdd_ = env_->GetMethodID(listClass_, "add", "(Ljava/lang/Object;)Z");
-    return listInit_ && listAdd_;
+    listAddAll_ = env_->GetMethodID(listClass_, "addAll", "(Ljava/util/Collection;)Z");
+    jclass list = env_->FindClass("java/util/List");
+    if (!list)
+      return false;
+    listSubList_ = env_->GetMethodID(list, "subList", "(II)Ljava/util/List;");
+    listSize_ = env_->GetMethodID(list, "size", "()I");
+    env_->DeleteLocalRef(list);
+    getChildren_ = env_->GetMethodID(nodeClass_, "getChildren", "()Ljava/util/List;");
+    return listInit_ && listAdd_ && listAddAll_ && listSubList_ && listSize_ && getChildren_;
   }
 
   JNIEnv *env_;
@@ -213,8 +264,25 @@ private:
   jmethodID mapPut_ = nullptr;
   jmethodID listInit_ = nullptr;
   jmethodID listAdd_ = nullptr;
+  jmethodID listAddAll_ = nullptr;
+  jmethodID listSubList_ = nullptr;
+  jmethodID listSize_ = nullptr;
+  jmethodID getChildren_ = nullptr;
   bool ready_ = false;
 };
+
+// The last few documents converted without link recognition, by what their nodes got on the way.
+// A stream's finished blocks keep their nodes from one update to the next (DocumentStore), so the
+// next conversion takes their Kotlin nodes from here.
+struct Conversion {
+  std::shared_ptr<const ParsedDocument> document;
+  std::unordered_set<std::string> slotIds;
+  bool imageIds;
+  jobject root; // global reference
+};
+std::mutex recentConversionsMutex;
+std::vector<Conversion> recentConversions; // most recent first
+constexpr size_t kRecentConversions = 4;
 
 } // namespace
 
@@ -406,15 +474,55 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
         env->DeleteLocalRef(id);
       }
     }
-    TextLinkReplacements links;
+    JavaNodeFactory factory(env);
     if (textLinkRegex || inlineCodeLinkRegex) {
-      links = recognizeTextLinks(*document->ast, makeTextLinkMatchers(env, textLinkRegex, inlineCodeLinkRegex));
+      TextLinkReplacements links =
+          recognizeTextLinks(*document->ast, makeTextLinkMatchers(env, textLinkRegex, inlineCodeLinkRegex));
+      AstOverlay overlay(*document, std::move(ids), withImageIds, std::move(links));
+      jobject javaNode = factory.create(*document->ast, overlay);
+      if (!javaNode) {
+        LOGE("Failed to create Java node from AST");
+      }
+      return javaNode;
     }
-    AstOverlay overlay(*document, std::move(ids), withImageIds, std::move(links));
 
-    jobject javaNode = JavaNodeFactory(env).create(*document->ast, overlay);
+    // The blocks a recent conversion already holds are taken from it.
+    const auto &blocks = document->ast->children;
+    size_t shared = 0;
+    jobject converted = nullptr;
+    {
+      std::lock_guard<std::mutex> lock(recentConversionsMutex);
+      for (const Conversion &recent : recentConversions) {
+        if (recent.imageIds != withImageIds || recent.slotIds != ids)
+          continue;
+        const auto &other = recent.document->ast->children;
+        size_t same = 0;
+        while (same < blocks.size() && same < other.size() && blocks[same] == other[same])
+          same++;
+        if (same > shared && factory.childCount(recent.root) == other.size()) {
+          shared = same;
+          if (converted)
+            env->DeleteLocalRef(converted);
+          converted = env->NewLocalRef(recent.root);
+        }
+      }
+    }
+
+    AstOverlay overlay(*document, ids, withImageIds, {});
+    jobject javaNode = factory.createDocument(blocks, shared, converted, overlay);
+    if (converted)
+      env->DeleteLocalRef(converted);
     if (!javaNode) {
       LOGE("Failed to create Java node from AST");
+      return nullptr;
+    }
+
+    std::lock_guard<std::mutex> lock(recentConversionsMutex);
+    recentConversions.insert(recentConversions.begin(),
+                             Conversion{document, std::move(ids), withImageIds, env->NewGlobalRef(javaNode)});
+    while (recentConversions.size() > kRecentConversions) {
+      env->DeleteGlobalRef(recentConversions.back().root);
+      recentConversions.pop_back();
     }
     return javaNode;
   } catch (const std::exception &e) {
