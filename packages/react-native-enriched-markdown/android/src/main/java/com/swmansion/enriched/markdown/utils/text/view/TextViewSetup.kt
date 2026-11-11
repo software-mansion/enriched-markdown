@@ -20,6 +20,7 @@ import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
 import com.swmansion.enriched.markdown.segments.replaceTail
 import com.swmansion.enriched.markdown.utils.common.BoundsForWidthUtils
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
+import java.util.IdentityHashMap
 
 /**
  * Adopts the renderer's buffer instead of copying it: the default factory's copy is
@@ -70,7 +71,7 @@ private class InsertionOrderedSpannable(
   ) = buffer.getChars(start, end, dest, destoff)
 
   // Watchers set on this text, by the proxy that stands in for each in the buffer.
-  private val watcherProxies = HashMap<Any, WatcherProxy>()
+  private val watcherProxies = IdentityHashMap<Any, WatcherProxy>()
 
   // Set while [repaintSpan] re-sets a span: the watchers hear it from the buffer then, which the
   // view draws again from and DynamicLayout ignores, so nothing is laid out again.
@@ -80,12 +81,14 @@ private class InsertionOrderedSpannable(
    * Replaces the text from [start] on with [tail] as one change, told only to the layouts: they
    * reflow once, where the buffer would tell them of every span it copies. TextView's own watcher
    * hears nothing, as for setText: an edit would scroll to the selection and copy the text for
-   * accessibility. The view invalidates itself ([replaceAdoptedTextTail]).
+   * accessibility. The view invalidates itself ([replaceAdoptedTextTail]). False, with the text
+   * unchanged, when [hasLayout] but no layout watches the text: none would reflow.
    */
   fun replaceTail(
     start: Int,
     tail: Spanned,
-  ) {
+    hasLayout: Boolean,
+  ): Boolean {
     val before = buffer.length - start
     val proxies = buffer.getSpans(0, buffer.length, WatcherProxy::class.java)
     val layouts =
@@ -95,6 +98,7 @@ private class InsertionOrderedSpannable(
             DynamicLayout::class.java
         }
       }
+    if (hasLayout && layouts.isEmpty()) return false
     layouts.forEach { it.beforeTextChanged(this, start, before, tail.length) }
     proxies.forEach { it.muted = true }
     try {
@@ -104,6 +108,7 @@ private class InsertionOrderedSpannable(
     }
     layouts.forEach { it.onTextChanged(this, start, before, tail.length) }
     layouts.forEach { it.afterTextChanged(buffer) }
+    return true
   }
 
   override fun <T : Any?> getSpans(
@@ -258,17 +263,14 @@ fun isAdoptedText(text: CharSequence?): Boolean = text is InsertionOrderedSpanna
 
 /**
  * Replaces [text] from [start] on with [tail] in place, as one change, when [text] is a buffer a
- * markdown text view adopted; false otherwise.
+ * markdown text view adopted and, if the view [hasLayout], that layout watches it; false otherwise.
  */
 fun replaceAdoptedTextTail(
   text: CharSequence?,
   start: Int,
   tail: Spanned,
-): Boolean {
-  if (text !is InsertionOrderedSpannable || start > text.length) return false
-  text.replaceTail(start, tail)
-  return true
-}
+  hasLayout: Boolean,
+): Boolean = text is InsertionOrderedSpannable && start <= text.length && text.replaceTail(start, tail, hasLayout)
 
 fun AccessibleMarkdownTextView.setupAsMarkdownTextView() {
   setBackgroundColor(Color.TRANSPARENT)

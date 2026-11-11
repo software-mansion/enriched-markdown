@@ -63,14 +63,15 @@ abstract class AccessibleMarkdownTextView
     /**
      * Replaces the text from [start] on with [tail]. The layout keeps the lines before the edit
      * (DynamicLayout reflows from the changed paragraph), where setting the whole text would lay
-     * all of it out again. False when the view holds no buffer to edit.
+     * all of it out again. False when the view holds no buffer to edit, or its layout wouldn't
+     * hear of the edit.
      */
     protected fun replaceTextTail(
       start: Int,
       tail: Spannable,
     ): Boolean {
       prepareSpans(tail)
-      if (!replaceAdoptedTextTail(text, start, tail)) return false
+      if (!replaceAdoptedTextTail(text, start, tail, hasLayout = layout != null)) return false
       // TextView didn't hear of the edit. Without a request, measure() would return the height
       // cached before it.
       requestLayout()
