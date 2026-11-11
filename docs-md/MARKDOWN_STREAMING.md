@@ -78,10 +78,21 @@ An unterminated `$$` block math is always withheld until its closing `$$` arrive
 
 | Value | Behavior |
 |---|---|
-| `'fade'` (default) | New text, blocks and table rows fade in. |
+| `'fade'` (default) | Each new chunk of text fades in over its own 200 ms; new blocks and table rows fade in. |
+| `'gradient'` | The last 20 characters run from their own color to transparent, following the end of the text as it grows, and settle to their own colors over 200 ms when the stream ends. |
 | `'none'` | Nothing animates; the incomplete-block handling above still applies. |
 
-Reduce Motion turns the animation off.
+A preset with its options: `{ type: 'fade', duration }` sets the text's fade in milliseconds (blocks and table rows keep 200 ms); `{ type: 'gradient', length, startColor, endColor }` sets how many characters it covers and the colors at its start and end.
+
+```tsx
+<EnrichedMarkdownText
+  markdown={partialMarkdown}
+  streaming={isStreaming}
+  streamingConfig={{ animation: { type: 'gradient', length: 15, startColor: '#107ACA', endColor: 'transparent' } }}
+/>
+```
+
+Animations change only how characters are drawn, never the text. Reduce Motion turns them off.
 
 ## Half-Written Inline Syntax
 
