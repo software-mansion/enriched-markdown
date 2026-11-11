@@ -16,7 +16,7 @@
 
 @implementation ENRMPacerTicker
 
-- (void)tick:(CADisplayLink *)link
+- (void)tick:(id)sender
 {
   [self.pacer tick];
 }
@@ -30,7 +30,11 @@
   NSString *_markdown;
   NSUInteger _shown;
   BOOL _finishing;
+#if TARGET_OS_OSX
+  NSTimer *_link;
+#else
   CADisplayLink *_link;
+#endif
 }
 
 - (instancetype)initWithReveal:(void (^)(NSString *))reveal done:(void (^)(void))done
@@ -127,11 +131,17 @@
     if (_link == nil) {
       ENRMPacerTicker *ticker = [[ENRMPacerTicker alloc] init];
       ticker.pacer = self;
-      _link = [CADisplayLink displayLinkWithTarget:ticker selector:@selector(tick:)];
       // Each reveal renders the text again: 30 a second keeps words flowing (they fade in at the
       // display's rate) without rendering more often than a stream's own updates would.
+#if TARGET_OS_OSX
+      // macOS has no CADisplayLink.
+      _link = [NSTimer timerWithTimeInterval:1.0 / 30 target:ticker selector:@selector(tick:) userInfo:nil repeats:YES];
+      [NSRunLoop.mainRunLoop addTimer:_link forMode:NSRunLoopCommonModes];
+#else
+      _link = [CADisplayLink displayLinkWithTarget:ticker selector:@selector(tick:)];
       _link.preferredFrameRateRange = CAFrameRateRangeMake(15, 30, 30);
       [_link addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
+#endif
     }
   } else {
     [_link invalidate];
