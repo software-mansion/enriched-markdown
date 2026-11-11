@@ -563,7 +563,7 @@ Controls how newly arrived content appears while `streaming` is `true`. Reduce M
 
 #### `smooth`
 
-Reveals new text word by word at a steady pace instead of in the bursts it arrives in, with any `animation`: the view shows the text revealed so far, so its layout and blocks grow with the words. Each chunk spreads over the time until the next one, at most a second behind. Defaults to `false`.
+Reveals new text word by word at a steady pace instead of in the bursts it arrives in, with any `animation`: the view shows the text revealed so far, so its layout and blocks grow with the words. Each chunk spreads over the time until the next one, at most a second behind. Reduce Motion keeps the pacing and turns off only the animation. Defaults to `false`.
 
 ### `spoilerOverlay`
 

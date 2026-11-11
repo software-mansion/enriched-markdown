@@ -65,7 +65,7 @@ Models and networks deliver text in bursts. `streamingConfig.smooth` reveals it 
 <EnrichedMarkdownText markdown={partial} streaming streamingConfig={{ smooth: true }} />
 ```
 
-The view shows the text revealed so far, so lines, list items and blocks (tables, code blocks, images) grow with the words, and a view that scrolls to its end follows them line by line. Each chunk spreads over the time until the next one, so the pace follows the stream, at most a second behind; a word a chunk ends inside waits for the rest of it, and markdown such as a list marker or a heading's `##` waits for the word after it. When the stream ends, what is left shows within 200 ms. It works with every animation: words fade in with `'fade'`, the gradient follows the words, and with `'none'` words appear without fading.
+The view shows the text revealed so far, so lines, list items and blocks (tables, code blocks, images) grow with the words, and a view that scrolls to its end follows them line by line. Each chunk spreads over the time until the next one, so the pace follows the stream, at most a second behind; a word a chunk ends inside waits for the rest of it, and markdown such as a list marker or a heading's `##` waits for the word after it. When the stream ends, what is left shows within 200 ms. It works with every animation: words fade in with `'fade'`, the gradient follows the words, and with `'none'` words appear without fading. Reduce Motion keeps the pacing and turns off only the animation.
 
 ### Streaming without re-rendering
 
