@@ -1,6 +1,10 @@
 #import "MarkdownASTNode.h"
+#import <stdatomic.h>
 
-@implementation MarkdownASTNode
+@implementation MarkdownASTNode {
+  _Atomic(uint64_t) _signature;
+  atomic_bool _hasSignature;
+}
 
 - (instancetype)initWithType:(MarkdownNodeType)type
 {
@@ -16,11 +20,34 @@
 - (void)addChild:(MarkdownASTNode *)child
 {
   [_children addObject:child];
+  atomic_store(&_hasSignature, false);
 }
 
 - (void)setAttribute:(NSString *)key value:(NSString *)value
 {
   _attributes[key] = value;
+  atomic_store(&_hasSignature, false);
+}
+
+- (void)setContent:(NSString *)content
+{
+  _content = content;
+  atomic_store(&_hasSignature, false);
+}
+
+- (BOOL)getCachedSignature:(uint64_t *)signature
+{
+  if (!atomic_load(&_hasSignature)) {
+    return NO;
+  }
+  *signature = atomic_load(&_signature);
+  return YES;
+}
+
+- (void)cacheSignature:(uint64_t)signature
+{
+  atomic_store(&_signature, signature);
+  atomic_store(&_hasSignature, true);
 }
 
 - (NSString *)description

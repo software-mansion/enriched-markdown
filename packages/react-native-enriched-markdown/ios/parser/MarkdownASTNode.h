@@ -48,6 +48,12 @@ typedef NS_ENUM(NSInteger, MarkdownNodeType) {
 - (void)addChild:(MarkdownASTNode *)child;
 - (void)setAttribute:(NSString *)key value:(NSString *)value;
 
+/// The node's signature (ENRMSignatureForNode), kept once computed: nothing changes a node after
+/// the parse, and a stream's finished blocks keep their nodes from one update to the next. Safe
+/// from any thread.
+- (BOOL)getCachedSignature:(uint64_t *)signature;
+- (void)cacheSignature:(uint64_t)signature;
+
 @end
 
 /// A node type that md4c emits as a standalone block stacked vertically,
