@@ -413,12 +413,33 @@ object MeasurementStore {
     if (id == null || blockSlotIds.isNotEmpty()) {
       // Slot children are measured where the walk places them; nothing here takes the view's size.
       if (id != null) previousInputs.remove(id)
-      return measureInFull(context, id, width, props, splitTableSegments, blockSlotIds, allowFontScaling, fontScale, maxFontSizeMultiplier)
+      val full =
+        measureInFull(context, id, width, props, splitTableSegments, blockSlotIds, allowFontScaling, fontScale, maxFontSizeMultiplier)
+      return revealedSize(id, width, props, full) ?: full
     }
     laidOutSizeForStreamUpdate(id, width, props, splitTableSegments, allowFontScaling, fontScale, maxFontSizeMultiplier)
       ?.let { return it }
     return measureInFull(context, id, width, props, splitTableSegments, blockSlotIds, allowFontScaling, fontScale, maxFontSizeMultiplier)
       .also { recordMeasured(id, it) }
+  }
+
+  // With smooth pacing the view shows only a start of the markdown, the slots' blocks arriving with
+  // the words: the height it laid that start out at. The whole document still places every slot, so a
+  // block's space is reserved as soon as it is revealed (the shadow node hides the slots below).
+  private fun revealedSize(
+    id: Int?,
+    width: Float,
+    props: ReadableMap?,
+    full: Long,
+  ): Long? {
+    if (id == null || props?.getMapOrNull("streamingConfig")?.getBooleanOrDefault("smooth", false) != true) return null
+    val markdown = props.getStringOrDefault("markdown", "")
+    val laidOut =
+      laidOutSizes[id]?.takeIf {
+        abs(it.widthPx - width) < 1f && it.markdown.length < markdown.length && markdownExtends(it.markdown, markdown)
+      } ?: return null
+    val height = YogaMeasureOutput.getHeight(laidOut.size)
+    return if (height < YogaMeasureOutput.getHeight(full)) YogaMeasureOutput.make(YogaMeasureOutput.getWidth(full), height) else null
   }
 
   private fun measureInFull(

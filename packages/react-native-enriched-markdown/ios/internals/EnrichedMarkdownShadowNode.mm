@@ -148,6 +148,21 @@ std::vector<ENRMBlockSlotPlacement> EnrichedMarkdownShadowNode::slotPlacements()
   return placements;
 }
 
+// With smooth pacing the view shows only a start of the markdown, the slots' blocks
+// arriving with the words: the height it laid that start out at, 0 when it shows all.
+CGFloat EnrichedMarkdownShadowNode::revealedHeight(CGFloat width, CGFloat pointScaleFactor) const
+{
+  const auto &props = getConcreteProps();
+  if (!props.streamingConfig.smooth) {
+    return 0;
+  }
+  RCTInternalGenericWeakWrapper *weakWrapper =
+      (RCTInternalGenericWeakWrapper *)unwrapManagedObject(getStateData().getComponentViewRef());
+  EnrichedMarkdown *view = weakWrapper ? (EnrichedMarkdown *)weakWrapper.object : nil;
+  return view ? [view partialLaidOutSizeForWidth:width pointScaleFactor:pointScaleFactor markdown:props.markdown].height
+              : 0;
+}
+
 // Measures the document with the slot children taking part: each slot is sized
 // by Yoga-measuring its child at the width the walk gives it, and the frames the
 // walk records are kept for layout(). An unchanged pass (same inputs, same
@@ -244,6 +259,11 @@ Size EnrichedMarkdownShadowNode::measureContent(const LayoutContext &layoutConte
     // Slot children are measured where the walk places them; nothing here takes the view's size.
     previousMeasurement_ = {};
     CGSize size = measureWithSlots(slots, layoutContext, layoutConstraints, layoutConstraints.maximumSize.width);
+    // The whole document places every slot, so a block's space is reserved as soon as it is revealed.
+    CGFloat revealed = revealedHeight(slotMeasurement_.width, pointScaleFactor);
+    if (revealed > 0 && revealed < size.height) {
+      size.height = revealed;
+    }
     return ENRMClampMeasuredSize(size, layoutConstraints);
   }
   slotMeasurement_ = SlotMeasurement{};
@@ -292,6 +312,10 @@ void EnrichedMarkdownShadowNode::layout(LayoutContext layoutContext)
   // the height counter, the width or the children changed: the memoized measure
   // checks every input and returns at once when none did.
   measureWithSlots(slots, layoutContext, layoutConstraints, contentFrame.size.width);
+  // Slots that start below what smooth pacing has revealed wait for their words; one that has started
+  // shows while it grows, as text does.
+  CGFloat revealed = revealedHeight(slotMeasurement_.width, layoutMetrics.pointScaleFactor);
+  const bool clipped = revealed > 0 && revealed < slotMeasurement_.size.height;
 
   auto hostShadowNode = static_cast<EnrichedMarkdownShadowNode *>(this);
   auto hostOwningShadowNode = std::shared_ptr<ShadowNode>{};
@@ -308,7 +332,7 @@ void EnrichedMarkdownShadowNode::layout(LayoutContext layoutContext)
     hostShadowNode = static_cast<EnrichedMarkdownShadowNode *>(hostOwningShadowNode.get());
     auto &layoutableShadowNode = static_cast<LayoutableShadowNode &>(*clonedShadowNode);
 
-    if (!frame.placed) {
+    if (!frame.placed || (clipped && frame.y >= revealed - 1 / layoutMetrics.pointScaleFactor)) {
       layoutableShadowNode.setLayoutMetrics(LayoutMetrics{.frame = {}, .displayType = DisplayType::None});
       continue;
     }

@@ -195,7 +195,10 @@ void MarkdownContainerShadowNode::layout(LayoutContext layoutContext) {
     containerShadowNode = static_cast<MarkdownContainerShadowNode *>(owningShadowNode.get());
 
     auto &layoutableShadowNode = static_cast<LayoutableShadowNode &>(*clonedShadowNode);
-    if (!frame.placed) {
+    // With smooth pacing the height is what the view has revealed: slots that start below it wait for
+    // their words; one that has started shows while it grows, as text does.
+    const bool revealed = frame.y < slotMeasurement_.size.height - 1 / layoutMetrics.pointScaleFactor;
+    if (!frame.placed || !revealed) {
       layoutableShadowNode.setLayoutMetrics(LayoutMetrics{.frame = {}, .displayType = DisplayType::None});
       continue;
     }
