@@ -6,6 +6,7 @@
 #import "MarkdownASTNode.h"
 #include "MarkdownASTNode.hpp"
 #include "TextLinkRecognizer.hpp"
+#include <algorithm>
 #include <memory>
 #include <mutex>
 #include <unordered_set>
@@ -236,11 +237,31 @@ struct ENRMConversion {
   BOOL annotateImages;
   MarkdownASTNode *node;
 
+  bool sameOptions(const ENRMConversion &other) const
+  {
+    return ENRMSameRegex(textRegex, other.textRegex) && ENRMSameRegex(codeRegex, other.codeRegex) &&
+           ENRMSameSlotIds(slotIds, other.slotIds) && annotateImages == other.annotateImages;
+  }
+
   bool matches(const ENRMConversion &other) const
   {
-    return document == other.document && ENRMSameRegex(textRegex, other.textRegex) &&
-           ENRMSameRegex(codeRegex, other.codeRegex) && ENRMSameSlotIds(slotIds, other.slotIds) &&
-           annotateImages == other.annotateImages;
+    return document == other.document && sameOptions(other);
+  }
+
+  // How many of the document's first blocks are the very nodes `other` converted: a stream's
+  // finished blocks keep their nodes from one update to the next (DocumentStore).
+  size_t sharedBlocks(const ENRMConversion &other) const
+  {
+    const auto &blocks = document->ast->children;
+    const auto &converted = other.document->ast->children;
+    if (!sameOptions(other) || other.node.children.count != converted.size()) {
+      return 0;
+    }
+    size_t shared = 0;
+    while (shared < blocks.size() && shared < converted.size() && blocks[shared] == converted[shared]) {
+      shared++;
+    }
+    return shared;
   }
 };
 
@@ -252,7 +273,8 @@ MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *f
 {
   static std::mutex mutex;
   static std::vector<ENRMConversion> recent;
-  static const size_t kRecentConversions = 3;
+  // Render, measurement and a nested quote of one document, and the previous state of a stream.
+  static const size_t kRecentConversions = 4;
 
   // Slots and image sources are GitHub-flavor features (the CommonMark host lays
   // nothing out for them).
@@ -266,14 +288,30 @@ MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *f
   if (!request.document->ast) {
     return [[MarkdownASTNode alloc] initWithType:MarkdownNodeTypeDocument];
   }
+  // The blocks a recent conversion already holds are taken from it; only the rest is converted.
+  NSArray<MarkdownASTNode *> *converted = nil;
+  size_t shared = 0;
   {
     std::lock_guard<std::mutex> lock(mutex);
+    for (auto entry = recent.begin(); entry != recent.end(); ++entry) {
+      if (entry->matches(request)) {
+        // Kept in front while it is in use, so a stream's next update still finds it.
+        std::rotate(recent.begin(), entry, entry + 1);
+        return recent.front().node;
+      }
+    }
     for (const auto &entry : recent) {
-      if (entry.matches(request)) {
-        return entry.node;
+      size_t blocks = request.sharedBlocks(entry);
+      if (blocks > shared) {
+        shared = blocks;
+        converted = entry.node.children;
       }
     }
   }
+
+  Markdown::MarkdownASTNode added(Markdown::NodeType::Document);
+  const auto &blocks = request.document->ast->children;
+  added.children.assign(blocks.begin() + static_cast<std::ptrdiff_t>(shared), blocks.end());
 
   std::unordered_set<std::string> ids;
   for (NSString *slotId in request.slotIds) {
@@ -281,10 +319,14 @@ MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *f
   }
   Markdown::TextLinkReplacements links;
   if (textRegex || codeRegex) {
-    links = Markdown::recognizeTextLinks(*request.document->ast, ENRMTextLinkMatchers(textRegex, codeRegex));
+    links = Markdown::recognizeTextLinks(added, ENRMTextLinkMatchers(textRegex, codeRegex));
   }
   Markdown::AstOverlay overlay(*request.document, std::move(ids), request.annotateImages, std::move(links));
-  request.node = convertCppASTToObjC(*request.document->ast, overlay);
+  request.node = convertCppASTToObjC(added, overlay);
+  if (shared > 0) {
+    NSMutableArray<MarkdownASTNode *> *children = request.node.children;
+    [children replaceObjectsInRange:NSMakeRange(0, 0) withObjectsFromArray:converted range:NSMakeRange(0, shared)];
+  }
 
   std::lock_guard<std::mutex> lock(mutex);
   for (const auto &entry : recent) {
