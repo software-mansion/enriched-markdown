@@ -432,7 +432,7 @@ object MeasurementStore {
     props: ReadableMap?,
     full: Long,
   ): Long? {
-    if (id == null || props?.getMapOrNull("streamingConfig")?.getBooleanOrDefault("smooth", false) != true) return null
+    if (id == null || !smooth(props)) return null
     val markdown = props.getStringOrDefault("markdown", "")
     val laidOut =
       laidOutSizes[id]?.takeIf {
@@ -441,6 +441,8 @@ object MeasurementStore {
     val height = YogaMeasureOutput.getHeight(laidOut.size)
     return if (height < YogaMeasureOutput.getHeight(full)) YogaMeasureOutput.make(YogaMeasureOutput.getWidth(full), height) else null
   }
+
+  private fun smooth(props: ReadableMap?): Boolean = props?.getMapOrNull("streamingConfig")?.getBooleanOrDefault("smooth", false) == true
 
   private fun measureInFull(
     context: Context,
@@ -515,7 +517,7 @@ object MeasurementStore {
         chooseMeasurement(
           streamUpdate = previous.layoutHash == layoutHash && markdownExtends(previous.markdown, markdown),
           grew = markdown.length > previous.markdown.length,
-          viewLaidOutAgain = laidOut != null && (laidOut.markdown == markdown || laidOut.size != previous.size),
+          viewLaidOutAgain = laidOut != null && (laidOut.markdown == markdown || (smooth(props) && laidOut.size != previous.size)),
           hasLaidOutSize = laidOut != null,
           samePreviousWidth = previous.size != null && previous.widthPx == width,
         )
@@ -533,8 +535,8 @@ object MeasurementStore {
   /**
    * Picks the source of a measurement, as iOS's ENRMChooseMeasurement does. Android's
    * measurement can't see the view's height counter, so the view having laid out this
-   * document, or a size other than the last answer (smooth pacing renders part of it),
-   * stands in for the view asking again, and a grown document never takes the previous
+   * document, or with smooth pacing (it renders part of it) a size other than the last
+   * answer, stands in for the view asking again, and a grown document never takes the previous
    * answer: a view sized to its content would keep it for good.
    */
   internal fun chooseMeasurement(

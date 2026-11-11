@@ -30,10 +30,11 @@ class StreamMeasurementTest {
     width: Float = widthPx,
     trailingMargin: Boolean = false,
     streamingConfig: ReadableMap? = null,
+    smooth: Boolean = false,
   ): Long? {
     val props =
       JavaOnlyMap.of("markdown", markdown, "markdownStyle", JavaOnlyMap(), "allowTrailingMargin", trailingMargin)
-    streamingConfig?.let { props.putMap("streamingConfig", it) }
+    props.putMap("streamingConfig", streamingConfig ?: JavaOnlyMap.of("smooth", smooth))
     return MeasurementStore.laidOutSizeForStreamUpdate(viewId, width, props, true, true, 1f, 0f)
   }
 
@@ -109,13 +110,25 @@ class StreamMeasurementTest {
   // Smooth pacing: the view shows part of the markdown and asks again as it shows more.
   @Test
   fun aViewShowingPartOfTheDocumentHandsOverEachNewSize() {
-    streamUpdate("Smooth pacing")
+    streamUpdate("Smooth pacing", smooth = true)
     MeasurementStore.storeLaidOutSize(viewId, widthPx, laidOut, "Smooth pacing shows")
-    assertEquals(laidOut, streamUpdate("Smooth pacing shows the words"))
+    assertEquals(laidOut, streamUpdate("Smooth pacing shows the words", smooth = true))
     val taller = YogaMeasureOutput.make(360f, 2480f)
     MeasurementStore.storeLaidOutSize(viewId, widthPx, taller, "Smooth pacing shows the")
 
-    assertEquals(taller, streamUpdate("Smooth pacing shows the words"))
+    assertEquals(taller, streamUpdate("Smooth pacing shows the words", smooth = true))
+  }
+
+  // Without smooth pacing an earlier state the view still shows is a render in flight, not an answer.
+  @Test
+  fun theSameDocumentAgainKeepsItsAnswerWhileTheViewCatchesUp() {
+    MeasurementStore.storeLaidOutSize(viewId, widthPx, laidOut, "Streaming")
+    streamUpdate("Streaming")
+    streamUpdate("Streaming **markdown**", trailingMargin = true)
+    val measured = YogaMeasureOutput.make(360f, 3000f)
+    recordMeasured(measured)
+
+    assertEquals(measured, streamUpdate("Streaming **markdown**", trailingMargin = true))
   }
 
   // A new stream's first chunks arrive before the view rendered any of them: it still
