@@ -132,7 +132,7 @@ Blocks that have finished are never touched again, so the cost of each update de
 
 - [`streaming`](/react-native/api-reference/enriched-markdown-text#streaming) - set while the markdown is still arriving. Defaults to `false`. Replaces the deprecated `streamingAnimation`.
 - [`stream`](/react-native/api-reference/enriched-markdown-text#stream) - markdown from `createMarkdownStream()`, updated once per frame without re-rendering your component.
-- [`onStreamingEnd`](/react-native/api-reference/enriched-markdown-text#onstreamingend) - called when the view stops streaming.
+- [`onStreamingEnd`](/react-native/api-reference/enriched-markdown-text#onstreamingend) - called when the view stops streaming, after the last words have appeared.
 - [`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig) - `tableMode`, `codeBlockMode` and `mediaMode`, each `'progressive'` or `'hidden'`, and `animation`: `'fade'`, `'gradient'`, `'none'`, or a preset with its options. Needs `streaming`.
 - [Markdown flavors](/react-native/guides/markdown-flavors) - what else the flavor switch changes.
 - [`react-native-streamdown`](https://enriched.swmansion.com/streamdown) - sibling library for LLM output: incomplete-Markdown repair ([remend](https://www.npmjs.com/package/remend)) and off-thread processing (react-native-worklets Bundle Mode). Accepts every `EnrichedMarkdownText` prop plus a `remendConfig`: `<StreamdownText markdown={partial} />`. See the setup caveat above.
