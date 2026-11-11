@@ -847,18 +847,19 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     }
   }
 
+  // The modes decide what renders only while streaming.
   if (newViewProps.streamingConfig.tableMode != oldViewProps.streamingConfig.tableMode) {
     _tableStreamingMode = ENRMStreamingModeFromString<ENRMTableStreamingMode>(newViewProps.streamingConfig.tableMode);
-    _dirtyFlags |= ENRMDirtyRender;
+    _dirtyFlags |= _streamingAnimation ? ENRMDirtyRender : ENRMDirtyNone;
   }
   if (newViewProps.streamingConfig.codeBlockMode != oldViewProps.streamingConfig.codeBlockMode) {
     _codeBlockStreamingMode =
         ENRMStreamingModeFromString<ENRMCodeBlockStreamingMode>(newViewProps.streamingConfig.codeBlockMode);
-    _dirtyFlags |= ENRMDirtyRender;
+    _dirtyFlags |= _streamingAnimation ? ENRMDirtyRender : ENRMDirtyNone;
   }
   if (newViewProps.streamingConfig.mediaMode != oldViewProps.streamingConfig.mediaMode) {
     _mediaStreamingMode = ENRMStreamingModeFromString<ENRMMediaStreamingMode>(newViewProps.streamingConfig.mediaMode);
-    _dirtyFlags |= ENRMDirtyRender;
+    _dirtyFlags |= _streamingAnimation ? ENRMDirtyRender : ENRMDirtyNone;
   }
 
   if (newViewProps.spoilerOverlay != oldViewProps.spoilerOverlay) {
