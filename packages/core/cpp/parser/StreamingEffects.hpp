@@ -41,6 +41,7 @@ struct CharacterRange {
 // Indices and lengths are UTF-16 code units; times are seconds on any monotonic clock.
 class StreamingEffects {
 public:
+  // Starts over. A fade over no time, or a gradient over no characters, is None.
   void configure(const StreamingEffectConfig &config);
   const StreamingEffectConfig &config() const { return config_; }
 

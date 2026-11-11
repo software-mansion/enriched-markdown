@@ -28,6 +28,11 @@ EffectColor transparentLike(const EffectColor &color) {
 
 void StreamingEffects::configure(const StreamingEffectConfig &config) {
   config_ = config;
+  // A fade over no time, or a gradient over no characters, is no effect.
+  if ((config_.type == StreamingEffectType::Fade && !(config_.duration > 0)) ||
+      (config_.type == StreamingEffectType::Gradient && config_.length == 0)) {
+    config_.type = StreamingEffectType::None;
+  }
   reset();
 }
 
@@ -113,13 +118,12 @@ CharacterLook StreamingEffects::lookAt(size_t index, double time) const {
   }
   // 0 for the newest character, 1 for the first one past the gradient.
   size_t fromEnd = textLength_ > index ? textLength_ - 1 - index : 0;
-  float position =
-      std::min(1.0f, static_cast<float>(fromEnd) / static_cast<float>(std::max<size_t>(config_.length, 1)));
+  float position = std::min(1.0f, static_cast<float>(fromEnd) / static_cast<float>(config_.length));
   const auto &start = config_.startColor;
   const auto &end = config_.endColor;
   if (start) {
     // One color for the whole tail, the character's own color left behind.
-    EffectColor to = end ? (end->a == 0 ? transparentLike(*start) : *end) : transparentLike(*start);
+    EffectColor to = end && end->a > 0 ? *end : transparentLike(*start);
     look.tint = mix(to, *start, position);
     look.tintAmount = 1;
   } else if (end && end->a > 0) {
