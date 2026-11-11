@@ -8,8 +8,10 @@ import type { Spec } from './NativeEnrichedMarkdownParser';
  * (for example next to the message in your store), so it outlives the views.
  */
 export interface MarkdownStream {
-  /** Adds `chunk` to the end of the text. Throws after `end()` or `dispose()`. */
+  /** Adds `chunk` to the end of the text. Ignored after `end()` or `dispose()`, with a warning in development. */
   append(chunk: string): void;
+  /** The text appended so far; empty after `dispose()`. */
+  getText(): string;
   /** Marks the text complete: views showing it stop streaming and render it in full. */
   end(): void;
   /** Replaces the text (empty by default) and streams again, also after `dispose()`. */
@@ -35,7 +37,7 @@ export interface MarkdownStreamSnapshot {
 
 type NativeStreams = Pick<
   Spec,
-  'createStream' | 'appendToStream' | 'disposeStream'
+  'createStream' | 'appendToStream' | 'readStream' | 'disposeStream'
 >;
 
 // Set by the native entry (native/EnrichedMarkdownText): importing the module
@@ -86,15 +88,27 @@ class Stream implements MarkdownStream {
 
   append(chunk: string): void {
     if (this.ended || this.disposed) {
-      throw new Error(
-        `[react-native-enriched-markdown] MarkdownStream.append() after ${this.disposed ? 'dispose()' : 'end()'}`
-      );
+      if (__DEV__) {
+        console.warn(
+          `[react-native-enriched-markdown] MarkdownStream.append() after ${this.disposed ? 'dispose()' : 'end()'} is ignored.`
+        );
+      }
+      return;
     }
     let text = this.highSurrogate + chunk;
     const last = text.charCodeAt(text.length - 1);
     this.highSurrogate = last >= 0xd800 && last <= 0xdbff ? text.slice(-1) : '';
     if (this.highSurrogate !== '') text = text.slice(0, -1);
     this.write(text);
+  }
+
+  getText(): string {
+    if (this.disposed) return '';
+    const text =
+      this.native.id !== 0
+        ? nativeStreams!.readStream(this.native.id)
+        : this.text;
+    return text + this.highSurrogate;
   }
 
   end(): void {

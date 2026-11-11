@@ -89,6 +89,8 @@ export interface Spec extends TurboModule {
   createStream(text: string): number;
   /** Appends `chunk` to the stream; returns its length in bytes (0 once disposed). */
   appendToStream(streamId: number, chunk: string): number;
+  /** The stream's text; empty once disposed. */
+  readStream(streamId: number): string;
   disposeStream(streamId: number): void;
 }
 

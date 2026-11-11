@@ -117,6 +117,10 @@ double EnrichedMarkdownParser::appendToStream(jsi::Runtime &, double streamId, s
   return static_cast<double>(ENRMMarkdownStreams::shared().append(static_cast<int>(streamId), chunk));
 }
 
+std::string EnrichedMarkdownParser::readStream(jsi::Runtime &, double streamId) {
+  return ENRMMarkdownStreams::shared().prefix(static_cast<int>(streamId), std::string::npos);
+}
+
 void EnrichedMarkdownParser::disposeStream(jsi::Runtime &, double streamId) {
   streamIds_.erase(static_cast<int>(streamId));
   ENRMMarkdownStreams::shared().dispose(static_cast<int>(streamId));
