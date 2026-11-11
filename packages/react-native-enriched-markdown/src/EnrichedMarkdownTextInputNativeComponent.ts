@@ -244,6 +244,13 @@ export interface NativeProps extends ViewProps {
    */
   selectionColor?: ColorValue;
   /**
+   * Color of the selection handles (drag anchors).
+   * No-op on API levels below 29.
+   *
+   * @platform android
+   */
+  selectionHandleColor?: ColorValue;
+  /**
    * Inline format style overrides.
    * Always provided with complete defaults via normalizeMarkdownTextInputStyle.
    */

@@ -162,6 +162,13 @@ export interface EnrichedMarkdownTextInputProps
   multiline?: boolean;
   cursorColor?: ColorValue;
   selectionColor?: ColorValue;
+  /**
+   * Color of the selection handles (drag anchors).
+   * No-op on API levels below 29.
+   *
+   * @platform android
+   */
+  selectionHandleColor?: ColorValue;
   markdownStyle?: MarkdownTextInputStyle;
   style?: StyleProp<TextStyle>;
   onChangeText?: (text: string) => void;
@@ -248,6 +255,7 @@ export const EnrichedMarkdownTextInput = ({
   multiline = true,
   cursorColor,
   selectionColor,
+  selectionHandleColor,
   onChangeText,
   onChangeMarkdown,
   onChangeSelection,
@@ -673,6 +681,7 @@ export const EnrichedMarkdownTextInput = ({
       multiline={multiline}
       cursorColor={cursorColor}
       selectionColor={selectionColor}
+      selectionHandleColor={selectionHandleColor}
       isOnChangeMarkdownSet={onChangeMarkdown !== undefined}
       onChangeText={handleChangeText as NativeProps['onChangeText']}
       onChangeMarkdown={handleChangeMarkdown as NativeProps['onChangeMarkdown']}

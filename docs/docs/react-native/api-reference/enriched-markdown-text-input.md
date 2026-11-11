@@ -244,6 +244,12 @@ Color of the text selection highlight. On Android and macOS it affects only the 
 
 <LivePreview src={SelectionColorSrc} />
 
+### `selectionHandleColor` <AndroidBadge /> {#selectionhandlecolor}
+
+Color of the selection handles (the drag anchors at both ends of a selection). No-op on Android API levels below 29. On iOS the handles share a single tint with the caret and selection highlight, so set [`selectionColor`](#selectioncolor) there.
+
+<PropInfo type="ColorValue" typeHref="https://reactnative.dev/docs/colors" />
+
 ### `style`
 
 Style for the input view. Accepts both [`ViewStyle`](https://reactnative.dev/docs/view-style-props) layout properties (`padding`, `margin`, `backgroundColor`, the [flexbox](https://reactnative.dev/docs/flexbox) props) and [`TextStyle`](https://reactnative.dev/docs/text-style-props) properties (`fontSize`, `color`, `fontFamily`, `lineHeight`), which set the base text appearance the Markdown styles build on.

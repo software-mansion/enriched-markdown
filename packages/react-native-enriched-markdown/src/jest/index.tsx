@@ -68,6 +68,7 @@ export const EnrichedMarkdownTextInput = ({
   markdownStyle: _markdownStyle,
   cursorColor: _cursorColor,
   selectionColor: _selectionColor,
+  selectionHandleColor: _selectionHandleColor,
   autoCapitalize: _autoCapitalize,
   onChangeSelection: _onChangeSelection,
   onChangeState: _onChangeState,
