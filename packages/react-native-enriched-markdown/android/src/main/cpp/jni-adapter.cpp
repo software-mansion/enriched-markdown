@@ -617,19 +617,32 @@ JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_Streaming
   if (count <= 0) {
     return;
   }
-  std::vector<jint> tintValues(count);
-  std::vector<jfloat> amountValues(count);
-  std::vector<jfloat> opacityValues(count);
-  auto *effects = effectsOf(handle);
-  for (jint i = 0; i < count; i++) {
-    Markdown::CharacterLook look = effects->lookAt(static_cast<size_t>(start + i), time);
-    tintValues[i] = argbOf(look.tint);
-    amountValues[i] = look.tintAmount;
-    opacityValues[i] = look.opacity;
+  if (env->GetArrayLength(tints) < count || env->GetArrayLength(tintAmounts) < count ||
+      env->GetArrayLength(opacities) < count) {
+    return;
   }
-  env->SetIntArrayRegion(tints, 0, count, tintValues.data());
-  env->SetFloatArrayRegion(tintAmounts, 0, count, amountValues.data());
-  env->SetFloatArrayRegion(opacities, 0, count, opacityValues.data());
+  // Written in place: lookAt makes no JNI calls and does not block.
+  auto *tintValues = static_cast<jint *>(env->GetPrimitiveArrayCritical(tints, nullptr));
+  auto *amountValues = static_cast<jfloat *>(env->GetPrimitiveArrayCritical(tintAmounts, nullptr));
+  auto *opacityValues = static_cast<jfloat *>(env->GetPrimitiveArrayCritical(opacities, nullptr));
+  if (tintValues && amountValues && opacityValues) {
+    auto *effects = effectsOf(handle);
+    for (jint i = 0; i < count; i++) {
+      Markdown::CharacterLook look = effects->lookAt(static_cast<size_t>(start + i), time);
+      tintValues[i] = argbOf(look.tint);
+      amountValues[i] = look.tintAmount;
+      opacityValues[i] = look.opacity;
+    }
+  }
+  if (opacityValues) {
+    env->ReleasePrimitiveArrayCritical(opacities, opacityValues, 0);
+  }
+  if (amountValues) {
+    env->ReleasePrimitiveArrayCritical(tintAmounts, amountValues, 0);
+  }
+  if (tintValues) {
+    env->ReleasePrimitiveArrayCritical(tints, tintValues, 0);
+  }
 }
 
 } // extern "C"
