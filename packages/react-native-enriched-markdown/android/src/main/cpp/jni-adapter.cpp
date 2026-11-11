@@ -176,7 +176,12 @@ public:
     if (!ready_)
       return 0;
     jobject converted = env_->CallObjectMethod(convertedRoot, getChildren_);
-    jint count = converted ? env_->CallIntMethod(converted, listSize_) : 0;
+    jint count = converted && !env_->ExceptionCheck() ? env_->CallIntMethod(converted, listSize_) : 0;
+    if (env_->ExceptionCheck()) {
+      // Counted as none: the conversion is then never reused.
+      env_->ExceptionClear();
+      count = 0;
+    }
     env_->DeleteLocalRef(converted);
     return static_cast<size_t>(count);
   }
@@ -279,6 +284,8 @@ struct Conversion {
   std::unordered_set<std::string> slotIds;
   bool imageIds;
   jobject root; // global reference
+  // The root's children, counted when stored: a block that failed to convert is missing.
+  size_t children;
 };
 std::mutex recentConversionsMutex;
 std::vector<Conversion> recentConversions; // most recent first
@@ -492,18 +499,25 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
     jobject converted = nullptr;
     {
       std::lock_guard<std::mutex> lock(recentConversionsMutex);
-      for (const Conversion &recent : recentConversions) {
-        if (recent.imageIds != withImageIds || recent.slotIds != ids)
+      for (auto recent = recentConversions.begin(); recent != recentConversions.end(); ++recent) {
+        if (recent->imageIds != withImageIds || recent->slotIds != ids)
           continue;
-        const auto &other = recent.document->ast->children;
+        if (recent->document == document && recent->children == blocks.size()) {
+          // The same document again: its conversion, kept at the front.
+          if (converted)
+            env->DeleteLocalRef(converted);
+          std::rotate(recentConversions.begin(), recent, std::next(recent));
+          return env->NewLocalRef(recentConversions.front().root);
+        }
+        const auto &other = recent->document->ast->children;
         size_t same = 0;
         while (same < blocks.size() && same < other.size() && blocks[same] == other[same])
           same++;
-        if (same > shared && factory.childCount(recent.root) == other.size()) {
+        if (same > shared && recent->children == other.size()) {
           shared = same;
           if (converted)
             env->DeleteLocalRef(converted);
-          converted = env->NewLocalRef(recent.root);
+          converted = env->NewLocalRef(recent->root);
         }
       }
     }
@@ -517,9 +531,15 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
       return nullptr;
     }
 
+    size_t children = factory.childCount(javaNode);
     std::lock_guard<std::mutex> lock(recentConversionsMutex);
+    for (const Conversion &recent : recentConversions) {
+      // Another thread converted it meanwhile: one entry, so other streams keep theirs.
+      if (recent.document == document && recent.imageIds == withImageIds && recent.slotIds == ids)
+        return javaNode;
+    }
     recentConversions.insert(recentConversions.begin(),
-                             Conversion{document, std::move(ids), withImageIds, env->NewGlobalRef(javaNode)});
+                             Conversion{document, std::move(ids), withImageIds, env->NewGlobalRef(javaNode), children});
     while (recentConversions.size() > kRecentConversions) {
       env->DeleteGlobalRef(recentConversions.back().root);
       recentConversions.pop_back();

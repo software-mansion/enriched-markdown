@@ -123,14 +123,15 @@ std::shared_ptr<const ParsedDocument> DocumentStore::parse(const std::string &ma
         break;
       }
     }
+    // The longest finished start this text shares: a shorter one would parse again, as new nodes,
+    // blocks another entry already holds.
     for (const DocumentEntry &entry : documents_) {
       if (finishedBytes == 0)
         break;
       if (entry.finished && entry.isGFM == isGFM && entry.flags == flags && entry.finished->bytes <= finishedBytes &&
-          entry.finished->bytes > 0 &&
+          entry.finished->bytes > (finished ? finished->bytes : 0) &&
           markdown.compare(0, entry.finished->bytes, entry.markdown, 0, entry.finished->bytes) == 0) {
         finished = entry.finished;
-        break;
       }
     }
   }
