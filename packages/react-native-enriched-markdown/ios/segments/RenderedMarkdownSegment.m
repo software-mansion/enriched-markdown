@@ -184,8 +184,8 @@ uint64_t ENRMSignatureForNode(MarkdownASTNode *node)
   if (!node)
     return kFNVOffsetBasis;
 
-  uint64_t hash;
-  if ([node getCachedSignature:&hash])
+  uint64_t hash = node.cachedSignature;
+  if (hash != 0)
     return hash;
 
   hash = kFNVOffsetBasis;
@@ -202,7 +202,7 @@ uint64_t ENRMSignatureForNode(MarkdownASTNode *node)
     hash = fnvMixUInt64(hash, ENRMSignatureForNode(child));
   }
 
-  [node cacheSignature:hash];
+  node.cachedSignature = hash;
   return hash;
 }
 

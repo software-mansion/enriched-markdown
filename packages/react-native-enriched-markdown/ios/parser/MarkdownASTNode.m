@@ -2,8 +2,7 @@
 #import <stdatomic.h>
 
 @implementation MarkdownASTNode {
-  _Atomic(uint64_t) _signature;
-  atomic_bool _hasSignature;
+  _Atomic(uint64_t) _cachedSignature;
 }
 
 - (instancetype)initWithType:(MarkdownNodeType)type
@@ -20,34 +19,21 @@
 - (void)addChild:(MarkdownASTNode *)child
 {
   [_children addObject:child];
-  atomic_store(&_hasSignature, false);
 }
 
 - (void)setAttribute:(NSString *)key value:(NSString *)value
 {
   _attributes[key] = value;
-  atomic_store(&_hasSignature, false);
 }
 
-- (void)setContent:(NSString *)content
+- (uint64_t)cachedSignature
 {
-  _content = content;
-  atomic_store(&_hasSignature, false);
+  return atomic_load(&_cachedSignature);
 }
 
-- (BOOL)getCachedSignature:(uint64_t *)signature
+- (void)setCachedSignature:(uint64_t)cachedSignature
 {
-  if (!atomic_load(&_hasSignature)) {
-    return NO;
-  }
-  *signature = atomic_load(&_signature);
-  return YES;
-}
-
-- (void)cacheSignature:(uint64_t)signature
-{
-  atomic_store(&_signature, signature);
-  atomic_store(&_hasSignature, true);
+  atomic_store(&_cachedSignature, cachedSignature);
 }
 
 - (NSString *)description

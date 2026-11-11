@@ -98,25 +98,15 @@ static NSString *ENRMDescription(MarkdownASTNode *node)
 {
   MarkdownASTNode *root = [_parser parseMarkdown:@"# Title\n\nA **paragraph**."];
   MarkdownASTNode *paragraph = root.children.lastObject;
-  uint64_t cached = 0;
-  XCTAssertFalse([paragraph getCachedSignature:&cached]);
+  XCTAssertEqual(paragraph.cachedSignature, (uint64_t)0);
   uint64_t signature = ENRMSignatureForNode(paragraph);
-  XCTAssertTrue([paragraph getCachedSignature:&cached]);
-  XCTAssertEqual(cached, signature);
+  XCTAssertEqual(paragraph.cachedSignature, signature);
   XCTAssertEqual(ENRMSignatureForNode(paragraph), signature);
 
   // The same content hashes the same, kept or not.
   MarkdownASTNode *again = [self parseAfresh:@"# Title\n\nA **paragraph**."].children.lastObject;
   XCTAssertNotEqual(again, paragraph);
   XCTAssertEqual(ENRMSignatureForNode(again), signature);
-
-  // A node that changes forgets it.
-  MarkdownASTNode *node = [[MarkdownASTNode alloc] initWithType:MarkdownNodeTypeText];
-  node.content = @"text";
-  uint64_t before = ENRMSignatureForNode(node);
-  [node setAttribute:@"key" value:@"value"];
-  XCTAssertFalse([node getCachedSignature:&cached]);
-  XCTAssertNotEqual(ENRMSignatureForNode(node), before);
 }
 
 @end

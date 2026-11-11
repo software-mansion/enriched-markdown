@@ -48,11 +48,10 @@ typedef NS_ENUM(NSInteger, MarkdownNodeType) {
 - (void)addChild:(MarkdownASTNode *)child;
 - (void)setAttribute:(NSString *)key value:(NSString *)value;
 
-/// The node's signature (ENRMSignatureForNode), kept once computed: nothing changes a node after
-/// the parse, and a stream's finished blocks keep their nodes from one update to the next. Safe
-/// from any thread.
-- (BOOL)getCachedSignature:(uint64_t *)signature;
-- (void)cacheSignature:(uint64_t)signature;
+/// ENRMSignatureForNode's hash of the node and everything below it, 0 until computed. Kept on the
+/// node: nothing changes a node after the parse, and a stream's finished blocks keep their nodes
+/// from one update to the next. Safe from any thread.
+@property (atomic, assign) uint64_t cachedSignature;
 
 @end
 
