@@ -230,6 +230,25 @@ it('shows nothing in a view that mounts after dispose', () => {
   expect(view(root).props.streamId).toBe(0);
 });
 
+it('holds back half a surrogate pair in the initial and reset text', () => {
+  const emoji = '\u{1F600}';
+  const stream = createMarkdownStream('a' + emoji[0]);
+  const root = render(<EnrichedMarkdownText stream={stream} />);
+  const firstId = view(root).props.streamId;
+  expect(mockStreams.get(firstId)).toBe('a');
+  expect(view(root).props.streamLength).toBe(1);
+  expect(stream.getText()).toBe('a' + emoji[0]);
+  stream.append(emoji[1] + 'b');
+  expect(mockStreams.get(firstId)).toBe('a' + emoji + 'b');
+
+  stream.reset('c' + emoji[0]);
+  nextFrame();
+  const secondId = view(root).props.streamId;
+  expect(mockStreams.get(secondId)).toBe('c');
+  stream.end();
+  expect(mockStreams.get(secondId)).toBe('c' + emoji[0]);
+});
+
 it('holds back half a surrogate pair until the next chunk', () => {
   setNativeMarkdownStreams(null);
   const stream = createMarkdownStream();

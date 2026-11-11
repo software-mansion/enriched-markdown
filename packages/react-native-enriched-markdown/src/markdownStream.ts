@@ -96,11 +96,7 @@ class Stream implements MarkdownStream {
       }
       return;
     }
-    let text = this.highSurrogate + chunk;
-    const last = text.charCodeAt(text.length - 1);
-    this.highSurrogate = last >= 0xd800 && last <= 0xdbff ? text.slice(-1) : '';
-    if (this.highSurrogate !== '') text = text.slice(0, -1);
-    this.write(text);
+    this.write(this.holdBack(chunk));
   }
 
   getText(): string {
@@ -161,15 +157,25 @@ class Stream implements MarkdownStream {
     this.publishOnNextFrame();
   }
 
+  // Writes the text as a chunk: append also gives its length in bytes.
   private start(text: string) {
     const native = nativeStreams;
+    const complete = this.holdBack(text);
     if (native != null) {
-      this.native.id = native.createStream(text);
-      // Its length in bytes, which the props carry.
-      this.length = text === '' ? 0 : native.appendToStream(this.native.id, '');
+      this.native.id = native.createStream('');
+      this.length =
+        complete === '' ? 0 : native.appendToStream(this.native.id, complete);
     } else {
-      this.text = text;
+      this.text = complete;
     }
+  }
+
+  // Keeps a trailing half surrogate pair for the next chunk.
+  private holdBack(chunk: string): string {
+    const text = this.highSurrogate + chunk;
+    const last = text.charCodeAt(text.length - 1);
+    this.highSurrogate = last >= 0xd800 && last <= 0xdbff ? text.slice(-1) : '';
+    return this.highSurrogate === '' ? text : text.slice(0, -1);
   }
 
   // Only once no view shows the stream, so the snapshot can change at once.
