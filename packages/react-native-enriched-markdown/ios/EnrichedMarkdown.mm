@@ -1449,7 +1449,8 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   return _codeBlockWrapState.indices;
 }
 
-// New streamed content fades in, unless the fade is off or Reduce Motion is on.
+// New streamed content fades in and slots grow in, unless the animation is off or
+// Reduce Motion is on.
 - (BOOL)fadesArrivals
 {
   return _streaming && _streamingFade && !ENRMShouldReduceMotion();
@@ -1493,9 +1494,17 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
       objc_setAssociatedObject(textView, &kENRMSegmentFadeAnimatorKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     } else if ([segment isKindOfClass:[TableContainerView class]]) {
       [(TableContainerView *)segment finishRowFade];
+#if !TARGET_OS_OSX
+      // A new table fades in as a whole too (animateBlockViewIfNeeded:).
+      [segment.layer removeAllAnimations];
+      segment.alpha = 1.0;
+#endif
     } else {
+#if !TARGET_OS_OSX
       // A block fading in (animateBlockViewIfNeeded:).
-      [segment.layer removeAnimationForKey:@"opacity"];
+      [segment.layer removeAllAnimations];
+      segment.alpha = 1.0;
+#endif
     }
   }
 }
@@ -1653,11 +1662,12 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     [self requestHeightUpdate];
   }
 
+  BOOL finishesAnimations = NO;
   if (newViewProps.streaming != oldViewProps.streaming) {
     _streaming = newViewProps.streaming;
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
     if (!_streaming) {
-      [self finishStreamingAnimations];
+      finishesAnimations = YES;
       if (auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter)) {
         emitter->onStreamingEnd({});
       }
@@ -1666,9 +1676,10 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
   if (newViewProps.streamingConfig.animation != oldViewProps.streamingConfig.animation) {
     _streamingFade = newViewProps.streamingConfig.animation != "none";
-    if (!_streamingFade) {
-      [self finishStreamingAnimations];
-    }
+    finishesAnimations |= !_streamingFade;
+  }
+  if (finishesAnimations) {
+    [self finishStreamingAnimations];
   }
 
   if (newViewProps.streamingConfig.tableMode != oldViewProps.streamingConfig.tableMode) {

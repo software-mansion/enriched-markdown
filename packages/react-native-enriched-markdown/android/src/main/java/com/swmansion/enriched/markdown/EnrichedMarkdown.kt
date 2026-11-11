@@ -918,7 +918,7 @@ class EnrichedMarkdown(
     textFadeAnimators.getOrPut(view) { TailFadeInAnimator(view) }.animate(tailStart, textLength)
   }
 
-  // New streamed content fades in, unless the fade is off or Reduce Motion is on.
+  // New streamed content fades in and slots grow in, unless the animation is off or Reduce Motion is on.
   private fun fadesArrivals() = streaming && streamingFade && !isReducedMotionEnabled(context)
 
   private fun animateBlockViewFadeIn(view: View) {
