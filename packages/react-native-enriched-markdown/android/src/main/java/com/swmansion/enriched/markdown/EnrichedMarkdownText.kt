@@ -130,7 +130,7 @@ class EnrichedMarkdownText
     private var pendingStyledText: CharSequence? = null
     private var pendingRenderedMarkdown = ""
 
-    // The markdown the displayed text was rendered from, which renders trail.
+    // The markdown the displayed text was rendered from, behind the prop while a render is in flight.
     internal var renderedMarkdown = ""
       private set
 
@@ -541,6 +541,7 @@ class EnrichedMarkdownText
       executor.shutdownNow()
       mainHandler.removeCallbacksAndMessages(null)
       pendingStyledText = null
+      pendingRenderedMarkdown = ""
       fadeAnimator?.cancelAll()
       fadeAnimator = null
     }

@@ -185,7 +185,7 @@ open class ContainerNodeView(
     return result.viewsToAttach.isNotEmpty() || result.viewsToRemove.isNotEmpty()
   }
 
-  protected fun layoutSegments() {
+  protected open fun layoutSegments() {
     val containerWidth = width
     if (containerWidth <= 0) return
 

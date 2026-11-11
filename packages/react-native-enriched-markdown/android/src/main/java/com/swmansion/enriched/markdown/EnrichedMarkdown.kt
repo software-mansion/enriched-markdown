@@ -703,7 +703,6 @@ class EnrichedMarkdown(
       val heightBefore = computeSegmentsTotalHeight()
       layoutSegments()
       val heightAfter = computeSegmentsTotalHeight()
-      publishLaidOutSize()
 
       if (forceHeight || topologyChanged || heightBefore != heightAfter) {
         MeasurementStore.invalidate(id)
@@ -907,16 +906,20 @@ class EnrichedMarkdown(
     b: Int,
   ) {
     layoutSegments()
-    publishLaidOutSize()
     slotLayer.layout(0, 0, width, height)
+  }
+
+  // The markdown the segments show, behind the prop while a render is in flight.
+  private var laidOutMarkdown = ""
+
+  override fun layoutSegments() {
+    super.layoutSegments()
+    publishLaidOutSize()
   }
 
   // What the shadow node takes for a stream's next update instead of measuring the
   // whole document again (MeasurementStore.storeLaidOutSize). Published by every
   // layout of the segments, ahead of the height update it may ask for.
-  // The markdown the segments were rendered from, which renders trail.
-  private var laidOutMarkdown = ""
-
   private fun publishLaidOutSize() {
     if (width <= 0 || segmentViews.isEmpty()) {
       MeasurementStore.clearLaidOutSize(id)
@@ -954,7 +957,6 @@ class EnrichedMarkdown(
     if (isDisposed) return
     if (width > 0) {
       layoutSegments()
-      publishLaidOutSize()
       requestLayout()
     }
     MeasurementStore.invalidate(id)
