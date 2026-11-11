@@ -40,32 +40,45 @@ public:
   /// not a document it replaced. Else zero.
   CGSize sizeFor(CGFloat width, CGFloat pointScaleFactor, std::string_view markdown) const
   {
-    os_unfair_lock_lock(&lock_);
-    CGFloat laidOutWidth = width_;
-    CGSize size = size_;
-    std::shared_ptr<const std::string> laidOutMarkdown = markdown_;
-    os_unfair_lock_unlock(&lock_);
-    CGFloat tolerance = 1 / (pointScaleFactor > 0 ? pointScaleFactor : 1);
-    if (size.height <= 0 || laidOutWidth - width > tolerance || width - laidOutWidth > tolerance) {
-      return CGSizeZero;
-    }
-    if (!laidOutMarkdown || laidOutMarkdown->empty() ||
-        markdown.compare(0, laidOutMarkdown->size(), *laidOutMarkdown) != 0) {
-      return CGSizeZero;
-    }
-    return size;
+    return copy().sizeFor(width, pointScaleFactor, markdown);
   }
 
   /// sizeFor, when the view rendered only a start of `markdown`: smooth pacing still revealing it.
   CGSize partialSizeFor(CGFloat width, CGFloat pointScaleFactor, std::string_view markdown) const
   {
-    os_unfair_lock_lock(&lock_);
-    size_t laidOutLength = markdown_ ? markdown_->size() : 0;
-    os_unfair_lock_unlock(&lock_);
-    return laidOutLength < markdown.size() ? sizeFor(width, pointScaleFactor, markdown) : CGSizeZero;
+    Values laidOut = copy();
+    size_t laidOutLength = laidOut.markdown ? laidOut.markdown->size() : 0;
+    return laidOutLength < markdown.size() ? laidOut.sizeFor(width, pointScaleFactor, markdown) : CGSizeZero;
   }
 
 private:
+  // What the view published, copied under the lock.
+  struct Values {
+    CGFloat width;
+    CGSize size;
+    std::shared_ptr<const std::string> markdown;
+
+    CGSize sizeFor(CGFloat forWidth, CGFloat pointScaleFactor, std::string_view forMarkdown) const
+    {
+      CGFloat tolerance = 1 / (pointScaleFactor > 0 ? pointScaleFactor : 1);
+      if (size.height <= 0 || width - forWidth > tolerance || forWidth - width > tolerance) {
+        return CGSizeZero;
+      }
+      if (!markdown || markdown->empty() || forMarkdown.compare(0, markdown->size(), *markdown) != 0) {
+        return CGSizeZero;
+      }
+      return size;
+    }
+  };
+
+  Values copy() const
+  {
+    os_unfair_lock_lock(&lock_);
+    Values values{width_, size_, markdown_};
+    os_unfair_lock_unlock(&lock_);
+    return values;
+  }
+
   mutable os_unfair_lock lock_ = OS_UNFAIR_LOCK_INIT;
   CGFloat width_ = 0;
   CGSize size_ = CGSizeZero;

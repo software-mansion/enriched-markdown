@@ -27,6 +27,7 @@ import com.swmansion.enriched.markdown.utils.common.emitLinkLongPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkPress
 import com.swmansion.enriched.markdown.utils.common.emitSelectionCopy
 import com.swmansion.enriched.markdown.utils.common.emitTaskListItemPress
+import com.swmansion.enriched.markdown.utils.common.getBooleanOrDefault
 import com.swmansion.enriched.markdown.utils.common.markdownEventTypeConstants
 import com.swmansion.enriched.markdown.utils.common.parseAccessibilityLabels
 import com.swmansion.enriched.markdown.utils.common.parseContextMenuItems
@@ -343,7 +344,7 @@ class EnrichedMarkdownManager :
     view.codeBlockStreamingMode = CodeBlockStreamingMode.fromString(config?.getString("codeBlockMode"))
     view.mediaStreamingMode = MediaStreamingMode.fromString(config?.getString("mediaMode"))
     view.setStreamingAnimation(StreamingEffects.Config.from(config, view.context))
-    view.smooth = config?.toHashMap()?.get("smooth") == true
+    view.smooth = config.getBooleanOrDefault("smooth", false)
   }
 
   @ReactProp(name = "spoilerOverlay")

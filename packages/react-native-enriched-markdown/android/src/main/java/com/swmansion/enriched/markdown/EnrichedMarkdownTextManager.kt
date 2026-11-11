@@ -24,6 +24,7 @@ import com.swmansion.enriched.markdown.utils.common.emitLinkLongPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkPress
 import com.swmansion.enriched.markdown.utils.common.emitSelectionCopy
 import com.swmansion.enriched.markdown.utils.common.emitTaskListItemPress
+import com.swmansion.enriched.markdown.utils.common.getBooleanOrDefault
 import com.swmansion.enriched.markdown.utils.common.markdownEventTypeConstants
 import com.swmansion.enriched.markdown.utils.common.parseAccessibilityLabels
 import com.swmansion.enriched.markdown.utils.common.parseContextMenuItems
@@ -307,7 +308,7 @@ class EnrichedMarkdownTextManager :
     )
     if (view != null) {
       view.setStreamingAnimation(StreamingEffects.Config.from(config, view.context))
-      view.setSmooth(config?.toHashMap()?.get("smooth") == true)
+      view.setSmooth(config.getBooleanOrDefault("smooth", false))
     }
   }
 

@@ -401,6 +401,7 @@ class EnrichedMarkdown(
       return
     }
     val saved = canvas.save()
+    // Vertically only: what draws past the sides without pacing still does.
     canvas.clipRect(-width.toFloat(), 0f, 2f * width, height.toFloat())
     super.dispatchDraw(canvas)
     canvas.restoreToCount(saved)
