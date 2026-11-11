@@ -9,8 +9,8 @@ namespace Markdown {
 namespace {
 
 // A chunk spreads over the time until the next one, at most this long; the text falls at most
-// this far behind; a held word shows after this long without the rest; what is waiting when the
-// stream ends shows within this long.
+// this far behind; a held word, or markdown held for one (`- `, `## `), shows after this long
+// without the rest; what is waiting when the stream ends shows within this long.
 constexpr double kMaxSpread = 1.0;
 constexpr double kMaxLag = 1.0;
 constexpr double kTailHold = 0.5;
@@ -47,6 +47,42 @@ bool waitsForNextWord(std::u16string_view word) {
 }
 
 } // namespace
+
+bool StreamingPacer::update(std::u16string_view text, bool streaming, bool smooth, double time) {
+  // The first text shows at once.
+  bool continues = !text_.empty() && text.substr(0, text_.size()) == std::u16string_view(text_);
+  if (smooth && (streaming || streaming_ || draining_) && continues) {
+    if (text.size() > text_.size()) {
+      append(text_.size(), text.substr(text_.size()), time);
+      // Text arriving after the end of the stream drains with the rest.
+      if (draining_) {
+        finish(time);
+      }
+    }
+  } else {
+    reset(text.size());
+  }
+  text_.assign(text);
+  if (streaming) {
+    streaming_ = true;
+    draining_ = false;
+    return false;
+  }
+  if (streaming_) {
+    streaming_ = false;
+    draining_ = true;
+    finish(time);
+  }
+  return drained(time);
+}
+
+bool StreamingPacer::drained(double time) {
+  if (!draining_ || waiting(time)) {
+    return false;
+  }
+  draining_ = false;
+  return true;
+}
 
 void StreamingPacer::append(size_t start, std::u16string_view added, double time) {
   if (start != length_) {

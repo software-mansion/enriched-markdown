@@ -10,10 +10,19 @@ namespace Markdown {
 // Paces streamed text word by word: how much of it a view shows at each moment, so the text, its
 // layout and its blocks appear as words are revealed instead of in the bursts they arrive in.
 // Each chunk spreads over the time until the next one, at most a second behind; a word the chunk
-// ends inside waits for the rest. Lengths are UTF-16 code units; times are seconds on any
-// monotonic clock.
+// ends inside waits for the rest. When the stream ends, what is waiting drains before the view
+// stops streaming. Lengths are UTF-16 code units; times are seconds on any monotonic clock.
 class StreamingPacer {
 public:
+  // The view's text is now `text`, its streaming prop `streaming` and streamingConfig.smooth
+  // `smooth`, at `time`. With smooth, while streaming or draining, text that continues the last
+  // one is paced; any other shows at once. The prop turning off starts the drain (finish), turning
+  // on cancels it. Returns whether the stream ends now: nothing was waiting, the drain was cut short
+  // (smooth turned off, the text replaced) or it finished.
+  bool update(std::u16string_view text, bool streaming, bool smooth, double time);
+  // Whether the drain finished by `time`: true once, and the stream ends then.
+  bool drained(double time);
+
   // The text grew from `start` (its length so far) by `added` at `time`.
   void append(size_t start, std::u16string_view added, double time);
   // Shows `length` characters at once and forgets what was waiting: pacing off, or a text that
@@ -48,6 +57,11 @@ private:
   std::optional<double> lastArrival_;
   // The usual time between chunks, which each chunk spreads over.
   std::optional<double> arrivalGap_;
+  // What update was last given.
+  std::u16string text_;
+  bool streaming_ = false;
+  // The prop turned off and what was waiting is still to appear.
+  bool draining_ = false;
 };
 
 } // namespace Markdown
