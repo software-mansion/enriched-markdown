@@ -58,7 +58,7 @@ English with no way to override them.
   Inline math renders correctly today.
 - **VoiceOver**, pending an `NSAccessibility` implementation - a no-op stub
   ships now.
-- **Tail fade-in animation**, which falls back to an instant reveal.
+- **Streaming animations** (`'fade'`, `'gradient'`), which fall back to an instant reveal.
 - **System font-scale observation.**
 
 ## Planned

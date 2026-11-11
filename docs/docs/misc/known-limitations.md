@@ -174,7 +174,7 @@ other native-only props. See
 
 **Block math is silently dropped** under `flavor="github"` - the equation
 produces no segment and no fallback text. Inline math renders. Beyond that: the
-tail fade-in animation falls back to an instant reveal, system font-scale
+streaming animations (`'fade'`, `'gradient'`) fall back to an instant reveal, system font-scale
 changes are not observed, VoiceOver is stubbed, and `selectionColor` tints only
 the selection background - AppKit's `NSTextView` does not expose caret and
 handle tinting via `tintColor`. See

@@ -78,7 +78,7 @@ An unterminated `$$` block math is always withheld until its closing `$$` arrive
 
 | Value | Behavior |
 |---|---|
-| `'fade'` (default) | Each new chunk of text fades in over its own 200 ms; new blocks and table rows fade in. |
+| `'fade'` (default) | Each new word fades in over its own 200 ms; new blocks and table rows fade in. |
 | `'gradient'` | The last 20 characters run from their own color to transparent, following the end of the text as it grows, and settle to their own colors over 200 ms when the stream ends. |
 | `'none'` | Nothing animates; the incomplete-block handling above still applies. |
 
@@ -93,6 +93,14 @@ A preset with its options: `{ type: 'fade', duration }` sets the text's fade in 
 ```
 
 Animations change only how characters are drawn, never the text. Reduce Motion turns them off.
+
+## Smooth Pacing (`smooth`)
+
+`streamingConfig.smooth` reveals the text word by word at a steady pace instead of in the bursts it arrives in, so lines, list items and blocks grow with the words. Each chunk spreads over the time until the next one, at most a second behind; when the stream ends, what is left shows within 200 ms, and `onStreamingEnd` fires then. Off by default. It works with every animation, and Reduce Motion keeps the pacing and turns off only the animation.
+
+```tsx
+<EnrichedMarkdownText markdown={partialMarkdown} streaming={isStreaming} streamingConfig={{ smooth: true }} />
+```
 
 ## Half-Written Inline Syntax
 

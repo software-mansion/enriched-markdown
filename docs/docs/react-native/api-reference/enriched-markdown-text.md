@@ -338,7 +338,7 @@ New content is found by **length**, not by diffing: everything past the previous
 
 Fine-grained control over streaming: how incomplete tables, fenced code blocks and media blocks are handled, and how new content appears. Only takes effect while [`streaming`](#streaming) is `true`, in both flavors.
 
-<PropInfo type="StreamingConfig" default="{ tableMode: 'progressive', codeBlockMode: 'progressive', mediaMode: 'progressive', animation: 'fade' }" />
+<PropInfo type="StreamingConfig" default="{ tableMode: 'progressive', codeBlockMode: 'progressive', mediaMode: 'progressive', animation: 'fade', smooth: false }" />
 
 ```ts
 interface StreamingConfig {
