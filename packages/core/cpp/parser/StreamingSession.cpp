@@ -23,8 +23,9 @@ RepairOptions streamingRepairOptions(const Md4cFlags &flags) {
 
 StreamingSnapshot streamingSnapshot(const std::string &source, const StreamingOptions &options) {
   StreamingSnapshot snapshot;
-  snapshot.finishedBytes = finishedBlocksEnd(source);
-  StreamingFilterResult tail = renderableMarkdownForStreaming(source.substr(snapshot.finishedBytes), options.blocks);
+  snapshot.finishedBytes = finishedBlocksEnd(source, options.flags.latexMath);
+  StreamingFilterResult tail =
+      renderableMarkdownForStreaming(source.substr(snapshot.finishedBytes), options.blocks, options.flags.latexMath);
   repairInlineMarkdownInPlace(tail.markdown, streamingRepairOptions(options.flags));
   snapshot.endsInsideOpenCodeFence = tail.endsInsideOpenCodeFence;
   snapshot.markdown.reserve(snapshot.finishedBytes + tail.markdown.size());

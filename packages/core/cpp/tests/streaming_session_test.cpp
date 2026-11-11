@@ -30,8 +30,8 @@ void expect(const std::string &markdown, const std::string &expected, const std:
   check(got == expected, what + "\n  expected: [" + expected + "]\n  got:      [" + got + "]");
 }
 
-size_t finished(const std::string &markdown) {
-  return Markdown::streamingSnapshot(markdown, {}).finishedBytes;
+size_t finished(const std::string &markdown, const StreamingOptions &options = {}) {
+  return Markdown::streamingSnapshot(markdown, options).finishedBytes;
 }
 
 std::string readFile(const std::string &path) {
@@ -141,6 +141,10 @@ int main(int argc, char **argv) {
   StreamingOptions noMath;
   noMath.flags.latexMath = false;
   expect("Costs $5 and *a", "Costs $5 and *a*", "without math a dollar is currency", noMath);
+  expect("Price\n\n$$\n\nOne\n\nTwo\n\nThree", "Price\n\n$$\n\nOne\n\nTwo\n\nThree", "without math `$$` is text",
+         noMath);
+  check(finished("Price\n\n$$\n\nOne\n\nTwo\n\nThree", noMath) == 21, "without math `$$` opens no block");
+  check(finished("One\n\n$", noMath) == 5, "without math a line still arriving with `$` cannot become `$$`");
   expect("Para\n- ", "Para\n", "a lone list marker waits");
   expect("Para\n#", "Para\n", "a lone heading marker waits");
   expect("Approx ~5 and ~10", "Approx ~5 and ~10", "the parser decides what a single tilde means");

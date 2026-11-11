@@ -440,8 +440,10 @@ void cutPendingMedia(Document &doc, StreamingBlockMode mode, bool terminated) {
   doc.text = doc.text.substr(0, cutOffset);
 }
 
-std::string_view removePendingBlocks(Document doc, const StreamingFilterOptions &options, bool terminated) {
-  cutPendingMath(doc);
+std::string_view removePendingBlocks(Document doc, const StreamingFilterOptions &options, bool terminated,
+                                     bool latexMath) {
+  if (latexMath)
+    cutPendingMath(doc);
   cutPendingTable(doc, options.tableMode);
   cutPendingMedia(doc, options.mediaMode, terminated);
   return doc.text;
@@ -449,13 +451,13 @@ std::string_view removePendingBlocks(Document doc, const StreamingFilterOptions 
 
 } // namespace
 
-StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown,
-                                                     const StreamingFilterOptions &options) {
+StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown, const StreamingFilterOptions &options,
+                                                     bool latexMath) {
   std::string_view text(markdown);
   Lines lines = splitLines(text);
   size_t openFence = scanFences(lines);
   if (openFence == npos)
-    return {std::string(removePendingBlocks({text, std::move(lines)}, options, false)), false};
+    return {std::string(removePendingBlocks({text, std::move(lines)}, options, false, latexMath)), false};
 
   // The fence terminates whatever paragraph precedes it, shown or not. Until its
   // opening line ends the info string may still grow, so the fence waits for it
@@ -464,7 +466,7 @@ StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown
   Document head{text, std::move(lines)};
   size_t fenceOffset = head.lines[openFence].offset;
   head.cutAtLine(openFence);
-  std::string_view kept = removePendingBlocks(std::move(head), options, true);
+  std::string_view kept = removePendingBlocks(std::move(head), options, true, latexMath);
   if (options.codeBlockMode == StreamingBlockMode::Hidden || !openerEnded)
     return {std::string(kept), false};
   std::string result;
@@ -473,7 +475,7 @@ StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown
   return {std::move(result), true};
 }
 
-size_t finishedBlocksEnd(std::string_view markdown) {
+size_t finishedBlocksEnd(std::string_view markdown, bool latexMath) {
   Lines lines = splitLines(markdown);
   scanFences(lines);
   size_t end = 0;
@@ -500,9 +502,9 @@ size_t finishedBlocksEnd(std::string_view markdown) {
     // A line still arriving can start the tail once its first character rules
     // out a fence, `$$` and HTML, the kinds a later character could still make.
     char first = startsBlock ? line.text[0] : 0;
-    if (startsBlock && (i + 1 < lines.size() || (first != '`' && first != '~' && first != '$')))
+    if (startsBlock && (i + 1 < lines.size() || (first != '`' && first != '~' && (first != '$' || !latexMath))))
       end = line.offset;
-    if (trim(body) == "$$")
+    if (latexMath && trim(body) == "$$")
       openMath = !openMath;
   }
   return end;
