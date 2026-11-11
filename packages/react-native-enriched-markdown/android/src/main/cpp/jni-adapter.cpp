@@ -569,7 +569,7 @@ JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_Streaming
                 : type == 1 ? Markdown::StreamingEffectType::Fade
                             : Markdown::StreamingEffectType::None;
   config.duration = duration;
-  config.length = static_cast<size_t>(std::max(length, 1));
+  config.length = static_cast<size_t>(std::max(length, 0));
   if (hasStartColor == JNI_TRUE) {
     config.startColor = effectColor(startColor);
   }

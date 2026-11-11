@@ -115,15 +115,13 @@ class EnrichedMarkdown(
         emitStreamingEndEvent()
       }
     }
-  private var streamingFade: Boolean = true
 
   /** Text segments start over with the new animation: 'none' shows what still animates at once. */
   fun setStreamingAnimation(config: StreamingEffects.Config) {
     if (config == effectsConfig) return
     effectsConfig = config
     textEffects.values.forEach { it.configure(config) }
-    streamingFade = config.type != StreamingEffects.Type.NONE
-    if (!streamingFade) finishStreamingAnimations()
+    if (config.type == StreamingEffects.Type.NONE) finishStreamingAnimations()
   }
 
   // used to force a Yoga re-measure when a block image resolves its box height
@@ -931,6 +929,10 @@ class EnrichedMarkdown(
     tailStart: Int,
   ) {
     if (!streaming && !streamEnding) return
+    // Nothing animates: no animator is made for it, and those made already started over with 'none'
+    // or turn it off on arrival (Reduce Motion).
+    if (effectsConfig.type == StreamingEffects.Type.NONE) return
+    if (view !in textEffects && isReducedMotionEnabled(context)) return
     val effects = effectsOf(view)
     effects.noteArrival(tailStart, view.text?.length ?: 0)
     if (streamEnding) effects.finish()
@@ -942,12 +944,13 @@ class EnrichedMarkdown(
     for (view in segmentViews) {
       if (view === except || view !is EnrichedMarkdownInternalText) continue
       val effects = textEffects[view] ?: continue
-      if (except == null || effects.type == StreamingEffects.Type.GRADIENT) effects.finish()
+      // A fade ends on its own.
+      if (effects.type == StreamingEffects.Type.GRADIENT) effects.finish()
     }
   }
 
-  // New streamed content fades in and slots grow in, unless the animation is off or Reduce Motion is on.
-  private fun fadesArrivals() = streaming && streamingFade && !isReducedMotionEnabled(context)
+  // New streamed content fades in and slots grow in, unless the animation is 'none' or Reduce Motion is on.
+  private fun fadesArrivals() = streaming && effectsConfig.type != StreamingEffects.Type.NONE && !isReducedMotionEnabled(context)
 
   private fun animateBlockViewFadeIn(view: View) {
     if (!fadesArrivals()) return

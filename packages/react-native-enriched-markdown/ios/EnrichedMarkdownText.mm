@@ -129,7 +129,6 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   size_t _pendingStyleFingerprint;
 
   NSUInteger _previousTextLength;
-  // The stream ended and its last text has not been rendered yet: it still animates, then settles.
   BOOL _streamEnding;
 
   // Reused by the next render on the render queue (see ENRMTextRenderCache); a recycled view
@@ -902,7 +901,6 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
       _previousTextLength = ENRMGetAttributedText(_textView).length;
     } else {
 #if !TARGET_OS_OSX
-      // What still animates settles.
       [((ENRMMarkdownTextView *)_textView).streamingEffects finishAt:CACurrentMediaTime()];
       [(ENRMMarkdownTextView *)_textView streamingEffectsChanged];
 #endif

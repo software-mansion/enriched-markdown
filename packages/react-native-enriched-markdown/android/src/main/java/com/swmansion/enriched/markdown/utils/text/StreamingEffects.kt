@@ -99,7 +99,8 @@ class StreamingEffects {
         config: ReadableMap?,
         context: Context,
       ): Config {
-        if (config == null) return Config()
+        val defaults = Config()
+        if (config == null) return defaults
         val raw = config.toHashMap()
 
         fun color(key: String): Int? = raw[key]?.let { ColorPropConverter.getColor(it, context) }
@@ -110,8 +111,8 @@ class StreamingEffects {
               "none" -> Type.NONE
               else -> Type.FADE
             },
-          durationSeconds = (raw["animationDuration"] as? Number)?.toDouble()?.takeIf { it > 0 }?.div(1000) ?: 0.2,
-          length = (raw["animationLength"] as? Number)?.toInt()?.takeIf { it > 0 } ?: 20,
+          durationSeconds = (raw["animationDuration"] as? Number)?.toDouble()?.takeIf { it > 0 }?.div(1000) ?: defaults.durationSeconds,
+          length = (raw["animationLength"] as? Number)?.toInt()?.takeIf { it > 0 } ?: defaults.length,
           startColor = color("animationStartColor"),
           endColor = color("animationEndColor"),
         )

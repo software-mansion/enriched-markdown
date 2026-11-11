@@ -2,14 +2,20 @@
 #import "ENRMStreamingEffects.h"
 #import <React/RCTConversions.h>
 
+/// A component's `streamingConfig.animation`.
+template <typename StreamingConfigT>
+inline ENRMStreamingEffectType ENRMStreamingEffectTypeOf(const StreamingConfigT &config)
+{
+  return config.animation == "gradient" ? ENRMStreamingEffectGradient
+         : config.animation == "none"   ? ENRMStreamingEffectNone
+                                        : ENRMStreamingEffectFade;
+}
+
 /// Configures `effects` from a component's `streamingConfig` (animation and its options).
 template <typename StreamingConfigT>
 inline void ENRMConfigureStreamingEffects(ENRMStreamingEffects *effects, const StreamingConfigT &config)
 {
-  ENRMStreamingEffectType type = config.animation == "gradient" ? ENRMStreamingEffectGradient
-                                 : config.animation == "none"   ? ENRMStreamingEffectNone
-                                                                : ENRMStreamingEffectFade;
-  [effects configureType:type
+  [effects configureType:ENRMStreamingEffectTypeOf(config)
                 duration:config.animationDuration > 0 ? config.animationDuration / 1000.0 : 0.2
                   length:config.animationLength > 0 ? (NSUInteger)config.animationLength : 20
               startColor:facebook::react::isColorMeaningful(config.animationStartColor)

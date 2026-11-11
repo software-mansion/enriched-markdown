@@ -162,7 +162,6 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   BOOL _enableImagePress;
   BOOL _enableTextPress;
   BOOL _streaming;
-  // The stream ended and its last text has not been rendered yet: it still animates, then settles.
   BOOL _streamEnding;
   BOOL _streamingFade;
   ENRMTableStreamingMode _tableStreamingMode;
@@ -1513,7 +1512,8 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     }
     ENRMStreamingEffects *effects =
         ((ENRMMarkdownTextView *)((EnrichedMarkdownInternalText *)segment).textView).streamingEffects;
-    if (last == nil ? effects.type != ENRMStreamingEffectNone : effects.type == ENRMStreamingEffectGradient) {
+    // A fade ends on its own.
+    if (effects.type == ENRMStreamingEffectGradient) {
       [effects finishAt:now];
       [(ENRMMarkdownTextView *)((EnrichedMarkdownInternalText *)segment).textView streamingEffectsChanged];
     }
@@ -1712,7 +1712,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
   BOOL animationChanged = !ENRMSameStreamingAnimation(newViewProps.streamingConfig, oldViewProps.streamingConfig);
   if (animationChanged) {
-    _streamingFade = newViewProps.streamingConfig.animation != "none";
+    _streamingFade = ENRMStreamingEffectTypeOf(newViewProps.streamingConfig) != ENRMStreamingEffectNone;
     finishesAnimations |= !_streamingFade;
   }
   if (finishesAnimations) {

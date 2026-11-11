@@ -43,6 +43,7 @@ import com.swmansion.enriched.markdown.utils.common.RenderCoordinator
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.emitCodeBlockPress
+import com.swmansion.enriched.markdown.utils.common.isReducedMotionEnabled
 import com.swmansion.enriched.markdown.utils.text.StreamingEffects
 import com.swmansion.enriched.markdown.utils.text.StreamingEffectsAnimator
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
@@ -140,11 +141,8 @@ class EnrichedMarkdownText
     private var mediaStreamingMode = MediaStreamingMode.PROGRESSIVE
     private var previousTextLength: Int = 0
 
-    // The stream ended and its last text has not been rendered yet: it still animates, then settles.
     private var streamEnding = false
     private var effectsConfig = StreamingEffects.Config()
-
-    // Made with the first streamed text.
     private var effectsAnimator: StreamingEffectsAnimator? = null
     override var spoilerOverlayDrawer: SpoilerOverlayDrawer? = null
       private set
@@ -474,13 +472,14 @@ class EnrichedMarkdownText
       layoutManager.invalidateLayout(changedFrom)
 
       if (isStreaming || streamEnding) {
-        val animator =
-          effectsAnimator ?: StreamingEffectsAnimator(this).also {
-            it.configure(effectsConfig)
-            effectsAnimator = it
-          }
-        animator.noteArrival(tailStart, styledText.length)
-        if (streamEnding) animator.finish()
+        // Made once something animates; one made already started over with 'none'.
+        if (effectsAnimator == null && effectsConfig.type != StreamingEffects.Type.NONE && !isReducedMotionEnabled(context)) {
+          effectsAnimator = StreamingEffectsAnimator(this).also { it.configure(effectsConfig) }
+        }
+        effectsAnimator?.let {
+          it.noteArrival(tailStart, styledText.length)
+          if (streamEnding) it.finish()
+        }
         previousTextLength = if (isStreaming) styledText.length else 0
         streamEnding = false
       }
