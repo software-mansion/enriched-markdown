@@ -9,9 +9,6 @@ inline void ENRMConfigureStreamingEffects(ENRMStreamingEffects *effects, const S
   ENRMStreamingEffectType type = config.animation == "gradient" ? ENRMStreamingEffectGradient
                                  : config.animation == "none"   ? ENRMStreamingEffectNone
                                                                 : ENRMStreamingEffectFade;
-  if (ENRMShouldReduceMotion()) {
-    type = ENRMStreamingEffectNone;
-  }
   [effects configureType:type
                 duration:config.animationDuration > 0 ? config.animationDuration / 1000.0 : 0.2
                   length:config.animationLength > 0 ? (NSUInteger)config.animationLength : 20

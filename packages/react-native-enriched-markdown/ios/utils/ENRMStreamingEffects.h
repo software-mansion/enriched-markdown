@@ -15,7 +15,7 @@ typedef NS_ENUM(NSInteger, ENRMStreamingEffectType) {
 @interface ENRMStreamingEffects : NSObject
 
 /// The effect and its options (`duration` in seconds; `length` in characters; nil colors keep each
-/// character's own). Starts over.
+/// character's own). Starts over. Reduce Motion makes it None.
 - (void)configureType:(ENRMStreamingEffectType)type
              duration:(CFTimeInterval)duration
                length:(NSUInteger)length

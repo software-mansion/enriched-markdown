@@ -16,6 +16,9 @@ static std::optional<EffectColor> ENRMEffectColor(RCTUIColor *_Nullable color)
 
 @implementation ENRMStreamingEffects {
   Markdown::StreamingEffects _effects;
+  // As configured; Reduce Motion turns it into None.
+  Markdown::StreamingEffectConfig _config;
+  BOOL _reducesMotion;
 }
 
 - (void)configureType:(ENRMStreamingEffectType)type
@@ -32,6 +35,17 @@ static std::optional<EffectColor> ENRMEffectColor(RCTUIColor *_Nullable color)
   config.length = length;
   config.startColor = ENRMEffectColor(startColor);
   config.endColor = ENRMEffectColor(endColor);
+  _config = config;
+  [self configureEffects];
+}
+
+- (void)configureEffects
+{
+  _reducesMotion = ENRMShouldReduceMotion();
+  Markdown::StreamingEffectConfig config = _config;
+  if (_reducesMotion) {
+    config.type = StreamingEffectType::None;
+  }
   _effects.configure(config);
 }
 
@@ -49,6 +63,10 @@ static std::optional<EffectColor> ENRMEffectColor(RCTUIColor *_Nullable color)
 
 - (void)noteArrivalFrom:(NSUInteger)start to:(NSUInteger)end at:(CFTimeInterval)time
 {
+  // Reduce Motion applies from the next arrival, as it does to blocks.
+  if (ENRMShouldReduceMotion() != _reducesMotion) {
+    [self configureEffects];
+  }
   _effects.noteArrival(start, end, time);
 }
 

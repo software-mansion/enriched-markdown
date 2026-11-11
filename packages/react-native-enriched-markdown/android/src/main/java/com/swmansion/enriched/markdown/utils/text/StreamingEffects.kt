@@ -28,15 +28,11 @@ class StreamingEffects {
       0L
     }
 
-  fun configure(
-    type: Type,
-    durationSeconds: Double,
-    length: Int,
-    startColor: Int?,
-    endColor: Int?,
-  ) {
+  fun configure(config: Config) {
     if (handle == 0L) return
-    nativeConfigure(handle, type.code, durationSeconds, length, startColor != null, startColor ?: 0, endColor != null, endColor ?: 0)
+    with(config) {
+      nativeConfigure(handle, type.code, durationSeconds, length, startColor != null, startColor ?: 0, endColor != null, endColor ?: 0)
+    }
   }
 
   fun noteArrival(

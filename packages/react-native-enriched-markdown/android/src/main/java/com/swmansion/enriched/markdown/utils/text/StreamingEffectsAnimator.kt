@@ -21,16 +21,15 @@ class StreamingEffectsAnimator(
   private val spans = mutableListOf<StreamingEffectSpan>()
   private var frameScheduled = false
   private var finished = false
+  private var config = StreamingEffects.Config()
 
   var type = StreamingEffects.Type.FADE
     private set
 
   /** Starts over with [config]: 'none' shows what still animates at once. */
   fun configure(config: StreamingEffects.Config) {
-    val context = viewRef.get()?.context
-    type = if (context != null && isReducedMotionEnabled(context)) StreamingEffects.Type.NONE else config.type
-    effects.configure(type, config.durationSeconds, config.length, config.startColor, config.endColor)
-    finished = false
+    this.config = config
+    configureEffects()
     refresh()
   }
 
@@ -39,6 +38,8 @@ class StreamingEffectsAnimator(
     start: Int,
     end: Int,
   ) {
+    // Reduce Motion applies from the next arrival, as it does to blocks.
+    if (effectiveType() != type) configureEffects()
     effects.noteArrival(start, end, StreamingEffects.now())
     if (end > start) finished = false
     refresh()
@@ -62,6 +63,17 @@ class StreamingEffectsAnimator(
   override fun doFrame(frameTimeNanos: Long) {
     frameScheduled = false
     refresh()
+  }
+
+  private fun effectiveType(): StreamingEffects.Type {
+    val context = viewRef.get()?.context
+    return if (context != null && isReducedMotionEnabled(context)) StreamingEffects.Type.NONE else config.type
+  }
+
+  private fun configureEffects() {
+    type = effectiveType()
+    effects.configure(config.copy(type = type))
+    finished = false
   }
 
   private fun refresh() {
