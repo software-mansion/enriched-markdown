@@ -621,15 +621,13 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   }
 }
 
-/// `scheduledForceHeight` is the forced-height request set when this render was
-/// scheduled; one set since stays for the newer render it belongs to.
-// A patch fits only the text it was made from: one past the end of the shown text is missed too.
 - (BOOL)patchFits:(ENRMRenderResult *)result
 {
-  return result.patchTail && result.patchBaseRevision == _renderedRevision &&
-         result.patchStart <= _textView.textStorage.length;
+  return [result patchFitsRevision:_renderedRevision length:_textView.textStorage.length];
 }
 
+/// `scheduledForceHeight` is the forced-height request set when this render was
+/// scheduled; one set since stays for the newer render it belongs to.
 - (void)applyRenderedText:(ENRMRenderResult *)result forceHeightUpdate:(BOOL)scheduledForceHeight
 {
   const BOOL patches = [self patchFits:result];

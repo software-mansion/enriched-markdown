@@ -1281,9 +1281,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
 - (void)configureTextView:(EnrichedMarkdownInternalText *)view withRenderedSegment:(ENRMRenderResult *)segment
 {
-  // A patch fits only the text it was made from: one past the end of the view's text is missed too.
-  const BOOL patches = segment.patchTail && segment.patchBaseRevision == view.renderedRevision &&
-                       segment.patchStart <= view.textView.textStorage.length;
+  const BOOL patches = [segment patchFitsRevision:view.renderedRevision length:view.textView.textStorage.length];
   if (!patches && !segment.attributedText) {
     // A patch to text this view doesn't show: left for the full render applyRenderedSegments asks for.
     return;

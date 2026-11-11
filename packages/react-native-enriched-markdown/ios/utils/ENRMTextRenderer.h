@@ -31,6 +31,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) uint64_t patchBaseRevision;
 @property (nonatomic, assign) NSUInteger patchStart;
 @property (nonatomic, strong, nullable) NSAttributedString *patchTail;
+
+// Whether the patch applies to the text a view shows: revision `revision`, `length` long. A patch
+// starting past the end of that text was made from a render the view missed too.
+- (BOOL)patchFitsRevision:(uint64_t)revision length:(NSUInteger)length;
 @end
 
 #ifdef __cplusplus

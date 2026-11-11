@@ -7,6 +7,12 @@
 #import "StyleConfig.h"
 
 @implementation ENRMRenderResult
+
+- (BOOL)patchFitsRevision:(uint64_t)revision length:(NSUInteger)length
+{
+  return self.patchTail != nil && self.patchBaseRevision == revision && self.patchStart <= length;
+}
+
 @end
 
 static ENRMRenderResult *ENRMRenderASTNodesCore(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config,
