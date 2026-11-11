@@ -115,6 +115,14 @@ static void *kENRMCanvasBoundsContext = &kENRMCanvasBoundsContext;
   _canvas = nil;
   Class containerClass = NSClassFromString(@"_UITextContainerView");
   Class canvasClass = NSClassFromString(@"_UITextViewCanvasView");
+#if DEBUG
+  static dispatch_once_t missingClassOnce;
+  dispatch_once(&missingClassOnce, ^{
+    if (containerClass == nil || canvasClass == nil) {
+      NSLog(@"[EnrichedMarkdown] UIKit has no _UITextContainerView or _UITextViewCanvasView: long texts draw whole.");
+    }
+  });
+#endif
   for (UIView *subview in textView.subviews) {
     if (containerClass != nil && [subview isKindOfClass:containerClass]) {
       _containerView = subview;
@@ -171,7 +179,7 @@ static void *kENRMCanvasBoundsContext = &kENRMCanvasBoundsContext;
   [self redrawEditedTiles];
 }
 
-// Tiles for the drawn rect, in 512 pt steps: kept while it moves, made as it reaches them.
+// Tiles for the drawn rect, in tile height steps: kept while it moves, made as it reaches them.
 - (void)layoutTiles
 {
   if (![self prepareTiles]) {

@@ -128,9 +128,9 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   ENRMLatexErrorCoordinator *_latexErrorCoordinator;
   NSMutableArray<RCTUIView *> *_segmentViews;
   NSMutableArray<NSNumber *> *_segmentSignatures;
-  // Block segments off screen, their bitmaps dropped (see updateDrawnSegments).
   ENRMVisibleArea *_visibleArea;
   CGRect _drawnVisibleRect;
+  // Block segments off screen, their bitmaps dropped (see updateDrawnSegments).
   NSHashTable<RCTUIView *> *_undrawnSegments;
   ENRMSegmentViewRegistry *_segmentViewRegistry;
   ENRMDirtyFlags _dirtyFlags;
