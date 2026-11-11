@@ -402,7 +402,7 @@ object MeasurementStore {
   // flight; taking it spares rendering and measuring the whole document again on every
   // update. The same document at the same width gets the previous answer back; new
   // content, another width or a view that hasn't laid anything out yet measure in full.
-  private fun laidOutSizeForStreamUpdate(
+  internal fun laidOutSizeForStreamUpdate(
     id: Int,
     width: Float,
     props: ReadableMap?,
@@ -464,7 +464,7 @@ object MeasurementStore {
     }
 
   // Remembers what the measurement of [id] returned, for the next one to compare with.
-  private fun recordMeasured(
+  internal fun recordMeasured(
     id: Int,
     size: Long,
   ) {

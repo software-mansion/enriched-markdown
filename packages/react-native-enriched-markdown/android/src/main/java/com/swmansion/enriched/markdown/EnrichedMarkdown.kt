@@ -65,7 +65,7 @@ class EnrichedMarkdown(
 ) : ContainerNodeView(context),
   ImagePressHost,
   TextPressHost {
-  private enum class DirtyFlag {
+  internal enum class DirtyFlag {
     RECREATE_SEGMENTS,
     FORCE_HEIGHT,
 
@@ -84,7 +84,7 @@ class EnrichedMarkdown(
   // Set when React Native drops the view for good. Detaching from the window is
   // not disposal: a view renders before its first attach and while detached.
   private var isDisposed = false
-  private val dirtyFlags = EnumSet.noneOf(DirtyFlag::class.java)
+  internal val dirtyFlags = EnumSet.noneOf(DirtyFlag::class.java)
   var streamingAnimation: Boolean = false
     set(value) {
       if (field == value) return
@@ -671,7 +671,7 @@ class EnrichedMarkdown(
 
   // [scheduledFlags] are the ones set when this render was scheduled: it takes those
   // still set, and flags set since stay for the newer render they belong to.
-  private fun applyRenderedSegments(
+  internal fun applyRenderedSegments(
     renderedSegments: List<RenderedSegment>,
     hasPendingCodeBlock: Boolean,
     scheduledFlags: Set<DirtyFlag>,
@@ -893,7 +893,7 @@ class EnrichedMarkdown(
       .start()
   }
 
-  private fun postToMain(action: Runnable) {
+  internal fun postToMain(action: Runnable) {
     mainHandler.post {
       if (!isDisposed) action.run()
     }

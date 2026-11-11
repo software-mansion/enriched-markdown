@@ -32,31 +32,10 @@ class StreamMeasurementTest {
   ): Long? {
     val props: ReadableMap =
       JavaOnlyMap.of("markdown", markdown, "markdownStyle", JavaOnlyMap(), "allowTrailingMargin", trailingMargin)
-    val check =
-      MeasurementStore::class.java.getDeclaredMethod(
-        "laidOutSizeForStreamUpdate",
-        Int::class.javaPrimitiveType,
-        Float::class.javaPrimitiveType,
-        ReadableMap::class.java,
-        Boolean::class.javaPrimitiveType,
-        Boolean::class.javaPrimitiveType,
-        Float::class.javaPrimitiveType,
-        Float::class.javaPrimitiveType,
-      )
-    check.isAccessible = true
-    return check.invoke(MeasurementStore, viewId, width, props, true, true, 1f, 0f) as Long?
+    return MeasurementStore.laidOutSizeForStreamUpdate(viewId, width, props, true, true, 1f, 0f)
   }
 
-  private fun recordMeasured(size: Long) {
-    val record =
-      MeasurementStore::class.java.getDeclaredMethod(
-        "recordMeasured",
-        Int::class.javaPrimitiveType,
-        Long::class.javaPrimitiveType,
-      )
-    record.isAccessible = true
-    record.invoke(MeasurementStore, viewId, size)
-  }
+  private fun recordMeasured(size: Long) = MeasurementStore.recordMeasured(viewId, size)
 
   @Test
   fun aStreamUpdateTakesTheSizeTheViewLaidOut() {
