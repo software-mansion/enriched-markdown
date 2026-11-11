@@ -65,12 +65,12 @@ import kotlin.math.ceil
 object MeasurementStore {
   private const val TAG = "MeasurementStore"
 
-  private data class PaintParams(
+  internal data class PaintParams(
     val typeface: Typeface,
     val fontSize: Float,
   )
 
-  private data class MeasurementParams(
+  internal data class MeasurementParams(
     val cachedWidth: Float,
     val cachedSize: Long,
     val spannable: CharSequence?,
@@ -78,7 +78,7 @@ object MeasurementStore {
     val markdownHash: Int,
   )
 
-  private val data = ConcurrentHashMap<Int, MeasurementParams>()
+  internal val data = ConcurrentHashMap<Int, MeasurementParams>()
 
   // Store font scaling settings per view ID
   private data class FontScalingSettings(
