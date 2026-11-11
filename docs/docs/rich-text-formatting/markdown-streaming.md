@@ -15,10 +15,10 @@ Streaming ships in the React Native package, on iOS and Android. `streaming` and
 The standalone iOS and Android packages have no streaming API. You can still hand them a growing Markdown string and each update renders it, but new text does not fade in and half-formed tables, code blocks and math are not held back.
 :::
 
-:::tip
-Building an LLM chat UI? [`react-native-streamdown`](https://enriched.swmansion.com/streamdown) is a sibling library that wraps this renderer for streaming - it repairs incomplete Markdown on the fly and moves parsing off the JS thread, while accepting every `EnrichedMarkdownText` prop.
+:::warning Migrating from `react-native-streamdown` or `streamingAnimation`
+`react-native-streamdown` is deprecated. This package now holds back incomplete blocks and repairs half-written Markdown itself, in native code, with no Worklets setup: replace `StreamdownText` with `EnrichedMarkdownText` and set [`streaming`](#incremental-rendering) while the text arrives.
 
-It is not quite a drop-in, though: it requires Worklets Bundle Mode, which means `bundleMode: true` plus `importForwarding` for `remend` in `babel.config.js`, a `getBundleModeMetroConfig` entry in `metro.config.js`, and a Metro patch - without which the one-shot `react-native bundle` used for offline release bundling fails. Read its README's **Required setup** section before adopting it.
+`streamingAnimation` is deprecated in favor of `streaming` and logs a warning in development. It no longer only animates: while it is on, incomplete blocks are held back and inline syntax is repaired, so turn it off when the stream ends, or the final render keeps doing so.
 :::
 
 ## Incremental rendering
@@ -84,4 +84,3 @@ Blocks that have finished are never touched again, so the cost of each update de
 - [`onStreamingEnd`](/react-native/api-reference/enriched-markdown-text#onstreamingend) - called when the view stops streaming.
 - [`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig) - `tableMode`, `codeBlockMode` and `mediaMode`, each `'progressive'` or `'hidden'`, and `animation`, `'fade'` or `'none'`. Needs `streaming`.
 - [Markdown flavors](/react-native/guides/markdown-flavors) - what else the flavor switch changes.
-- [`react-native-streamdown`](https://enriched.swmansion.com/streamdown) - sibling library for LLM output: incomplete-Markdown repair ([remend](https://www.npmjs.com/package/remend)) and off-thread processing (react-native-worklets Bundle Mode). Accepts every `EnrichedMarkdownText` prop plus a `remendConfig`: `<StreamdownText markdown={partial} />`. See the setup caveat above.

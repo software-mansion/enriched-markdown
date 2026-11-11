@@ -1,16 +1,12 @@
 # Markdown Streaming
 
-If you need to render markdown that streams token-by-token from an LLM, check out [react-native-streamdown](https://github.com/software-mansion-labs/react-native-streamdown) — a streaming-ready markdown component built on top of `react-native-enriched-markdown`.
+`EnrichedMarkdownText` renders markdown while it streams, token by token from an LLM for example: new text fades in, incomplete blocks are held back and half-written inline syntax is repaired, all in native code.
 
-It combines [remend](https://www.npmjs.com/package/remend) for fixing incomplete markdown on the fly with [react-native-worklets](https://docs.swmansion.com/react-native-worklets/) **Bundle Mode** to run all processing off the JS thread, keeping your UI responsive while tokens arrive.
+## Migrating from react-native-streamdown or streamingAnimation
 
-```tsx
-import { StreamdownText } from 'react-native-streamdown';
+`react-native-streamdown` is deprecated: replace `StreamdownText` with `EnrichedMarkdownText` and set `streaming` while the text arrives. No Worklets setup is needed.
 
-<StreamdownText markdown={partialMarkdown} />;
-```
-
-`StreamdownText` accepts all props from `EnrichedMarkdownText` and adds a `remendConfig` prop for customizing the markdown repair pipeline. See the [react-native-streamdown README](https://github.com/software-mansion-labs/react-native-streamdown#readme) for full setup instructions including the required Babel and Metro configuration for Bundle Mode.
+`streamingAnimation` is deprecated in favor of `streaming` and logs a warning in development. It no longer only animates: while it is on, incomplete blocks are held back and inline syntax is repaired, so turn it off when the stream ends, or the final render keeps doing so.
 
 ## Incremental Rendering
 

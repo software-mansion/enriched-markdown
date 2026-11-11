@@ -19,7 +19,7 @@
 - 📐 CommonMark standard compliant
 - 📊 GitHub Flavored Markdown (GFM)
 - 🧮 LaTeX math rendering (block `$$...$$` with `flavor="github"`, inline `$...$` in all flavors)
-- 🔀 [Markdown Streaming](../../docs-md/MARKDOWN_STREAMING.md) support (via [react-native-streamdown](https://github.com/software-mansion-labs/react-native-streamdown))
+- 🔀 [Markdown Streaming](../../docs-md/MARKDOWN_STREAMING.md): new text fades in, incomplete blocks are held back and half-written syntax is repaired as an LLM streams
 - 🎨 Fully customizable styles for all elements
 - ✨ Text selection and copy support
 - 📌 Custom text selection context menu items

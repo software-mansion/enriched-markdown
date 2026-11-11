@@ -5,6 +5,16 @@ This file tracks breaking changes and how to migrate for each. Entries are newes
 
 ## Unreleased
 
+### `streamingAnimation` is deprecated in favor of `streaming`, and no longer only animates
+
+`streamingAnimation` still works as an alias of `streaming` and logs a warning in development. Like
+`streaming`, while it is on it holds back trailing blocks that have not finished arriving and repairs
+half-written inline syntax, as well as fading new text in. Set `streaming` while the text arrives and turn
+it off when the stream ends: a view that leaves it on renders a finished message with that handling.
+
+`react-native-streamdown` is deprecated: replace `StreamdownText` with `EnrichedMarkdownText` and set
+`streaming`. Repair of incomplete Markdown is built in and needs no Worklets setup.
+
 ## v1.1.1
 
 No breaking changes. v1.1.1 is a patch release over v1.1.0 - every public prop, method, event and style

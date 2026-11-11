@@ -164,6 +164,8 @@ const buildPluralTemplates = (
 
 const NO_BLOCKS: ReadonlyArray<MarkdownBlock> = [];
 
+let warnedStreamingAnimation = false;
+
 const defaultMd4cFlags: Md4cFlags = {
   underline: false,
   superscript: false,
@@ -453,6 +455,17 @@ export const EnrichedMarkdownText = ({
     [onSelectionCopy]
   );
 
+  if (
+    __DEV__ &&
+    streamingAnimation !== undefined &&
+    !warnedStreamingAnimation
+  ) {
+    warnedStreamingAnimation = true;
+    console.warn(
+      '[react-native-enriched-markdown] `streamingAnimation` is deprecated: use `streaming`, and turn it off when the stream ends. ' +
+        'Like `streaming`, it holds back incomplete blocks and repairs half-written syntax while it is on.'
+    );
+  }
   const streaming = streamingProp ?? streamingAnimation ?? false;
   const tableMode = streamingConfig?.tableMode ?? 'progressive';
   const codeBlockMode = streamingConfig?.codeBlockMode ?? 'progressive';

@@ -256,6 +256,27 @@ it('sends the deprecated streamingAnimation to the native view as streaming', ()
   expect(host(root).props.streaming).toBe(true);
 });
 
+it('warns once in development that streamingAnimation is deprecated', () => {
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  // A fresh module: an earlier test already set the flag that keeps it to once.
+  jest.isolateModules(() => {
+    const { act: freshAct } = require('react');
+    const { createRoot: freshRoot } = require('test-renderer');
+    const {
+      EnrichedMarkdownText: Fresh,
+    } = require('../src/native/EnrichedMarkdownText');
+    freshAct(() => {
+      freshRoot().render(<Fresh markdown="x" streamingAnimation />);
+      freshRoot().render(<Fresh markdown="y" streamingAnimation={false} />);
+    });
+  });
+  const deprecations = warn.mock.calls.filter(([message]) =>
+    String(message).includes('`streamingAnimation` is deprecated')
+  );
+  expect(deprecations).toHaveLength(1);
+  warn.mockRestore();
+});
+
 it('lets streaming override the deprecated streamingAnimation', () => {
   render(
     <EnrichedMarkdownText
