@@ -7,6 +7,22 @@ NSString *const CodeAttributeName = @"Code";
 static const CGFloat kCodeBackgroundCornerRadius = 2.0;
 static const CGFloat kCodeBackgroundBorderWidth = 0.5;
 
+void ENRMEnumerateWholeRuns(NSAttributedString *text, NSString *name, NSRange range, void (^block)(NSRange run))
+{
+  NSRange all = NSMakeRange(0, text.length);
+  [text enumerateAttribute:name
+                   inRange:range
+                   options:0
+                usingBlock:^(id value, NSRange run, BOOL *stop) {
+                  if (!value || run.length == 0)
+                    return;
+                  if (run.location == range.location || NSMaxRange(run) == NSMaxRange(range)) {
+                    [text attribute:name atIndex:run.location longestEffectiveRange:&run inRange:all];
+                  }
+                  block(run);
+                }];
+}
+
 @implementation CodeBackground {
   StyleConfig *_config;
 }
@@ -34,22 +50,15 @@ static const CGFloat kCodeBackgroundBorderWidth = 0.5;
   if (charRange.location == NSNotFound || charRange.length == 0)
     return;
 
-  [textStorage enumerateAttribute:CodeAttributeName
-                          inRange:NSMakeRange(0, textStorage.length)
-                          options:0
-                       usingBlock:^(id value, NSRange range, BOOL *stop) {
-                         if (!value || range.length == 0)
-                           return;
-                         if (NSIntersectionRange(range, charRange).length == 0)
-                           return;
-
-                         [self drawCodeBackgroundForRange:range
-                                            layoutManager:layoutManager
-                                            textContainer:textContainer
-                                                  atPoint:origin
-                                          backgroundColor:backgroundColor
-                                              borderColor:self->_config.codeBorderColor];
-                       }];
+  RCTUIColor *borderColor = _config.codeBorderColor;
+  ENRMEnumerateWholeRuns(textStorage, CodeAttributeName, charRange, ^(NSRange range) {
+    [self drawCodeBackgroundForRange:range
+                       layoutManager:layoutManager
+                       textContainer:textContainer
+                             atPoint:origin
+                     backgroundColor:backgroundColor
+                         borderColor:borderColor];
+  });
 }
 
 - (void)drawCodeBackgroundForRange:(NSRange)range
