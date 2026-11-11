@@ -123,14 +123,15 @@ static ENRMRenderedSegment *ENRMKeptSegment(ENRMRenderedSegment *segment)
 {
   ENRMRenderResult *previous = _growing.textResult;
   NSArray<NSNumber *> *old = _growingNodeSignatures;
-  if (!previous || old.count == 0) {
+  if (!previous || old.count == 0 || nodeSignatures.count == 0) {
     return nil;
   }
   NSUInteger common = 0;
   while (common < nodeSignatures.count && common < old.count && [nodeSignatures[common] isEqual:old[common]]) {
     common++;
   }
-  const NSUInteger from = MIN(common, old.count - 1);
+  // So does the new last one when the nodes after it are gone: it still ends in the spacing before them.
+  const NSUInteger from = MIN(common, MIN(old.count, nodeSignatures.count) - 1);
   return from > 0 ? resume(from, previous) : nil;
 }
 

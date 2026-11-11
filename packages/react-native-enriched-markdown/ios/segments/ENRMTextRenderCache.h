@@ -18,7 +18,9 @@ NS_ASSUME_NONNULL_BEGIN
  * - The last text segment, the one a stream grows, also keeps its node signatures. When the new
  *   segment starts with the same nodes, only the nodes from the old last one on render
  *   (ENRMRenderASTNodesResuming), and the view patches its text from there. The old last node
- *   renders again because, as the last one, its trailing spacing was trimmed.
+ *   renders again because, as the last one, its trailing spacing was trimmed. So does the new
+ *   last node when the ones after it are gone (a link reference definition completing renders
+ *   nothing).
  *
  * Clear it whenever views are recreated.
  */

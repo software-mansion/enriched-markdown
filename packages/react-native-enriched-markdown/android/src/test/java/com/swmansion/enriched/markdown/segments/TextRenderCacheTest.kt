@@ -124,6 +124,17 @@ class TextRenderCacheTest {
   }
 
   @Test
+  fun aLastNodeThatGoesAwayLeavesTheTextOfAFullRender() {
+    // A link reference definition shows as text until its URL arrives, then renders nothing.
+    val finished = blocks.map { it.last() }
+    val cache = TextRenderCache()
+    val shown = render(finished + paragraph(text("[api]:")), cache).styledText as SpannableStringBuilder
+    val patch = render(finished, cache).patch!!
+    shown.replaceTail(patch.start, patch.tail)
+    assertEquals(describe(render(finished, null).styledText!!), describe(shown))
+  }
+
+  @Test
   fun anUnchangedSegmentIsHandedOverAsItWas() {
     val cache = TextRenderCache()
     val first = render(states.last(), cache)
