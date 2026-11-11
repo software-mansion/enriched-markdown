@@ -1,5 +1,6 @@
 #import "../../ios/EnrichedMarkdown.h"
 #import "../../ios/styles/StyleConfig.h"
+#import "../../ios/views/EnrichedMarkdownInternalText.h"
 #import <XCTest/XCTest.h>
 
 static const CGFloat kENRMBlockTestWidth = 390;
@@ -56,6 +57,20 @@ static void ENRMDrawBitmaps(NSArray<UIView *> *views)
     [view.layer setNeedsDisplay];
     [view.layer displayIfNeeded];
   }
+}
+
+// The part of a text view its tiles draw (ENRMTextTiles); CGRectNull when none does.
+static CGRect ENRMBlockTestDrawnTextRect(UIView *view, UIView *textView)
+{
+  CGRect drawn = CGRectNull;
+  for (UIView *subview in view.subviews) {
+    if ([NSStringFromClass([subview class]) isEqualToString:@"ENRMTextTileView"]) {
+      drawn = CGRectUnion(drawn, [subview convertRect:subview.bounds toView:textView]);
+    } else {
+      drawn = CGRectUnion(drawn, ENRMBlockTestDrawnTextRect(subview, textView));
+    }
+  }
+  return drawn;
 }
 
 @interface ENRMBlockBitmapTests : XCTestCase
@@ -182,6 +197,26 @@ static void ENRMDrawBitmaps(NSArray<UIView *> *views)
   for (UIView *view in views) {
     XCTAssertTrue(view.layer.needsDisplay, @"%@", view);
   }
+}
+
+// The text segments follow the document's visible area, not one of their own.
+- (void)testTheTextFollowsTheDocumentsArea
+{
+  EnrichedMarkdownInternalText *text = nil;
+  for (UIView *subview in _document.subviews) {
+    if ([NSStringFromClass([subview class]) isEqualToString:@"EnrichedMarkdownInternalText"]) {
+      text = (EnrichedMarkdownInternalText *)subview;
+    }
+  }
+  XCTAssertNotNil(text.visibleArea);
+
+  CGFloat offset = round(_document.bounds.size.height / 2);
+  _scrollView.contentOffset = CGPointMake(0, offset);
+  CGRect drawn = ENRMBlockTestDrawnTextRect(text.textView, text.textView);
+  CGFloat shownTop = offset - CGRectGetMinY(text.frame);
+  XCTAssertGreaterThan(CGRectGetMinY(drawn), 0);
+  XCTAssertLessThanOrEqual(CGRectGetMinY(drawn), shownTop);
+  XCTAssertGreaterThanOrEqual(CGRectGetMaxY(drawn), shownTop + kENRMBlockTestWindowHeight);
 }
 
 // While the document is in a window its visible area holds the scroll views above it, which hold the
