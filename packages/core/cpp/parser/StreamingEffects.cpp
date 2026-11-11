@@ -110,6 +110,23 @@ const StreamingEffects::Unit *StreamingEffects::unitAt(size_t index) const {
   return index < unit.end ? &unit : nullptr;
 }
 
+size_t StreamingEffects::lookEnd(size_t index) const {
+  if (config_.type == StreamingEffectType::Gradient) {
+    return index + 1;
+  }
+  auto after =
+      std::upper_bound(units_.begin(), units_.end(), index, [](size_t i, const Unit &unit) { return i < unit.start; });
+  if (after != units_.begin() && index < std::prev(after)->end) {
+    // The words that arrived with it follow it.
+    auto unit = std::prev(after);
+    while (after != units_.end() && after->start == unit->end && after->time == unit->time) {
+      unit = after++;
+    }
+    return unit->end;
+  }
+  return after != units_.end() ? after->start : std::max(textLength_, index + 1);
+}
+
 bool StreamingEffects::changesOverTime(double time) {
   if (config_.type == StreamingEffectType::Gradient) {
     return finishedAt_ && time - *finishedAt_ < kSettleDuration;

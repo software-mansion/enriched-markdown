@@ -35,6 +35,8 @@ typedef NS_ENUM(NSInteger, ENRMStreamingEffectType) {
 - (NSRange)animatedRangeAt:(CFTimeInterval)time;
 /// The color to draw the character at `index` with, given its own color, at `time`.
 - (RCTUIColor *)colorForCharacterAtIndex:(NSUInteger)index ownColor:(RCTUIColor *)ownColor time:(CFTimeInterval)time;
+/// Where the look of the character at `index` ends: the characters before it look the same at any time.
+- (NSUInteger)lookEndForCharacterAtIndex:(NSUInteger)index;
 
 @end
 

@@ -76,7 +76,8 @@ static void *kENRMCanvasBoundsContext = &kENRMCanvasBoundsContext;
   [self drawAnimatedGlyphs:shown atPoint:origin time:now];
 }
 
-// The animated characters in the effects' colors, consecutive ones of one color in one go.
+// The animated characters in the effects' colors, consecutive ones of one color in one go. A color is
+// found once for each stretch of one look and one own color (a chunk's words), not for each character.
 - (void)drawAnimatedGlyphs:(NSRange)glyphs atPoint:(CGPoint)origin time:(CFTimeInterval)time
 {
   UITextView *textView = self.textView;
@@ -90,11 +91,15 @@ static void *kENRMCanvasBoundsContext = &kENRMCanvasBoundsContext;
   NSUInteger index = characters.location;
   while (index <= NSMaxRange(characters)) {
     UIColor *color = nil;
-    NSRange composed = NSMakeRange(index, 0);
+    NSRange stretch = NSMakeRange(index, 0);
     if (index < NSMaxRange(characters)) {
-      composed = [string rangeOfComposedCharacterSequenceAtIndex:index];
-      UIColor *own =
-          [storage attribute:NSForegroundColorAttributeName atIndex:index effectiveRange:NULL] ?: UIColor.labelColor;
+      NSRange ownRange;
+      UIColor *own = [storage attribute:NSForegroundColorAttributeName atIndex:index effectiveRange:&ownRange]
+                         ?: UIColor.labelColor;
+      NSUInteger end = MIN(NSMaxRange(ownRange), [self.effects lookEndForCharacterAtIndex:index]);
+      // A character sequence stays whole, in the look of its first character.
+      end = MAX(end, NSMaxRange([string rangeOfComposedCharacterSequenceAtIndex:MAX(end, index + 1) - 1]));
+      stretch = NSMakeRange(index, end - index);
       color = [self.effects colorForCharacterAtIndex:index ownColor:own time:time];
     }
     if (runColor != nil && ![color isEqual:runColor]) {
@@ -114,11 +119,11 @@ static void *kENRMCanvasBoundsContext = &kENRMCanvasBoundsContext;
       runStart = index;
       runColor = color;
     }
-    if (composed.length == 0) {
+    if (stretch.length == 0) {
       break;
     }
-    // A sequence reaching past the range still ends the last run.
-    index = MIN(NSMaxRange(composed), NSMaxRange(characters));
+    // A stretch reaching past the range still ends the last run.
+    index = MIN(NSMaxRange(stretch), NSMaxRange(characters));
   }
 }
 

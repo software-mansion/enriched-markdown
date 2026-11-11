@@ -61,6 +61,9 @@ public:
   // The characters drawn differently at `time`; empty when none.
   std::optional<CharacterRange> animatedRange(double time);
   CharacterLook lookAt(size_t index, double time) const;
+  // Where the look of the character at `index` ends: the characters before it look the same at any
+  // time (a chunk's words, or the text between them). Past `index`.
+  size_t lookEnd(size_t index) const;
 
 private:
   // A word (with the spaces after it) fading in from when it arrived.

@@ -114,4 +114,9 @@ static std::optional<EffectColor> ENRMEffectColor(RCTUIColor *_Nullable color)
                             alpha:a * (1 + (look.tint.a - 1) * t) * look.opacity];
 }
 
+- (NSUInteger)lookEndForCharacterAtIndex:(NSUInteger)index
+{
+  return _effects.lookEnd(index);
+}
+
 @end

@@ -88,6 +88,34 @@ TEST_CASE("the rest of a word that has appeared shows at once") {
   CHECK(fx.lookAt(3, 2.0).opacity == 1);
 }
 
+TEST_CASE("a look ends where the characters after it look different") {
+  auto fx = effects(fade());
+  std::u16string text = u"settled ";
+  fx.noteArrival(0, text.size(), 0.0, text);
+  append(fx, text, u"one two ", 1.0);
+  append(fx, text, u"three", 1.1);
+  // Pruned at 1.0: "settled " shows as it is, up to the first fading word.
+  CHECK(fx.animatedRange(1.0)->start == 8);
+  CHECK(fx.lookEnd(0) == 8);
+  // A chunk's words fade together.
+  CHECK(fx.lookEnd(8) == 16);
+  CHECK(fx.lookEnd(12) == 16);
+  CHECK(fx.lookEnd(16) == 21);
+  CHECK(fx.lookEnd(21) == 22);
+  // Every character up to a look's end looks the same, whatever the time.
+  for (double time : {1.0, 1.05, 1.15, 1.25}) {
+    for (size_t i = 0; i < text.size(); i++) {
+      for (size_t j = i; j < fx.lookEnd(i); j++) {
+        CHECK(fx.lookAt(j, time).opacity == fx.lookAt(i, time).opacity);
+      }
+    }
+  }
+  auto gradientFx = effects(gradient(4));
+  std::u16string gradientText;
+  append(gradientFx, gradientText, u"abcdef", 1.0);
+  CHECK(gradientFx.lookEnd(3) == 4);
+}
+
 TEST_CASE("a fade stops changing once every word has appeared") {
   auto fx = effects(fade());
   std::u16string text;
