@@ -28,8 +28,6 @@ static const CGFloat kENRMViewportStep = 256;
 @implementation ENRMTextViewport {
   __weak ENRMPlatformTextView *_textView;
 #if !TARGET_OS_OSX
-  // YES while the text view draws only part of its text: the text runs past the drawn rect.
-  BOOL _active;
   ENRMVisibleArea *_visibleArea;
   __weak UIView *_visibleAreaView;
   CGFloat _drawnTop;
@@ -72,6 +70,10 @@ static const CGFloat kENRMViewportStep = 256;
     return ENRMMeasureTextLayout(_textView, width);
   }
   [heldContainer setHeldSize:CGSizeMake(width, CGFLOAT_MAX)];
+  if (width != _appliedContentFrame.size.width) {
+    // The next update sizes the container back to the frame.
+    _appliedContentFrame = CGRectNull;
+  }
   NSLayoutManager *layoutManager = _textView.layoutManager;
   [layoutManager ensureLayoutForTextContainer:heldContainer];
   ENRMTextLayoutResult result;
@@ -83,10 +85,10 @@ static const CGFloat kENRMViewportStep = 256;
 - (void)update
 {
   UITextView *textView = _textView;
-  UIView *host = textView.superview;
   if (textView == nil) {
     return;
   }
+  UIView *host = textView.superview;
   if (host != _visibleAreaView) {
     _visibleAreaView = host;
     __weak ENRMTextViewport *weakSelf = self;
@@ -102,18 +104,12 @@ static const CGFloat kENRMViewportStep = 256;
   CGFloat height = content.size.height;
   CGFloat top = 0;
   CGFloat bottom = height;
-  BOOL active = NO;
   id<ENRMTextViewportView> drawingView =
       [textView conformsToProtocol:@protocol(ENRMTextViewportView)] ? (id<ENRMTextViewportView>)textView : nil;
-  if (drawingView != nil && CGRectIsNull(visible)) {
-    // Out of the window: nothing on screen, nothing drawn (the window attach draws it again).
-    top = 0;
-    bottom = 0;
-    active = height > 0;
-  } else if (drawingView != nil && !CGRectIsInfinite(visible) && height > 0) {
+  if (drawingView != nil && !CGRectIsInfinite(visible) && height > 0) {
     visible = CGRectOffset(visible, -content.origin.x, -content.origin.y);
     if (CGRectIsEmpty(visible)) {
-      top = 0;
+      // Off screen or out of the window (null): nothing drawn (the window attach draws it again).
       bottom = 0;
     } else {
       top = MAX(0, floor((CGRectGetMinY(visible) - ENRMVisibleAreaMargin) / kENRMViewportStep) * kENRMViewportStep);
@@ -121,18 +117,11 @@ static const CGFloat kENRMViewportStep = 256;
           MIN(height, ceil((CGRectGetMaxY(visible) + ENRMVisibleAreaMargin) / kENRMViewportStep) * kENRMViewportStep);
       bottom = MAX(bottom, top);
     }
-    active = top > 0 || bottom < height;
   }
 
-  if (!active) {
-    top = 0;
-    bottom = height;
-  }
-  if (active == _active && top == _drawnTop && bottom == _drawnBottom &&
-      CGRectEqualToRect(content, _appliedContentFrame)) {
+  if (top == _drawnTop && bottom == _drawnBottom && CGRectEqualToRect(content, _appliedContentFrame)) {
     return;
   }
-  _active = active;
   _drawnTop = top;
   _drawnBottom = bottom;
   _appliedContentFrame = content;

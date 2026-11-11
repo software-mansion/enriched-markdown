@@ -5,11 +5,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// Draws a long text view only around the part of it on screen.
 ///
-/// A non-scrolling TextKit 1 text view keeps one bitmap of its whole frame: about 7.5 MB per
-/// screen of text. The text view keeps its whole frame, so UIKit's selection, menus, hit testing
-/// and accessibility work on it as before, but it draws only the part of its text near the visible
-/// part of the enclosing scroll views (plus a margin): see ENRMTextViewportView. A text off screen
-/// draws nothing.
+/// A non-scrolling TextKit 1 text view keeps one bitmap of its whole frame (see ENRMTextTiles). The
+/// text view keeps its whole frame, so UIKit's selection, menus, hit testing and accessibility work
+/// on it as before, but it draws only the part of its text near the visible part of the enclosing
+/// scroll views (plus a margin): see ENRMTextViewportView. A text off screen draws nothing.
 ///
 /// On macOS the text view keeps covering the whole text.
 @interface ENRMTextViewport : NSObject
@@ -21,7 +20,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) CGRect contentFrame;
 
 /// Lays out the whole text at `width`: the used rect and the extra line fragment, as
-/// `ENRMMeasureTextLayout` gives them.
+/// `ENRMMeasureTextLayout` gives them. At another width than the frame's, the next `update` lays the
+/// text out at the frame's width again.
 - (ENRMTextLayoutResult)measureLayoutAtWidth:(CGFloat)width;
 
 /// Moves the drawn rect to where the enclosing scroll views show the text now. Cheap when it has
