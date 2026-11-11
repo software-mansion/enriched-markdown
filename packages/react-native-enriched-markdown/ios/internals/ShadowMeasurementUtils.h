@@ -58,7 +58,8 @@ static inline Size ENRMClampMeasuredSize(CGSize size, const LayoutConstraints &l
 }
 
 /// Whether the streaming flag and modes, which decide what the view renders but
-/// stay out of the cache key, are the same in both.
+/// stay out of the cache key, are the same in both. The animation changes no
+/// layout, so it is left out.
 template <typename PropsT> static inline bool ENRMStreamingRenderEqual(const PropsT &a, const PropsT &b)
 {
   return a.streaming == b.streaming && a.streamingConfig.tableMode == b.streamingConfig.tableMode &&

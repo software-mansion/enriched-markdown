@@ -16,7 +16,8 @@ inline folly::dynamic toDynamic(const EnrichedMarkdownTextProps &props) {
   serializedProps["maxFontSizeMultiplier"] = props.maxFontSizeMultiplier;
   serializedProps["allowTrailingMargin"] = props.allowTrailingMargin;
   serializedProps["streaming"] = props.streaming;
-  // The modes decide what the streaming filter withholds, so what is measured.
+  // The modes decide what the streaming filter withholds, so what is measured;
+  // the animation travels along but is left out of the layout hash.
   serializedProps["streamingConfig"] = toDynamic(props.streamingConfig);
   serializedProps["numberOfLines"] = props.numberOfLines;
   serializedProps["ellipsizeMode"] = props.ellipsizeMode;
@@ -49,7 +50,8 @@ inline folly::dynamic toDynamic(const EnrichedMarkdownProps &props) {
   serializedProps["maxFontSizeMultiplier"] = props.maxFontSizeMultiplier;
   serializedProps["allowTrailingMargin"] = props.allowTrailingMargin;
   serializedProps["streaming"] = props.streaming;
-  // The modes decide what the streaming filter withholds, so what is measured.
+  // The modes decide what the streaming filter withholds, so what is measured;
+  // the animation travels along but is left out of the layout hash.
   serializedProps["streamingConfig"] = toDynamic(props.streamingConfig);
   // A `<video>` block only exists under GFM; CommonMark measures it as text.
   serializedProps["isGFM"] = props.isGFM;

@@ -3,11 +3,14 @@
 #include "../../ios/utils/ENRMLaidOutSize.h"
 #import <XCTest/XCTest.h>
 
+#include <string>
+
 using facebook::react::ENRMChooseMeasurement;
 using facebook::react::ENRMIsStreamUpdate;
 using facebook::react::ENRMMarkdownExtends;
 using facebook::react::ENRMMeasurementSource;
 using facebook::react::ENRMPreviousMeasurement;
+using facebook::react::ENRMStreamingRenderEqual;
 using facebook::react::MeasurementCacheKey;
 
 // The fields ENRMIsStreamUpdate reads, as codegen generates them on the components' props.
@@ -30,6 +33,17 @@ ENRMPreviouslyMeasured(const ENRMStreamMeasurementProps &props, const Measuremen
   previous.layoutDirection = NSWritingDirectionLeftToRight;
   return previous;
 }
+
+// The props ENRMStreamingRenderEqual reads.
+struct ENRMStreamTestProps {
+  bool streaming = true;
+  struct {
+    std::string tableMode = "progressive";
+    std::string codeBlockMode = "progressive";
+    std::string mediaMode = "progressive";
+    std::string animation = "fade";
+  } streamingConfig;
+};
 
 @interface ENRMStreamMeasurementTests : XCTestCase
 @end
@@ -122,6 +136,23 @@ ENRMPreviouslyMeasured(const ENRMStreamMeasurementProps &props, const Measuremen
 {
   XCTAssertFalse(ENRMIsStreamUpdate(ENRMPreviousMeasurement<ENRMStreamMeasurementProps>{}, {.markdown = "First chunk"},
                                     MeasurementCacheKey{}, NSWritingDirectionLeftToRight));
+}
+
+// The animation changes no layout, so flipping it keeps a stream's update.
+- (void)testAnotherAnimationKeepsTheStreamUpdateButAnotherModeDoesNot
+{
+  ENRMStreamTestProps fading;
+  ENRMStreamTestProps still = fading;
+  still.streamingConfig.animation = "none";
+  XCTAssertTrue(ENRMStreamingRenderEqual(fading, still));
+
+  ENRMStreamTestProps hiddenTables = fading;
+  hiddenTables.streamingConfig.tableMode = "hidden";
+  XCTAssertFalse(ENRMStreamingRenderEqual(fading, hiddenTables));
+
+  ENRMStreamTestProps ended = fading;
+  ended.streaming = false;
+  XCTAssertFalse(ENRMStreamingRenderEqual(fading, ended));
 }
 
 - (void)testLaidOutSizeIsOnlyForTheWidthItWasLaidOutAt

@@ -29,9 +29,11 @@ class StreamMeasurementTest {
     markdown: String,
     width: Float = widthPx,
     trailingMargin: Boolean = false,
+    streamingConfig: ReadableMap? = null,
   ): Long? {
-    val props: ReadableMap =
+    val props =
       JavaOnlyMap.of("markdown", markdown, "markdownStyle", JavaOnlyMap(), "allowTrailingMargin", trailingMargin)
+    streamingConfig?.let { props.putMap("streamingConfig", it) }
     return MeasurementStore.laidOutSizeForStreamUpdate(viewId, width, props, true, true, 1f, 0f)
   }
 
@@ -92,6 +94,19 @@ class StreamMeasurementTest {
     assertNull(streamUpdate("Second message"))
     assertNull(streamUpdate("Second message, longer", width = 700f))
     assertNull(streamUpdate("Second message, longer still", trailingMargin = true))
+  }
+
+  @Test
+  fun anotherAnimationKeepsTheStreamUpdateButAnotherModeMeasuresInFull() {
+    fun config(
+      animation: String,
+      tableMode: String = "progressive",
+    ) = JavaOnlyMap.of("tableMode", tableMode, "animation", animation)
+    MeasurementStore.storeLaidOutSize(viewId, widthPx, laidOut, "Streaming **mark")
+    streamUpdate("Streaming **mark", streamingConfig = config("fade"))
+
+    assertEquals(laidOut, streamUpdate("Streaming **markdown", streamingConfig = config("none")))
+    assertNull(streamUpdate("Streaming **markdown**", streamingConfig = config("none", tableMode = "hidden")))
   }
 
   @Test
