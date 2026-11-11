@@ -576,7 +576,7 @@ Controls how a fenced code block whose closing fence has not arrived yet is rend
 
 Controls how newly arrived content appears while `streaming` is `true`. Reduce Motion turns it off.
 
-- **`'fade'`** (default): each new chunk of text fades in over its own 200 ms; new blocks and table rows fade in, and blocks drawn by `renderers` grow into place. `{ type: 'fade', duration }` sets the time in milliseconds.
+- **`'fade'`** (default): each new chunk of text fades in over its own 200 ms; new blocks and table rows fade in, and blocks drawn by `renderers` grow into place. `{ type: 'fade', duration }` sets the text's time in milliseconds; blocks and table rows keep a 200 ms fade.
 - **`'gradient'`**: the last 20 characters run from their own color to transparent, following the end of the text. `{ type: 'gradient', length, startColor, endColor }` sets how many characters it covers and its colors.
 - **`'none'`**: new content appears at once, as with a `duration` or `length` of 0.
 

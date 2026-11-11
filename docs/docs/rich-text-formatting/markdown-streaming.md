@@ -51,7 +51,7 @@ New content animates in through [`streamingConfig.animation`](/react-native/api-
 />
 ```
 
-- **`'fade'`** keeps time for each chunk on its own, so chunks arriving every frame still fade in fully, overlapping. `duration` sets the time in milliseconds.
+- **`'fade'`** keeps time for each chunk on its own, so chunks arriving every frame still fade in fully, overlapping. `duration` sets the text's time in milliseconds; blocks and table rows keep a 200 ms fade.
 - **`'gradient'`** depends on each character's distance from the end, not on time: it follows the end of the text as it grows, and settles to the text's own colors over 200 ms when the stream ends. Without `startColor` each character keeps its own color (links, code, bold) and only fades toward the end.
 - **`'none'`** shows new content at once; so does Reduce Motion.
 
