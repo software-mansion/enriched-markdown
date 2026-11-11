@@ -100,7 +100,6 @@ public:
   CollectedBlocks collected;
 
 private:
-  friend struct BlockVisitor;
   // How many earlier slots and images share an id's base.
   std::unordered_map<std::string, unsigned> slotCounts_;
   std::unordered_map<std::string, unsigned> imageCounts_;
