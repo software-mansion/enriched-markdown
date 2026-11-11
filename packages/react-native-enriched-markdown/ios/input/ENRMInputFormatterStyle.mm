@@ -1,6 +1,13 @@
 #import "ENRMInputFormatterStyle.h"
 #import "FontUtils.h"
 
+static CGFloat ENRMFontWeightDistance(UIFont *font, UIFontWeight weight)
+{
+  NSDictionary *traits = [font.fontDescriptor objectForKey:UIFontDescriptorTraitsAttribute];
+  NSNumber *actual = traits[UIFontWeightTrait];
+  return fabs(actual.doubleValue - weight);
+}
+
 @implementation ENRMInputLinkVariantStyle
 @end
 
@@ -107,9 +114,23 @@
   UIFont *font;
   if (weightString.length > 0) {
     UIFontWeight weight = ENRMFontWeightFromString(weightString);
-    UIFontDescriptor *descriptor = [_baseFont.fontDescriptor
-        fontDescriptorByAddingAttributes:@{UIFontDescriptorTraitsAttribute : @{UIFontWeightTrait : @(weight)}}];
+    NSDictionary *traits = @{UIFontWeightTrait : @(weight)};
+    UIFontDescriptor *descriptor =
+        [_baseFont.fontDescriptor fontDescriptorByAddingAttributes:@{UIFontDescriptorTraitsAttribute : traits}];
     font = descriptor ? [UIFont fontWithDescriptor:descriptor size:size] : [UIFont systemFontOfSize:size weight:weight];
+
+    // The base descriptor's font-name attribute pins the exact face of a custom font and ignores the weight trait,
+    // so also resolve by family and keep whichever face is closer to the requested weight.
+    if (_baseFont.familyName.length > 0) {
+      UIFontDescriptor *familyDescriptor = [UIFontDescriptor fontDescriptorWithFontAttributes:@{
+        UIFontDescriptorFamilyAttribute : _baseFont.familyName,
+        UIFontDescriptorTraitsAttribute : traits
+      }];
+      UIFont *familyFont = [UIFont fontWithDescriptor:familyDescriptor size:size];
+      if (familyFont && ENRMFontWeightDistance(familyFont, weight) < ENRMFontWeightDistance(font, weight)) {
+        font = familyFont;
+      }
+    }
   } else {
     font = [_baseFont fontWithSize:size];
   }
