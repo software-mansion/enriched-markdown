@@ -131,4 +131,13 @@ static inline CGSize ENRMMeasureMarkdownText(ENRMTextViewport *viewport, ENRMPla
                                       lastElementMarginBottom, YES, RCTScreenScale());
 }
 
+/// A new config redraws the whole text: set only when it is new, not on every streamed update.
+static inline void ENRMSetLayoutManagerConfig(NSLayoutManager *layoutManager, StyleConfig *_Nullable config)
+{
+  if ([layoutManager isKindOfClass:[TextViewLayoutManager class]] &&
+      ((TextViewLayoutManager *)layoutManager).config != config) {
+    [layoutManager setValue:config forKey:@"config"];
+  }
+}
+
 NS_ASSUME_NONNULL_END

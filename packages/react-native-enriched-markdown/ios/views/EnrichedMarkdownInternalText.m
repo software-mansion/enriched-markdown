@@ -90,12 +90,7 @@
 
 - (void)applyAttributedText:(NSMutableAttributedString *)text context:(RenderContext *)context
 {
-  NSLayoutManager *layoutManager = _textView.layoutManager;
-  // A new config redraws the whole text: only when it is new.
-  if ([layoutManager isKindOfClass:[TextViewLayoutManager class]] &&
-      ((TextViewLayoutManager *)layoutManager).config != _config) {
-    [layoutManager setValue:_config forKey:@"config"];
-  }
+  ENRMSetLayoutManagerConfig(_textView.layoutManager, _config);
 
   objc_setAssociatedObject(_textView.textContainer, kTextViewKey, _textView, OBJC_ASSOCIATION_ASSIGN);
 
