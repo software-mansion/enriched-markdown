@@ -848,19 +848,16 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   }
 
   if (newViewProps.streamingConfig.tableMode != oldViewProps.streamingConfig.tableMode) {
-    _tableStreamingMode = newViewProps.streamingConfig.tableMode == "hidden" ? ENRMTableStreamingModeHidden
-                                                                             : ENRMTableStreamingModeProgressive;
+    _tableStreamingMode = ENRMStreamingModeFromString<ENRMTableStreamingMode>(newViewProps.streamingConfig.tableMode);
     _dirtyFlags |= ENRMDirtyRender;
   }
   if (newViewProps.streamingConfig.codeBlockMode != oldViewProps.streamingConfig.codeBlockMode) {
-    _codeBlockStreamingMode = newViewProps.streamingConfig.codeBlockMode == "hidden"
-                                  ? ENRMCodeBlockStreamingModeHidden
-                                  : ENRMCodeBlockStreamingModeProgressive;
+    _codeBlockStreamingMode =
+        ENRMStreamingModeFromString<ENRMCodeBlockStreamingMode>(newViewProps.streamingConfig.codeBlockMode);
     _dirtyFlags |= ENRMDirtyRender;
   }
   if (newViewProps.streamingConfig.mediaMode != oldViewProps.streamingConfig.mediaMode) {
-    _mediaStreamingMode = newViewProps.streamingConfig.mediaMode == "hidden" ? ENRMMediaStreamingModeHidden
-                                                                             : ENRMMediaStreamingModeProgressive;
+    _mediaStreamingMode = ENRMStreamingModeFromString<ENRMMediaStreamingMode>(newViewProps.streamingConfig.mediaMode);
     _dirtyFlags |= ENRMDirtyRender;
   }
 

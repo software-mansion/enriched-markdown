@@ -1583,24 +1583,18 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   }
 
   if (newViewProps.streamingConfig.tableMode != oldViewProps.streamingConfig.tableMode) {
-    NSString *tableModeStr = [[NSString alloc] initWithUTF8String:newViewProps.streamingConfig.tableMode.c_str()];
-    _tableStreamingMode =
-        [tableModeStr isEqualToString:@"hidden"] ? ENRMTableStreamingModeHidden : ENRMTableStreamingModeProgressive;
+    _tableStreamingMode = ENRMStreamingModeFromString<ENRMTableStreamingMode>(newViewProps.streamingConfig.tableMode);
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
   }
 
   if (newViewProps.streamingConfig.codeBlockMode != oldViewProps.streamingConfig.codeBlockMode) {
-    NSString *codeBlockModeStr =
-        [[NSString alloc] initWithUTF8String:newViewProps.streamingConfig.codeBlockMode.c_str()];
-    _codeBlockStreamingMode = [codeBlockModeStr isEqualToString:@"hidden"] ? ENRMCodeBlockStreamingModeHidden
-                                                                           : ENRMCodeBlockStreamingModeProgressive;
+    _codeBlockStreamingMode =
+        ENRMStreamingModeFromString<ENRMCodeBlockStreamingMode>(newViewProps.streamingConfig.codeBlockMode);
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
   }
 
   if (newViewProps.streamingConfig.mediaMode != oldViewProps.streamingConfig.mediaMode) {
-    NSString *mediaModeStr = [[NSString alloc] initWithUTF8String:newViewProps.streamingConfig.mediaMode.c_str()];
-    _mediaStreamingMode =
-        [mediaModeStr isEqualToString:@"hidden"] ? ENRMMediaStreamingModeHidden : ENRMMediaStreamingModeProgressive;
+    _mediaStreamingMode = ENRMStreamingModeFromString<ENRMMediaStreamingMode>(newViewProps.streamingConfig.mediaMode);
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
   }
 

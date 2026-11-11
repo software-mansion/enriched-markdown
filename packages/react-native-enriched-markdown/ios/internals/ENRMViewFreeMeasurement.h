@@ -183,9 +183,9 @@ static inline NSString *ENRMRenderableMarkdownFromProps(const PropsT &typedProps
   }
   const auto &config = typedProps.streamingConfig;
   return ENRMRenderableMarkdownForStreaming(
-      markdown, flags, config.tableMode == "hidden" ? ENRMTableStreamingModeHidden : ENRMTableStreamingModeProgressive,
-      config.codeBlockMode == "hidden" ? ENRMCodeBlockStreamingModeHidden : ENRMCodeBlockStreamingModeProgressive,
-      config.mediaMode == "hidden" ? ENRMMediaStreamingModeHidden : ENRMMediaStreamingModeProgressive, NULL);
+      markdown, flags, ENRMStreamingModeFromString<ENRMTableStreamingMode>(config.tableMode),
+      ENRMStreamingModeFromString<ENRMCodeBlockStreamingMode>(config.codeBlockMode),
+      ENRMStreamingModeFromString<ENRMMediaStreamingMode>(config.mediaMode), NULL);
 }
 
 /**

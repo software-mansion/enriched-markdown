@@ -1,6 +1,9 @@
 #pragma once
 
 #import <Foundation/Foundation.h>
+#ifdef __cplusplus
+#include <string>
+#endif
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -39,6 +42,13 @@ NSString *ENRMRenderableMarkdownForStreaming(NSString *markdown, ENRMMd4cFlags *
                                              BOOL *_Nullable outEndsInsideOpenCodeFence);
 
 #ifdef __cplusplus
+}
+
+// A streamingConfig mode prop: "hidden", anything else progressive. The three
+// mode enums share their values.
+template <typename Mode> static inline Mode ENRMStreamingModeFromString(const std::string &mode)
+{
+  return mode == "hidden" ? static_cast<Mode>(0) : static_cast<Mode>(1);
 }
 #endif
 
