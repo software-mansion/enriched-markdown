@@ -33,6 +33,7 @@ jest.mock('../src/NativeEnrichedMarkdownParser', () => ({
       // In bytes, as the C++ buffer counts.
       return new TextEncoder().encode(mockStreams.get(id)!).length;
     },
+    readStream: (id: number) => mockStreams.get(id) ?? '',
     disposeStream: (id: number) => mockStreams.delete(id),
   },
 }));
@@ -136,7 +137,13 @@ it('stops streaming at end() and takes an explicit streaming prop over it', () =
   stream.end();
   nextFrame();
   expect(view(root).props.streaming).toBe(false);
-  expect(() => stream.append('more')).toThrow('after end()');
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  stream.append('more');
+  expect(warn).toHaveBeenCalledWith(
+    expect.stringContaining('append() after end() is ignored')
+  );
+  warn.mockRestore();
+  expect(stream.getText()).toBe('text');
 
   act(() => root.render(<EnrichedMarkdownText stream={stream} streaming />));
   expect(view(root).props.streaming).toBe(true);
@@ -162,7 +169,13 @@ it('starts a new native stream on reset() and frees it on dispose()', () => {
   expect(mockStreams.has(secondId)).toBe(true);
   act(() => root.unmount());
   expect(mockStreams.has(secondId)).toBe(false);
-  expect(() => stream.append('x')).toThrow('after dispose()');
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  stream.append('x');
+  expect(warn).toHaveBeenCalledWith(
+    expect.stringContaining('append() after dispose() is ignored')
+  );
+  warn.mockRestore();
+  expect(stream.getText()).toBe('');
 });
 
 it('collects block slots from the stream without its text crossing to JS', () => {
@@ -191,6 +204,14 @@ it('keeps the native text while a view shows a disposed stream', () => {
   expect(mockStreams.get(streamId)).toBe('kept');
   act(() => root.unmount());
   expect(mockStreams.has(streamId)).toBe(false);
+});
+
+it('reads the text appended so far from the native stream', () => {
+  const stream = createMarkdownStream('# Title');
+  stream.append('\n\nBody');
+  // Before the next frame, and with half a surrogate pair held back.
+  stream.append('\ud83d');
+  expect(stream.getText()).toBe('# Title\n\nBody\ud83d');
 });
 
 it('counts the length in bytes', () => {
@@ -233,4 +254,5 @@ it('passes the text as markdown without the native module', () => {
   stream.append(' world');
   nextFrame();
   expect(view(root).props.markdown).toBe('Hello world');
+  expect(stream.getText()).toBe('Hello world');
 });

@@ -74,6 +74,7 @@ public:
                                                       EnrichedMarkdownParserStreamingOptions streaming);
   double createStream(jsi::Runtime &rt, std::string text);
   double appendToStream(jsi::Runtime &rt, double streamId, std::string chunk);
+  std::string readStream(jsi::Runtime &rt, double streamId);
   void disposeStream(jsi::Runtime &rt, double streamId);
 
 private:
