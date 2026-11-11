@@ -3,7 +3,9 @@
 #import <QuartzCore/QuartzCore.h>
 
 #if !TARGET_OS_OSX
-static const CGFloat kENRMTextTileHeight = 512;
+// A fading line redraws its tile and every tile below it, many times a second: a smaller tile redraws
+// less text and fewer images. Smaller still, each tile's fixed cost and overdraw outweigh it.
+static const CGFloat kENRMTextTileHeight = 256;
 // Backgrounds can reach past the lines they belong to (a code block's padding below its last line):
 // a tile looks this far beyond its rect for the glyphs to draw, and an edit redraws from this far
 // above it.
