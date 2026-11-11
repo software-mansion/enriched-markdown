@@ -10,7 +10,7 @@ import type { Spec } from './NativeEnrichedMarkdownParser';
 export interface MarkdownStream {
   /** Adds `chunk` to the end of the text. Ignored after `end()` or `dispose()`, with a warning in development. */
   append(chunk: string): void;
-  /** The text appended so far; empty after `dispose()`. */
+  /** The text appended so far; empty after `dispose()`, even while a view still shows it. */
   getText(): string;
   /** Marks the text complete: views showing it stop streaming and render it in full. */
   end(): void;

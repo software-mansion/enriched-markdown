@@ -17,7 +17,7 @@ The Markdown content to render. Ignored while `stream` is set.
 Markdown arriving in pieces, from `createMarkdownStream()`: an alternative to `markdown` for text that grows, such as an LLM answer. Appending doesn't re-render your component; the view updates once per frame, and on iOS and Android only each chunk crosses from JavaScript. The view streams until `end()`; an explicit `streaming` prop takes precedence.
 
 - `append(chunk)` adds to the end of the text; ignored after `end()` or `dispose()`, with a warning in development.
-- `getText()` returns the text appended so far; empty after `dispose()`.
+- `getText()` returns the text appended so far; empty after `dispose()`, even while a view still shows it.
 - `end()` marks the text complete: the view stops streaming and shows everything.
 - `reset(text?)` replaces the text and streams again.
 - `dispose()` ends the stream, if `end()` wasn't called, and frees the text once no view shows it.

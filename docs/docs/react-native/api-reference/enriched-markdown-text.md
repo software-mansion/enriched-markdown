@@ -111,7 +111,7 @@ stream.end();
 ```
 
 - `append(chunk)` adds to the end of the text. After `end()` or `dispose()` it is ignored, with a warning in development.
-- `getText()` returns the text appended so far, for example to save or copy the message. After `dispose()` it is empty.
+- `getText()` returns the text appended so far, for example to save or copy the message. After `dispose()` it is empty, even while a view still shows it.
 - `end()` marks the text complete: the view stops [`streaming`](#streaming) and shows everything.
 - `reset(text?)` replaces the text (empty by default) and streams again, for a retry or a regeneration. It also works after `dispose()`.
 - `dispose()` ends the stream, if `end()` wasn't called, and frees the text once no view shows it; a view that mounts after that shows nothing. Call it when the message is gone. A stream that JavaScript no longer references is freed too, where the engine supports `FinalizationRegistry`.
