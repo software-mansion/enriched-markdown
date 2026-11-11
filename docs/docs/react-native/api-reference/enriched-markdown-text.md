@@ -897,7 +897,7 @@ interface LatexErrorEvent {
 
 ### `onStreamingEnd`
 
-Callback fired when the view stops [`streaming`](#streaming): once `streaming` turns `false`. Use it to save the finished message or show actions under it. It fires once per stream, and not when the view unmounts while streaming. iOS and Android only, like `streaming`.
+Callback fired when the view stops [`streaming`](#streaming): once `streaming` turns `false` or the [`stream`](#stream) ends. Use it to save the finished message or show actions under it. It fires once per stream, and not when the view unmounts while streaming. iOS and Android only, like `streaming`.
 
 <PropInfo type="() => void" />
 
