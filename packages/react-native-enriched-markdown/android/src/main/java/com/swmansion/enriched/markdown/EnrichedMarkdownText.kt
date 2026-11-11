@@ -58,6 +58,7 @@ import com.swmansion.enriched.markdown.utils.text.view.createSelectionActionMode
 import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkLongPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkPressEvent
+import com.swmansion.enriched.markdown.utils.text.view.emitStreamingEndEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitTextPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.setupAsMarkdownTextView
 import java.util.concurrent.Executors
@@ -287,6 +288,7 @@ class EnrichedMarkdownText
         fadeAnimator?.cancelAll()
         fadeAnimator = null
         previousTextLength = 0
+        emitStreamingEndEvent()
       }
       // The streaming session decides what renders, so the text renders again.
       scheduleRenderIfNeeded()

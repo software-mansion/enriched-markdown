@@ -1651,6 +1651,9 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
     if (!_streaming) {
       [self finishStreamingAnimations];
+      if (auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter)) {
+        emitter->onStreamingEnd({});
+      }
     }
   }
 

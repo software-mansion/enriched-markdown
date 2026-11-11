@@ -421,6 +421,11 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   streamingConfig?: StreamingConfig;
   /**
+   * Called when the view stops streaming, once `streaming` turns `false`.
+   * @platform ios, android
+   */
+  onStreamingEnd?: () => void;
+  /**
    * Controls how spoiler text is displayed before being revealed.
    * - `'particles'` (default): animated particle overlay (CAEmitterLayer on iOS,
    *   Choreographer-driven Canvas particles on Android).

@@ -43,6 +43,7 @@ export const NATIVE_ONLY_PROP_NAMES: Record<NativeOnlyPropName, true> = {
   streaming: true,
   streamingAnimation: true,
   streamingConfig: true,
+  onStreamingEnd: true,
   spoilerOverlay: true,
   contextMenuItems: true,
   imageRequestHeaders: true,

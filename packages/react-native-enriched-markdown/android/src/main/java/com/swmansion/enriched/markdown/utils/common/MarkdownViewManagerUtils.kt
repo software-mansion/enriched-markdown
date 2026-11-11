@@ -11,6 +11,7 @@ import com.swmansion.enriched.markdown.events.CopyPressEvent
 import com.swmansion.enriched.markdown.events.LatexErrorEvent
 import com.swmansion.enriched.markdown.events.LinkLongPressEvent
 import com.swmansion.enriched.markdown.events.LinkPressEvent
+import com.swmansion.enriched.markdown.events.StreamingEndEvent
 import com.swmansion.enriched.markdown.events.TaskListItemPressEvent
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.styles.ImageSourceOverride
@@ -32,6 +33,8 @@ fun markdownEventTypeConstants(): MutableMap<String, Any> {
     mapOf("registrationName" to ContextMenuItemPressEvent.EVENT_NAME)
   map[LatexErrorEvent.EVENT_NAME] =
     mapOf("registrationName" to LatexErrorEvent.EVENT_NAME)
+  map[StreamingEndEvent.EVENT_NAME] =
+    mapOf("registrationName" to StreamingEndEvent.EVENT_NAME)
   return map
 }
 

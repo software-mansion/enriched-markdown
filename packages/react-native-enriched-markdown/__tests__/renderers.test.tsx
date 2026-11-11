@@ -235,6 +235,20 @@ it('passes streaming and the animation to the native view', () => {
   expect(host(root).props.streamingConfig.animation).toBe('none');
 });
 
+it('calls onStreamingEnd when the native view stops streaming', () => {
+  const onStreamingEnd = jest.fn();
+  const root = render(
+    <EnrichedMarkdownText
+      markdown="x"
+      flavor="github"
+      streaming
+      onStreamingEnd={onStreamingEnd}
+    />
+  );
+  act(() => host(root).props.onStreamingEnd({ nativeEvent: null }));
+  expect(onStreamingEnd).toHaveBeenCalledTimes(1);
+});
+
 it('sends the deprecated streamingAnimation to the native view as streaming', () => {
   const root = render(
     <EnrichedMarkdownText markdown="x" flavor="github" streamingAnimation />
