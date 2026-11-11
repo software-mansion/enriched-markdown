@@ -232,6 +232,14 @@ Fires **at most once per distinct failing expression** per component instance - 
 />
 ```
 
+### `onStreamingEnd`
+
+Callback when the view stops streaming: once `streaming` turns `false`. Fires once per stream, and not when the view unmounts while streaming.
+
+| Type         | Default Value | Platform     |
+| ------------ | ------------- | ------------ |
+| `() => void` | -             | iOS, Android |
+
 ### `onCodeBlockPress`
 
 Callback fired when a fenced code block is tapped anywhere in its body. Receives `code` (the block's source) and `language` (the fence language, or `""` if none). Useful for building custom actions such as copy-to-clipboard or opening the code in a viewer.

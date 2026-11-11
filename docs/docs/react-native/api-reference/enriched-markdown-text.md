@@ -868,6 +868,12 @@ interface LatexErrorEvent {
 
 <LivePreview src={OnLatexErrorSrc} unavailable unavailableReason={<>iOS and Android only - the web build renders math with KaTeX and does not report failures through this callback.</>} />
 
+### `onStreamingEnd`
+
+Callback fired when the view stops [`streaming`](#streaming): once `streaming` turns `false`. Use it to save the finished message or show actions under it. It fires once per stream, and not when the view unmounts while streaming. iOS and Android only, like `streaming`.
+
+<PropInfo type="() => void" />
+
 ### `onLinksChange`
 
 Callback fired with the document's links: once when they are first known, then whenever they change. Use it to fill `markdownStyle.linkVariants`, [`linkPillContent`](#linkpillcontent) (iOS and Android) or [`linkContextMenuItems`](#linkcontextmenuitems) (iOS) for the links a document actually contains, such as a label and icon per file link.
