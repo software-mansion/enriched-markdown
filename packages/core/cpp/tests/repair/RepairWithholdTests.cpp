@@ -169,6 +169,19 @@ TEST_CASE("withhold: a `$` that ends the text waits for the next character") {
   CHECK(repair("Costs $", withholding()) == "Costs $"); // without withholdMath
 }
 
+TEST_CASE("withhold: a `$` that ends the text and closes math shows") {
+  const RepairOptions o = withholdingMath();
+  CHECK(repair("Complexity is $O(n)$", o) == "Complexity is $O(n)$");
+  CHECK(repair("Let $x$", o) == "Let $x$");
+  CHECK(repair("Sum $$x + y$$", o) == "Sum $$x + y$$");
+  CHECK(repair("Intro\n\n$$\nx^2\n$$", o) == "Intro\n\n$$\nx^2\n$$");
+  CHECK(repair("> $$\n> x^2\n> $$", o) == "> $$\n> x^2\n> $$");
+  CHECK(repair("Costs 5$", o) == "Costs 5$");
+  CHECK(repair("Costs 5$$", o) == "Costs 5$$");
+  CHECK(repair("Sum $$x$", o) == "Sum");       // a single `$` does not close `$$`
+  CHECK(repair("| $x | ($", o) == "| $x | ("); // a table cell is its own scope
+}
+
 TEST_CASE("withhold: a dollar next to a digit or space is currency") {
   const RepairOptions o = withholdingMath();
   CHECK(repair("Das kostet 5$ und mehr", o) == "Das kostet 5$ und mehr");
