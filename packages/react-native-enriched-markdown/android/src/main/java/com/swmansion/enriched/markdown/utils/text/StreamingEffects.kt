@@ -75,15 +75,12 @@ class StreamingEffects {
     if (handle != 0L) nativeLooks(handle, start, count, time, tints, tintAmounts, opacities)
   }
 
+  /** Frees the core's object; later calls do nothing. */
   fun release() {
     if (handle != 0L) {
       nativeDestroy(handle)
       handle = 0L
     }
-  }
-
-  protected fun finalize() {
-    release()
   }
 
   /** `streamingConfig.animation` and its options, as the managers receive them. */

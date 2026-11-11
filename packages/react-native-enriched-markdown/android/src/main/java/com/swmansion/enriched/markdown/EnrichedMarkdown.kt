@@ -919,6 +919,12 @@ class EnrichedMarkdown(
     }
   }
 
+  // A text segment the reconciler drops frees its effects.
+  override fun onViewRemoved(child: View) {
+    super.onViewRemoved(child)
+    if (child is EnrichedMarkdownInternalText) textEffects.remove(child)?.release()
+  }
+
   private fun effectsOf(view: EnrichedMarkdownInternalText): StreamingEffectsAnimator =
     textEffects.getOrPut(view) {
       StreamingEffectsAnimator(view).also { it.configure(effectsConfig) }
