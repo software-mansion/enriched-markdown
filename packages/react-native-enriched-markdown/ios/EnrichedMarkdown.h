@@ -26,6 +26,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (CGSize)laidOutSizeForWidth:(CGFloat)width
              pointScaleFactor:(CGFloat)pointScaleFactor
                      markdown:(std::string_view)markdown;
+/// laidOutSizeForWidth:, when the view rendered only a start of `markdown` (smooth pacing revealing it).
+- (CGSize)partialLaidOutSizeForWidth:(CGFloat)width
+                    pointScaleFactor:(CGFloat)pointScaleFactor
+                            markdown:(std::string_view)markdown;
 #endif
 
 /// Document-order indexes, counted across nesting, of the code blocks the user

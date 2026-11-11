@@ -58,6 +58,38 @@ class StreamMeasurementTest {
     record.invoke(MeasurementStore, viewId, size)
   }
 
+  private fun revealedSize(
+    markdown: String,
+    smooth: Boolean,
+    full: Long,
+    width: Float = widthPx,
+  ): Long? {
+    val props: ReadableMap = JavaOnlyMap.of("markdown", markdown, "streamingConfig", JavaOnlyMap.of("smooth", smooth))
+    val check =
+      MeasurementStore::class.java.getDeclaredMethod(
+        "revealedSize",
+        Int::class.javaObjectType,
+        Float::class.javaPrimitiveType,
+        ReadableMap::class.java,
+        Long::class.javaPrimitiveType,
+      )
+    check.isAccessible = true
+    return check.invoke(MeasurementStore, viewId, width, props, full) as Long?
+  }
+
+  @Test
+  fun withSlotsSmoothPacingTakesTheHeightTheViewRevealed() {
+    val full = YogaMeasureOutput.make(360f, 3000f)
+    MeasurementStore.storeLaidOutSize(viewId, widthPx, laidOut, "Streaming **mark")
+    assertEquals(YogaMeasureOutput.make(360f, 2400f), revealedSize("Streaming **markdown**", smooth = true, full))
+
+    assertNull(revealedSize("Streaming **markdown**", smooth = false, full))
+    assertNull(revealedSize("Streaming **markdown**", smooth = true, full, width = 720f))
+    assertNull(revealedSize("Other text", smooth = true, full))
+    // Once the view shows all of it, the whole document's measurement stands.
+    assertNull(revealedSize("Streaming **mark", smooth = true, full))
+  }
+
   @Test
   fun aStreamUpdateTakesTheSizeTheViewLaidOut() {
     MeasurementStore.storeLaidOutSize(viewId, widthPx, laidOut, "Streaming **mark")

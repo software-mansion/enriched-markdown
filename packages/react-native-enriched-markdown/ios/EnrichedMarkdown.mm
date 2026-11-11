@@ -748,6 +748,13 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   return _laidOutSize.sizeFor(width, pointScaleFactor, markdown);
 }
 
+- (CGSize)partialLaidOutSizeForWidth:(CGFloat)width
+                    pointScaleFactor:(CGFloat)pointScaleFactor
+                            markdown:(std::string_view)markdown
+{
+  return _laidOutSize.partialSizeFor(width, pointScaleFactor, markdown);
+}
+
 - (BOOL)hasRenderedMarkdown:(NSString *)markdown
 {
   return _renderedMarkdown != nil && [_renderedMarkdown isEqualToString:markdown];

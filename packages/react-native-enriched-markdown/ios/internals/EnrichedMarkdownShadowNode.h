@@ -76,6 +76,7 @@ private:
   bool slotHeightsUnchanged(const std::vector<SlotChild> &slots, const LayoutContext &layoutContext,
                             LayoutDirection layoutDirection) const;
   std::vector<ENRMBlockSlotPlacement> slotPlacements() const;
+  CGFloat revealedHeight(CGFloat width, CGFloat pointScaleFactor) const;
 
   int localHeightRecalculationCounter_{0};
   mutable ENRMPreviousMeasurement<EnrichedMarkdownProps> previousMeasurement_;

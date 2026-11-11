@@ -56,6 +56,15 @@ public:
     return size;
   }
 
+  /// sizeFor, when the view rendered only a start of `markdown`: smooth pacing still revealing it.
+  CGSize partialSizeFor(CGFloat width, CGFloat pointScaleFactor, std::string_view markdown) const
+  {
+    os_unfair_lock_lock(&lock_);
+    size_t laidOutLength = markdown_ ? markdown_->size() : 0;
+    os_unfair_lock_unlock(&lock_);
+    return laidOutLength < markdown.size() ? sizeFor(width, pointScaleFactor, markdown) : CGSizeZero;
+  }
+
 private:
   mutable os_unfair_lock lock_ = OS_UNFAIR_LOCK_INIT;
   CGFloat width_ = 0;
