@@ -398,14 +398,62 @@ bool startsTopLevelBlock(std::string_view line) {
            std::isdigit(static_cast<unsigned char>(ch)));
 }
 
+namespace {
+
+size_t countRun(std::string_view line, size_t from, char ch) {
+  size_t end = from;
+  while (end < line.size() && line[end] == ch)
+    end++;
+  return end - from;
+}
+
+} // namespace
+
 bool mayDefineLinkReference(std::string_view markdown) {
   // CommonMark's limit for a label, with room for its brackets and escapes.
   constexpr size_t kMaxLinkLabel = 2048;
+  // A fence at the start of a line, outside any container, runs to its closing fence or the end:
+  // its lines are code, like `[key: string]: number`. A closing fence is taken at any indent, which
+  // only ever checks more lines. After raw HTML or display math, or right after a table row, a fence
+  // line may not open one, so from there on every line is checked.
+  char fence = 0;
+  size_t fenceLength = 0;
+  bool fencesOpen = true;
+  bool afterTableRow = false;
   size_t lineStart = 0;
   while (lineStart < markdown.size()) {
     size_t lineEnd = markdown.find('\n', lineStart);
     if (lineEnd == npos)
       lineEnd = markdown.size();
+    std::string_view line = markdown.substr(lineStart, lineEnd - lineStart);
+    if (fence != 0) {
+      size_t indent = 0;
+      while (indent < line.size() && isWhitespace(line[indent]))
+        indent++;
+      size_t run = countRun(line, indent, fence);
+      if (run >= fenceLength && isBlankFrom(line, indent + run))
+        fence = 0;
+      lineStart = lineEnd + 1;
+      continue;
+    }
+    if (fencesOpen && !line.empty() && (line[0] == '`' || line[0] == '~')) {
+      size_t run = countRun(line, 0, line[0]);
+      if (run >= 3 && !afterTableRow && (line[0] == '~' || line.find('`', run) == npos)) {
+        fence = line[0];
+        fenceLength = run;
+        lineStart = lineEnd + 1;
+        continue;
+      }
+    }
+    if (fencesOpen) {
+      size_t indent = 0;
+      while (indent < 3 && indent < line.size() && line[indent] == ' ')
+        indent++;
+      std::string_view rest = line.substr(indent);
+      if (startsWith(rest, "<") || startsWith(rest, "$$"))
+        fencesOpen = false;
+      afterTableRow = line.find('|') != npos;
+    }
     // Past any indent, quote markers and list markers, a definition starts with its label.
     size_t i = lineStart;
     while (i < lineEnd && (isWhitespace(markdown[i]) || markdown[i] == '>' || markdown[i] == '-' ||

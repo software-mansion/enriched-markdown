@@ -230,6 +230,11 @@ const char *const kBlocks[] = {
     "> ```\n> quoted code\n>\n> more\n> ```",
     "> [!NOTE]\n> An admonition\n>\n> with two paragraphs.",
     "```ts\ntype Map = {\n  [key: string]: number;\n};\n\nconst m: Map = {};\n```",
+    "````md\n```\n[fenced]: https://e.com/fenced\n```\n````",
+    "Uses [fenced], [inside], [after] and [math].",
+    "- item\n\n  ```\n  [inside]: https://e.com/inside",
+    "| a |\n|---|\n| 1 |\n```\n[after]: https://e.com/after",
+    "$$\n```\n$$\n\n[math]: https://e.com/math",
     "~~~\ntilde fence\n\n```\nnot a closer\n~~~",
     "```\nan open fence",
     "    indented code\n\n    after a blank line",
@@ -320,6 +325,21 @@ int main(int argc, char **argv) {
   }
   if (store.extendedParseCount() < 198 || !last->ast || last->ast->children.size() != 201) {
     std::cerr << "FAIL: a growing answer is parsed in parts (" << store.extendedParseCount() << " of 200 updates)\n";
+    failures++;
+  }
+
+  // A coding answer: code that reads like a reference definition does not stop parsing in parts.
+  store.clear();
+  std::string code = "```ts\ntype Map = {\n  [key: string]: number;\n};\n```\n\n";
+  size_t before = store.extendedParseCount();
+  for (int i = 0; i < 100; i++) {
+    code += "Paragraph " + std::to_string(i) + ".\n\n";
+    StreamingSnapshot snapshot = store.snapshot(code + "Still arriv", {});
+    store.parse(snapshot.markdown, {}, true);
+  }
+  if (store.extendedParseCount() - before < 98) {
+    std::cerr << "FAIL: an answer with `[key: string]:` in a code block is parsed in parts ("
+              << store.extendedParseCount() - before << " of 100 updates)\n";
     failures++;
   }
 

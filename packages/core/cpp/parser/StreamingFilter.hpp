@@ -60,8 +60,8 @@ size_t finishedBlocksEnd(std::string_view markdown, bool latexMath = true);
 bool startsTopLevelBlock(std::string_view line);
 
 // Whether a line of `markdown` could start a link reference definition (`[label]: url`), the one
-// syntax that changes how blocks before and after it parse. Errs on the side of true: code that looks
-// like one counts.
+// syntax that changes how blocks before and after it parse. Errs on the side of true: only the code of
+// a fence at the start of a line is skipped; other code that looks like one counts.
 bool mayDefineLinkReference(std::string_view markdown);
 
 StreamingBlockMode streamingBlockModeFromName(const std::string &name); // "hidden" | anything else
