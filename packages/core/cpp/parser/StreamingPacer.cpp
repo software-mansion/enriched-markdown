@@ -78,7 +78,10 @@ void StreamingPacer::append(size_t start, std::u16string_view added, double time
   size_t stepped = 0;
   for (size_t i = 0; i < text.size();) {
     size_t next = wordEnd(text, i);
-    bool complete = next < text.size() || isStreamingSpace(text.back());
+    // A character that is a word of its own (CJK) is complete as it arrives, unless the chunk
+    // ends halfway through its surrogate pair.
+    bool ownWord = isOwnWord(text[i]) && !(next - i == 1 && text[i] >= 0xD800 && text[i] <= 0xDBFF);
+    bool complete = next < text.size() || isStreamingSpace(text.back()) || ownWord;
     if (!complete) {
       break;
     }

@@ -122,3 +122,18 @@ TEST_CASE("CJK characters are words of their own") {
   CHECK(first > 2);
   CHECK(first < text.size());
 }
+
+TEST_CASE("a chunk's last CJK character is not held for the next chunk") {
+  StreamingPacer pacer;
+  std::u16string text;
+  append(pacer, text, u"a ", 0.0);
+  append(pacer, text, u"森林", 0.5);
+  // Before the half second after which a held word would show anyway.
+  CHECK(pacer.revealed(0.95) == text.size());
+  CHECK_FALSE(pacer.waiting(0.95));
+  // Half of a surrogate pair waits for its other half.
+  append(pacer, text, u"\xD840", 1.5);
+  CHECK(pacer.revealed(1.6) == text.size() - 1);
+  append(pacer, text, u"\xDC00", 1.8);
+  CHECK(pacer.revealed(2.1) == text.size());
+}
