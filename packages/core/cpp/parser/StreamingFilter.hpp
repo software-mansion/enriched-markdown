@@ -54,6 +54,16 @@ StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown
 // `[r]: url` turns `[docs][r]` into a link).
 size_t finishedBlocksEnd(std::string_view markdown, bool latexMath = true);
 
+// Whether a line that follows a blank line at the top level starts a block of its own, whatever came
+// before it: not indented, and no list marker, reference definition or HTML that could belong to the
+// block above. finishedBlocksEnd() ends at such a line.
+bool startsTopLevelBlock(std::string_view line);
+
+// Whether a line of `markdown` could start a link reference definition (`[label]: url`), the one
+// syntax that changes how blocks before and after it parse. Errs on the side of true: code that looks
+// like one counts.
+bool mayDefineLinkReference(std::string_view markdown);
+
 StreamingBlockMode streamingBlockModeFromName(const std::string &name); // "hidden" | anything else
 
 } // namespace Markdown
