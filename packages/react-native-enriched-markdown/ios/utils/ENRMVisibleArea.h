@@ -9,6 +9,11 @@ FOUNDATION_EXTERN const CGFloat ENRMVisibleAreaMargin;
 
 /// Follows the part of a view that its window shows: it observes the scroll views above the view,
 /// and the transforms of the views between them, and calls `onChange` when one of them changes.
+///
+/// While the view is in a window the area holds those views, which hold the view (and its owner,
+/// which holds the area): read `visibleRect` once the view left its window (in `didMoveToWindow`)
+/// to let them go. The views above are found again only when the view moves to another window: a
+/// view moved under other scroll views in the same window follows the old ones.
 @interface ENRMVisibleArea : NSObject
 
 - (instancetype)initWithView:(RCTUIView *)view onChange:(void (^)(void))onChange NS_DESIGNATED_INITIALIZER;

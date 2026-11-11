@@ -77,12 +77,13 @@ static void *kENRMVisibleAreaContext = &kENRMVisibleAreaContext;
   return CGRectMake(-CGFLOAT_MAX / 4, top, CGFLOAT_MAX / 2, bottom - top);
 }
 
-// Scrolls, and transforms below the outermost scroll view (Animated's native driver sets them with
-// no layout): a transform above it moves the scroll views along.
+// Scrolls and resizes of the scroll views (their layers' bounds), and transforms below the outermost
+// one (Animated's native driver sets them with no layout): a transform above it moves the scroll
+// views along.
 - (void)observeAncestorsOfView:(nullable UIView *)view
 {
   for (UIScrollView *scrollView in _scrollViews) {
-    [scrollView removeObserver:self forKeyPath:@"contentOffset" context:kENRMVisibleAreaContext];
+    [scrollView.layer removeObserver:self forKeyPath:@"bounds" context:kENRMVisibleAreaContext];
   }
   for (CALayer *layer in _movingLayers) {
     [layer removeObserver:self forKeyPath:@"transform" context:kENRMVisibleAreaContext];
@@ -101,7 +102,7 @@ static void *kENRMVisibleAreaContext = &kENRMVisibleAreaContext;
   _scrollViews = scrollViews;
   _movingLayers = movingLayers;
   for (UIScrollView *scrollView in _scrollViews) {
-    [scrollView addObserver:self forKeyPath:@"contentOffset" options:0 context:kENRMVisibleAreaContext];
+    [scrollView.layer addObserver:self forKeyPath:@"bounds" options:0 context:kENRMVisibleAreaContext];
   }
   for (CALayer *layer in _movingLayers) {
     [layer addObserver:self forKeyPath:@"transform" options:0 context:kENRMVisibleAreaContext];

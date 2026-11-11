@@ -145,6 +145,33 @@ static NSString *ENRMParagraphs(NSUInteger count)
   XCTAssertTrue(CGRectEqualToRect(segment.textView.frame, segment.bounds));
 }
 
+// A scroll view growing with no scroll (a keyboard going away) shows more of the text.
+- (void)testAScrollViewGrowingDrawsMore
+{
+  EnrichedMarkdownInternalText *segment = [self segmentWithMarkdown:ENRMParagraphs(200) onScreen:YES];
+  XCTAssertLessThan(CGRectGetMaxY(ENRMDrawnRect(segment.textView)), kWindowHeight * 2.5);
+  _scrollView.frame = CGRectMake(0, 0, kWidth, kWindowHeight * 3);
+  XCTAssertGreaterThanOrEqual(CGRectGetMaxY(ENRMDrawnRect(segment.textView)), kWindowHeight * 3);
+}
+
+// While a text is in a window its visible area holds the scroll views above it, which hold the text:
+// leaving the window lets them go.
+- (void)testLeavingTheWindowReleasesTheScrollViews
+{
+  __weak UIScrollView *weakScrollView;
+  @autoreleasepool {
+    UIScrollView *scrollView = [[UIScrollView alloc] initWithFrame:_window.bounds];
+    [_window addSubview:scrollView];
+    EnrichedMarkdownInternalText *segment = [self segmentWithMarkdown:ENRMParagraphs(20) onScreen:NO];
+    [scrollView addSubview:segment];
+    [segment layoutIfNeeded];
+    XCTAssertGreaterThan(ENRMTiles(segment.textView).count, 0u);
+    weakScrollView = scrollView;
+    [scrollView removeFromSuperview];
+  }
+  XCTAssertNil(weakScrollView);
+}
+
 // Animated's native driver moves a view by its transform, with no scroll and no layout.
 - (void)testAnAncestorsTransformMovesTheDrawnPart
 {
