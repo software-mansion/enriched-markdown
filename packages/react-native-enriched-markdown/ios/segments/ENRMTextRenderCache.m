@@ -130,7 +130,7 @@ static ENRMRenderedSegment *ENRMKeptSegment(ENRMRenderedSegment *segment)
   while (common < nodeSignatures.count && common < old.count && [nodeSignatures[common] isEqual:old[common]]) {
     common++;
   }
-  // So does the new last one when the nodes after it are gone: it still ends in the spacing before them.
+  // No later than the last node of either render (see the header).
   const NSUInteger from = MIN(common, MIN(old.count, nodeSignatures.count) - 1);
   return from > 0 ? resume(from, previous) : nil;
 }

@@ -88,7 +88,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 };
 
 static char kENRMSegmentFadeAnimatorKey;
-// A signature no segment has (they are FNV hashes salted per kind).
+// A signature practically no segment has (they are FNV hashes salted per kind).
 static const uint64_t kENRMUnknownSignature = UINT64_MAX;
 
 @interface EnrichedMarkdown () <RCTEnrichedMarkdownViewProtocol, UITextViewDelegate, ENRMImageLayoutObserver>

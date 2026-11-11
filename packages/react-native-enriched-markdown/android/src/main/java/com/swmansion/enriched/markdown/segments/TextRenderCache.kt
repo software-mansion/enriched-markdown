@@ -56,11 +56,12 @@ fun Renderer.textRenderResult(
  *   [RenderedSegment.Text]. The reconciler keeps its view as it is, so its buffer is not read
  *   again.
  * - The last text segment, the one a stream grows, also keeps where each top-level node starts
- *   in its text. When the new segment starts with the same nodes, only the nodes from the old
- *   last one on render, and the view patches its live buffer from there: the result is only that
- *   patch ([RenderedSegment.Text.patch]), so no update copies the text. The old last node renders
- *   again because it was the last one: its trailing margin was trimmed. So does the new last node
- *   when the ones after it are gone (a link reference definition completing renders nothing).
+ *   in its text. When the new segment starts with the same nodes, only the nodes from the first
+ *   changed one on render, and the view patches its live buffer from there: the result is only
+ *   that patch ([RenderedSegment.Text.patch]), so no update copies the text. Rendering starts at
+ *   the old last node at the latest, whose trailing margin was trimmed, and at the new last node
+ *   at the latest, which still ends in the spacing before the nodes that are gone (a link
+ *   reference definition that completes renders nothing).
  *
  * Drop it with [clear] whenever views are recreated.
  */
@@ -158,7 +159,7 @@ class TextRenderCache {
     while (common < nodes.size && common < old.nodeSignatures.size && nodeSignatures[common] == old.nodeSignatures[common]) {
       common++
     }
-    // So does the new last one when the nodes after it are gone: it still ends in the spacing before them.
+    // No later than the last node of either render (see the class comment).
     val from = minOf(common, old.nodeSignatures.size - 1, nodes.size - 1)
     if (from <= 0) return null
     val start = old.blockStarts[from]

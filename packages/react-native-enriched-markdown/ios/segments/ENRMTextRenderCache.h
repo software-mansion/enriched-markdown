@@ -16,11 +16,11 @@ NS_ASSUME_NONNULL_BEGIN
  * - A text segment whose signature is unchanged comes back under the same signature and revision,
  *   without its text: the reconciler keeps its view as it is.
  * - The last text segment, the one a stream grows, also keeps its node signatures. When the new
- *   segment starts with the same nodes, only the nodes from the old last one on render
- *   (ENRMRenderASTNodesResuming), and the view patches its text from there. The old last node
- *   renders again because, as the last one, its trailing spacing was trimmed. So does the new
- *   last node when the ones after it are gone (a link reference definition completing renders
- *   nothing).
+ *   segment starts with the same nodes, only the nodes from the first changed one on render
+ *   (ENRMRenderASTNodesResuming), and the view patches its text from there. Rendering starts at
+ *   the old last node at the latest, whose trailing spacing was trimmed, and at the new last node
+ *   at the latest, which still ends in the spacing before the nodes that are gone (a link
+ *   reference definition that completes renders nothing).
  *
  * Clear it whenever views are recreated.
  */

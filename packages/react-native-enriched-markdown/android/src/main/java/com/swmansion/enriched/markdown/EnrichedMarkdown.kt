@@ -1012,7 +1012,7 @@ class EnrichedMarkdown(
     private const val TAG = "EnrichedMarkdown"
     private const val BLOCK_FADE_DURATION_MS = 200L
 
-    // A signature no segment has (they are FNV hashes salted per kind).
+    // A signature practically no segment has (they are FNV hashes salted per kind).
     private const val UNKNOWN_SIGNATURE = Long.MIN_VALUE
   }
 }
