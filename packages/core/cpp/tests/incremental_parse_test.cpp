@@ -15,6 +15,7 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace {
@@ -341,6 +342,37 @@ int main(int argc, char **argv) {
     std::cerr << "FAIL: an answer with `[key: string]:` in a code block is parsed in parts ("
               << store.extendedParseCount() - before << " of 100 updates)\n";
     failures++;
+  }
+
+  // Conversions with different active slots share the blocks before the first slot that differs.
+  store.clear();
+  const std::string withSlots = "Intro.\n\n```js\nlet a;\n```\n\nMiddle.\n\n```js\nlet b;\n```\n\n";
+  auto earlier = store.parse(store.snapshot(withSlots + "Ta", {}).markdown, {}, true);
+  auto later = store.parse(store.snapshot(withSlots + "Tail.\n\nMo", {}).markdown, {}, true);
+  size_t all = sharedLeadingBlocks(*later, *earlier);
+  if (all < 4 || later->blocks.slots.size() < 2) {
+    std::cerr << "FAIL: two states of a stream with code blocks share " << all << " blocks and "
+              << later->blocks.slots.size() << " slots\n";
+    failures++;
+  } else {
+    const std::string first = later->blocks.slots[0].id;
+    const std::string second = later->blocks.slots[1].id;
+    struct Case {
+      std::unordered_set<std::string> laterSlots, earlierSlots;
+      size_t shared;
+    };
+    for (const Case &c : std::vector<Case>{{{}, {}, all},
+                                           {{first, second}, {first, second}, all},
+                                           {{first}, {}, 1},
+                                           {{}, {first}, 1},
+                                           {{first, second}, {first}, 3},
+                                           {{"elsewhere"}, {}, all}}) {
+      size_t shared = sharedLeadingBlocks(*later, *earlier, c.laterSlots, c.earlierSlots);
+      if (shared != c.shared) {
+        std::cerr << "FAIL: slots changed: shares " << shared << " blocks, expected " << c.shared << "\n";
+        failures++;
+      }
+    }
   }
 
   // Another text with the same finished start, where the line after it continues the list above:

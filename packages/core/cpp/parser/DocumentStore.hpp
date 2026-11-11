@@ -10,6 +10,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace Markdown {
@@ -36,6 +37,12 @@ struct FinishedBlocks {
 // How many of `a`'s first top-level blocks are the very nodes `b` starts with: the finished blocks
 // two states of a stream share, whose conversions a host can take over.
 size_t sharedLeadingBlocks(const ParsedDocument &a, const ParsedDocument &b);
+
+// As above, for conversions made with different active slots (`aSlots` for `a`, `bSlots` for `b`): up to
+// the first block holding a slot only one of them has, since a conversion carries an active slot's id.
+size_t sharedLeadingBlocks(const ParsedDocument &a, const ParsedDocument &b,
+                           const std::unordered_set<std::string> &aSlots,
+                           const std::unordered_set<std::string> &bSlots);
 
 // A streaming snapshot or parse is computed once per input and process: a
 // tick's collect on the JS thread, measurement on the layout thread and the

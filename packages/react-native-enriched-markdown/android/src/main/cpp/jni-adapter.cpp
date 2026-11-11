@@ -496,16 +496,16 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
     {
       std::lock_guard<std::mutex> lock(recentConversionsMutex);
       for (auto recent = recentConversions.begin(); recent != recentConversions.end(); ++recent) {
-        if (recent->imageIds != withImageIds || recent->slotIds != ids)
+        if (recent->imageIds != withImageIds)
           continue;
-        if (recent->document == document && recent->children == blocks.size()) {
+        if (recent->document == document && recent->slotIds == ids && recent->children == blocks.size()) {
           // The same document again: its conversion, kept at the front.
           if (converted)
             env->DeleteLocalRef(converted);
           std::rotate(recentConversions.begin(), recent, std::next(recent));
           return env->NewLocalRef(recentConversions.front().root);
         }
-        size_t same = sharedLeadingBlocks(*document, *recent->document);
+        size_t same = sharedLeadingBlocks(*document, *recent->document, ids, recent->slotIds);
         if (same > shared && recent->children == recent->document->ast->children.size()) {
           shared = same;
           if (converted)

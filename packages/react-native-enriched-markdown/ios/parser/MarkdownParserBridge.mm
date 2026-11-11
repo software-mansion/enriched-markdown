@@ -218,12 +218,6 @@ static BOOL ENRMSameRegex(ENRMLinkRegexConfig *a, ENRMLinkRegexConfig *b)
   return a == b || [a isEqualToConfig:b];
 }
 
-// nil and an empty set both mean no slots.
-static BOOL ENRMSameSlotIds(NSSet<NSString *> *a, NSSet<NSString *> *b)
-{
-  return a.count == b.count && (a.count == 0 || [a isEqualToSet:b]);
-}
-
 namespace {
 
 // The render, the view-free measurement and a nested quote's static measure
@@ -233,29 +227,29 @@ struct ENRMConversion {
   std::shared_ptr<const Markdown::ParsedDocument> document;
   ENRMLinkRegexConfig *textRegex;
   ENRMLinkRegexConfig *codeRegex;
-  NSSet<NSString *> *slotIds;
+  std::unordered_set<std::string> slotIds;
   BOOL annotateImages;
   MarkdownASTNode *node;
 
   bool sameOptions(const ENRMConversion &other) const
   {
     return ENRMSameRegex(textRegex, other.textRegex) && ENRMSameRegex(codeRegex, other.codeRegex) &&
-           ENRMSameSlotIds(slotIds, other.slotIds) && annotateImages == other.annotateImages;
+           annotateImages == other.annotateImages;
   }
 
   bool matches(const ENRMConversion &other) const
   {
-    return document == other.document && sameOptions(other);
+    return document == other.document && sameOptions(other) && slotIds == other.slotIds;
   }
 
-  // How many of the document's first blocks are the very nodes `other` converted: a stream's
-  // finished blocks keep their nodes from one update to the next (DocumentStore).
+  // How many of the document's first blocks are the very nodes `other` converted, with the same
+  // slots: a stream's finished blocks keep their nodes from one update to the next (DocumentStore).
   size_t sharedBlocks(const ENRMConversion &other) const
   {
     if (!sameOptions(other) || other.node.children.count != other.document->ast->children.size()) {
       return 0;
     }
-    return Markdown::sharedLeadingBlocks(*document, *other.document);
+    return Markdown::sharedLeadingBlocks(*document, *other.document, slotIds, other.slotIds);
   }
 };
 
@@ -272,11 +266,17 @@ MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *f
 
   // Slots and image sources are GitHub-flavor features (the CommonMark host lays
   // nothing out for them).
+  std::unordered_set<std::string> slotIds;
+  if (isGFM) {
+    for (NSString *slotId in activeBlockSlotIds) {
+      slotIds.insert(ENRMUTF8String(slotId));
+    }
+  }
   ENRMConversion request{
       Markdown::DocumentStore::shared().parse(ENRMUTF8String(markdown), ENRMCoreMd4cFlags(flags), isGFM),
       textRegex,
       codeRegex,
-      isGFM ? activeBlockSlotIds : nil,
+      std::move(slotIds),
       isGFM && annotateImages,
       nil};
   if (!request.document->ast) {
@@ -307,15 +307,11 @@ MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *f
   const auto &blocks = request.document->ast->children;
   added.children.assign(blocks.begin() + static_cast<std::ptrdiff_t>(shared), blocks.end());
 
-  std::unordered_set<std::string> ids;
-  for (NSString *slotId in request.slotIds) {
-    ids.insert(ENRMUTF8String(slotId));
-  }
   Markdown::TextLinkReplacements links;
   if (textRegex || codeRegex) {
     links = Markdown::recognizeTextLinks(added, ENRMTextLinkMatchers(textRegex, codeRegex));
   }
-  Markdown::AstOverlay overlay(*request.document, std::move(ids), request.annotateImages, std::move(links));
+  Markdown::AstOverlay overlay(*request.document, request.slotIds, request.annotateImages, std::move(links));
   request.node = convertCppASTToObjC(added, overlay);
   if (shared > 0) {
     NSMutableArray<MarkdownASTNode *> *children = request.node.children;

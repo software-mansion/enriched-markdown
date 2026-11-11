@@ -1,3 +1,4 @@
+#include "../../../core/cpp/parser/DocumentStore.hpp"
 #import "../../ios/parser/ENRMMarkdownParser.h"
 #import "../../ios/parser/MarkdownASTNode.h"
 #import "../../ios/segments/RenderedMarkdownSegment.h"
@@ -52,18 +53,23 @@ static NSString *ENRMDescription(MarkdownASTNode *node)
                                             NULL);
 }
 
-// A slot id no block has changes nothing in the tree, and a new one each time makes the parser
-// convert every block again.
+// A link pattern that matches what `linkRegex` matches (or nothing), written differently each time:
+// the parser shares no blocks with a conversion made under another pattern, so it converts every
+// block again.
 - (MarkdownASTNode *)parseAfresh:(NSString *)snapshot linkRegex:(ENRMLinkRegexConfig *)linkRegex
 {
   static NSUInteger count = 0;
-  NSString *unused = [NSString stringWithFormat:@"unused-%lu", (unsigned long)count++];
+  NSString *pattern =
+      [NSString stringWithFormat:@"(?:%@)(?:){%lu}", linkRegex ? linkRegex.pattern : @"(?!)", (unsigned long)count++];
+  ENRMLinkRegexConfig *afresh = [ENRMLinkRegexConfig cachedConfigWithPattern:pattern
+                                                             caseInsensitive:linkRegex.caseInsensitive
+                                                                      dotAll:linkRegex.dotAll];
   return [_parser parseMarkdown:snapshot
                           flags:[ENRMMd4cFlags defaultFlags]
                           isGFM:YES
-                      linkRegex:linkRegex
-            inlineCodeLinkRegex:linkRegex
-             activeBlockSlotIds:[NSSet setWithObject:unused]
+                      linkRegex:afresh
+            inlineCodeLinkRegex:afresh
+             activeBlockSlotIds:nil
                  annotateImages:NO];
 }
 
@@ -130,6 +136,46 @@ static NSString *ENRMDescription(MarkdownASTNode *node)
   }
   XCTAssertGreaterThan(reused, (NSUInteger)0);
   XCTAssertNotEqualObjects(ENRMDescription(previous), ENRMDescription([self parseAfresh:[self snapshotOf:kStreamed]]));
+}
+
+- (MarkdownASTNode *)parse:(NSString *)snapshot slots:(NSSet<NSString *> *)slotIds
+{
+  return [_parser parseMarkdown:snapshot
+                          flags:[ENRMMd4cFlags defaultFlags]
+                          isGFM:YES
+                      linkRegex:nil
+            inlineCodeLinkRegex:nil
+             activeBlockSlotIds:slotIds
+                 annotateImages:NO];
+}
+
+// A slot that becomes active, as when a renderer's code block arrives, converts its block again and
+// keeps the blocks before it.
+- (void)testANewActiveSlotKeepsTheBlocksBeforeIt
+{
+  NSString *snapshot =
+      [self snapshotOf:@"Intro.\n\n```js\nlet a;\n```\n\nMiddle.\n\n```js\nlet b;\n```\n\nStill arriv"];
+  auto document = Markdown::DocumentStore::shared().parse(std::string(snapshot.UTF8String), {}, true);
+  XCTAssertEqual(document->blocks.slots.size(), 2u);
+  NSString *first = @(document->blocks.slots[0].id.c_str());
+  NSString *second = @(document->blocks.slots[1].id.c_str());
+
+  MarkdownASTNode *none = [self parse:snapshot slots:nil];
+  MarkdownASTNode *one = [self parse:snapshot slots:[NSSet setWithObject:first]];
+  MarkdownASTNode *both = [self parse:snapshot slots:[NSSet setWithObjects:first, second, nil]];
+  XCTAssertEqual(none.children.count, 5u);
+
+  XCTAssertEqual(one.children[0], none.children[0]);
+  XCTAssertNotEqual(one.children[1], none.children[1]);
+  XCTAssertEqualObjects(one.children[1].attributes[@"blockSlotId"], first);
+  XCTAssertNil(none.children[1].attributes[@"blockSlotId"]);
+
+  for (NSUInteger i = 0; i < 3; i++) {
+    XCTAssertEqual(both.children[i], one.children[i]);
+  }
+  XCTAssertNotEqual(both.children[3], one.children[3]);
+  XCTAssertEqualObjects(both.children[3].attributes[@"blockSlotId"], second);
+  XCTAssertNil(one.children[3].attributes[@"blockSlotId"]);
 }
 
 - (void)testASignatureIsComputedOncePerNode

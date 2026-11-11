@@ -88,6 +88,38 @@ size_t sharedLeadingBlocks(const ParsedDocument &a, const ParsedDocument &b) {
   return shared;
 }
 
+namespace {
+
+bool holdsAny(const MarkdownASTNode &node, const std::unordered_set<const MarkdownASTNode *> &nodes) {
+  if (nodes.count(&node) != 0)
+    return true;
+  for (const auto &child : node.children)
+    if (holdsAny(*child, nodes))
+      return true;
+  return false;
+}
+
+} // namespace
+
+size_t sharedLeadingBlocks(const ParsedDocument &a, const ParsedDocument &b,
+                           const std::unordered_set<std::string> &aSlots,
+                           const std::unordered_set<std::string> &bSlots) {
+  size_t shared = sharedLeadingBlocks(a, b);
+  if (shared == 0 || aSlots == bSlots)
+    return shared;
+  std::unordered_set<const MarkdownASTNode *> changed;
+  for (const BlockSlot &slot : a.blocks.slots)
+    if (aSlots.count(slot.id) != bSlots.count(slot.id))
+      changed.insert(slot.node);
+  if (changed.empty())
+    return shared;
+  const auto &blocks = a.ast->children;
+  for (size_t i = 0; i < shared; i++)
+    if (holdsAny(*blocks[i], changed))
+      return i;
+  return shared;
+}
+
 DocumentStore &DocumentStore::shared() {
   static DocumentStore store;
   return store;
