@@ -356,8 +356,9 @@ bool startsHtmlBlockWithBlankLines(std::string_view body) {
   return false;
 }
 
-// A line that starts a block of its own at the top level: not indented (code,
-// or a list item's continuation), and no list marker, reference definition,
+} // namespace
+
+// Not indented (code, or a list item's continuation), and no list marker, reference definition,
 // footnote or HTML that could belong to the block above.
 bool startsTopLevelBlock(std::string_view line) {
   if (line.empty())
@@ -366,6 +367,40 @@ bool startsTopLevelBlock(std::string_view line) {
   return !(isWhitespace(ch) || ch == '-' || ch == '*' || ch == '+' || ch == '[' || ch == '<' ||
            std::isdigit(static_cast<unsigned char>(ch)));
 }
+
+bool mayDefineLinkReference(std::string_view markdown) {
+  // CommonMark's limit for a label, with room for its brackets and escapes.
+  constexpr size_t kMaxLinkLabel = 2048;
+  size_t lineStart = 0;
+  while (lineStart < markdown.size()) {
+    size_t lineEnd = markdown.find('\n', lineStart);
+    if (lineEnd == npos)
+      lineEnd = markdown.size();
+    // Past any indent, quote markers and list markers, a definition starts with its label.
+    size_t i = lineStart;
+    while (i < lineEnd && (isWhitespace(markdown[i]) || markdown[i] == '>' || markdown[i] == '-' ||
+                           markdown[i] == '+' || markdown[i] == '*' || markdown[i] == '.' || markdown[i] == ')' ||
+                           std::isdigit(static_cast<unsigned char>(markdown[i]))))
+      i++;
+    if (i < lineEnd && markdown[i] == '[') {
+      // The label runs to the first `]` not escaped, on this line or a later one.
+      size_t labelEnd = std::min(markdown.size(), i + kMaxLinkLabel);
+      for (size_t j = i + 1; j < labelEnd; j++) {
+        if (markdown[j] == '\\') {
+          j++;
+        } else if (markdown[j] == ']') {
+          if (j + 1 < markdown.size() && markdown[j + 1] == ':')
+            return true;
+          break;
+        }
+      }
+    }
+    lineStart = lineEnd + 1;
+  }
+  return false;
+}
+
+namespace {
 
 // Whether the line is a block a slot can replace (one of kBlockKinds) and
 // whether its syntax has closed.

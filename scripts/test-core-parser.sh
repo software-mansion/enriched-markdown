@@ -67,6 +67,20 @@ echo "==> Checking the block slot collector"
   "$TESTS_DIR/fixtures/block_ids/document.md" "$TESTS_DIR/fixtures/block_ids/ids.txt" \
   "$TESTS_DIR/fixtures/block_ids/links.txt"
 
+echo "==> Checking that a stream parsed in parts equals its whole text"
+"$CXX_BIN" -O1 -std=c++17 -Wall -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" -I "$CPP_ROOT/repair" \
+  "$TESTS_DIR/incremental_parse_test.cpp" \
+  "$CPP_ROOT/parser/MD4CParser.cpp" \
+  "$CPP_ROOT/parser/BlockSlots.cpp" \
+  "$CPP_ROOT/parser/BlockKinds.cpp" \
+  "$CPP_ROOT/parser/DocumentStore.cpp" \
+  "$CPP_ROOT/parser/StreamingFilter.cpp" \
+  "$CPP_ROOT/parser/StreamingSession.cpp" \
+  "$CPP_ROOT/parser/TextLinkRecognizer.cpp" \
+  "$CPP_ROOT"/repair/*.cpp \
+  "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/incremental-parse-test"
+"$WORK/incremental-parse-test" "$TESTS_DIR"/fixtures/*.md "$TESTS_DIR/fixtures/block_ids/document.md"
+
 echo "==> Checking the shared document store"
 # Under the thread sanitizer where its runtime starts; some macOS releases crash
 # it before main, and the store test then runs without it.
