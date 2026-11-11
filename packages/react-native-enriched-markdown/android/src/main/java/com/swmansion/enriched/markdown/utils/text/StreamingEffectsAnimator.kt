@@ -6,7 +6,6 @@ import android.widget.TextView
 import com.swmansion.enriched.markdown.spans.StreamingEffectSpan
 import com.swmansion.enriched.markdown.utils.common.isReducedMotionEnabled
 import java.lang.ref.WeakReference
-import java.text.BreakIterator
 
 /**
  * Draws a streaming text view's newest characters with the core's effects (fade, gradient): one
@@ -18,12 +17,10 @@ class StreamingEffectsAnimator(
 ) : Choreographer.FrameCallback {
   private val viewRef = WeakReference(textView)
   private val effects = StreamingEffects()
+  private val runs = StreamingEffectRuns()
   private val spans = mutableListOf<StreamingEffectSpan>()
   private var frameScheduled = false
   private var finished = false
-  private var tints = IntArray(0)
-  private var tintAmounts = FloatArray(0)
-  private var opacities = FloatArray(0)
 
   var type = StreamingEffects.Type.FADE
     private set
@@ -82,34 +79,14 @@ class StreamingEffectsAnimator(
     clearSpans()
     textView.invalidate()
     val range = effects.animatedRange(time) ?: return
-    val end = (range.last + 1).coerceIn(0, spannable.length)
-    var start = range.first.coerceIn(0, end)
-    // Spans start and end only between characters: one splitting a character (an emoji) breaks its
-    // drawing. The range counts UTF-16 units, so it can start inside one.
-    val from = maxOf(0, start - MAX_CHARACTER_LENGTH)
-    val characters = BreakIterator.getCharacterInstance().apply { setText(spannable.substring(from, end)) }
-    if (start < end && !characters.isBoundary(start - from)) start = from + characters.preceding(start - from)
-    val count = end - start
-    if (count > 0) {
-      if (tints.size < count) {
-        tints = IntArray(count)
-        tintAmounts = FloatArray(count)
-        opacities = FloatArray(count)
-      }
-      effects.looks(start, count, time, tints, tintAmounts, opacities)
-      var runStart = 0
-
-      fun looksLikeRun(i: Int) =
-        tints[i] == tints[runStart] && tintAmounts[i] == tintAmounts[runStart] && opacities[i] == opacities[runStart]
-      for (i in 1..count) {
-        if (i < count && (!characters.isBoundary(start - from + i) || looksLikeRun(i))) continue
-        if (tintAmounts[runStart] != 0f || opacities[runStart] != 1f) {
-          val span = StreamingEffectSpan(tints[runStart], tintAmounts[runStart], opacities[runStart])
-          spannable.setSpan(span, start + runStart, start + i, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-          spans.add(span)
-        }
-        runStart = i
-      }
+    runs.split(
+      spannable,
+      range,
+      { start, count, tints, tintAmounts, opacities -> effects.looks(start, count, time, tints, tintAmounts, opacities) },
+    ) { start, end, tint, tintAmount, opacity ->
+      val span = StreamingEffectSpan(tint, tintAmount, opacity)
+      spannable.setSpan(span, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+      spans.add(span)
     }
   }
 
@@ -117,10 +94,5 @@ class StreamingEffectsAnimator(
     val spannable = viewRef.get()?.text as? Spannable
     if (spannable != null) spans.forEach { spannable.removeSpan(it) }
     spans.clear()
-  }
-
-  private companion object {
-    // How far back a character the range starts inside can begin (an emoji ZWJ sequence).
-    const val MAX_CHARACTER_LENGTH = 32
   }
 }
