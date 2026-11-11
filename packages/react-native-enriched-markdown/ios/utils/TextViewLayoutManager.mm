@@ -56,6 +56,18 @@
     [(id<ENRMTextViewportView>)textView setNeedsDisplayFromGlyphIndex:glyphRange.location];
   }
 }
+
+// TextKit doesn't pass every character range on as a glyph range: an image scaled right after its
+// first draw stayed blank until the next scroll. The tiles hear of the range here.
+- (void)invalidateDisplayForCharacterRange:(NSRange)charRange
+{
+  [super invalidateDisplayForCharacterRange:charRange];
+  id textView =
+      self.textContainers.count > 0 ? objc_getAssociatedObject(self.textContainers.firstObject, kTextViewKey) : nil;
+  if ([textView conformsToProtocol:@protocol(ENRMTextViewportView)]) {
+    [(id<ENRMTextViewportView>)textView setNeedsDisplayFromCharacterIndex:charRange.location];
+  }
+}
 #endif
 
 - (void)drawBackgroundForGlyphRange:(NSRange)glyphsToShow atPoint:(CGPoint)origin

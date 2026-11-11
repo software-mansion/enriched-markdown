@@ -42,6 +42,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// Redraws the text from the line holding the glyph at `glyphIndex` on: what the layout manager asks
 /// its text view to redraw. Safe while the text storage is editing: the tiles are found later.
 - (void)setNeedsDisplayFromGlyphIndex:(NSUInteger)glyphIndex;
+/// The same from the character at `characterIndex`: TextKit doesn't pass every character range it is
+/// asked to redraw on as a glyph range.
+- (void)setNeedsDisplayFromCharacterIndex:(NSUInteger)characterIndex;
 @end
 
 /// The text container of a text view with a viewport. UIKit sizes a text view's container to the

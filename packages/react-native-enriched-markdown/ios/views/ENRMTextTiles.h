@@ -19,6 +19,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setDrawnRect:(CGRect)rect;
 /// Redraws from the line holding the glyph at `glyphIndex` on, when the text view lays out next.
 - (void)setNeedsDisplayFromGlyphIndex:(NSUInteger)glyphIndex;
+- (void)setNeedsDisplayFromCharacterIndex:(NSUInteger)characterIndex;
 /// Called from the text view's layoutSubviews.
 - (void)layout;
 
