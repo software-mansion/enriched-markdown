@@ -6,8 +6,6 @@
   BOOL _workerScheduled;
   BOOL (^_pendingRender)(void);
   dispatch_block_t _pendingApply;
-  // Renders run in order, so IDs only grow: older than the applied one means outdated.
-  NSUInteger _lastAppliedRenderId;
   NSUInteger _firstApplicableRenderId;
 }
 
@@ -52,9 +50,8 @@
           continue;
         dispatch_async(dispatch_get_main_queue(), ^{
           @synchronized(self) {
-            if (renderId < self->_firstApplicableRenderId || renderId <= self->_lastAppliedRenderId)
+            if (renderId < self->_firstApplicableRenderId)
               return;
-            self->_lastAppliedRenderId = renderId;
           }
           nextApply();
         });

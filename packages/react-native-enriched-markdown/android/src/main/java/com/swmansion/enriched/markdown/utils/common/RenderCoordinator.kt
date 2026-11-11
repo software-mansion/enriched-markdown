@@ -8,9 +8,8 @@ import java.util.concurrent.Executor
  * for the main thread (the iOS host's ENRMAsyncRenderCoordinator).
  *
  * A render scheduled while another runs replaces any still waiting, so a burst renders
- * only the newest. A finished render applies unless a newer one already did: a newer
- * render still waiting doesn't hold it back, so while updates arrive faster than a
- * render takes, each finished render shows instead of none.
+ * only the newest. A finished render applies even when a newer one is waiting, so while
+ * updates arrive faster than a render takes, each finished render shows instead of none.
  */
 class RenderCoordinator(
   private val executor: Executor,
@@ -20,9 +19,6 @@ class RenderCoordinator(
   private var currentRenderId = 0L
   private var pending: Pair<Long, () -> Runnable?>? = null
   private var workerActive = false
-
-  // Renders run in order, so IDs only grow: older than the applied one means outdated.
-  private var lastAppliedRenderId = 0L
   private var firstApplicableRenderId = 0L
 
   /** [render] runs on the executor and returns what to run on the main thread, or null for nothing. */
@@ -61,12 +57,7 @@ class RenderCoordinator(
         } ?: continue
       post(
         Runnable {
-          val applies =
-            synchronized(lock) {
-              (renderId >= firstApplicableRenderId && renderId > lastAppliedRenderId).also {
-                if (it) lastAppliedRenderId = renderId
-              }
-            }
+          val applies = synchronized(lock) { renderId >= firstApplicableRenderId }
           if (applies) apply.run()
         },
       )
