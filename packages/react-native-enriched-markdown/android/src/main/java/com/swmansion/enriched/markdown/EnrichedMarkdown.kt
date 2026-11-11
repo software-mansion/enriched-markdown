@@ -80,11 +80,11 @@ class EnrichedMarkdown(
   private val executor: ExecutorService = Executors.newSingleThreadExecutor()
   private val renderCoordinator = RenderCoordinator(executor, ::postToMain)
 
-  // Reused by the next render on the executor (see TextRenderCache). A synchronous render
-  // applies segments the cache doesn't know of, so it marks the cache stale for the executor.
+  // Reused by the next render on the executor (see TextRenderCache). Its key is this epoch,
+  // bumped on the main thread whenever the views stop showing what it holds: recreated views,
+  // a synchronous render it didn't see, a missed patch.
   private val textRenderCache = TextRenderCache()
-
-  @Volatile private var textRenderCacheStale = false
+  private var textRenderEpoch = 0L
   private val mathContainerClass: Class<*>? by lazy { SegmentViewCreators.mathContainerClass() }
   private val videoContainerClass: Class<*>? by lazy { SegmentViewCreators.videoContainerClass() }
 
@@ -606,6 +606,7 @@ class EnrichedMarkdown(
   private fun runRenderJob(
     job: RenderJob,
     cache: TextRenderCache? = null,
+    cacheKey: Long = 0L,
   ): Pair<List<RenderedSegment>, Boolean> {
     val flags = md4cFlags
     val filtered =
@@ -630,7 +631,7 @@ class EnrichedMarkdown(
       ) ?: return emptyList<RenderedSegment>() to false
 
     val segments = splitASTIntoSegments(ast)
-    cache?.begin(job.style)
+    cache?.begin(cacheKey)
     val renderedSegments =
       MarkdownSegmentRenderer.render(
         segments,
@@ -651,15 +652,14 @@ class EnrichedMarkdown(
     // Taken now: an older render can still apply after a newer one is scheduled, and
     // must not claim the newer one's flags.
     val scheduledFlags = EnumSet.copyOf(dirtyFlags)
+    // Recreated views hold none of the cached buffers. Every style input recreates them, so the
+    // epoch is all the key needs.
+    if (DirtyFlag.RECREATE_SEGMENTS in scheduledFlags) textRenderEpoch++
+    val cacheKey = textRenderEpoch
     renderCoordinator.schedule {
-      // Recreated views hold none of the cached buffers.
-      if (textRenderCacheStale || DirtyFlag.RECREATE_SEGMENTS in scheduledFlags) {
-        textRenderCacheStale = false
-        textRenderCache.clear()
-      }
       val (segments, pendingCodeBlock) =
         try {
-          runRenderJob(job, textRenderCache)
+          runRenderJob(job, textRenderCache, cacheKey)
         } catch (e: Exception) {
           textRenderCache.clear()
           Log.e(TAG, "Render failed", e)
@@ -676,7 +676,7 @@ class EnrichedMarkdown(
     if (isDisposed) return
     val job = renderJob() ?: return
     renderCoordinator.invalidate()
-    textRenderCacheStale = true
+    textRenderEpoch++
     val (segments, pendingCodeBlock) =
       try {
         runRenderJob(job)
@@ -715,7 +715,7 @@ class EnrichedMarkdown(
     val missedPatches = SegmentViewCreators.syncTextRevisions(renderedSegments, segmentViews)
     if (missedPatches.isNotEmpty()) {
       missedPatches.forEach { segmentSignatures[it] = UNKNOWN_SIGNATURE }
-      textRenderCacheStale = true
+      textRenderEpoch++
       scheduleRender()
     }
     updateBlockSlotHeights(blockSlotHeights)

@@ -373,13 +373,10 @@ class EnrichedMarkdownText
           renderer.configure(style, context, latexErrorReporter)
           textRenderCache.begin(renderKey)
           val (rendered, _) =
-            try {
-              textRenderCache.render(ast.children, startingTaskIndex = 0, isLast = true) { nodes, taskIndex ->
-                renderText(nodes, taskIndex, style)
-              }
-            } finally {
-              textRenderCache.end()
+            textRenderCache.render(ast.children, startingTaskIndex = 0, isLast = true) { nodes, taskIndex ->
+              renderText(nodes, taskIndex, style)
             }
+          textRenderCache.end()
 
           Runnable {
             if (isAttachedToWindow) {
