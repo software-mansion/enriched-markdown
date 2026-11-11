@@ -172,7 +172,8 @@ export interface StreamingConfig {
   mediaMode?: 'hidden' | 'progressive';
   /**
    * How newly arrived content appears during streaming.
-   * - `'fade'` (default): new text, blocks and table rows fade in.
+   * - `'fade'` (default): new text, blocks and table rows fade in, and a
+   *   block drawn by `renderers` grows into place. Reduce Motion turns it off.
    * - `'none'`: new content appears at once.
    * Only effective when `streaming` is `true`.
    * @default 'fade'
@@ -423,6 +424,7 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
   streamingConfig?: StreamingConfig;
   /**
    * Called when the view stops streaming, once `streaming` turns `false`.
+   * Fires once per stream, and not when the view unmounts while streaming.
    * @platform ios, android
    */
   onStreamingEnd?: () => void;

@@ -69,7 +69,7 @@ warnings.
 | `accessibilityLabels` | VoiceOver / TalkBack announcement strings. The web renderer uses semantic HTML and native `aria-*` instead. |
 | `textBreakStrategy` / `lineBreakStrategyIOS` / `writingDirection` | Native line-breaking and paragraph-direction controls. Use `dir` for web text direction. |
 | `enableBlockContextMenu` | Native-only long-press copy popup on block views. |
-| `onCopyPress` / `onLatexError` | Native-only callbacks. |
+| `onCopyPress` / `onLatexError` / `onStreamingEnd` | Native-only callbacks. |
 
 The stripping covers this library's own props only. Generic React Native
 `ViewProps` that the native interface inherits - `accessibilityLabel`,
