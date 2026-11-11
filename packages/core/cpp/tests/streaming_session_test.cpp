@@ -2,8 +2,10 @@
  * Checks the streaming session every host and the JS collector share: the
  * finished blocks stay as they are, the filter withholds trailing blocks and
  * repair handles inline syntax still being typed. Every prefix of the fixtures
- * filters the same as filtering it whole. See scripts/test-core-parser.sh.
+ * filters and repairs the same as doing so to it whole. See
+ * scripts/test-core-parser.sh.
  */
+#include "MarkdownRepair.hpp"
 #include "StreamingSession.hpp"
 #include <fstream>
 #include <iostream>
@@ -41,14 +43,16 @@ std::string readFile(const std::string &path) {
   return buffer.str();
 }
 
-// Streams `document` one character at a time: filtering only what follows the
-// finished blocks gives what filtering every prefix whole gives, and the
-// finished blocks only grow. (Repair is block-local by design and runs on the
-// unfinished tail only.)
-void checkPrefixes(const std::string &name, const std::string &document) {
-  for (StreamingBlockMode mode : {StreamingBlockMode::Progressive, StreamingBlockMode::Hidden}) {
+// Streams `document` one character at a time: filtering and repairing only
+// what follows the finished blocks gives what doing so to every prefix whole
+// gives, and the finished blocks only grow. Repair reads raw HTML as Markdown,
+// so `wholeRepair` is off for documents where only the tail repairs right.
+void checkPrefixes(const std::string &name, const std::string &document, bool wholeRepair = true) {
+  for (int variant = 0; variant < 3; variant++) {
+    StreamingBlockMode mode = variant == 1 ? StreamingBlockMode::Hidden : StreamingBlockMode::Progressive;
     StreamingOptions options;
     options.blocks.tableMode = options.blocks.codeBlockMode = options.blocks.mediaMode = mode;
+    options.flags.latexMath = variant != 2;
     size_t previous = 0;
     int reported = 0;
     for (size_t length = 1; length <= document.size() && reported < 3; length++) {
@@ -56,18 +60,24 @@ void checkPrefixes(const std::string &name, const std::string &document) {
         continue; // inside a UTF-8 sequence
       std::string prefix = document.substr(0, length);
       Markdown::StreamingSnapshot snapshot = Markdown::streamingSnapshot(prefix, options);
-      Markdown::StreamingFilterResult whole = Markdown::renderableMarkdownForStreaming(prefix, options.blocks);
+      bool latexMath = options.flags.latexMath;
+      Markdown::StreamingFilterResult whole =
+          Markdown::renderableMarkdownForStreaming(prefix, options.blocks, latexMath);
       Markdown::StreamingFilterResult tail =
-          Markdown::renderableMarkdownForStreaming(prefix.substr(snapshot.finishedBytes), options.blocks);
-      std::string at = name + (mode == StreamingBlockMode::Hidden ? " (hidden)" : "") + " after " +
-                       std::to_string(length) + " bytes";
+          Markdown::renderableMarkdownForStreaming(prefix.substr(snapshot.finishedBytes), options.blocks, latexMath);
+      std::string at = name + (mode == StreamingBlockMode::Hidden ? " (hidden)" : "") +
+                       (latexMath ? "" : " (no math)") + " after " + std::to_string(length) + " bytes";
       bool same = prefix.substr(0, snapshot.finishedBytes) + tail.markdown == whole.markdown &&
                   tail.endsInsideOpenCodeFence == whole.endsInsideOpenCodeFence;
+      bool repairedSame =
+          !wholeRepair || snapshot.markdown == Markdown::repairInlineMarkdown(
+                                                   whole.markdown, Markdown::streamingRepairOptions(options.flags));
       bool grows = snapshot.finishedBytes >= previous &&
                    snapshot.markdown.compare(0, snapshot.finishedBytes, prefix, 0, snapshot.finishedBytes) == 0;
       check(same, at + ": the filter differs from filtering it whole");
+      check(repairedSame, at + ": repair differs from repairing it whole");
       check(grows, at + ": the finished blocks shrank or changed");
-      reported += !same || !grows;
+      reported += !same || !repairedSame || !grows;
       previous = snapshot.finishedBytes;
     }
   }
@@ -138,6 +148,7 @@ int main(int argc, char **argv) {
   expect("Text **bol", "Text **bol**", "emphasis gets its closer");
   expect("Run `npm i", "Run `npm i`", "inline code gets its closer");
   expect("Energy $E = mc", "Energy", "unclosed math waits");
+  expect("Complexity is $O(n)$", "Complexity is $O(n)$", "math closing at the very end shows");
   StreamingOptions noMath;
   noMath.flags.latexMath = false;
   expect("Costs $5 and *a", "Costs $5 and *a*", "without math a dollar is currency", noMath);
@@ -179,7 +190,8 @@ int main(int argc, char **argv) {
     checkPrefixes(argv[i], readFile(argv[i]));
   checkPrefixes("HTML blocks with blank lines",
                 "Intro\n\n<!--\nnote\n\nmore\n-->\n\n| A | B |\n| - | - |\n| 1 | 2 |\n\n<PRE>\n**x\n\ny\n</pre>\n\n"
-                "```js\nlet a\n```\n\n<?php\n\n?>\n\nEnd **bold**\n");
+                "```js\nlet a\n```\n\n<?php\n\n?>\n\nEnd **bold**\n",
+                false);
 
   if (failures != 0) {
     std::cerr << failures << " streaming session check(s) failed\n";
