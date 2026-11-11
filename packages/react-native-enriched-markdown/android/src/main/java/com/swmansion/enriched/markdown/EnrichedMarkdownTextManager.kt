@@ -78,6 +78,7 @@ class EnrichedMarkdownTextManager :
       val currentMarkdown = view.currentMarkdown
       val updatedMarkdown = TaskListToggleUtils.toggleAtIndex(currentMarkdown, taskIndex, newChecked)
       view.setMarkdownContent(updatedMarkdown)
+      view.commitProps()
 
       emitTaskListItemPress(view, taskIndex, newChecked, itemText)
     }

@@ -6,8 +6,8 @@ import android.view.Choreographer
  * Paces a streaming view's markdown word by word with the core's StreamingPacer (StreamingPacer.hpp):
  * the view renders what has been revealed, and is handed more every frame while words are waiting,
  * so its text, layout and blocks grow word by word instead of in the bursts the markdown arrives in.
- * [reveal] gets the markdown to render once more of it is revealed; [done] runs once nothing is
- * waiting after [finish]. Both on the main thread.
+ * [reveal] gets the markdown to render once more of it is revealed; [done] runs once the stream has
+ * ended and its last words have appeared. Both on the main thread.
  */
 class StreamingPacer(
   private val reveal: (String) -> Unit,
@@ -25,96 +25,68 @@ class StreamingPacer(
   var markdown = ""
     private set
   private var shown = 0
-  private var finishing = false
   private var frameScheduled = false
 
-  /** The part of [markdown] to render now: paced while [pacing] and it continues the last one. */
-  fun markdownToRender(
+  // Without the native library: the streaming prop last given, so the stream still ends once.
+  private var streamingWithoutPacer = false
+
+  /**
+   * Takes the view's [markdown], its streaming prop and streamingConfig.smooth (the core's
+   * StreamingPacer::update). Returns whether the stream ends now; otherwise, once it has ended,
+   * [done] runs when its last words have appeared.
+   */
+  fun update(
     markdown: String,
-    pacing: Boolean,
-  ): String {
-    val previous = this.markdown.length
-    val continues = previous > 0 && markdown.length >= previous && markdown.startsWith(this.markdown)
+    streaming: Boolean,
+    smooth: Boolean,
+  ): Boolean {
     this.markdown = markdown
-    if (handle == 0L) return markdown
+    if (handle == 0L) {
+      shown = markdown.length
+      val ends = streamingWithoutPacer && !streaming
+      streamingWithoutPacer = streaming
+      return ends
+    }
     val now = StreamingEffects.now()
-    if (!pacing || !continues) {
-      nativeReset(handle, markdown.length)
-      finishing = false
-      update()
-      return shownMarkdown()
-    }
-    if (markdown.length > previous) {
-      nativeAppend(handle, previous, markdown.substring(previous), now)
-      // Text arriving after the end of the stream drains with the rest.
-      if (finishing) nativeFinish(handle, now)
-    }
-    // The next frame reveals the new words: revealing here as well would render twice a frame.
-    runFramesWhileWaiting()
-    return shownMarkdown()
+    val ends = nativeUpdate(handle, markdown, streaming, smooth, now)
+    // What nothing holds back shows at once. New words wait for the next frame: revealing here as
+    // well would render twice a frame.
+    if (!nativeWaiting(handle, now)) shown = nativeRevealed(handle, now).coerceAtMost(markdown.length)
+    runFramesWhileWaiting(now)
+    return ends
   }
 
-  /** The stream ended: what is waiting appears within 200 ms, then [done] runs; nothing runs when nothing waited. */
-  fun finish() {
-    if (handle == 0L) return
-    nativeFinish(handle, StreamingEffects.now())
-    update()
-    finishing = frameScheduled
-  }
-
-  /** Streaming started again: [done] no longer runs for the last [finish]. */
-  fun resume() {
-    finishing = false
-  }
-
-  /** Whether more is still to be revealed, or [done] still to run. */
-  val waiting: Boolean get() = finishing || (handle != 0L && nativeWaiting(handle, StreamingEffects.now()))
-
-  /** Forgets everything and stops (a recycled view). */
-  fun reset() {
-    if (frameScheduled) Choreographer.getInstance().removeFrameCallback(this)
-    frameScheduled = false
-    if (handle != 0L) nativeReset(handle, 0)
-    markdown = ""
-    shown = 0
-    finishing = false
-  }
+  /** The part of [markdown] to render now. */
+  val markdownToRender: String get() = if (shown >= markdown.length) markdown else markdown.substring(0, shown)
 
   fun release() {
-    reset()
+    if (frameScheduled) Choreographer.getInstance().removeFrameCallback(this)
+    frameScheduled = false
     if (handle != 0L) {
       nativeDestroy(handle)
       handle = 0L
     }
   }
 
-  protected fun finalize() {
-    if (handle != 0L) nativeDestroy(handle)
-  }
-
   override fun doFrame(frameTimeNanos: Long) {
     frameScheduled = false
+    // Released in a frame whose callbacks were already taken.
+    if (handle == 0L) return
+    val now = StreamingEffects.now()
     val before = shown
-    update()
-    if (shown != before) reveal(shownMarkdown())
-    if (!frameScheduled && finishing) {
-      finishing = false
+    shown = nativeRevealed(handle, now).coerceAtMost(markdown.length)
+    runFramesWhileWaiting(now)
+    // The frame that ends the stream renders once, through done.
+    if (nativeDrained(handle, now)) {
       done()
+    } else if (shown != before) {
+      reveal(markdownToRender)
     }
   }
 
-  private fun shownMarkdown(): String = if (shown >= markdown.length) markdown else markdown.substring(0, shown)
-
-  // Takes what is revealed now and keeps a frame callback only while words are waiting.
-  private fun update() {
-    shown = nativeRevealed(handle, StreamingEffects.now()).coerceAtMost(markdown.length)
-    runFramesWhileWaiting()
-  }
-
-  // Runs frame callbacks while words are waiting or revealed ones are still to be shown.
-  private fun runFramesWhileWaiting() {
-    val now = StreamingEffects.now()
-    if (nativeWaiting(handle, now) || nativeRevealed(handle, now).coerceAtMost(markdown.length) != shown) {
+  // Runs frame callbacks while words are waiting.
+  private fun runFramesWhileWaiting(now: Double) {
+    if (nativeWaiting(handle, now)) {
       if (!frameScheduled) {
         frameScheduled = true
         Choreographer.getInstance().postFrameCallbackDelayed(this, REVEAL_INTERVAL_MS)
@@ -142,22 +114,18 @@ class StreamingPacer(
 
     @JvmStatic private external fun nativeDestroy(handle: Long)
 
-    @JvmStatic private external fun nativeAppend(
+    @JvmStatic private external fun nativeUpdate(
       handle: Long,
-      start: Int,
-      added: String,
+      markdown: String,
+      streaming: Boolean,
+      smooth: Boolean,
       time: Double,
-    )
+    ): Boolean
 
-    @JvmStatic private external fun nativeReset(
-      handle: Long,
-      length: Int,
-    )
-
-    @JvmStatic private external fun nativeFinish(
+    @JvmStatic private external fun nativeDrained(
       handle: Long,
       time: Double,
-    )
+    ): Boolean
 
     @JvmStatic private external fun nativeRevealed(
       handle: Long,

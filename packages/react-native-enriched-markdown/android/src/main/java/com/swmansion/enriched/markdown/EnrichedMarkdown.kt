@@ -136,14 +136,13 @@ class EnrichedMarkdown(
   fun setStreamingProp(value: Boolean) {
     if (streamingProp == value) return
     streamingProp = value
-    renderPending = true
     if (value) {
       streaming = true
       streamEnding = false
       streamingEnded = false
-      pacer.resume()
       // The streaming filter only applies while this is on, so re-render to
       // show or hide the content it holds back.
+      renderPending = true
       dirtyFlags += DirtyFlag.FORCE_HEIGHT
     } else {
       streamingEnded = true
@@ -410,21 +409,16 @@ class EnrichedMarkdown(
   fun commitProps() {
     if (isDisposed) return
     MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
-    // With smooth pacing the words still waiting appear first (within 200 ms), then streaming stops.
-    if (streamingEnded) {
+    if (renderPending || markdownChanged || streamingEnded) {
       streamingEnded = false
-      if (smooth) {
-        pacer.markdownToRender(currentMarkdown, pacing = true)
-        pacer.finish()
-      }
-      if (!pacer.waiting) stopStreaming()
-    }
-    if (renderPending || markdownChanged) {
       // Smooth pacing renders what has been revealed and hands the rest over frame by frame, so
-      // new markdown that reveals nothing yet renders nothing.
-      val source = pacer.markdownToRender(currentMarkdown, pacing = streaming && smooth)
-      // A reset while the last words drain (smooth turned off, or the text replaced) leaves nothing waiting.
-      if (streaming && !streamingProp && !pacer.waiting) stopStreaming()
+      // new markdown that reveals nothing yet renders nothing. When the prop turns off, the words
+      // still waiting appear first (within 200 ms), then streaming stops.
+      if (pacer.update(currentMarkdown, streamingProp, smooth)) {
+        stopStreaming()
+        renderPending = true
+      }
+      val source = pacer.markdownToRender
       if (renderPending || source != renderedSource) {
         renderedSource = source
         scheduleRenderIfNeeded()

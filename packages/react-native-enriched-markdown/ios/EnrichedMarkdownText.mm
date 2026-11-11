@@ -366,6 +366,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
         initWithReveal:^(NSString *markdown) { [weakPacingSelf renderMarkdownContent:markdown]; }
         done:^{
           EnrichedMarkdownText *strongSelf = weakPacingSelf;
+          if (!strongSelf) {
+            return;
+          }
           [strongSelf stopStreaming];
           [strongSelf renderMarkdownContent:strongSelf->_pacer.markdown];
         }];
@@ -923,7 +926,6 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     if (newViewProps.streaming) {
       _streaming = YES;
       _streamEnding = NO;
-      [_pacer resume];
       // The streaming session decides what renders, so the text renders again.
       _dirtyFlags |= ENRMDirtyRender;
       _previousTextLength = ENRMGetAttributedText(_textView).length;
@@ -991,27 +993,17 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _dirtyFlags |= ENRMDirtyRender;
   }
 
-  // With smooth pacing the words still waiting appear first (within 200 ms), then streaming stops.
-  if (streamingEnded) {
-    if (newViewProps.streamingConfig.smooth) {
-      [_pacer markdownToRender:ENRMStringFromUTF8(newViewProps.markdown) pacing:YES];
-      [_pacer finish];
-    }
-    if (!_pacer.waiting) {
-      [self stopStreaming];
-    }
-    _dirtyFlags |= ENRMDirtyRender;
-  }
-
-  if (markdownChanged || (_dirtyFlags & ENRMDirtyRender)) {
+  if (markdownChanged || streamingEnded || (_dirtyFlags & ENRMDirtyRender)) {
     // Smooth pacing renders what has been revealed and hands the rest over frame by frame, so new
-    // markdown that reveals nothing yet renders nothing.
-    NSString *markdown = [_pacer markdownToRender:ENRMStringFromUTF8(newViewProps.markdown)
-                                           pacing:_streaming && newViewProps.streamingConfig.smooth];
-    // A reset while the last words drain (smooth turned off, or the text replaced) leaves nothing waiting.
-    if (_streaming && !newViewProps.streaming && !_pacer.waiting) {
+    // markdown that reveals nothing yet renders nothing. When the prop turns off, the words still
+    // waiting appear first (within 200 ms), then streaming stops.
+    if ([_pacer updateMarkdown:ENRMStringFromUTF8(newViewProps.markdown)
+                     streaming:newViewProps.streaming
+                        smooth:newViewProps.streamingConfig.smooth]) {
       [self stopStreaming];
+      _dirtyFlags |= ENRMDirtyRender;
     }
+    NSString *markdown = _pacer.markdownToRender;
     if ((_dirtyFlags & ENRMDirtyRender) || ![markdown isEqualToString:_cachedMarkdown]) {
       _pendingStyleFingerprint =
           computeStyleFingerprint(newViewProps.markdownStyle) ^ std::hash<bool>{}(newViewProps.allowTrailingMargin);

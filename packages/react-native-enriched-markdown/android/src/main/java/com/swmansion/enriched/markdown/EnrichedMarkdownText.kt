@@ -138,7 +138,7 @@ class EnrichedMarkdownText
     var isStreaming: Boolean = false
       private set
     private var streamingProp = false
-    private var streamingEnded = false
+    private var pacingChanged = false
 
     // streamingConfig.smooth: the view renders the markdown [pacer] has revealed so far.
     private var smooth = false
@@ -153,7 +153,6 @@ class EnrichedMarkdownText
 
     // The markdown renders take: all of [currentMarkdown], or what smooth pacing has revealed.
     private var renderedSource = ""
-      private set
 
     val isJustified: Boolean get() = markdownStyle?.needsJustify == true
     private var tableStreamingMode = TableStreamingMode.PROGRESSIVE
@@ -214,12 +213,7 @@ class EnrichedMarkdownText
     fun setMarkdownContent(markdown: String) {
       if (currentMarkdown == markdown) return
       currentMarkdown = markdown
-      // Smooth pacing renders what has been revealed and hands the rest over frame by frame, so new
-      // markdown that reveals nothing yet renders nothing.
-      val source = pacer.markdownToRender(markdown, pacing = isStreaming && smooth)
-      if (source == renderedSource) return
-      renderedSource = source
-      scheduleRender()
+      pacingChanged = true
     }
 
     fun setMarkdownStyle(style: ReadableMap?) {
@@ -314,24 +308,20 @@ class EnrichedMarkdownText
     fun setStreaming(enabled: Boolean) {
       if (streamingProp == enabled) return
       streamingProp = enabled
+      pacingChanged = true
       if (enabled) {
         isStreaming = true
         streamEnding = false
-        streamingEnded = false
-        pacer.resume()
         previousTextLength = text?.length ?: 0
         // The streaming session decides what renders, so the text renders again.
         scheduleRenderIfNeeded()
-      } else {
-        streamingEnded = true
       }
     }
 
     fun setSmooth(enabled: Boolean) {
       if (smooth == enabled) return
       smooth = enabled
-      renderedSource = pacer.markdownToRender(currentMarkdown, pacing = isStreaming && smooth)
-      scheduleRenderIfNeeded()
+      pacingChanged = true
     }
 
     // The stream ended: the next render shows the whole text, and what still animates settles.
@@ -364,17 +354,19 @@ class EnrichedMarkdownText
 
     fun commitProps() {
       updateMeasurementStoreFontScaling()
-      // With smooth pacing the words still waiting appear first (within 200 ms), then streaming stops.
-      if (streamingEnded) {
-        streamingEnded = false
-        if (smooth) {
-          pacer.markdownToRender(currentMarkdown, pacing = true)
-          pacer.finish()
-        }
-        if (!pacer.waiting) stopStreaming()
+      if (!pacingChanged) return
+      pacingChanged = false
+      // Smooth pacing renders what has been revealed and hands the rest over frame by frame, so new
+      // markdown that reveals nothing yet renders nothing. When the prop turns off, the words still
+      // waiting appear first (within 200 ms), then streaming stops.
+      if (pacer.update(currentMarkdown, streamingProp, smooth)) {
+        stopStreaming()
+        return
       }
-      // A reset while the last words drain (smooth turned off, or the text replaced) leaves nothing waiting.
-      if (isStreaming && !streamingProp && !pacer.waiting) stopStreaming()
+      val source = pacer.markdownToRender
+      if (source == renderedSource) return
+      renderedSource = source
+      scheduleRender()
     }
 
     private fun updateMeasurementStoreFontScaling() {

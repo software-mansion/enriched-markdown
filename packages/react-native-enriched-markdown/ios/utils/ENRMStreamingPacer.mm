@@ -29,7 +29,6 @@
   void (^_done)(void);
   NSString *_markdown;
   NSUInteger _shown;
-  BOOL _finishing;
 #if TARGET_OS_OSX
   NSTimer *_link;
 #else
@@ -57,77 +56,40 @@
   return _markdown;
 }
 
-- (NSString *)markdownToRender:(NSString *)markdown pacing:(BOOL)pacing
+- (BOOL)updateMarkdown:(NSString *)markdown streaming:(BOOL)streaming smooth:(BOOL)smooth
 {
-  NSUInteger previous = _markdown.length;
-  BOOL continues = previous > 0 && markdown.length >= previous && [markdown hasPrefix:_markdown];
   _markdown = [markdown copy];
-  if (!pacing || !continues) {
-    _pacer.reset(markdown.length);
-    _finishing = NO;
-    [self update];
-    return [self shownMarkdown];
+  std::u16string text(markdown.length, u'\0');
+  [markdown getCharacters:reinterpret_cast<unichar *>(text.data()) range:NSMakeRange(0, markdown.length)];
+  CFTimeInterval now = CACurrentMediaTime();
+  BOOL ends = _pacer.update(text, streaming, smooth, now);
+  // What nothing holds back shows at once. New words wait for the next frame: revealing here as
+  // well would render twice a frame.
+  if (!_pacer.waiting(now)) {
+    _shown = MIN(_pacer.revealed(now), _markdown.length);
   }
-  if (markdown.length > previous) {
-    std::u16string added(markdown.length - previous, u'\0');
-    [markdown getCharacters:reinterpret_cast<unichar *>(added.data())
-                      range:NSMakeRange(previous, markdown.length - previous)];
-    CFTimeInterval now = CACurrentMediaTime();
-    _pacer.append(previous, added, now);
-    // Text arriving after the end of the stream drains with the rest.
-    if (_finishing) {
-      _pacer.finish(now);
-    }
-  }
-  // The next frame reveals the new words: revealing here as well would render twice a frame.
-  [self runLinkWhileWaiting];
-  return [self shownMarkdown];
+  [self runLinkWhileWaiting:now];
+  return ends;
 }
 
-- (void)finish
+- (NSString *)markdownToRender
 {
-  _pacer.finish(CACurrentMediaTime());
-  [self update];
-  _finishing = _link != nil;
-}
-
-- (void)resume
-{
-  _finishing = NO;
-}
-
-- (BOOL)waiting
-{
-  return _finishing || _pacer.waiting(CACurrentMediaTime());
+  return _shown >= _markdown.length ? _markdown : [_markdown substringToIndex:_shown];
 }
 
 - (void)reset
 {
   [_link invalidate];
   _link = nil;
-  _pacer.reset(0);
+  _pacer = Markdown::StreamingPacer();
   _markdown = @"";
   _shown = 0;
-  _finishing = NO;
 }
 
-- (NSString *)shownMarkdown
+// Runs the display link while words are waiting.
+- (void)runLinkWhileWaiting:(CFTimeInterval)now
 {
-  return _shown >= _markdown.length ? _markdown : [_markdown substringToIndex:_shown];
-}
-
-// Takes what is revealed now and keeps the display link running only while words are waiting.
-- (void)update
-{
-  _shown = MIN(_pacer.revealed(CACurrentMediaTime()), _markdown.length);
-  [self runLinkWhileWaiting];
-}
-
-// Runs the display link while words are waiting or revealed ones are still to be shown.
-- (void)runLinkWhileWaiting
-{
-  CFTimeInterval now = CACurrentMediaTime();
-  if (_pacer.waiting(now) || MIN(_pacer.revealed(now), _markdown.length) != _shown) {
+  if (_pacer.waiting(now)) {
     if (_link == nil) {
       ENRMPacerTicker *ticker = [[ENRMPacerTicker alloc] init];
       ticker.pacer = self;
@@ -151,14 +113,15 @@
 
 - (void)tick
 {
+  CFTimeInterval now = CACurrentMediaTime();
   NSUInteger shown = _shown;
-  [self update];
-  if (_shown != shown) {
-    _reveal([self shownMarkdown]);
-  }
-  if (_link == nil && _finishing) {
-    _finishing = NO;
+  _shown = MIN(_pacer.revealed(now), _markdown.length);
+  [self runLinkWhileWaiting:now];
+  // The frame that ends the stream renders once, through done.
+  if (_pacer.drained(now)) {
     _done();
+  } else if (_shown != shown) {
+    _reveal([self markdownToRender]);
   }
 }
 

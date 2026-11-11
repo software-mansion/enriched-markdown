@@ -8,20 +8,16 @@ NS_ASSUME_NONNULL_BEGIN
 /// layout and blocks grow word by word instead of in the bursts the markdown arrives in.
 @interface ENRMStreamingPacer : NSObject
 
-/// `reveal` gets the markdown to render once more of it is revealed; `done` runs once nothing is
-/// waiting after `finish`. Both on the main queue.
+/// `reveal` gets the markdown to render once more of it is revealed; `done` runs once the stream
+/// has ended and its last words have appeared. Both on the main queue.
 - (instancetype)initWithReveal:(void (^)(NSString *markdown))reveal done:(void (^)(void))done;
 
-/// The part of `markdown` to render now. Paced while `pacing` and `markdown` continues the last
-/// one; otherwise all of it.
-- (NSString *)markdownToRender:(NSString *)markdown pacing:(BOOL)pacing;
-/// The stream ended: what is waiting appears within 200 ms, then `done` runs; nothing runs when
-/// nothing was waiting.
-- (void)finish;
-/// Streaming started again: `done` no longer runs for the last `finish`.
-- (void)resume;
-/// Whether more is still to be revealed, or `done` still to run.
-@property (nonatomic, readonly) BOOL waiting;
+/// Takes the view's markdown, its streaming prop and streamingConfig.smooth (the core's
+/// StreamingPacer::update). Returns whether the stream ends now; otherwise, once it has ended,
+/// `done` runs when its last words have appeared.
+- (BOOL)updateMarkdown:(NSString *)markdown streaming:(BOOL)streaming smooth:(BOOL)smooth;
+/// The part of `markdown` to render now.
+@property (nonatomic, readonly) NSString *markdownToRender;
 /// The whole markdown last given.
 @property (nonatomic, readonly, copy) NSString *markdown;
 /// Forgets everything and stops (a recycled view).

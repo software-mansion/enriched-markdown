@@ -664,24 +664,21 @@ JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_Streaming
   delete pacerOf(handle);
 }
 
-JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeAppend(
-    JNIEnv *env, jclass, jlong handle, jint start, jstring added, jdouble time) {
-  const jchar *chars = env->GetStringChars(added, nullptr);
-  std::u16string_view text(reinterpret_cast<const char16_t *>(chars), static_cast<size_t>(env->GetStringLength(added)));
-  pacerOf(handle)->append(static_cast<size_t>(std::max(start, 0)), text, time);
-  env->ReleaseStringChars(added, chars);
+JNIEXPORT jboolean JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeUpdate(
+    JNIEnv *env, jclass, jlong handle, jstring markdown, jboolean streaming, jboolean smooth, jdouble time) {
+  const jchar *chars = env->GetStringChars(markdown, nullptr);
+  std::u16string_view text(reinterpret_cast<const char16_t *>(chars),
+                           static_cast<size_t>(env->GetStringLength(markdown)));
+  bool ends = pacerOf(handle)->update(text, streaming == JNI_TRUE, smooth == JNI_TRUE, time);
+  env->ReleaseStringChars(markdown, chars);
+  return ends ? JNI_TRUE : JNI_FALSE;
 }
 
-JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeReset(JNIEnv *, jclass,
-                                                                                                  jlong handle,
-                                                                                                  jint length) {
-  pacerOf(handle)->reset(static_cast<size_t>(std::max(length, 0)));
-}
-
-JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeFinish(JNIEnv *, jclass,
-                                                                                                   jlong handle,
-                                                                                                   jdouble time) {
-  pacerOf(handle)->finish(time);
+JNIEXPORT jboolean JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeDrained(JNIEnv *,
+                                                                                                        jclass,
+                                                                                                        jlong handle,
+                                                                                                        jdouble time) {
+  return pacerOf(handle)->drained(time) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jint JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeRevealed(JNIEnv *, jclass,
