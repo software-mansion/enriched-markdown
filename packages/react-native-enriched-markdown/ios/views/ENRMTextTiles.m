@@ -396,12 +396,17 @@ static void *kENRMCanvasBoundsContext = &kENRMCanvasBoundsContext;
   }
 }
 
-- (void)textStorageDidProcessEditing:(NSNotification *)notification
+- (void)setNeedsDisplayFromCharacterIndex:(NSUInteger)characterIndex
 {
   if (_tiles.count > 0) {
-    _redrawFromCharacter = MIN(_redrawFromCharacter, ((NSTextStorage *)notification.object).editedRange.location);
+    _redrawFromCharacter = MIN(_redrawFromCharacter, characterIndex);
     [_textView setNeedsLayout];
   }
+}
+
+- (void)textStorageDidProcessEditing:(NSNotification *)notification
+{
+  [self setNeedsDisplayFromCharacterIndex:((NSTextStorage *)notification.object).editedRange.location];
 }
 
 // Redraws what edits and display invalidations touched since the last layout: from the first line

@@ -359,6 +359,25 @@ static NSString *ENRMParagraphs(NSUInteger count)
   XCTAssertTrue(tiles.lastObject.layer.needsDisplay);
 }
 
+// An image that settles asks the layout manager to redraw its characters outside any edit, after
+// its tile was drawn.
+- (void)testADisplayInvalidationRedrawsItsTile
+{
+  EnrichedMarkdownInternalText *segment = [self segmentWithMarkdown:ENRMParagraphs(200) onScreen:YES];
+  CGFloat height = segment.bounds.size.height;
+  _scrollView.contentOffset = CGPointMake(0, height - kWindowHeight);
+  NSArray<UIView *> *tiles = ENRMTiles(segment.textView);
+  for (UIView *tile in tiles) {
+    [tile.layer displayIfNeeded];
+  }
+
+  NSUInteger length = segment.textView.textStorage.length;
+  [segment.textView.layoutManager invalidateDisplayForCharacterRange:NSMakeRange(length - 10, 10)];
+  [segment.textView layoutIfNeeded];
+  XCTAssertFalse(tiles.firstObject.layer.needsDisplay);
+  XCTAssertTrue(tiles.lastObject.layer.needsDisplay);
+}
+
 // A streamed text grows at the end: the lines above keep their layout (a text container resize
 // would drop it all).
 - (void)testGrowingKeepsTheLayout

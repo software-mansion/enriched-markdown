@@ -63,6 +63,11 @@
   [_tiles setNeedsDisplayFromGlyphIndex:glyphIndex];
 }
 
+- (void)setNeedsDisplayFromCharacterIndex:(NSUInteger)characterIndex
+{
+  [_tiles setNeedsDisplayFromCharacterIndex:characterIndex];
+}
+
 - (void)layoutSubviews
 {
   [super layoutSubviews];
