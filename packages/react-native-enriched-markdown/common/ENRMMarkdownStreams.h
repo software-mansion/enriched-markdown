@@ -66,27 +66,21 @@ inline std::shared_ptr<const BaseProps> ENRMResolveStreamedMarkdown(const std::s
   if (typed.streamId == 0) {
     return props;
   }
-  // Fresh props, not shared yet.
+  // streamId != 0 means the base built these props; the shared defaults have 0.
   auto resolved = std::const_pointer_cast<PropsT>(std::static_pointer_cast<const PropsT>(props));
-  if (sourceProps != nullptr) {
-    const auto &source = static_cast<const PropsT &>(*sourceProps);
-    if (source.streamId == typed.streamId && source.streamLength == typed.streamLength) {
-      // React sent other props: the text is the source's, unless a full prop set brought the placeholder.
-      if (resolved->markdown != source.markdown) {
-        resolved->markdown = source.markdown;
+  const auto *source = static_cast<const PropsT *>(sourceProps.get());
+  // React sent other props: the text is the source's, unless a full prop set brought the placeholder.
+  std::string markdown =
+      source != nullptr && source->streamId == typed.streamId && source->streamLength == typed.streamLength
+          ? source->markdown
+          : ENRMMarkdownStreams::shared().prefix(typed.streamId, static_cast<size_t>(std::max(typed.streamLength, 0)));
+  if (resolved->markdown != markdown) {
+    resolved->markdown = std::move(markdown);
 #ifdef RN_SERIALIZABLE_STATE
-        resolved->rawProps["markdown"] = resolved->markdown;
+    // Android mounts views from the raw props.
+    resolved->rawProps["markdown"] = resolved->markdown;
 #endif
-      }
-      return props;
-    }
   }
-  resolved->markdown =
-      ENRMMarkdownStreams::shared().prefix(typed.streamId, static_cast<size_t>(std::max(typed.streamLength, 0)));
-#ifdef RN_SERIALIZABLE_STATE
-  // Android mounts views from the raw props.
-  resolved->rawProps["markdown"] = resolved->markdown;
-#endif
   return props;
 }
 
