@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { processColor } from 'react-native';
 import type { ProcessedColorValue } from 'react-native';
 import type { StreamingAnimation } from './types/MarkdownTextProps';
@@ -50,4 +51,31 @@ export function normalizeStreamingAnimation(
         ? processColor(options.endColor)
         : undefined,
   };
+}
+
+/**
+ * normalizeStreamingAnimation, kept while the options are the same: processColor makes a new object
+ * for a PlatformColor each call, and the animation object itself is often new each render.
+ */
+export function useStreamingAnimation(
+  animation: StreamingAnimation | undefined
+): NormalizedStreamingAnimation {
+  const options = typeof animation === 'object' ? animation : undefined;
+  const type = options?.type ?? animation;
+  const duration = options?.type === 'fade' ? options.duration : undefined;
+  const gradient = options?.type === 'gradient' ? options : undefined;
+  const length = gradient?.length;
+  const startColor = gradient?.startColor;
+  const endColor = gradient?.endColor;
+  return useMemo(
+    () =>
+      normalizeStreamingAnimation(
+        type === 'fade'
+          ? { type, duration }
+          : type === 'gradient'
+            ? { type, length, startColor, endColor }
+            : (type as StreamingAnimation | undefined)
+      ),
+    [type, duration, length, startColor, endColor]
+  );
 }

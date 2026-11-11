@@ -29,7 +29,7 @@ import {
 import { hasRenderers } from '../blockRenderers';
 import { useImageSources } from './useImageSources';
 import { useLinksChange } from '../linkOccurrences';
-import { normalizeStreamingAnimation } from '../streamingAnimation';
+import { useStreamingAnimation } from '../streamingAnimation';
 import {
   setNativeMarkdownStreams,
   useMarkdownStreamSnapshot,
@@ -502,7 +502,7 @@ export const EnrichedMarkdownText = ({
     animationLength,
     animationStartColor,
     animationEndColor,
-  } = normalizeStreamingAnimation(streamingConfig?.animation);
+  } = useStreamingAnimation(streamingConfig?.animation);
   const normalizedStreamingConfig = useMemo(
     () => ({
       tableMode,
