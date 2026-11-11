@@ -25,8 +25,8 @@ struct StreamingSnapshot {
   std::string markdown;
   // See StreamingFilterResult.
   bool endsInsideOpenCodeFence = false;
-  // The source and `markdown` both start with these bytes: the blocks that
-  // later text can no longer change (finishedBlocksEnd).
+  // The source and `markdown` both start with these bytes, which later text
+  // can no longer change (finishedBlocksEnd).
   size_t finishedBytes = 0;
 };
 
@@ -34,7 +34,7 @@ struct StreamingSnapshot {
 // still arriving (the iOS and Android hosts, their view-free measurement and
 // the JS block collector), so they all see the same snapshot:
 //
-//   1. the blocks before finishedBlocksEnd() stay as they are;
+//   1. the bytes before finishedBlocksEnd() stay as they are;
 //   2. the filter withholds the trailing blocks that have not finished
 //      arriving (tables, fences, media, `$$` math);
 //   3. repair, with streamingRepairOptions(), handles inline syntax still

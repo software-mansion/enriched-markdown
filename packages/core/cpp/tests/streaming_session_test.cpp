@@ -1,6 +1,6 @@
 /*
  * Checks the streaming session every host and the JS collector share: the
- * finished blocks stay as they are, the filter withholds trailing blocks and
+ * finished blocks' bytes stay as they are, the filter withholds trailing blocks and
  * repair handles inline syntax still being typed. Every prefix of the fixtures
  * filters and repairs the same as doing so to it whole. See
  * scripts/test-core-parser.sh.

@@ -500,7 +500,7 @@ size_t finishedBlocksEnd(std::string_view markdown, bool latexMath) {
     bool startsBlock =
         i > 0 && !openMath && isBlank(lines[i - 1].text) && !lines[i - 1].code && startsTopLevelBlock(line.text);
     // A line still arriving can start the tail once its first character rules
-    // out a fence, `$$` and HTML, the kinds a later character could still make.
+    // out a fence and `$$`, the kinds a later character could still make.
     char first = startsBlock ? line.text[0] : 0;
     if (startsBlock && (i + 1 < lines.size() || (first != '`' && first != '~' && (first != '$' || !latexMath))))
       end = line.offset;

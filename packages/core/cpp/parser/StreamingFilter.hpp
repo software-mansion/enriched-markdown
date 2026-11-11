@@ -25,9 +25,9 @@ struct StreamingFilterResult {
   bool endsInsideOpenCodeFence = false;
 };
 
-// The pre-parse filter every streaming consumer runs (the iOS and Android hosts,
-// their view-free measurement and the JS block collector), so they all see the
-// same document while it streams. It hides what has not finished arriving:
+// The pre-parse filter the streaming session runs on the unfinished tail
+// (StreamingSession.hpp), which every host, measurement and the JS block
+// collector share. It hides what has not finished arriving:
 //
 //   * block math, with `latexMath`: an unterminated `$$` block is cut at its
 //     opening delimiter;
@@ -45,11 +45,13 @@ struct StreamingFilterResult {
 StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown, const StreamingFilterOptions &options,
                                                      bool latexMath = true);
 
-// Where the blocks that later text can no longer change end: the start of the
+// Where the bytes that later text can no longer change end: the start of the
 // last line that begins a top-level block after a blank line, outside fenced
 // code, `$$` math and HTML blocks that may hold blank lines; 0 when there is
-// none. A line still arriving counts once it can no longer become one of those. The filter and repair act only on what follows it, so appending text
-// never changes the part before it.
+// none. A line still arriving counts once it can no longer become one of
+// those. The filter and repair act only on what follows it, so appending text
+// never changes the bytes before it (their parse may still change: a later
+// `[r]: url` turns `[docs][r]` into a link).
 size_t finishedBlocksEnd(std::string_view markdown, bool latexMath = true);
 
 StreamingBlockMode streamingBlockModeFromName(const std::string &name); // "hidden" | anything else
