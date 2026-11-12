@@ -12,6 +12,8 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.taskListItem
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
 import com.swmansion.enriched.markdown.test.TestAstFactory.unorderedList
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -167,5 +169,38 @@ class TextRenderCacheTest {
     cache.begin(Any())
     cache.end()
     assertEquals(null, render(states[4], cache).patch)
+  }
+
+  // Rendering resumes only after a node that ends in "\n": one that doesn't would join the next.
+  @Test
+  fun `resumes only where the text before ends in a newline`() {
+    fun fakeRender(separator: String): (List<MarkdownASTNode>, Int) -> TextRenderResult =
+      { nodes, taskIndex ->
+        val text = SpannableStringBuilder()
+        val starts = IntArray(nodes.size)
+        nodes.forEachIndexed { i, node ->
+          starts[i] = text.length
+          text.append(node.children.first().content).append(separator)
+        }
+        TextRenderResult(text, emptyList(), false, 0f, taskIndex, starts, IntArray(nodes.size) { taskIndex })
+      }
+    val shown = listOf(paragraph(text("one")), paragraph(text("two")))
+    val grown = shown + paragraph(text("three"))
+
+    for ((separator, resumes) in listOf("\n" to true, " " to false)) {
+      val cache = TextRenderCache()
+      cache.begin(separator)
+      cache.render(shown, 0, isLast = true, render = fakeRender(separator))
+      cache.end()
+      cache.begin(separator)
+      val (segment, _) = cache.render(grown, 0, isLast = true, render = fakeRender(separator))
+      cache.end()
+      if (resumes) {
+        assertNotNull(segment.patch)
+      } else {
+        assertNull(segment.patch)
+        assertEquals("one two three ", segment.styledText.toString())
+      }
+    }
   }
 }

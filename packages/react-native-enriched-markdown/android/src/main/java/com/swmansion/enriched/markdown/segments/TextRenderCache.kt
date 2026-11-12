@@ -79,6 +79,9 @@ class TextRenderCache {
     val nodeSignatures: LongArray,
     val blockStarts: IntArray,
     val blockTaskStarts: IntArray,
+    // Whether the text before each of [blockStarts] ends in "\n" (or is empty): rendering can resume
+    // only there.
+    val resumable: BooleanArray,
     val textLength: Int,
     val imageSpans: List<ImageSpan>,
     // Where each of [imageSpans] starts in the text.
@@ -140,7 +143,16 @@ class TextRenderCache {
       // Read before the view adopts the buffer.
       val imageStarts = IntArray(full.imageSpans.size) { full.styledText.getSpanStart(full.imageSpans[it]) }
       growing =
-        Growing(entry, nodeSignatures, full.blockStarts, full.blockTaskStarts, full.styledText.length, full.imageSpans, imageStarts)
+        Growing(
+          entry,
+          nodeSignatures,
+          full.blockStarts,
+          full.blockTaskStarts,
+          resumableStarts(full.styledText, full.blockStarts),
+          full.styledText.length,
+          full.imageSpans,
+          imageStarts,
+        )
     }
     current.add(entry)
     return entry.segment to full.taskItemCount
@@ -163,7 +175,7 @@ class TextRenderCache {
     val from = minOf(common, old.nodeSignatures.size - 1, nodes.size - 1)
     if (from <= 0) return null
     val start = old.blockStarts[from]
-    if (start > old.textLength) return null
+    if (start > old.textLength || !old.resumable[from]) return null
 
     val tail = render(nodes.subList(from, nodes.size), old.blockTaskStarts[from])
     val tailImageSpans = tail.imageSpans
@@ -188,6 +200,7 @@ class TextRenderCache {
         nodeSignatures,
         old.blockStarts.copyOf(from) + tail.blockStarts.map { it + start },
         old.blockTaskStarts.copyOf(from) + tail.blockTaskStarts,
+        old.resumable.copyOf(from) + resumableStarts(tail.styledText, tail.blockStarts),
         start + tail.styledText.length,
         imageSpans,
         imageStarts.toIntArray(),
@@ -199,6 +212,12 @@ class TextRenderCache {
     private val revisions = AtomicLong()
 
     private fun nextRevision(): Long = revisions.incrementAndGet()
+
+    // A tail starts where the text before it was resumable, so its own first start is too.
+    private fun resumableStarts(
+      text: CharSequence,
+      starts: IntArray,
+    ) = BooleanArray(starts.size) { starts[it] == 0 || (starts[it] <= text.length && text[starts[it] - 1] == '\n') }
 
     private fun baseSignature(nodeSignatures: LongArray): Long =
       SegmentSignature.signatureForNodeSignatures(nodeSignatures) xor SegmentSignature.TEXT_KIND_SALT
