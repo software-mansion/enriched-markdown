@@ -4,6 +4,7 @@
 #include "CodeBlockLanguages.hpp"
 #include "DocumentStore.hpp"
 #include "LatexSpeech.hpp"
+#include "MarkdownMeasureSession.h"
 #include "StreamingEffects.hpp"
 #include "StreamingPacer.hpp"
 #include "TextLinkRecognizer.hpp"
@@ -13,6 +14,7 @@
 #include <array>
 #include <jni.h>
 #include <mutex>
+#include <react/jni/ReadableNativeMap.h>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -604,6 +606,36 @@ JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_MeasurementStore_nat
     JNIEnv * /* env */, jclass /* clazz */) {
   if (auto *session = facebook::react::BlockSlotMeasureSession::current()) {
     session->discard();
+  }
+}
+
+// Called by MeasurementStore while a markdown shadow node measures, for the inputs it doesn't keep;
+// see MarkdownMeasureSession. Outside a measurement there is no session and nothing to pull.
+JNIEXPORT jstring JNICALL Java_com_swmansion_enriched_markdown_MeasurementStore_nativeMeasureMarkdown(JNIEnv *env,
+                                                                                                      jclass /* clazz */) {
+  auto *session = facebook::react::MarkdownMeasureSession::current();
+  if (!session) {
+    return nullptr;
+  }
+  try {
+    return javaString(env, session->markdown());
+  } catch (...) {
+    LOGE("Could not hand the markdown to measurement");
+    return nullptr;
+  }
+}
+
+JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_MeasurementStore_nativeMeasureConfig(JNIEnv * /* env */,
+                                                                                                    jclass /* clazz */) {
+  auto *session = facebook::react::MarkdownMeasureSession::current();
+  if (!session) {
+    return nullptr;
+  }
+  try {
+    return facebook::react::ReadableNativeMap::newObjectCxxArgs(session->config()).release();
+  } catch (...) {
+    LOGE("Could not hand the layout config to measurement");
+    return nullptr;
   }
 }
 

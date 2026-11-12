@@ -37,7 +37,7 @@ class StreamMeasurementTest {
     val props =
       JavaOnlyMap.of("markdown", markdown, "markdownStyle", JavaOnlyMap(), "allowTrailingMargin", trailingMargin)
     props.putMap("streamingConfig", streamingConfig ?: JavaOnlyMap.of("smooth", smooth))
-    return MeasurementStore.laidOutSizeForStreamUpdate(viewId, width, props, true, true, 1f, 0f, density, rtl)
+    return MeasurementStore.laidOutSizeForStreamUpdate(viewId, width, measureInputOf(props), true, true, 1f, 0f, density, rtl)
   }
 
   private fun recordMeasured(size: Long) = MeasurementStore.recordMeasured(viewId, size)
@@ -54,11 +54,11 @@ class StreamMeasurementTest {
         "revealedSize",
         Int::class.javaObjectType,
         Float::class.javaPrimitiveType,
-        ReadableMap::class.java,
+        MeasureInput::class.java,
         Long::class.javaPrimitiveType,
       )
     check.isAccessible = true
-    return check.invoke(MeasurementStore, viewId, width, props, full) as Long?
+    return check.invoke(MeasurementStore, viewId, width, measureInputOf(props), full) as Long?
   }
 
   @Test

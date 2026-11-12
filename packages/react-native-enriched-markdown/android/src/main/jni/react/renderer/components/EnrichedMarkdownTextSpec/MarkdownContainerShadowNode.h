@@ -20,7 +20,8 @@ public:
 
   MarkdownContainerShadowNode(ShadowNode const &sourceShadowNode, ShadowNodeFragment const &fragment)
       : ConcreteViewShadowNode(sourceShadowNode, fragment),
-        slotMeasurement_(static_cast<const MarkdownContainerShadowNode &>(sourceShadowNode).slotMeasurement_) {
+        slotMeasurement_(static_cast<const MarkdownContainerShadowNode &>(sourceShadowNode).slotMeasurement_),
+        measureKeys_(static_cast<const MarkdownContainerShadowNode &>(sourceShadowNode).measureKeys_) {
     forceHeightRecalculationCounter_ =
         static_cast<const MarkdownContainerShadowNode &>(sourceShadowNode).forceHeightRecalculationCounter_;
     // New children, e.g. every frame of an animation inside a slot: the next pass
@@ -79,9 +80,13 @@ private:
                             const std::vector<BlockSlotChild> &children) const;
   std::vector<BlockSlotPlacement> slotPlacements() const;
 
+  // The keys measurement sends for the current props, brought up to them first.
+  const MarkdownMeasureKeys &measureKeys() const;
+
   int forceHeightRecalculationCounter_{0};
   std::shared_ptr<MarkdownContainerMeasurementManager> measurementsManager_;
   mutable SlotMeasurement slotMeasurement_;
+  mutable MarkdownMeasureKeys measureKeys_;
 };
 
 } // namespace facebook::react

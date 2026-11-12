@@ -1,4 +1,5 @@
 #include "MarkdownTextShadowNode.h"
+#include "conversions.h"
 
 #include <react/renderer/core/LayoutContext.h>
 
@@ -32,7 +33,13 @@ bool MarkdownTextShadowNode::shouldNewRevisionDirtyMeasurement(const ShadowNode 
 
 Size MarkdownTextShadowNode::measureContent(const LayoutContext &layoutContext,
                                             const LayoutConstraints &layoutConstraints) const {
-  return measurementsManager_->measure(getSurfaceId(), getTag(), getConcreteProps(), layoutConstraints);
+  return measurementsManager_->measure(getSurfaceId(), getTag(), getConcreteProps().markdown, measureKeys(),
+                                       layoutConstraints);
+}
+
+const MarkdownMeasureKeys &MarkdownTextShadowNode::measureKeys() const {
+  measureKeys_.update<EnrichedMarkdownTextProps>(getProps(), [](const auto &props) { return measureLayoutConfig(props); });
+  return measureKeys_;
 }
 
 } // namespace facebook::react

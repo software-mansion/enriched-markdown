@@ -7,18 +7,30 @@
 namespace facebook::react {
 
 #ifdef RN_SERIALIZABLE_STATE
-inline folly::dynamic toDynamic(const EnrichedMarkdownTextProps &props) {
+// The streaming options that change what is laid out: the modes decide what the streaming filter
+// withholds, smooth pacing how much the view shows. The animation draws over the same layout, so
+// it stays out and changing it measures nothing again.
+template <typename StreamingConfig>
+folly::dynamic streamingLayoutConfig(const StreamingConfig &config) {
+  return folly::dynamic::object("tableMode", config.tableMode)("codeBlockMode", config.codeBlockMode)(
+      "mediaMode", config.mediaMode)("smooth", config.smooth);
+}
+
+// Every prop besides the markdown that measurement needs to lay the document out as the view
+// does (MeasureConfig in Kotlin). A prop missing here measures with its default: the measured
+// height and the rendered one disagree.
+inline folly::dynamic measureLayoutConfig(const EnrichedMarkdownTextProps &props) {
   folly::dynamic serializedProps = folly::dynamic::object();
-  serializedProps["markdown"] = props.markdown;
+  // Always false here (GFM goes to EnrichedMarkdown), but the view parses with it.
+  serializedProps["isGFM"] = props.isGFM;
   serializedProps["markdownStyle"] = toDynamic(props.markdownStyle);
   serializedProps["md4cFlags"] = toDynamic(props.md4cFlags);
   serializedProps["allowFontScaling"] = props.allowFontScaling;
   serializedProps["maxFontSizeMultiplier"] = props.maxFontSizeMultiplier;
   serializedProps["allowTrailingMargin"] = props.allowTrailingMargin;
+  serializedProps["textBreakStrategy"] = props.textBreakStrategy;
   serializedProps["streaming"] = props.streaming;
-  // The modes decide what the streaming filter withholds, so what is measured;
-  // the animation travels along but is left out of the layout hash.
-  serializedProps["streamingConfig"] = toDynamic(props.streamingConfig);
+  serializedProps["streamingConfig"] = streamingLayoutConfig(props.streamingConfig);
   serializedProps["numberOfLines"] = props.numberOfLines;
   serializedProps["ellipsizeMode"] = props.ellipsizeMode;
 
@@ -41,18 +53,16 @@ inline folly::dynamic toDynamic(const EnrichedMarkdownTextProps &props) {
   return serializedProps;
 }
 
-inline folly::dynamic toDynamic(const EnrichedMarkdownProps &props) {
+inline folly::dynamic measureLayoutConfig(const EnrichedMarkdownProps &props) {
   folly::dynamic serializedProps = folly::dynamic::object();
-  serializedProps["markdown"] = props.markdown;
   serializedProps["markdownStyle"] = toDynamic(props.markdownStyle);
   serializedProps["md4cFlags"] = toDynamic(props.md4cFlags);
   serializedProps["allowFontScaling"] = props.allowFontScaling;
   serializedProps["maxFontSizeMultiplier"] = props.maxFontSizeMultiplier;
   serializedProps["allowTrailingMargin"] = props.allowTrailingMargin;
+  serializedProps["textBreakStrategy"] = props.textBreakStrategy;
   serializedProps["streaming"] = props.streaming;
-  // The modes decide what the streaming filter withholds, so what is measured;
-  // the animation travels along but is left out of the layout hash.
-  serializedProps["streamingConfig"] = toDynamic(props.streamingConfig);
+  serializedProps["streamingConfig"] = streamingLayoutConfig(props.streamingConfig);
   // A `<video>` block only exists under GFM; CommonMark measures it as text.
   serializedProps["isGFM"] = props.isGFM;
   // Wrapped code blocks measure at the block width; the indexes live in MeasurementStore.
