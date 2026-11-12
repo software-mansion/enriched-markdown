@@ -31,6 +31,7 @@ import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.spans.MathMeasureRequest
 import com.swmansion.enriched.markdown.spans.MathMetrics
 import com.swmansion.enriched.markdown.spans.MathRenderMode
+import com.swmansion.enriched.markdown.styles.ImageSourceOverride
 import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BoundsForWidthUtils
@@ -38,6 +39,7 @@ import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
+import com.swmansion.enriched.markdown.utils.common.LinkRecognition
 import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.common.MediaStreamingMode
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
@@ -47,6 +49,7 @@ import com.swmansion.enriched.markdown.utils.common.getBooleanOrDefault
 import com.swmansion.enriched.markdown.utils.common.getIntOrDefault
 import com.swmansion.enriched.markdown.utils.common.getMapOrNull
 import com.swmansion.enriched.markdown.utils.common.getStringOrDefault
+import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.common.parseImageRequestHeaders
 import com.swmansion.enriched.markdown.utils.common.parseImageSources
 import com.swmansion.enriched.markdown.utils.common.parseLinkPillContent
@@ -107,9 +110,37 @@ object MeasurementStore {
     val markdown: String,
   )
 
+  // Everything besides the markdown and the width that a streamed document's layout depends on,
+  // compared whole: a hash of it could collide.
+  private data class StreamLayoutKey(
+    val markdownStyle: Map<String, Any?>?,
+    val md4cFlags: Map<String, Any?>?,
+    val linkRecognition: LinkRecognition,
+    val fontScale: Float,
+    val allowFontScaling: Boolean,
+    val maxFontSizeMultiplier: Float,
+    val allowTrailingMargin: Boolean,
+    val imageRequestHeaders: Map<String, String>,
+    val imageSources: Map<String, ImageSourceOverride>,
+    val linkPillContent: Map<String, LinkPillContent>,
+    val numberOfLines: Int,
+    val ellipsizeMode: String,
+    val isGFM: Boolean,
+    val streaming: Boolean,
+    // Only the modes change what is laid out; the animation, its options and pacing do not.
+    val tableMode: String,
+    val codeBlockMode: String,
+    val mediaMode: String,
+    val splitTableSegments: Boolean,
+    val wrappedCodeBlocks: Set<Int>?,
+    val breakStrategy: String?,
+    val density: Float,
+    val rtl: Boolean,
+  )
+
   private data class MeasuredInputs(
     val markdown: String,
-    val layoutHash: Int,
+    val layoutKey: StreamLayoutKey,
     val widthPx: Float,
     // What the measurement returned, filled in once known.
     val size: Long? = null,
@@ -417,8 +448,17 @@ object MeasurementStore {
         measureInFull(context, id, width, props, splitTableSegments, blockSlotIds, allowFontScaling, fontScale, maxFontSizeMultiplier)
       return revealedSize(id, width, props, full) ?: full
     }
-    laidOutSizeForStreamUpdate(id, width, props, splitTableSegments, allowFontScaling, fontScale, maxFontSizeMultiplier)
-      ?.let { return it }
+    laidOutSizeForStreamUpdate(
+      id,
+      width,
+      props,
+      splitTableSegments,
+      allowFontScaling,
+      fontScale,
+      maxFontSizeMultiplier,
+      context.resources.displayMetrics.density,
+      context.resources.isLayoutRTL(),
+    )?.let { return it }
     return measureInFull(context, id, width, props, splitTableSegments, blockSlotIds, allowFontScaling, fontScale, maxFontSizeMultiplier)
       .also { recordMeasured(id, it) }
   }
@@ -495,27 +535,44 @@ object MeasurementStore {
     allowFontScaling: Boolean,
     fontScale: Float,
     maxFontSizeMultiplier: Float,
+    density: Float,
+    rtl: Boolean,
   ): Long? {
     val markdown = props.getStringOrDefault("markdown", "")
-    var layoutHash = computePropsHashForMarkdown("", props, allowFontScaling, fontScale, maxFontSizeMultiplier)
-    layoutHash = 31 * layoutHash + props.getBooleanOrDefault("isGFM", false).hashCode()
-    layoutHash = 31 * layoutHash + props.getBooleanOrDefault("streaming", false).hashCode()
-    // Only the modes change what is laid out; the animation, its options and pacing do not.
     val streamingConfig = props.getMapOrNull("streamingConfig")
-    layoutHash = 31 * layoutHash + streamingConfig.getStringOrDefault("tableMode", "").hashCode()
-    layoutHash = 31 * layoutHash + streamingConfig.getStringOrDefault("codeBlockMode", "").hashCode()
-    layoutHash = 31 * layoutHash + streamingConfig.getStringOrDefault("mediaMode", "").hashCode()
-    layoutHash = 31 * layoutHash + splitTableSegments.hashCode()
-    layoutHash = 31 * layoutHash + (wrappedCodeBlocks[id]?.hashCode() ?: 0)
-    layoutHash = 31 * layoutHash + (breakStrategies[id]?.hashCode() ?: 0)
+    val layoutKey =
+      StreamLayoutKey(
+        markdownStyle = props.getMapOrNull("markdownStyle")?.toHashMap(),
+        md4cFlags = props.getMapOrNull("md4cFlags")?.toHashMap(),
+        linkRecognition = parseLinkRecognition(props.getMapOrNull("linkRecognition")),
+        fontScale = fontScale,
+        allowFontScaling = allowFontScaling,
+        maxFontSizeMultiplier = maxFontSizeMultiplier,
+        allowTrailingMargin = props.getBooleanOrDefault("allowTrailingMargin", false),
+        imageRequestHeaders = parseImageRequestHeaders(props.getArrayOrNull("imageRequestHeaders")),
+        imageSources = parseImageSources(props.getArrayOrNull("imageSources")),
+        linkPillContent = parseLinkPillContent(props.getArrayOrNull("linkPillContent")),
+        numberOfLines = props.getIntOrDefault("numberOfLines", 0),
+        ellipsizeMode = props.getStringOrDefault("ellipsizeMode", EllipsizeUtils.DEFAULT_MODE),
+        isGFM = props.getBooleanOrDefault("isGFM", false),
+        streaming = props.getBooleanOrDefault("streaming", false),
+        tableMode = streamingConfig.getStringOrDefault("tableMode", ""),
+        codeBlockMode = streamingConfig.getStringOrDefault("codeBlockMode", ""),
+        mediaMode = streamingConfig.getStringOrDefault("mediaMode", ""),
+        splitTableSegments = splitTableSegments,
+        wrappedCodeBlocks = wrappedCodeBlocks[id],
+        breakStrategy = breakStrategies[id],
+        density = density,
+        rtl = rtl,
+      )
 
-    val previous = previousInputs.put(id, MeasuredInputs(markdown, layoutHash, width)) ?: return null
+    val previous = previousInputs.put(id, MeasuredInputs(markdown, layoutKey, width)) ?: return null
     // The view's size counts for an earlier state of this stream, not a document it replaced.
     val laidOut = laidOutSizes[id]?.takeIf { abs(it.widthPx - width) < 1f && markdownExtends(it.markdown, markdown) }
     val size =
       when (
         chooseMeasurement(
-          streamUpdate = previous.layoutHash == layoutHash && markdownExtends(previous.markdown, markdown),
+          streamUpdate = previous.layoutKey == layoutKey && markdownExtends(previous.markdown, markdown),
           grew = markdown.length > previous.markdown.length,
           viewLaidOutAgain = laidOut != null && (laidOut.markdown == markdown || (smooth(props) && laidOut.size != previous.size)),
           hasLaidOutSize = laidOut != null,

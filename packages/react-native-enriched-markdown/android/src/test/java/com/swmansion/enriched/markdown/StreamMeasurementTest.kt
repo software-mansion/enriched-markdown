@@ -31,11 +31,13 @@ class StreamMeasurementTest {
     trailingMargin: Boolean = false,
     streamingConfig: ReadableMap? = null,
     smooth: Boolean = false,
+    density: Float = 1f,
+    rtl: Boolean = false,
   ): Long? {
     val props =
       JavaOnlyMap.of("markdown", markdown, "markdownStyle", JavaOnlyMap(), "allowTrailingMargin", trailingMargin)
     props.putMap("streamingConfig", streamingConfig ?: JavaOnlyMap.of("smooth", smooth))
-    return MeasurementStore.laidOutSizeForStreamUpdate(viewId, width, props, true, true, 1f, 0f)
+    return MeasurementStore.laidOutSizeForStreamUpdate(viewId, width, props, true, true, 1f, 0f, density, rtl)
   }
 
   private fun recordMeasured(size: Long) = MeasurementStore.recordMeasured(viewId, size)
@@ -80,6 +82,16 @@ class StreamMeasurementTest {
     assertEquals(laidOut, streamUpdate("Streaming **markdown**"))
     // Measured again before the view rendered it: what the previous measurement returned.
     assertEquals(laidOut, streamUpdate("Streaming **markdown**"))
+  }
+
+  // Another density or layout direction lays the text out anew, though the props are the same.
+  @Test
+  fun aDensityOrDirectionChangeMeasuresInFull() {
+    MeasurementStore.storeLaidOutSize(viewId, widthPx, laidOut, "Streaming **mark")
+    streamUpdate("Streaming **mark")
+    assertNull(streamUpdate("Streaming **markdown**", density = 2f))
+    assertNull(streamUpdate("Streaming **markdown** text", density = 2f, rtl = true))
+    assertEquals(laidOut, streamUpdate("Streaming **markdown** text and", density = 2f, rtl = true))
   }
 
   // Yoga measures twice a pass: right after new content measured in full, the view
