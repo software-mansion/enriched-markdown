@@ -267,7 +267,7 @@ Fires **at most once per distinct failing expression** per component instance - 
 
 ### `onStreamingEnd`
 
-Callback when the view stops streaming: once `streaming` turns `false` or the `stream` ends, and with `streamingConfig.smooth`, once the last words have appeared. Fires once per stream, and not when the view unmounts while streaming.
+Callback when the view stops streaming: once `streaming` turns `false` or the `stream` ends, and with `streamingConfig.smooth`, once the last words have appeared. It fires after the final render shows the whole text, so a handler can scroll to the end or measure. Fires once per stream, and not when the view unmounts while streaming.
 
 | Type         | Default Value | Platform     |
 | ------------ | ------------- | ------------ |

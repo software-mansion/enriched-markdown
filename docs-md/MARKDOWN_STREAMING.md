@@ -10,7 +10,7 @@
 
 ## Incremental Rendering
 
-Feed the growing markdown string to `EnrichedMarkdownText` and set `streaming` while it arrives (off by default). Only the new characters fade in on each update. Set it back to `false` when the stream ends, so the final render shows everything; `onStreamingEnd` is called once the view has stopped streaming.
+Feed the growing markdown string to `EnrichedMarkdownText` and set `streaming` while it arrives (off by default). Only the new characters fade in on each update. Set it back to `false` when the stream ends, so the final render shows everything; `onStreamingEnd` is called once the view has stopped streaming and the final render shows the whole text.
 
 ```tsx
 <EnrichedMarkdownText

@@ -103,6 +103,9 @@ class EnrichedMarkdown(
   // The stream ended and its last text has not been rendered yet: it still animates, then settles.
   private var streamEnding = false
 
+  // The stream ended and onStreamingEnd waits for the render that shows the whole document.
+  private var streamEndPending = false
+
   // Whether the view streams: after the prop turns off, smooth pacing keeps it on until the words
   // still waiting have appeared.
   var streaming: Boolean = false
@@ -137,6 +140,8 @@ class EnrichedMarkdown(
     if (streamingProp == value) return
     streamingProp = value
     if (value) {
+      // A new stream: the one before it has ended, whether or not its final render applied.
+      emitStreamingEndIfPending()
       streaming = true
       streamEnding = false
       streamingEnded = false
@@ -153,10 +158,17 @@ class EnrichedMarkdown(
   private fun stopStreaming() {
     streaming = false
     streamEnding = true
-    emitStreamingEndEvent()
+    streamEndPending = true
     dirtyFlags += DirtyFlag.FORCE_HEIGHT
     finishStreamingAnimations()
     settleTextSegments(except = null)
+  }
+
+  // After the first render scheduled once the stream ended: the last words are on screen.
+  private fun emitStreamingEndIfPending() {
+    if (!streamEndPending) return
+    streamEndPending = false
+    emitStreamingEndEvent()
   }
 
   /** Text segments start over with the new animation: 'none' shows what still animates at once. */
@@ -655,8 +667,9 @@ class EnrichedMarkdown(
     }
   }
 
+  // With nothing to render, scheduleRender still ends a stream that has ended.
   private fun scheduleRenderIfNeeded() {
-    if (renderedSource.isNotEmpty()) scheduleRender()
+    scheduleRender()
   }
 
   // Everything one render needs, captured on the main thread.
@@ -736,7 +749,12 @@ class EnrichedMarkdown(
 
   private fun scheduleRender() {
     if (isDisposed) return
-    val job = renderJob() ?: return
+    val job =
+      renderJob() ?: run {
+        // Nothing to render: nothing is left to show either.
+        if (!streaming) emitStreamingEndIfPending()
+        return
+      }
     // Taken now: an older render can still apply after a newer one is scheduled, and
     // must not claim the newer one's flags.
     val scheduledFlags = EnumSet.copyOf(dirtyFlags)
@@ -753,7 +771,12 @@ class EnrichedMarkdown(
           Log.e(TAG, "Render failed", e)
           emptyList<RenderedSegment>() to false
         }
-      Runnable { applyRenderedSegments(segments, pendingCodeBlock, scheduledFlags, job.markdown) }
+      Runnable {
+        val epoch = textRenderEpoch
+        applyRenderedSegments(segments, pendingCodeBlock, scheduledFlags, job.markdown)
+        // A segment that missed a patch renders again in full (a new epoch): that render shows the end.
+        if (!job.isStreaming && textRenderEpoch == epoch) emitStreamingEndIfPending()
+      }
     }
   }
 
@@ -772,7 +795,9 @@ class EnrichedMarkdown(
         Log.e(TAG, "Render failed", e)
         emptyList<RenderedSegment>() to false
       }
+    val epoch = textRenderEpoch
     applyRenderedSegments(segments, pendingCodeBlock, EnumSet.copyOf(dirtyFlags), job.markdown)
+    if (!job.isStreaming && textRenderEpoch == epoch) emitStreamingEndIfPending()
   }
 
   // Trailing code block whose closing fence hasn't streamed in yet, if any.

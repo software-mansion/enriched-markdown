@@ -131,6 +131,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   NSUInteger _previousTextLength;
   BOOL _streamEnding;
+  // The stream ended and onStreamingEnd waits for the render that shows the whole text.
+  BOOL _streamEndPending;
   // Smooth pacing (streamingConfig.smooth): the view renders the markdown revealed so far.
   ENRMStreamingPacer *_pacer;
 
@@ -563,6 +565,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     [self->_latexErrorCoordinator wireReporters:result.context.mathReporters];
     self->_laidOutMarkdown = ENRMLaidOutMarkdown(markdownString);
     [self applyRenderedText:result forceHeightUpdate:forceHeightUpdate];
+    if (!streaming) {
+      [self emitStreamingEndIfPending];
+    }
   };
 
   if (synchronously) {
@@ -755,14 +760,24 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 }
 #endif
 
+// After the first render scheduled once the stream ended: the last words are on screen.
+- (void)emitStreamingEndIfPending
+{
+  if (!_streamEndPending) {
+    return;
+  }
+  _streamEndPending = NO;
+  if (auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter)) {
+    emitter->onStreamingEnd({});
+  }
+}
+
 // The stream ended: the next render shows the whole text, and what still animates settles.
 - (void)stopStreaming
 {
   _streaming = NO;
   _streamEnding = YES;
-  if (auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter)) {
-    emitter->onStreamingEnd({});
-  }
+  _streamEndPending = YES;
 #if !TARGET_OS_OSX
   [((ENRMMarkdownTextView *)_textView).streamingEffects finishAt:CACurrentMediaTime()];
   [(ENRMMarkdownTextView *)_textView streamingEffectsChanged];
@@ -928,6 +943,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   BOOL streamingEnded = NO;
   if (newViewProps.streaming != oldViewProps.streaming) {
     if (newViewProps.streaming) {
+      // A new stream: the one before it has ended, whether or not its final render applied.
+      [self emitStreamingEndIfPending];
       _streaming = YES;
       _streamEnding = NO;
       // The streaming session decides what renders, so the text renders again.
@@ -1085,6 +1102,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   _previousTextLength = 0;
   _streamEnding = NO;
+  _streamEndPending = NO;
   [_pacer reset];
   _streaming = NO;
 #if !TARGET_OS_OSX

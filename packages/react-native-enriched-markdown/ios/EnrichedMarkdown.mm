@@ -164,6 +164,8 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   BOOL _enableTextPress;
   BOOL _streaming;
   BOOL _streamEnding;
+  // The stream ended and onStreamingEnd waits for the render that shows the whole text.
+  BOOL _streamEndPending;
   BOOL _streamingFade;
   // Smooth pacing (streamingConfig.smooth): the view renders the markdown revealed so far.
   ENRMStreamingPacer *_pacer;
@@ -1128,10 +1130,15 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   dispatch_block_t apply = ^{
     self->_renderedStyleFingerprint = styleFingerprint;
     self->_laidOutMarkdown = ENRMLaidOutMarkdown(markdownString);
+    const NSUInteger epoch = self->_textRenderCacheEpoch;
     [self applyRenderedSegments:renderedSegments
                renderedMarkdown:renderableMarkdown
         endsInsideOpenCodeFence:endsInsideOpenCodeFence
                      dirtyFlags:dirtyFlags];
+    // A segment that missed a patch renders again in full (a new epoch): that render shows the end.
+    if (!streaming && self->_textRenderCacheEpoch == epoch) {
+      [self emitStreamingEndIfPending];
+    }
   };
 
   if (synchronously) {
@@ -1544,14 +1551,24 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 #endif
 }
 
+// After the first render scheduled once the stream ended: the last words are on screen.
+- (void)emitStreamingEndIfPending
+{
+  if (!_streamEndPending) {
+    return;
+  }
+  _streamEndPending = NO;
+  if (auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter)) {
+    emitter->onStreamingEnd({});
+  }
+}
+
 // The stream ended: the next render shows the whole document, and what still animates settles.
 - (void)stopStreaming
 {
   _streaming = NO;
   _streamEnding = YES;
-  if (auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter)) {
-    emitter->onStreamingEnd({});
-  }
+  _streamEndPending = YES;
   _dirtyFlags |= ENRMDirtyForceHeight;
   [self finishStreamingAnimations];
   [self settleTextSegmentsBefore:nil];
@@ -1735,6 +1752,8 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   BOOL finishesAnimations = NO;
   if (newViewProps.streaming != oldViewProps.streaming) {
     if (newViewProps.streaming) {
+      // A new stream: the one before it has ended, whether or not its final render applied.
+      [self emitStreamingEndIfPending];
       _streaming = YES;
       _streamEnding = NO;
       _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
@@ -2080,6 +2099,7 @@ static void ENRMAfterCommit(dispatch_block_t block)
   _allowTrailingMargin = NO;
   _streaming = NO;
   _streamEnding = NO;
+  _streamEndPending = NO;
   [_pacer reset];
   _streamingFade = YES;
   _tableStreamingMode = ENRMTableStreamingModeProgressive;

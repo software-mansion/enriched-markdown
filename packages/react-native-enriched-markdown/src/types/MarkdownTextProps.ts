@@ -482,7 +482,8 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
   /**
    * Called when the view stops streaming: once `streaming` turns `false` (or
    * the `stream` ends) and, with `smooth`, the last words have appeared. Fires
-   * once per stream, and not when the view unmounts while streaming.
+   * after the final render shows the whole text, once per stream, and not when
+   * the view unmounts while streaming.
    * @platform ios, android
    */
   onStreamingEnd?: () => void;

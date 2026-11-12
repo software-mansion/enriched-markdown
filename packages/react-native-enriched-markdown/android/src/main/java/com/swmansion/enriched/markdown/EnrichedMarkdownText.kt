@@ -138,6 +138,9 @@ class EnrichedMarkdownText
     var isStreaming: Boolean = false
       private set
     private var streamingProp = false
+
+    // The stream ended and onStreamingEnd waits for the render that shows the whole text.
+    private var streamEndPending = false
     private var pacingChanged = false
 
     // streamingConfig.smooth: the view renders the markdown [pacer] has revealed so far.
@@ -310,6 +313,8 @@ class EnrichedMarkdownText
       streamingProp = enabled
       pacingChanged = true
       if (enabled) {
+        // A new stream: the one before it has ended, whether or not its final render applied.
+        emitStreamingEndIfPending()
         isStreaming = true
         streamEnding = false
         previousTextLength = text?.length ?: 0
@@ -328,10 +333,17 @@ class EnrichedMarkdownText
     private fun stopStreaming() {
       isStreaming = false
       streamEnding = true
-      emitStreamingEndEvent()
+      streamEndPending = true
       effectsAnimator?.finish()
       renderedSource = currentMarkdown
       scheduleRenderIfNeeded()
+    }
+
+    // After the first render scheduled once the stream ended: the last words are on screen.
+    private fun emitStreamingEndIfPending() {
+      if (!streamEndPending) return
+      streamEndPending = false
+      emitStreamingEndEvent()
     }
 
     fun setStreamingModes(
@@ -373,11 +385,10 @@ class EnrichedMarkdownText
       MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
     }
 
+    // With nothing to render, scheduleRender still ends a stream that has ended.
     private fun scheduleRenderIfNeeded() {
       textRenderKey++
-      if (renderedSource.isNotEmpty()) {
-        scheduleRender()
-      }
+      scheduleRender()
     }
 
     private fun recreateStyleConfig() {
@@ -403,9 +414,13 @@ class EnrichedMarkdownText
     }
 
     private fun scheduleRender() {
-      val style = markdownStyle ?: return
+      val style = markdownStyle
       val markdown = renderedSource
-      if (markdown.isEmpty()) return
+      if (style == null || markdown.isEmpty()) {
+        // Nothing to render: nothing is left to show either.
+        if (!isStreaming) emitStreamingEndIfPending()
+        return
+      }
 
       val textLinkRegex = linkRegex
       val codeLinkRegex = inlineCodeLinkRegex
@@ -417,37 +432,47 @@ class EnrichedMarkdownText
       val renderKey = textRenderKey
 
       renderCoordinator.schedule {
-        try {
-          val renderableMarkdown =
-            if (streaming) {
-              StreamingMarkdownFilter.renderableMarkdownForStreaming(markdown, flags, tableMode, codeBlockMode, mediaMode).markdown
-            } else {
-              markdown
-            }
-          val ast =
-            parser.parseMarkdown(renderableMarkdown, flags, isGFM, textLinkRegex, codeLinkRegex)
-              ?: return@schedule Runnable { if (isAttachedToWindow) clearText() }
+        val apply =
+          run render@{
+            try {
+              val renderableMarkdown =
+                if (streaming) {
+                  StreamingMarkdownFilter.renderableMarkdownForStreaming(markdown, flags, tableMode, codeBlockMode, mediaMode).markdown
+                } else {
+                  markdown
+                }
+              val ast =
+                parser.parseMarkdown(renderableMarkdown, flags, isGFM, textLinkRegex, codeLinkRegex)
+                  ?: return@render Runnable { if (isAttachedToWindow) clearText() }
 
-          renderer.configure(style, context, latexErrorReporter)
-          textRenderCache.begin(renderKey)
-          val (rendered, _) =
-            textRenderCache.render(ast.children, startingTaskIndex = 0, isLast = true) { nodes, taskIndex ->
-              renderText(nodes, taskIndex, style)
-            }
-          textRenderCache.end()
+              renderer.configure(style, context, latexErrorReporter)
+              textRenderCache.begin(renderKey)
+              val (rendered, _) =
+                textRenderCache.render(ast.children, startingTaskIndex = 0, isLast = true) { nodes, taskIndex ->
+                  renderText(nodes, taskIndex, style)
+                }
+              textRenderCache.end()
 
-          Runnable {
-            if (isAttachedToWindow) {
-              applyRenderedText(rendered, markdown)
-            } else {
-              pendingText = rendered
-              pendingRenderedMarkdown = markdown
+              Runnable {
+                if (isAttachedToWindow) {
+                  applyRenderedText(rendered, markdown)
+                } else {
+                  pendingText = rendered
+                  pendingRenderedMarkdown = markdown
+                }
+              }
+            } catch (e: Exception) {
+              textRenderCache.clear()
+              Log.e(TAG, "Render failed: ${e.message}", e)
+              Runnable { if (isAttachedToWindow) clearText() }
             }
           }
-        } catch (e: Exception) {
-          textRenderCache.clear()
-          Log.e(TAG, "Render failed: ${e.message}", e)
-          Runnable { if (isAttachedToWindow) clearText() }
+        // The first render scheduled once the stream ended shows its last words.
+        Runnable {
+          val key = textRenderKey
+          apply.run()
+          // A patch the view can't take renders again in full (a new key): that render shows the end.
+          if (!streaming && textRenderKey == key) emitStreamingEndIfPending()
         }
       }
     }
