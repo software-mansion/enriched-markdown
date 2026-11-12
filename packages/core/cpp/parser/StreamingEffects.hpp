@@ -45,7 +45,9 @@ class StreamingEffects {
 public:
   // Starts over. A fade over no time, or a gradient over no characters, is None.
   void configure(const StreamingEffectConfig &config);
-  const StreamingEffectConfig &config() const { return config_; }
+  const StreamingEffectConfig &config() const {
+    return config_;
+  }
 
   // The text grew from `start` to `end` at `time`; `text` holds those characters and `previous`
   // the one before them (a word they continue keeps its own time).

@@ -35,7 +35,9 @@ public:
   size_t revealed(double time) const;
   // Whether more is revealed after `time`.
   bool waiting(double time) const;
-  size_t length() const { return length_; }
+  size_t length() const {
+    return length_;
+  }
 
 private:
   // Show the text up to `end` from `time` on.
