@@ -3,6 +3,7 @@
 #import <React/RCTViewComponentView.h>
 
 #ifdef __cplusplus
+#include "ENRMLaidOutSize.h"
 #include <string_view>
 #endif
 
@@ -26,6 +27,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (CGSize)laidOutSizeForWidth:(CGFloat)width
              pointScaleFactor:(CGFloat)pointScaleFactor
                      markdown:(std::string_view)markdown;
+/// laidOutSizeForWidth:, with the block slot placeholders laid out at the root of the stack. The
+/// size counts each slot at the height it reserved, even while it grows in.
+- (ENRMLaidOutLayout)laidOutLayoutForWidth:(CGFloat)width
+                          pointScaleFactor:(CGFloat)pointScaleFactor
+                                  markdown:(std::string_view)markdown;
 /// laidOutSizeForWidth:, when the view rendered only a start of `markdown` (smooth pacing revealing it).
 - (CGSize)partialLaidOutSizeForWidth:(CGFloat)width
                     pointScaleFactor:(CGFloat)pointScaleFactor

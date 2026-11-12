@@ -6,6 +6,21 @@
 #include <os/lock.h>
 #include <string>
 #include <string_view>
+#include <vector>
+
+/// A block slot placeholder the view laid out at the root of its stack: where it starts in the
+/// content and the height it reserved for its React child.
+struct ENRMLaidOutSlot {
+  std::string id;
+  CGFloat y;
+  CGFloat height;
+};
+
+/// The laid-out size with the slot placeholders it was laid out with.
+struct ENRMLaidOutLayout {
+  CGSize size = CGSizeZero;
+  std::shared_ptr<const std::vector<ENRMLaidOutSlot>> slots;
+};
 
 /**
  * The size a markdown view laid its content out at, the width it laid it out
@@ -20,12 +35,14 @@
  */
 class ENRMLaidOutSize {
 public:
-  void store(CGFloat width, CGSize size, std::shared_ptr<const std::string> markdown)
+  void store(CGFloat width, CGSize size, std::shared_ptr<const std::string> markdown,
+             std::shared_ptr<const std::vector<ENRMLaidOutSlot>> slots = nullptr)
   {
     os_unfair_lock_lock(&lock_);
     width_ = width;
     size_ = size;
     markdown_.swap(markdown);
+    slots_.swap(slots);
     os_unfair_lock_unlock(&lock_);
   }
 
@@ -43,6 +60,14 @@ public:
     return copy().sizeFor(width, pointScaleFactor, markdown);
   }
 
+  /// sizeFor, with the slot placeholders laid out with that size.
+  ENRMLaidOutLayout layoutFor(CGFloat width, CGFloat pointScaleFactor, std::string_view markdown) const
+  {
+    Values laidOut = copy();
+    CGSize size = laidOut.sizeFor(width, pointScaleFactor, markdown);
+    return size.height > 0 ? ENRMLaidOutLayout{size, laidOut.slots} : ENRMLaidOutLayout{};
+  }
+
   /// sizeFor, when the view rendered only a start of `markdown`: smooth pacing still revealing it.
   CGSize partialSizeFor(CGFloat width, CGFloat pointScaleFactor, std::string_view markdown) const
   {
@@ -57,6 +82,7 @@ private:
     CGFloat width;
     CGSize size;
     std::shared_ptr<const std::string> markdown;
+    std::shared_ptr<const std::vector<ENRMLaidOutSlot>> slots;
 
     CGSize sizeFor(CGFloat forWidth, CGFloat pointScaleFactor, std::string_view forMarkdown) const
     {
@@ -74,7 +100,7 @@ private:
   Values copy() const
   {
     os_unfair_lock_lock(&lock_);
-    Values values{width_, size_, markdown_};
+    Values values{width_, size_, markdown_, slots_};
     os_unfair_lock_unlock(&lock_);
     return values;
   }
@@ -83,6 +109,7 @@ private:
   CGFloat width_ = 0;
   CGSize size_ = CGSizeZero;
   std::shared_ptr<const std::string> markdown_;
+  std::shared_ptr<const std::vector<ENRMLaidOutSlot>> slots_;
 };
 
 /// `markdown` as ENRMLaidOutSize keeps it.

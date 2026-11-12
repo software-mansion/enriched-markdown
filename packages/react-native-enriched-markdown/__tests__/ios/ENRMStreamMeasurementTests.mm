@@ -5,11 +5,14 @@
 
 #include <string>
 
+using facebook::react::ENRMCanTakeLaidOutSlotLayout;
 using facebook::react::ENRMChooseMeasurement;
 using facebook::react::ENRMIsStreamUpdate;
 using facebook::react::ENRMMarkdownExtends;
+using facebook::react::ENRMMeasuredSlot;
 using facebook::react::ENRMMeasurementSource;
 using facebook::react::ENRMPreviousMeasurement;
+using facebook::react::ENRMShownSlot;
 using facebook::react::ENRMStreamingRenderEqual;
 using facebook::react::MeasurementCacheKey;
 
@@ -177,6 +180,64 @@ struct ENRMStreamTestProps {
   XCTAssertTrue(CGSizeEqualToSize(laidOut.sizeFor(390, 3, "Streaming on"), CGSizeMake(370, 1200)));
   XCTAssertTrue(CGSizeEqualToSize(laidOut.sizeFor(390, 3, "Stream"), CGSizeZero));
   XCTAssertTrue(CGSizeEqualToSize(laidOut.sizeFor(390, 3, "Another document"), CGSizeZero));
+}
+
+// Documents with block slots: the view's height stands when it shows every slot where the last
+// full measurement placed it (ENRMCanTakeLaidOutSlotLayout).
+static bool ENRMTakes(const std::vector<ENRMMeasuredSlot> &measured, const std::vector<ENRMShownSlot> &shown,
+                      double height = 900, bool smooth = false, bool streamUpdate = true)
+{
+  return ENRMCanTakeLaidOutSlotLayout(streamUpdate, smooth, height, measured, shown, 1.0 / 3);
+}
+
+- (void)testAStreamTakesTheViewsHeightWhenEverySlotIsWhereItWasMeasured
+{
+  std::vector<ENRMMeasuredSlot> measured = {{"code:a", 100, 200, true, 200}, {"code:b", 500, 120, true, 120}};
+  std::vector<ENRMShownSlot> shown = {{"code:a", 100, 200}, {"code:b", 500.2, 120}};
+  XCTAssertTrue(ENRMTakes(measured, shown));
+  XCTAssertFalse(ENRMTakes(measured, shown, 900, false, /*streamUpdate*/ false));
+  XCTAssertFalse(ENRMTakes(measured, shown, 0));
+  XCTAssertFalse(ENRMTakes({}, {}));
+}
+
+- (void)testASlotThatMovedOrResizedMeasuresInFull
+{
+  std::vector<ENRMShownSlot> shown = {{"code:a", 100, 200}};
+  // An image above it loaded: the view moved it.
+  XCTAssertFalse(ENRMTakes({{"code:a", 60, 200, true, 200}}, shown));
+  // Its child grew (a code block still streaming into its renderer).
+  XCTAssertFalse(ENRMTakes({{"code:a", 100, 200, true, 260}}, shown));
+  // The view still shows the height it reserved before.
+  XCTAssertFalse(ENRMTakes({{"code:a", 100, 240, true, 240}}, shown));
+  // Not placed by the measurement.
+  XCTAssertFalse(ENRMTakes({{"code:a", 100, 200, false, 200}}, shown));
+}
+
+- (void)testASlotTheViewDoesNotShowMeasuresInFullUnlessPacingHidesIt
+{
+  std::vector<ENRMMeasuredSlot> measured = {{"code:a", 100, 200, true, 200}, {"code:b", 950, 120, true, 120}};
+  std::vector<ENRMShownSlot> shown = {{"code:a", 100, 200}};
+  // Placed, but the view hasn't applied it yet (or it sits in a quote).
+  XCTAssertFalse(ENRMTakes(measured, shown));
+  // Smooth pacing hasn't revealed it: below what the view shows.
+  XCTAssertTrue(ENRMTakes(measured, shown, 900, /*smooth*/ true));
+  // Revealed text reaches past it, so the view should show it.
+  XCTAssertFalse(ENRMTakes({{"code:a", 100, 200, true, 200}, {"code:b", 600, 120, true, 120}}, shown, 900, true));
+  // The view shows a slot the measurement doesn't know.
+  XCTAssertFalse(ENRMTakes({{"code:a", 100, 200, true, 200}}, {{"code:a", 100, 200}, {"code:c", 400, 80}}));
+}
+
+- (void)testTheLaidOutLayoutKeepsItsSlotsWithItsSize
+{
+  ENRMLaidOutSize laidOut;
+  auto slots = std::make_shared<const std::vector<ENRMLaidOutSlot>>(std::vector<ENRMLaidOutSlot>{{"code:a", 40, 200}});
+  laidOut.store(320, CGSizeMake(320, 700), std::make_shared<const std::string>("Intro"), slots);
+  ENRMLaidOutLayout layout = laidOut.layoutFor(320, 3, "Intro and more");
+  XCTAssertEqual(layout.size.height, 700);
+  XCTAssertEqual(layout.slots->size(), 1u);
+  XCTAssertEqual(layout.slots->front().y, 40);
+  XCTAssertTrue(laidOut.layoutFor(300, 3, "Intro and more").slots == nullptr);
+  XCTAssertTrue(laidOut.layoutFor(320, 3, "Other").slots == nullptr);
 }
 
 @end

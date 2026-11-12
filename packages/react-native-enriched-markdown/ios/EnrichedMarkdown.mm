@@ -623,6 +623,10 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
   __block CGFloat yOffset = 0.0;
   __block CGFloat maxContentWidth = 0.0;
+  // Slots growing in take less than they reserved: what the stack would take once they have,
+  // the size the shadow node may take (it reserves the full height).
+  __block CGFloat reservedShift = 0.0;
+  auto laidOutSlots = std::make_shared<std::vector<ENRMLaidOutSlot>>();
   const NSUInteger lastIndex = _segmentViews.count - 1;
   // Frames are stacked in the component's own coordinate space, so the content
   // origin (containerStyle border + padding) shifts every segment. yOffset stays
@@ -667,7 +671,10 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
       ENRMBlockSlotSegmentView *slotView = (ENRMBlockSlotSegmentView *)segment;
       yOffset += ENRMBlockSlotMarginTop(slotView.kind, _config);
       // Measurement reserves the full height; the stack follows the grow-in.
-      segmentHeight = applyFrames ? slotView.revealedHeight : [slotView measureHeight:width];
+      CGFloat reserved = [slotView measureHeight:width];
+      segmentHeight = applyFrames ? slotView.revealedHeight : reserved;
+      laidOutSlots->push_back({std::string(slotView.slotId.UTF8String ?: ""), yOffset + reservedShift, reserved});
+      reservedShift += reserved - segmentHeight;
       maxContentWidth = width;
     }
 #if ENRICHED_MARKDOWN_VIDEO
@@ -731,7 +738,8 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   }
 
   if (yOffset > 0) {
-    _laidOutSize.store(width, ENRMRoundedContentSize(CGSizeMake(maxContentWidth, yOffset), width), _laidOutMarkdown);
+    _laidOutSize.store(width, ENRMRoundedContentSize(CGSizeMake(maxContentWidth, yOffset + reservedShift), width),
+                       _laidOutMarkdown, laidOutSlots->empty() ? nullptr : laidOutSlots);
   } else {
     _laidOutSize.clear();
   }
@@ -746,6 +754,13 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     return CGSizeMake(maxWidth, defaultHeight);
 
   return ENRMRoundedContentSize(contentSize, maxWidth);
+}
+
+- (ENRMLaidOutLayout)laidOutLayoutForWidth:(CGFloat)width
+                          pointScaleFactor:(CGFloat)pointScaleFactor
+                                  markdown:(std::string_view)markdown
+{
+  return _laidOutSize.layoutFor(width, pointScaleFactor, markdown);
 }
 
 - (CGSize)laidOutSizeForWidth:(CGFloat)width

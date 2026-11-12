@@ -2,6 +2,8 @@
 
 #include <CoreGraphics/CGBase.h>
 #include <React/RCTUtils.h>
+#include <algorithm>
+#include <cmath>
 #include <functional>
 #include <list>
 #include <memory>
@@ -9,9 +11,11 @@
 #include <optional>
 #include <react/renderer/graphics/Float.h>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <vector>
 
 namespace facebook::react {
 
@@ -352,6 +356,59 @@ inline ENRMMeasurementSource ENRMChooseMeasurement(const ENRMMeasurementInputs &
     return ENRMMeasurementSource::Previous;
   }
   return ENRMMeasurementSource::Full;
+}
+
+/// A block slot as the last full measurement placed it, with the height its child has now.
+struct ENRMMeasuredSlot {
+  std::string_view id;
+  double y;
+  double height;
+  bool placed;
+  double childHeight;
+};
+
+/// A block slot placeholder as the view laid it out (ENRMLaidOutSlot).
+struct ENRMShownSlot {
+  std::string_view id;
+  double y;
+  double height;
+};
+
+/**
+ * Whether a stream's update on a document with block slots can take the height the view laid out
+ * and keep the slot frames of the last full measurement, instead of measuring the whole document
+ * again. The view must show every slot the measurement placed where it placed it, at the height
+ * its child still has, and no slot the measurement doesn't know. With `smooth`, a slot pacing has
+ * not revealed yet is not shown and must lie below that height; otherwise a slot the view doesn't
+ * show (nested in a quote, or placed but not applied yet) fails. So does anything above a slot that
+ * moved it (an image that loaded, a late reference definition): the document measures in full.
+ */
+inline bool ENRMCanTakeLaidOutSlotLayout(bool streamUpdate, bool smooth, double laidOutHeight,
+                                         const std::vector<ENRMMeasuredSlot> &measured,
+                                         const std::vector<ENRMShownSlot> &shown, double tolerance)
+{
+  if (!streamUpdate || laidOutHeight <= 0 || measured.empty()) {
+    return false;
+  }
+  size_t matched = 0;
+  for (const auto &slot : measured) {
+    if (!slot.placed) {
+      return false;
+    }
+    auto view = std::find_if(shown.begin(), shown.end(), [&](const ENRMShownSlot &s) { return s.id == slot.id; });
+    if (view == shown.end()) {
+      if (!smooth || slot.y < laidOutHeight - tolerance) {
+        return false;
+      }
+      continue;
+    }
+    if (std::abs(view->y - slot.y) > tolerance || std::abs(view->height - slot.height) > tolerance ||
+        std::abs(slot.childHeight - slot.height) > tolerance) {
+      return false;
+    }
+    matched++;
+  }
+  return matched == shown.size();
 }
 
 /**
