@@ -18,6 +18,8 @@ private let mentionLinks = MarkdownThemeGroup(contents: [
     Link(matching: "^channel:")
         .foregroundStyle(Color.brandNavy)
         .background(Color.channelMentionBackground)
+        .border(Color.brandNavy.opacity(0.3), width: 1)
+        .cornerRadius(4)
         .underline(false)
 ])
 

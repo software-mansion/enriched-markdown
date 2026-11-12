@@ -193,9 +193,9 @@ For custom families, `.bold()` and `.italic()` pick the matching face from the s
 
 Element-specific modifiers include:
 
-- **Link:** `.underline(_:)`, `.background` / `.backgroundStyle`. `Link(matching: "^user:")` styles only links whose URL matches the pattern, such as mentions. The pattern is a regular expression. Anything left unset comes from `Link()`, and the longest matching pattern wins
+- **Link:** `.underline(_:)`, `.background` / `.backgroundStyle`, `.cornerRadius`, `.border(_:width:)`. `Link(matching: "^user:")` styles only links whose URL matches the pattern, such as mentions. The pattern is a regular expression. Anything left unset comes from `Link()`, and the longest matching pattern wins. Inside a `==highlight==`, a link with a fill of its own keeps it
 - **Code / CodeBlock / Blockquote / Highlight:** `.background` / `.backgroundStyle`
-- **CodeBlock / Blockquote / Table:** `.border(_:width:)` — color and width together, as SwiftUI's modifier; leave `width` out to recolor a border a lower layer sized, or use `.border(width:)` to resize one a lower layer colored
+- **CodeBlock / Blockquote / Table / Link:** `.border(_:width:)` — color and width together, as SwiftUI's modifier; leave `width` out to recolor a border a lower layer sized, or use `.border(width:)` to resize one a lower layer colored
 - **CodeBlock / Blockquote:** `.padding` / `.gapWidth`, `.cornerRadius` (CodeBlock), `.headerForegroundStyle` (CodeBlock: the scrollable panel's language label and copy button, see [Code blocks](#code-blocks))
 - **Admonition:** `.foregroundStyle` (the accent bar, icon, and title tint) and `.background` / `.backgroundStyle` — the only modifiers; font, spacing, and geometry follow `Blockquote`. Types: `.note`, `.tip`, `.important`, `.warning`, `.caution`; the defaults are GitHub's palette with no fill
 - **List:** `.bulletColor`, `.markerColor`, `.bulletSize`, `.markerMinWidth`, `.gapWidth`, `.marginLeading`

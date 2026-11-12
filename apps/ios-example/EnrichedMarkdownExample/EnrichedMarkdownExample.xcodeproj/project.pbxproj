@@ -16,6 +16,7 @@
 		A10000010000000000000013 /* HomeScreenButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000013 /* HomeScreenButton.swift */; };
 		A10000010000000000000014 /* TextScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000014 /* TextScreen.swift */; };
 		A10000010000000000000050 /* MathScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000050 /* MathScreen.swift */; };
+		A10000010000000000000070 /* LinksScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000070 /* LinksScreen.swift */; };
 		A10000010000000000000051 /* EnrichedMarkdownLaTeX in Frameworks */ = {isa = PBXBuildFile; productRef = A10000050000000000000002 /* EnrichedMarkdownLaTeX */; };
 		A10000010000000000000060 /* CodeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000060 /* CodeScreen.swift */; };
 		A10000010000000000000061 /* EnrichedMarkdownSyntaxHighlighting in Frameworks */ = {isa = PBXBuildFile; productRef = A10000050000000000000003 /* EnrichedMarkdownSyntaxHighlighting */; };
@@ -51,6 +52,7 @@
 		A10000020000000000000013 /* HomeScreenButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenButton.swift; sourceTree = "<group>"; };
 		A10000020000000000000014 /* TextScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000050 /* MathScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathScreen.swift; sourceTree = "<group>"; };
+		A10000020000000000000070 /* LinksScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinksScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000060 /* CodeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000015 /* PlaygroundScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000016 /* ExampleMarkdownStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleMarkdownStyles.swift; sourceTree = "<group>"; };
@@ -154,6 +156,7 @@
 				A10000020000000000000010 /* AppShell.swift */,
 				A10000060000000000000060 /* Code */,
 				A1000006000000000000000B /* Home */,
+				A10000060000000000000070 /* Links */,
 				A10000060000000000000050 /* Math */,
 				A1000006000000000000000C /* Playground */,
 				A1000006000000000000000D /* Text */,
@@ -187,6 +190,14 @@
 				A10000020000000000000014 /* TextScreen.swift */,
 			);
 			path = Text;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000070 /* Links */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000070 /* LinksScreen.swift */,
+			);
+			path = Links;
 			sourceTree = "<group>";
 		};
 		A10000060000000000000050 /* Math */ = {
@@ -332,6 +343,7 @@
 				A10000010000000000000013 /* HomeScreenButton.swift in Sources */,
 				A10000010000000000000014 /* TextScreen.swift in Sources */,
 				A10000010000000000000050 /* MathScreen.swift in Sources */,
+				A10000010000000000000070 /* LinksScreen.swift in Sources */,
 				A10000010000000000000060 /* CodeScreen.swift in Sources */,
 				A10000010000000000000015 /* PlaygroundScreen.swift in Sources */,
 				A10000010000000000000016 /* ExampleMarkdownStyles.swift in Sources */,

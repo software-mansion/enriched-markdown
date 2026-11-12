@@ -61,6 +61,49 @@ final class MarkdownImageAttachmentTests: XCTestCase {
         XCTAssertNotNil(displayed)
     }
 
+    func testPaddingKeepsTheImageInsideALargerBox() throws {
+        let downloader = MockImageDownloader()
+        downloader.stubbedImage = makeImage()
+        let attachment = MarkdownImageAttachment.attachment(
+            for: "https://example.com/\(#function).png",
+            config: makeConfig(),
+            isInline: true,
+            altText: "",
+            downloader: downloader
+        )
+        attachment.padding = 3
+
+        XCTAssertEqual(layOut(attachment), 26)
+        let box = CGRect(x: 0, y: 0, width: 26, height: 26)
+        _ = attachment.image(forBounds: box, textContainer: nil, characterIndex: 0)
+        drainMainQueue(for: 0.5)
+
+        let displayed = try XCTUnwrap(attachment.image(forBounds: box, textContainer: nil, characterIndex: 0))
+        XCTAssertEqual(displayed.size, box.size)
+        let rows = try renderedRows(size: box.size) { _ in displayed.draw(at: .zero) }
+        XCTAssertEqual(pixel(in: rows, column: 1, row: 1), [255, 255, 255, 255], "the padding is transparent")
+        XCTAssertEqual(pixel(in: rows, column: 13, row: 13).sorted(), [0, 0, 255, 255], "the image fills the box inside the padding")
+    }
+
+    func testPaddedPlaceholdersAreBuiltSafelyFromSeveralQueuesAtOnce() {
+        let config = makeConfig()
+
+        DispatchQueue.concurrentPerform(iterations: 400) { index in
+            let attachment = MarkdownImageAttachment.attachment(
+                for: "",
+                config: config,
+                isInline: true,
+                altText: "",
+                downloader: MockImageDownloader()
+            )
+            let padding = CGFloat(index % 40 + 1)
+            attachment.padding = padding
+
+            let side = 20 + 2 * padding
+            XCTAssertEqual(attachment.image?.size, CGSize(width: side, height: side), "the placeholder covers the padded box")
+        }
+    }
+
     func testAttachmentExposesAltTextAsAccessibilityLabel() {
         let downloader = MockImageDownloader()
         let url = "https://example.com/\(#function).png"
