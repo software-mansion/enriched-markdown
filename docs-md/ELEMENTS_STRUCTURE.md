@@ -167,7 +167,7 @@ Each blank line in the source renders as one empty line, so the output keeps the
 Images are automatically detected as block or inline based on context:
 
 - **Block images**: When an image is the only content in a paragraph (standalone), it's treated as a block image and uses block-level spacing
-- **Inline images**: When an image appears alongside other text content, it's treated as inline and aligns with the text baseline
+- **Inline images**: When an image appears alongside other text content, it's treated as inline: it sits in the text flow, centred on the text's cap height, in a square of `inlineImage.size`. The image is scaled up or down to fit inside that square, keeping its proportions, so it is never distorted or cropped
 
 You don't need to specify which type—the renderer automatically determines this based on the image's position in the content. Note that a single newline doesn't split a paragraph, so an image on its own source line directly below text is still inline; separate it with a blank line to make it a block image.
 

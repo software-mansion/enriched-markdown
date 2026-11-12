@@ -46,3 +46,33 @@ export const Default: TextStory<InlineImageStyleControls> = {
     );
   },
 };
+
+const NON_SQUARE_MARKDOWN = [
+  'Wide ![wide](https://placehold.co/400x200/2563eb/ffffff/png?text=WIDE) Catan Hxg',
+  'Tall ![tall](https://placehold.co/200x400/dc2626/ffffff/png?text=TALL) Catan Hxg',
+  'Square ![square](https://placehold.co/300x300/16a34a/ffffff/png?text=SQ) Catan Hxg',
+  'Very wide ![very wide](https://placehold.co/1000x100/7c3aed/ffffff/png?text=10:1) and very tall ![very tall](https://placehold.co/100x1000/ea580c/ffffff/png?text=T) Hxg',
+].join('\n\n');
+
+export const NonSquare: TextStory<InlineImageStyleControls> = {
+  args: {
+    markdown: NON_SQUARE_MARKDOWN,
+    ...inlineImageStyledDefaults,
+    size: 48,
+  },
+  argTypes,
+  render: (args) => {
+    const { controls, rest } = splitStyleControls(
+      args,
+      inlineImageStyledDefaults
+    );
+    return (
+      <EnrichedMarkdownTextStory
+        title="Inline Image: non-square"
+        description="A non-square image fits inside its markdownStyle.inlineImage.size square without distortion or cropping (contain), centred on the cap height."
+        {...rest}
+        style={{ inlineImage: toInlineImageStyle(controls) }}
+      />
+    );
+  },
+};

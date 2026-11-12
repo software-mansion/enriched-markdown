@@ -154,7 +154,7 @@ In either layout the language label is parsed. To color code by it, add `CodeHig
 The same `![alt](url)` syntax renders two different ways, and which one you get depends on **where the image sits on its line**:
 
 - **Block image** - nothing comes before the image on its line: it opens a paragraph, or follows a hard line break. It is laid out on its own, at `image.height`, spanning the container width. This holds even when text follows it on the same line.
-- **Inline image** - text comes before it on the line. It is drawn in the text flow at `inlineImage.size`, sized to sit on the line like a large glyph.
+- **Inline image** - text comes before it on the line. It is drawn in the text flow in a square of `inlineImage.size`, centred on the cap height of the text around it, like a large glyph. The image is scaled up or down to fit inside that square, keeping its proportions, so it is never distorted or cropped.
 
 :::note
 This differs from CommonMark, where every image is inline. Markdown has no block image syntax; the split is how this renderer lays images out.

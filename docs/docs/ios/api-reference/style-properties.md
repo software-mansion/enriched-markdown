@@ -613,7 +613,7 @@ An image sharing a line with text, drawn like an oversized glyph. One modifier:
 
 | Modifier | Type | Default | Description |
 | --- | --- | --- | --- |
-| `.size(_:)` | `CGFloat` | `20` | Side length in points |
+| `.size(_:)` | `CGFloat` | `20` | Side length in points of the square the image is drawn in. The image is scaled up or down to fit inside it, keeping its proportions, as with `.fit` |
 
 ```swift
 MarkdownTheme {

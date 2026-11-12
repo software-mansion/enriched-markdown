@@ -2,10 +2,9 @@
 title: Web editor
 sidebar_label: Web editor
 sidebar_position: 3.5
-sidebar_class_name: sidebar-experimental
 ---
 
-# Web editor <ExperimentalBadge />
+# Web editor
 
 `EnrichedMarkdownTextInput` runs on web as a `contentEditable` editor built from
 plain React and DOM primitives. It keeps its own document model, renders it into
@@ -15,12 +14,8 @@ and
 [`onChangeMarkdown`](/react-native/api-reference/enriched-markdown-text-input#onchangemarkdown)
 behave as they do on iOS and Android.
 
-:::warning Experimental
-The web editor is **experimental**. Its props, ref methods and Markdown output
-may change in breaking ways, including in nightly releases, before it is marked
-stable. Pin an exact version if you depend on it, and expect a smaller feature
-set than on native - see [Not supported on web](#not-supported-on-web).
-:::
+It covers less than the native editor - see
+[Not supported on web](#not-supported-on-web).
 
 ## Setup
 

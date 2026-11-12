@@ -291,9 +291,13 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 // pre-load fallback height, so drop those entries and re-measure.
 - (void)imageAttachmentDidResolveLayout
 {
-  // The text around the attachment moved, and the spoiler overlays with it.
+  // The text around the attachment moved, and the spoiler overlays and VoiceOver's frames with it.
   [_spoilerManager setNeedsUpdate];
   [_spoilerManager updateIfNeeded];
+  _accessibilityNeedsRebuild = YES;
+#if !TARGET_OS_OSX
+  UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+#endif
 
   if (_renderedMarkdown.length > 0) {
     facebook::react::MeasurementCache::shared().removeMatchingMarkdown(std::string(_renderedMarkdown.UTF8String));

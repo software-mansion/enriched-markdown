@@ -3,7 +3,7 @@
 `EnrichedMarkdownText` and `EnrichedMarkdownTextInput` run on web using plain React and DOM primitives. They work in any React project (Next.js, Vite, Remix, CRA, etc.).
 
 > [!NOTE]
-> The web editor (`EnrichedMarkdownTextInput`) is [![Experimental](https://img.shields.io/badge/-experimental-orange "Experimental: this feature is still taking shape and may get breaking changes, including in nightly releases.")](WEB_INPUT.md#experimental-status) and documented separately in [Web Editor](WEB_INPUT.md). This page covers `EnrichedMarkdownText` and the setup both share.
+> The web editor (`EnrichedMarkdownTextInput`) is documented separately in [Web Editor](WEB_INPUT.md). This page covers `EnrichedMarkdownText` and the setup both share.
 
 The package's `browser` field points web bundlers (webpack, Vite, Next.js, Expo web) at the web entry, so no extra resolver configuration is needed for that. One shared style module still imports `Platform` and `processColor` from `react-native`, so outside React Native the bundler has to resolve `react-native`: alias it to `react-native-web` (as most React Native web setups already do).
 
