@@ -11,7 +11,7 @@
 
 <link rel="icon" type="image/png" href="/enriched-markdown/img/favicon.png">
 <script>!function(){try{var e=location.pathname;if([].some(function(t){return e===t||0===e.indexOf(t+"/")}))return;var t=localStorage.getItem("swm.topbarbanner.v1.enriched-topbar-1.ea15c4216158c4097b65fe6504a4b3b7");if(!t)return;var r=JSON.parse(t);if(!r||"number"!=typeof r.height||r.height<5)return;if(Date.now()-r.timestamp>=2592e6)return;var n=document.documentElement;n.style.setProperty("--banner-height-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.height+"px"),"string"==typeof r.bgColor&&n.style.setProperty("--banner-bg-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.bgColor)}catch(e){}}()</script><link rel="stylesheet" href="/enriched-markdown/assets/css/styles.9863f435.css">
-<script src="/enriched-markdown/assets/js/runtime~main.54fd476e.js" defer="defer"></script>
+<script src="/enriched-markdown/assets/js/runtime~main.9456764a.js" defer="defer"></script>
 <script src="/enriched-markdown/assets/js/main.5abd06e3.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -76,7 +76,7 @@
 <p>The same <code>![alt](url)</code> syntax renders two different ways, and which one you get depends on <strong>what else is in the paragraph</strong>:</p>
 <ul>
 <li class=""><strong>Block image</strong> - the image is the only thing in its paragraph. It is laid out on its own, spanning the container width, with its height set by <a class="" href="/enriched-markdown/ios/api-reference/style-properties#blockimage"><code>BlockImage()</code></a>: a fixed <code>height</code>, a <code>maxHeight</code> cap on the image&#x27;s own proportions, or an <code>aspectRatio</code>, with <code>contentMode</code> deciding how the image fills that box. The width is always the available width.</li>
-<li class=""><strong>Inline image</strong> - anything else shares the line with it. It is drawn in the text flow at <code>InlineImage().size</code>, sized to sit on the line like a large glyph.</li>
+<li class=""><strong>Inline image</strong> - anything else shares the line with it. It is drawn in the text flow in a square of <code>InlineImage().size</code>, centred on the cap height of the text around it, like a large glyph. The image is scaled up or down to fit inside that square, keeping its proportions, so it is never distorted or cropped.</li>
 </ul>
 <p>One edge case: an image that <strong>starts</strong> a paragraph is drawn block-sized even when text follows it on the same line. Only an image that comes after some text in its paragraph is drawn inline.</p>
 <p>CommonMark itself has no block image - the split is purely how this renderer lays the image out.</p>
