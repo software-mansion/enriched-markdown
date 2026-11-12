@@ -79,6 +79,22 @@ class ImageSpan(
     }
   private val requestKey: String = ImageCache.requestKey(requestUrl, requestHeaders)
 
+  private var loadFailed: Boolean = ImageCache.hasFailed(requestKey)
+
+  // Read now: `paragraphStyle` is only the table cell's style while the cell is being rendered.
+  private val failureColor: Int = styleConfig.paragraphStyle.color
+  private val failureFontSize: Float = styleConfig.paragraphStyle.fontSize
+  private val failureDrawable by lazy {
+    ImageLoadFailureDrawable(
+      altText = altText,
+      color = failureColor,
+      fontSize = failureFontSize,
+      borderRadius = borderRadiusPx.toFloat(),
+      isInline = isInline,
+      density = context.resources.displayMetrics.density,
+    )
+  }
+
   private var cachedWidth: Int = 0
   private var lineAfterImage: Int = -1
   private var addedLineHeight: Int = 0
@@ -112,13 +128,19 @@ class ImageSpan(
     return height
   }
 
-  /** Sizes a block image for a layout about to be built over [text]; returns true when its size changed. */
+  /** Sizes the image for a layout about to be built over [text]; returns true when its size changed. */
   fun prepareForMeasurement(
     text: Spanned,
     widthPx: Int,
   ): Boolean {
-    if (isInline || widthPx <= 0) return false
+    if (widthPx <= 0) return false
     val available = availableWidthIn(text, widthPx)
+    if (isInline) {
+      // Only a failure chip depends on the width: it is no wider than its line.
+      val previousWidth = getDrawable().bounds.right
+      cachedWidth = available
+      return getDrawable().bounds.right != previousWidth
+    }
     if (available <= 0) return false
     // The height can change at the same width: a download caches the image before its callback runs.
     val fittedHeight = if (dynamicBoxHeight) resolveBoxHeight(available) else boxHeight
@@ -138,25 +160,32 @@ class ImageSpan(
     if (requestUrl.isEmpty()) return
     val scheme = Uri.parse(requestUrl).scheme?.lowercase()
     if (scheme == "http" || scheme == "https") {
-      ImageDownloader.download(context, requestUrl, requestHeaders) { bitmap ->
-        if (bitmap != null) {
-          sourceDrawable = bitmap.toDrawable(context.resources)
-          wrapAndAssignDrawable()
-        }
-      }
+      ImageDownloader.download(context, requestUrl, requestHeaders, ::handleLoadResult)
     } else {
       val cached = ImageCache.getOriginal(requestKey)
       val bitmap = cached ?: LocalImageLoader.load(context, requestUrl)
-      if (bitmap != null) {
-        if (cached == null) ImageCache.putOriginal(requestKey, bitmap)
-        sourceDrawable = bitmap.toDrawable(context.resources)
-        wrapAndAssignDrawable()
-      }
+      if (bitmap != null && cached == null) ImageCache.putOriginal(requestKey, bitmap)
+      handleLoadResult(bitmap)
     }
   }
 
-  private fun wrapAndAssignDrawable() {
-    val placeholderSize = currentSize()
+  private fun handleLoadResult(bitmap: Bitmap?) {
+    val wasFailed = loadFailed
+    // Read before the state changes: a failure chip is wider than the square it replaces.
+    val previousSize = currentSize()
+    if (bitmap == null) {
+      ImageCache.markFailed(requestKey)
+      loadFailed = true
+      if (!wasFailed) refreshForSize(previousSize)
+      return
+    }
+    ImageCache.clearFailed(requestKey)
+    loadFailed = false
+    sourceDrawable = bitmap.toDrawable(context.resources)
+    wrapAndAssignDrawable(previousSize)
+  }
+
+  private fun wrapAndAssignDrawable(placeholderSize: Pair<Int, Int>) {
     val targetWidth =
       if (isInline) {
         height
@@ -166,14 +195,19 @@ class ImageSpan(
         cachedWidth
       }
     assignLoadedDrawable(targetWidth)
-    // Laying out a paragraph measures all of its images, so one that fills the box its
-    // placeholder held only repaints. Otherwise a paragraph of N images is quadratic in N.
-    if (currentSize() == placeholderSize) {
+    refreshForSize(placeholderSize)
+  }
+
+  // Laying out a paragraph measures all of its images, so one that fills the box its
+  // placeholder held only repaints. Otherwise a paragraph of N images is quadratic in N.
+  private fun refreshForSize(previousSize: Pair<Int, Int>) {
+    if (currentSize() == previousSize) {
       requestRepaint()
       // onMeasure may have fitted the box already, but the component's height can predate that.
       viewRef?.get()?.let { notifyBoxHeightMayHaveChanged(it) }
     } else {
-      requestReflow()
+      // An inline image turning into a failure chip, or back, can re-wrap its line.
+      requestReflow(inlineSizeChanged = isInline)
     }
   }
 
@@ -210,7 +244,7 @@ class ImageSpan(
     (view.text as? Spannable)?.repaintSpan(this) ?: view.invalidate()
   }
 
-  private fun requestReflow() {
+  private fun requestReflow(inlineSizeChanged: Boolean = false) {
     val view = viewRef?.get() ?: return
     val text = view.text
     if (text is Spannable) {
@@ -222,15 +256,19 @@ class ImageSpan(
     }
     view.invalidate()
     view.requestLayout()
-    notifyBoxHeightMayHaveChanged(view)
+    notifyBoxHeightMayHaveChanged(view, inlineSizeChanged)
   }
 
   // With maxHeight/aspectRatio the box height can change after the image loads
   // (maxHeight fitted, aspectRatio at a late width). The React container height
   // was measured with the pre-load value, so ask the owning component to
   // re-measure; it only propagates when the stored height actually changed.
-  private fun notifyBoxHeightMayHaveChanged(view: TextView) {
-    if (!dynamicBoxHeight) return
+  // An inline image turning into a failure chip (or back) can re-wrap its line.
+  private fun notifyBoxHeightMayHaveChanged(
+    view: TextView,
+    inlineSizeChanged: Boolean = false,
+  ) {
+    if (!dynamicBoxHeight && !inlineSizeChanged) return
     boxHeightReported = true
     // A self-measuring host (e.g. a table cell) sizes the image box itself and drives
     // its own re-layout, so bubbling up to the component would churn it and orphan this
@@ -276,7 +314,7 @@ class ImageSpan(
     } else if (dynamicBoxHeight) {
       boxHeight = resolveBoxHeight(newWidth)
     }
-    // The placeholder takes up the same width as the image, so the lines change here too.
+    // The placeholder and a failed image's box take up the same width as the image, so the lines change here too.
     requestReflow()
   }
 
@@ -303,6 +341,12 @@ class ImageSpan(
   }
 
   override fun getDrawable(): Drawable {
+    if (loadFailed) {
+      // An inline image's cachedWidth is its line's width after leading margins.
+      val width = if (isInline) failureDrawable.chipWidth(height, cachedWidth) else cachedWidth
+      failureDrawable.setBounds(0, 0, width.coerceAtLeast(0), boxHeight.coerceAtLeast(0))
+      return failureDrawable
+    }
     val drawable = loadedDrawable ?: transparentDrawable
     if (drawable !is ScaledImageDrawable) {
       val drawableWidth = if (isInline) height else cachedWidth.takeIf { it > 0 } ?: drawable.intrinsicWidth

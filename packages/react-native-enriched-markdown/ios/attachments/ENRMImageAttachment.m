@@ -1,5 +1,6 @@
 #import "ENRMImageAttachment.h"
 #import "ENRMImageDownloader.h"
+#import "ENRMImageFailurePlaceholder.h"
 #import "ENRMUIKit.h"
 #import "RuntimeKeys.h"
 #import "StyleConfig.h"
@@ -9,6 +10,7 @@
 
 static NSCache<NSString *, RCTUIImage *> *_originalImageCache;
 static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
+static NSCache<NSString *, NSNumber *> *_failedImageKeys;
 
 @implementation RCTPlatformView (ENRMImageLayoutObserver)
 
@@ -41,6 +43,9 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 @property (nonatomic, strong) RCTUIImage *loadedImage;
 @property (nonatomic, strong) RCTUIImage *placeholderImage;
 @property (nonatomic, copy) NSString *lastProcessedKey;
+@property (nonatomic, assign) BOOL loadFailed;
+@property (nonatomic, strong) ENRMImageFailurePlaceholder *failurePlaceholder;
+@property (nonatomic, strong) RCTUIImage *failureImage;
 
 @end
 
@@ -68,13 +73,26 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
   return _processedImageCache;
 }
 
+// Measurement builds its own attachments, so the requests that failed have to be readable
+// by a new instance: without this it would size an inline image as the square it never drew.
++ (NSCache<NSString *, NSNumber *> *)failedImageKeys
+{
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    _failedImageKeys = [[NSCache alloc] init];
+    _failedImageKeys.countLimit = 200;
+  });
+  return _failedImageKeys;
+}
+
 + (instancetype)attachmentForURL:(NSString *)imageURL config:(StyleConfig *)config isInline:(BOOL)isInline
 {
-  return [self attachmentForURL:imageURL source:nil config:config isInline:isInline];
+  return [self attachmentForURL:imageURL source:nil altText:@"" config:config isInline:isInline];
 }
 
 + (instancetype)attachmentForURL:(NSString *)imageURL
                           source:(ENRMImageSourceOverride *)source
+                         altText:(NSString *)altText
                           config:(StyleConfig *)config
                         isInline:(BOOL)isInline
 {
@@ -82,11 +100,12 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
   // the same image URL at a different width than a copy outside the table, and a shared
   // NSTextAttachment would thrash its single last-processed width into a redraw loop. The
   // image caches keep fresh instances cheap (no re-fetch or re-scale).
-  return [[self alloc] initWithImageURL:imageURL source:source config:config isInline:isInline];
+  return [[self alloc] initWithImageURL:imageURL source:source altText:altText config:config isInline:isInline];
 }
 
 - (instancetype)initWithImageURL:(NSString *)imageURL
                           source:(ENRMImageSourceOverride *)source
+                         altText:(NSString *)altText
                           config:(StyleConfig *)config
                         isInline:(BOOL)isInline
 {
@@ -105,6 +124,13 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
     CGFloat inlineImageSize = [config inlineImageSize];
     CGFloat inlineScale = isInline && inlineImageSize > 0 ? _cachedHeight / inlineImageSize : 1.0;
     _cachedBorderRadius = [config imageBorderRadius] * inlineScale;
+
+    // The resolved font, so the alt text grows with the user's text size like the paragraph does.
+    _failurePlaceholder = [[ENRMImageFailurePlaceholder alloc] initWithAltText:altText
+                                                                         color:[config paragraphColor]
+                                                                      fontSize:[config paragraphFont].pointSize
+                                                                  borderRadius:_cachedBorderRadius];
+    _loadFailed = [[ENRMImageAttachment failedImageKeys] objectForKey:_cacheKey] != nil;
 
     [self setupPlaceholder];
     [self startDownloadingImage];
@@ -139,13 +165,36 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
   return !self.isInline && self.cachedResizeMode.length == 0;
 }
 
+// TextKit proposes the line's full width and applies the paragraph's indents afterwards, so
+// a box as wide as the proposal runs past the right edge of an indented list item.
+- (CGFloat)availableWidthInLineFragment:(CGRect)lineFragment
+                          textContainer:(NSTextContainer *)textContainer
+                         characterIndex:(NSUInteger)characterIndex
+{
+  NSTextStorage *textStorage = textContainer.layoutManager.textStorage;
+  NSParagraphStyle *paragraph = characterIndex < textStorage.length
+                                    ? [textStorage attribute:NSParagraphStyleAttributeName
+                                                     atIndex:characterIndex
+                                              effectiveRange:NULL]
+                                    : nil;
+  CGFloat indent = MAX(paragraph.firstLineHeadIndent, paragraph.headIndent);
+  CGFloat tailInset = paragraph.tailIndent < 0 ? -paragraph.tailIndent : 0;
+  return MAX(0, lineFragment.size.width - indent - tailInset);
+}
+
 - (CGRect)attachmentBoundsForTextContainer:(NSTextContainer *)textContainer
                       proposedLineFragment:(CGRect)lineFragment
                              glyphPosition:(CGPoint)position
                             characterIndex:(NSUInteger)characterIndex
 {
   CGFloat height = self.cachedHeight;
-  CGFloat width = self.isInline ? height : (lineFragment.size.width > 0 ? lineFragment.size.width : height);
+  CGFloat available = [self availableWidthInLineFragment:lineFragment
+                                           textContainer:textContainer
+                                          characterIndex:characterIndex];
+  CGFloat width = self.isInline ? height : (available > 0 ? available : height);
+  if (self.isInline && self.loadFailed) {
+    width = [self.failurePlaceholder chipWidthForHeight:height maxWidth:available];
+  }
 
   if (!self.isInline) {
     height = [self resolvedBoxHeightForWidth:width];
@@ -176,6 +225,10 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 {
   self.textContainer = textContainer;
 
+  if (self.loadFailed) {
+    return [self failureImageForSize:imageBounds.size] ?: self.placeholderImage;
+  }
+
   if (self.originalImage && imageBounds.size.width > 0) {
     self.bounds = imageBounds;
     [self processAndApplyImage:self.originalImage withTargetWidth:imageBounds.size.width];
@@ -184,15 +237,43 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
   return self.loadedImage ?: self.placeholderImage;
 }
 
+- (RCTUIImage *)failureImageForSize:(CGSize)size
+{
+  if (size.width <= 0 || size.height <= 0)
+    return nil;
+  if (!CGSizeEqualToSize(self.failureImage.size, size)) {
+    self.failureImage = [self.failurePlaceholder imageForSize:size isInline:self.isInline];
+  }
+  return self.failureImage;
+}
+
+- (void)handleLoadFailure
+{
+  [[ENRMImageAttachment failedImageKeys] setObject:@YES forKey:self.cacheKey];
+  if (self.loadFailed)
+    return;
+  self.loadFailed = YES;
+  [self refreshDisplayAfterInlineSizeChange:self.isInline];
+}
+
 - (void)handleLoadedImage:(RCTUIImage *)image
 {
-  if (!image)
-    return;
-
   // The downloader completes synchronously on cache hits, which can happen on the render queue
   if (!NSThread.isMainThread) {
     dispatch_async(dispatch_get_main_queue(), ^{ [self handleLoadedImage:image]; });
     return;
+  }
+
+  if (!image) {
+    [self handleLoadFailure];
+    return;
+  }
+
+  [[ENRMImageAttachment failedImageKeys] removeObjectForKey:self.cacheKey];
+  if (self.loadFailed) {
+    self.loadFailed = NO;
+    self.failureImage = nil;
+    [self refreshDisplayAfterInlineSizeChange:self.isInline];
   }
 
   self.originalImage = image;
@@ -339,6 +420,12 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 
 - (void)refreshDisplay
 {
+  [self refreshDisplayAfterInlineSizeChange:NO];
+}
+
+// An inline image only changes width when it turns into a failure chip or back from one.
+- (void)refreshDisplayAfterInlineSizeChange:(BOOL)inlineSizeChanged
+{
   // Notify self-drawing hosts (e.g. a table grid) that rasterize us via
   // -drawWithRect: and have no live text view for the invalidation below to reach.
   if (self.onImageLoaded) {
@@ -352,8 +439,12 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
   NSRange range = [self findAttachmentRangeInText:textView.textStorage];
   if (range.location != NSNotFound) {
     [textView.layoutManager invalidateDisplayForCharacterRange:range];
-    if (!self.isInline) {
+    if (!self.isInline || inlineSizeChanged) {
       [textView.layoutManager invalidateLayoutForCharacterRange:range actualCharacterRange:NULL];
+    }
+    if (inlineSizeChanged) {
+      [self postImageLayoutResolved:textView];
+    } else if (!self.isInline) {
       [self notifyImageLayoutObserver:textView];
     }
   }
@@ -371,6 +462,11 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
   if (self.cachedMaxHeight <= 0 && self.cachedAspectRatio <= 0)
     return;
 
+  [self postImageLayoutResolved:textView];
+}
+
+- (void)postImageLayoutResolved:(ENRMPlatformTextView *)textView
+{
   id<ENRMImageLayoutObserver> observer = [textView enrm_imageLayoutObserver];
   if (!observer)
     return;

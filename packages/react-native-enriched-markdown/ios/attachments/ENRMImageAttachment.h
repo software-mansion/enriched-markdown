@@ -39,7 +39,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) BOOL isInline;
 
 /**
- * Invoked on the main thread whenever the image finishes loading/processing.
+ * Invoked on the main thread whenever the image finishes loading/processing, or fails to load.
  * Used by self-drawing hosts (e.g. a table grid) that rasterize the attributed
  * string via -drawWithRect: and therefore never get a live text view for the
  * attachment's normal -refreshDisplay invalidation to reach. Such hosts set this
@@ -50,6 +50,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)attachmentForURL:(NSString *)imageURL config:(StyleConfig *)config isInline:(BOOL)isInline;
 + (instancetype)attachmentForURL:(NSString *)imageURL
                           source:(nullable ENRMImageSourceOverride *)source
+                         altText:(NSString *)altText
                           config:(StyleConfig *)config
                         isInline:(BOOL)isInline;
 
