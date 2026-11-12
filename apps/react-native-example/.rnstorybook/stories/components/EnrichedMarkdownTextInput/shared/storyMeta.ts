@@ -1,7 +1,7 @@
 import type { Meta } from '@storybook/react-native';
 import { EnrichedMarkdownTextInput } from 'react-native-enriched-markdown';
 
-export type InputStoryCategory = 'Inline' | 'Props' | 'Methods';
+export type InputStoryCategory = 'Inline' | 'Props' | 'Methods' | 'Regression';
 
 export const inputActionArgTypes = {
   onChangeMarkdown: { action: 'onChangeMarkdown' },
