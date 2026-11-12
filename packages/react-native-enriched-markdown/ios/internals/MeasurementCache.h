@@ -383,11 +383,11 @@ struct ENRMShownSlot {
  * show (nested in a quote, or placed but not applied yet) fails. So does anything above a slot that
  * moved it (an image that loaded, a late reference definition): the document measures in full.
  */
-inline bool ENRMCanTakeLaidOutSlotLayout(bool streamUpdate, bool smooth, double laidOutHeight,
+inline bool ENRMCanTakeLaidOutSlotLayout(bool smooth, double laidOutHeight,
                                          const std::vector<ENRMMeasuredSlot> &measured,
                                          const std::vector<ENRMShownSlot> &shown, double tolerance)
 {
-  if (!streamUpdate || laidOutHeight <= 0 || measured.empty()) {
+  if (laidOutHeight <= 0 || measured.empty()) {
     return false;
   }
   size_t matched = 0;
@@ -409,6 +409,35 @@ inline bool ENRMCanTakeLaidOutSlotLayout(bool streamUpdate, bool smooth, double 
     matched++;
   }
   return matched == shown.size();
+}
+
+/**
+ * A code block still streaming into the last slot (the snapshot ends inside its open fence) is the
+ * document's end, so its child's new height decides the document's: where the slot starts, plus
+ * that height, plus what followed it at the last full measurement (`measuredHeight`). The view must
+ * show every slot as ENRMCanTakeLaidOutSlotLayout checks, the last at the height it had, and end
+ * there. Returns 0 when that doesn't hold.
+ */
+inline double ENRMGrowingTailSlotHeight(bool endsInsideOpenFence, double measuredHeight, double laidOutHeight,
+                                        const std::vector<ENRMMeasuredSlot> &measured,
+                                        const std::vector<ENRMShownSlot> &shown, double tolerance)
+{
+  if (!endsInsideOpenFence || measured.empty() || shown.empty()) {
+    return 0;
+  }
+  ENRMMeasuredSlot last = measured.back();
+  const double trailing = measuredHeight - (last.y + last.height);
+  if (trailing < -tolerance ||
+      std::abs(laidOutHeight - (shown.back().y + shown.back().height) - trailing) > tolerance) {
+    return 0;
+  }
+  std::vector<ENRMMeasuredSlot> others = measured;
+  others.back().childHeight = last.height;
+  if (!ENRMCanTakeLaidOutSlotLayout(/*smooth*/ false, laidOutHeight, others, shown, tolerance) ||
+      shown.back().id != last.id) {
+    return 0;
+  }
+  return last.y + last.childHeight + trailing;
 }
 
 /**

@@ -7,6 +7,7 @@
 
 using facebook::react::ENRMCanTakeLaidOutSlotLayout;
 using facebook::react::ENRMChooseMeasurement;
+using facebook::react::ENRMGrowingTailSlotHeight;
 using facebook::react::ENRMIsStreamUpdate;
 using facebook::react::ENRMMarkdownExtends;
 using facebook::react::ENRMMeasuredSlot;
@@ -185,9 +186,9 @@ struct ENRMStreamTestProps {
 // Documents with block slots: the view's height stands when it shows every slot where the last
 // full measurement placed it (ENRMCanTakeLaidOutSlotLayout).
 static bool ENRMTakes(const std::vector<ENRMMeasuredSlot> &measured, const std::vector<ENRMShownSlot> &shown,
-                      double height = 900, bool smooth = false, bool streamUpdate = true)
+                      double height = 900, bool smooth = false)
 {
-  return ENRMCanTakeLaidOutSlotLayout(streamUpdate, smooth, height, measured, shown, 1.0 / 3);
+  return ENRMCanTakeLaidOutSlotLayout(smooth, height, measured, shown, 1.0 / 3);
 }
 
 - (void)testAStreamTakesTheViewsHeightWhenEverySlotIsWhereItWasMeasured
@@ -195,7 +196,6 @@ static bool ENRMTakes(const std::vector<ENRMMeasuredSlot> &measured, const std::
   std::vector<ENRMMeasuredSlot> measured = {{"code:a", 100, 200, true, 200}, {"code:b", 500, 120, true, 120}};
   std::vector<ENRMShownSlot> shown = {{"code:a", 100, 200}, {"code:b", 500.2, 120}};
   XCTAssertTrue(ENRMTakes(measured, shown));
-  XCTAssertFalse(ENRMTakes(measured, shown, 900, false, /*streamUpdate*/ false));
   XCTAssertFalse(ENRMTakes(measured, shown, 0));
   XCTAssertFalse(ENRMTakes({}, {}));
 }
@@ -238,6 +238,32 @@ static bool ENRMTakes(const std::vector<ENRMMeasuredSlot> &measured, const std::
   XCTAssertEqual(layout.slots->front().y, 40);
   XCTAssertTrue(laidOut.layoutFor(300, 3, "Intro and more").slots == nullptr);
   XCTAssertTrue(laidOut.layoutFor(320, 3, "Other").slots == nullptr);
+}
+
+- (void)testACodeBlockStreamingIntoTheLastSlotGrowsTheDocumentByItsChild
+{
+  // The last full measurement: the slot at 500, 120 high, 8 below it.
+  std::vector<ENRMMeasuredSlot> measured = {{"code:a", 100, 200, true, 200}, {"code:b", 500, 120, true, 160}};
+  std::vector<ENRMShownSlot> shown = {{"code:a", 100, 200}, {"code:b", 500, 120}};
+  const double third = 1.0 / 3;
+  XCTAssertEqualWithAccuracy(ENRMGrowingTailSlotHeight(true, 628, 628, measured, shown, third), 668, 0.001);
+  // Not inside the open fence: the slot isn't the document's end.
+  XCTAssertEqual(ENRMGrowingTailSlotHeight(false, 628, 628, measured, shown, third), 0);
+  // The view lays out more after the slot.
+  XCTAssertEqual(ENRMGrowingTailSlotHeight(true, 628, 700, measured, shown, third), 0);
+  // A slot above it moved.
+  std::vector<ENRMShownSlot> moved = {{"code:a", 120, 200}, {"code:b", 520, 120}};
+  XCTAssertEqual(ENRMGrowingTailSlotHeight(true, 628, 648, measured, moved, third), 0);
+  // The view hasn't applied the last slot's placement yet.
+  XCTAssertEqual(ENRMGrowingTailSlotHeight(true, 628, 300, measured, {{"code:a", 100, 200}}, third), 0);
+}
+
+// A take grew the last slot to 160; the next update arrives before the view laid that out.
+- (void)testASecondTailUpdateBeforeTheViewCaughtUpMeasuresInFull
+{
+  std::vector<ENRMMeasuredSlot> measured = {{"code:a", 100, 200, true, 200}, {"code:b", 500, 160, true, 200}};
+  std::vector<ENRMShownSlot> shown = {{"code:a", 100, 200}, {"code:b", 500, 120}};
+  XCTAssertEqual(ENRMGrowingTailSlotHeight(true, 668, 628, measured, shown, 1.0 / 3), 0);
 }
 
 @end

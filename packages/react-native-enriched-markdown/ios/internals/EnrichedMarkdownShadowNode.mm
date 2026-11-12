@@ -186,12 +186,29 @@ bool EnrichedMarkdownShadowNode::takeLaidOutSlotLayout(const std::vector<SlotChi
       shown.push_back({slot.id, slot.y, slot.height});
     }
   }
-  if (!ENRMCanTakeLaidOutSlotLayout(true, props->streamingConfig.smooth, laidOut.size.height, measured, shown,
-                                    1 / layoutContext.pointScaleFactor)) {
-    return false;
+  const double tolerance = 1 / layoutContext.pointScaleFactor;
+  CGFloat height = laidOut.size.height;
+  if (!ENRMCanTakeLaidOutSlotLayout(props->streamingConfig.smooth, height, measured, shown, tolerance)) {
+    // A code block streaming into its renderer at the end: only that slot's child grew.
+    BOOL endsInsideOpenFence = NO;
+    if (!props->streamingConfig.smooth) {
+      ENRMMd4cFlags *flags = ENRMMd4cFlagsFromProps(props->md4cFlags);
+      const auto &config = props->streamingConfig;
+      ENRMRenderableMarkdownForStreaming(ENRMStringFromUTF8(props->markdown), flags,
+                                         ENRMStreamingModeFromString<ENRMTableStreamingMode>(config.tableMode),
+                                         ENRMStreamingModeFromString<ENRMCodeBlockStreamingMode>(config.codeBlockMode),
+                                         ENRMStreamingModeFromString<ENRMMediaStreamingMode>(config.mediaMode),
+                                         &endsInsideOpenFence);
+    }
+    height =
+        ENRMGrowingTailSlotHeight(endsInsideOpenFence, m.size.height, laidOut.size.height, measured, shown, tolerance);
+    if (height <= 0) {
+      return false;
+    }
+    m.frames.back().height = (Float)measured.back().childHeight;
   }
   // The width stays the measured one: the view's comes from Yoga's rounded frame.
-  m.size.height = laidOut.size.height;
+  m.size.height = height;
   m.key = key;
   m.counter = counter;
   m.slotHeightsChecked = true;
