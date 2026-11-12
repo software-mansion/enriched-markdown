@@ -104,6 +104,21 @@
   }
 }
 
+- (void)testInlineImageTakesTheFontOfStrongText
+{
+  ENRMImageAttachment *image = nil;
+  NSUInteger index = 0;
+  NSTextStorage *storage = [self render:@"**HH {image} HH**"
+                              imageSize:CGSizeMake(32, 32)
+                       strongFontFamily:@"Georgia"
+                                  image:&image
+                                  index:&index];
+  UIFont *textFont = [storage attribute:NSFontAttributeName atIndex:index + 2 effectiveRange:NULL];
+
+  XCTAssertEqualObjects(textFont.familyName, @"Georgia");
+  XCTAssertEqualObjects(image.textFont, textFont);
+}
+
 - (void)testWideInlineImageFitsInsideItsSquare
 {
   ENRMImageAttachment *image = nil;
