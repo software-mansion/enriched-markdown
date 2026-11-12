@@ -203,13 +203,16 @@ static void *kENRMCanvasBoundsContext = &kENRMCanvasBoundsContext;
       [self setNeedsDisplayFromGlyphIndex:glyph];
     }
   }
-  if (![_streamingEffects changesOverTimeAt:CACurrentMediaTime()]) {
+  // Off a window nothing is seen: the text view starts the link again when it is back on one.
+  if (![_streamingEffects changesOverTimeAt:CACurrentMediaTime()] || textView.window == nil) {
     [_effectsLink invalidate];
     _effectsLink = nil;
-  } else if (_effectsLink == nil && textView.window != nil) {
+  } else if (_effectsLink == nil) {
     ENRMEffectsTicker *ticker = [[ENRMEffectsTicker alloc] init];
     ticker.tiles = self;
     _effectsLink = [CADisplayLink displayLinkWithTarget:ticker selector:@selector(tick:)];
+    // A fade or a settling gradient looks the same at 60 Hz, and ProMotion would redraw twice as often.
+    _effectsLink.preferredFrameRateRange = CAFrameRateRangeMake(30, 60, 60);
     [_effectsLink addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
   }
 }

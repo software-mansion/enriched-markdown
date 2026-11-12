@@ -79,6 +79,13 @@
   return _tiles.streamingEffects;
 }
 
+- (void)didMoveToWindow
+{
+  [super didMoveToWindow];
+  // The effects link stops off a window; what still animates goes on from here.
+  [_tiles streamingEffectsChanged];
+}
+
 - (void)streamingEffectsChanged
 {
   [_tiles streamingEffectsChanged];
