@@ -18,6 +18,7 @@ const REACT_NATIVE_VERSIONS = [
 // by hand and have drifted before.
 const LIBRARY_VERSIONS = [
   { version: 'nightly', supportedFrom: '0.83', supportedTo: '0.88' },
+  { version: '1.2.0', supportedFrom: '0.83', supportedTo: '0.88' },
   { version: '1.1.x', supportedFrom: '0.83', supportedTo: '0.88' },
   { version: '1.0.x', supportedFrom: '0.83', supportedTo: '0.88' },
   { version: '0.7.0', supportedFrom: '0.83', supportedTo: '0.88' },

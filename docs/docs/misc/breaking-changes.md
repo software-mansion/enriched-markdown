@@ -11,7 +11,7 @@ Looking for the full release notes? See the [changelog](https://swmansion.com/ch
 
 This page tracks breaking changes and how to migrate for each, newest first, for the React Native package and the standalone [Android](#android-package) and [iOS](#ios-package) packages. Each package is versioned on its own. Deprecations (things that still work but are slated for removal) are noted alongside the change that introduces them.
 
-The React Native sections come first. Its current release is **1.1.1**, a patch over 1.1.0; neither introduced breaking changes.
+The React Native sections come first. Its current release is **1.2.0**. No release after 1.0.2 introduced breaking changes.
 
 ## v1.0.2
 
@@ -68,7 +68,7 @@ The `enriched-markdown` block in your app's `package.json` is now the single sou
 In a monorepo the _build_ flag is read from the app's `package.json` (beside `ios/` / `android/`), so each app configures independently; the _download_ opt-out is read where the install runs (usually the workspace root). See [Native assets](/react-native/guides/native-assets#reducing-binary-size).
 
 :::caution
-In 1.0.2 through 1.1.1 the download opt-out is read from the workspace root **only**: a block in a workspace app's `package.json` disables the feature at build time but does not stop the install-time download. Later releases also read the workspace members that depend on the package, so an app-level block is enough when every consuming app opts out. See [Native assets](/react-native/guides/native-assets#reducing-binary-size).
+In 1.0.2 through 1.1.1 the download opt-out is read from the workspace root **only**: a block in a workspace app's `package.json` disables the feature at build time but does not stop the install-time download. 1.2.0 and later also read the workspace members that depend on the package, so an app-level block is enough when every consuming app opts out. See [Native assets](/react-native/guides/native-assets#reducing-binary-size).
 :::
 
 ### Explicitly enabling a feature whose assets are missing now fails the build
