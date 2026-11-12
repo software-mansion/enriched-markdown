@@ -102,7 +102,9 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
     _cachedMaxHeight = [config imageMaxHeight];
     _cachedAspectRatio = [config imageAspectRatio];
     _cachedResizeMode = [config imageResizeMode];
-    _cachedBorderRadius = [config imageBorderRadius];
+    CGFloat inlineImageSize = [config inlineImageSize];
+    CGFloat inlineScale = isInline && inlineImageSize > 0 ? _cachedHeight / inlineImageSize : 1.0;
+    _cachedBorderRadius = [config imageBorderRadius] * inlineScale;
 
     [self setupPlaceholder];
     [self startDownloadingImage];
