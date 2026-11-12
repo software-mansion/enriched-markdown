@@ -51,7 +51,7 @@ class ImageSpan(
   TextViewAwareSpan {
   private var loadedDrawable: Drawable? = null
   private val height: Int = if (isInline) styleConfig.inlineImageStyle.size.toInt() else styleConfig.imageStyle.height.toInt()
-  private val borderRadiusPx: Int = (styleConfig.imageStyle.borderRadius * context.resources.displayMetrics.density).toInt()
+  private val borderRadiusPx: Int = styleConfig.imageStyle.borderRadius.toInt()
   private val requestKey: String = ImageCache.requestKey(imageUrl, requestHeaders)
 
   private var cachedWidth: Int = 0

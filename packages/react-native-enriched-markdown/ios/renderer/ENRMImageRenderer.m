@@ -33,6 +33,10 @@ static const unichar kZeroWidthSpace = 0x200B;
 
   NSUInteger startIndex = output.length;
 
+  if (isInline) {
+    attachment.textFont = [context getTextAttributes][NSFontAttributeName];
+  }
+
   NSAttributedString *imageString = [NSAttributedString attributedStringWithAttachment:attachment];
   [output appendAttributedString:imageString];
 

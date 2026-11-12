@@ -601,7 +601,7 @@ Three things worth knowing:
 - `.cornerRadius` rounds the drawn image, not the box, so with `.fit`, `.scaleDown` or `.original` the corners follow the image.
 - `.scaleDown` and `.original` draw the decoded image, and decoding is capped at the screen's pixel width, so a very large image is not drawn at its full pixel size.
 
-Inline images ignore all four modifiers. They are always a square of `InlineImage().size`.
+Inline images ignore the sizing and content mode modifiers. They always take a square of `InlineImage().size`, and the image is scaled up or down to fit inside it, keeping its proportions, as with `.fit`. `.cornerRadius` still rounds them, at most into a circle.
 
 ## Accessibility
 
