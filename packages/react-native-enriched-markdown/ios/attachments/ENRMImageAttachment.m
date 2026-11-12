@@ -48,6 +48,8 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
 @property (nonatomic, assign) BOOL loadFailed;
 @property (nonatomic, strong) ENRMImageFailurePlaceholder *failurePlaceholder;
 @property (nonatomic, strong) RCTUIImage *failureImage;
+// An inline size change that had no text view to report to yet (the view had not drawn).
+@property (nonatomic, assign) BOOL layoutReportPending;
 
 @end
 
@@ -218,6 +220,7 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
                 characterIndex:(NSUInteger)characterIndex
 {
   self.textContainer = textContainer;
+  [self reportPendingLayoutChange];
 
   if (self.loadFailed) {
     return [self failureImageForSize:imageBounds.size] ?: self.placeholderImage;
@@ -429,8 +432,11 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
   }
 
   ENRMPlatformTextView *textView = [self fetchAssociatedTextView];
-  if (!textView)
+  if (!textView) {
+    // The host measured us before this change; tell it once we know our text view.
+    self.layoutReportPending = self.layoutReportPending || inlineSizeChanged;
     return;
+  }
 
   NSRange range = [self findAttachmentRangeInText:textView.textStorage];
   if (range.location != NSNotFound) {
@@ -459,6 +465,20 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
     return;
 
   [self postImageLayoutResolved:textView];
+}
+
+- (void)reportPendingLayoutChange
+{
+  if (!self.layoutReportPending)
+    return;
+  ENRMPlatformTextView *textView = [self fetchAssociatedTextView];
+  if (!textView)
+    return;
+  self.layoutReportPending = NO;
+  // We are mid-draw, and the text view still holds the layout made with the old size: lay this
+  // range out again (which also reports the change) once the draw is over.
+  __weak typeof(self) weakSelf = self;
+  dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf refreshDisplayAfterInlineSizeChange:YES]; });
 }
 
 - (void)postImageLayoutResolved:(ENRMPlatformTextView *)textView

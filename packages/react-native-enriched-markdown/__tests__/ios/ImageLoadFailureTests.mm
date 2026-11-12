@@ -1,6 +1,7 @@
 #import "../../ios/attachments/ENRMImageAttachment.h"
 #import "../../ios/renderer/RenderContext.h"
 #import "../../ios/styles/StyleConfig.h"
+#import "../../ios/utils/RuntimeKeys.h"
 #import "../../ios/views/EnrichedMarkdownInternalText.h"
 #import <XCTest/XCTest.h>
 #import <objc/runtime.h>
@@ -12,6 +13,23 @@ static const CGFloat kBlockHeight = 100;
 
 @interface EnrichedMarkdownInternalText (ImageLayoutObserver)
 - (void)imageAttachmentDidResolveLayout;
+@end
+
+// The download's outcome, driven by hand so the text can be laid out before the failure.
+@protocol ENRMLateFailure
+@property (nonatomic, assign) BOOL loadFailed;
+- (void)handleLoadFailure;
+@end
+
+@interface ENRMRecordingLayoutObserver : UIView <ENRMImageLayoutObserver>
+@property (nonatomic, copy) void (^onResolve)(void);
+@end
+
+@implementation ENRMRecordingLayoutObserver
+- (void)imageAttachmentDidResolveLayout
+{
+  self.onResolve();
+}
 @end
 
 @interface ENRMImageLoadFailureTests : XCTestCase
@@ -185,6 +203,37 @@ static const CGFloat kBlockHeight = 100;
 {
   XCTAssertEqual([self accessibilityHeightAfterReflowNotifying:NO], 0, @"elements are cached between layouts");
   XCTAssertGreaterThan([self accessibilityHeightAfterReflowNotifying:YES], 0);
+}
+
+// A view that has not drawn yet (below the fold) has no text view for the attachment to
+// reach when the failure arrives. Its text stays laid out with the square, and the host
+// keeps the height it measured with it, until the attachment draws and catches both up.
+- (void)testFailureBeforeTheFirstDrawIsLaidOutOnceTheImageDraws
+{
+  ENRMImageAttachment<ENRMLateFailure> *attachment =
+      (id)[self attachmentForURL:[self missingFile:@"before-draw"] alt:@"a diagram" isInline:YES];
+  attachment.loadFailed = NO; // the download is still running when the text is laid out
+
+  ENRMRecordingLayoutObserver *host = [[ENRMRecordingLayoutObserver alloc] init];
+  UITextView *textView = [[UITextView alloc] initWithFrame:CGRectMake(0, 0, 320, 200)];
+  [host addSubview:textView];
+  objc_setAssociatedObject(textView.textContainer, kTextViewKey, textView, OBJC_ASSOCIATION_ASSIGN);
+  NSMutableAttributedString *text = [[NSAttributedString attributedStringWithAttachment:attachment] mutableCopy];
+  [text appendAttributedString:[[NSAttributedString alloc] initWithString:@" after"]];
+  textView.attributedText = text;
+  [textView.layoutManager ensureLayoutForTextContainer:textView.textContainer];
+  XCTAssertEqual([textView.layoutManager attachmentSizeForGlyphAtIndex:0].width, kInlineSize);
+
+  [attachment handleLoadFailure];
+  XCTestExpectation *resolved = [self expectationWithDescription:@"host re-measures"];
+  host.onResolve = ^{ [resolved fulfill]; };
+  (void)[attachment imageForBounds:CGRectMake(0, 0, kInlineSize, kInlineSize)
+                     textContainer:textView.textContainer
+                    characterIndex:0];
+  [self waitForExpectations:@[ resolved ] timeout:1];
+
+  [textView.layoutManager ensureLayoutForTextContainer:textView.textContainer];
+  XCTAssertGreaterThan([textView.layoutManager attachmentSizeForGlyphAtIndex:0].width, kInlineSize);
 }
 
 @end
