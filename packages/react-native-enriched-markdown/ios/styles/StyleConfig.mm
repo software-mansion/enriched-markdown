@@ -1718,6 +1718,11 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   _inlineImageSize = newValue;
 }
 
+- (CGFloat)scaledInlineImageSize
+{
+  return _inlineImageSize * [self effectiveScaleMultiplierForFontSize:_inlineImageSize];
+}
+
 // Blockquote properties
 - (CGFloat)blockquoteFontSize
 {
