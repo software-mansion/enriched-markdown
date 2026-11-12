@@ -9,7 +9,7 @@ This section covers the rough edges worth knowing about before you hit them.
 Deliberate behaviours, constraints imposed by the underlying text stacks, and a few things
 that are simply not wired up yet.
 
-Most of this page covers `react-native-enriched-markdown` 1.1.1, including its
+Most of this page covers `react-native-enriched-markdown` 1.2.0, including its
 web and macOS targets. The standalone native packages have their own lists at
 the end: [iOS package](#ios-package) (0.4.0) and
 [Android package](#android-package) (0.3.0).

@@ -15,6 +15,11 @@ it off when the stream ends: a view that leaves it on renders a finished message
 `react-native-streamdown` is deprecated: replace `StreamdownText` with `EnrichedMarkdownText` and set
 `streaming`. Repair of incomplete Markdown is built in and needs no Worklets setup.
 
+## v1.2.0
+
+No breaking changes. v1.2.0 is additive over v1.1.1 - every public prop, method, event and style key
+from v1.1.1 keeps its name and behaviour, and no deprecation was introduced or removed.
+
 ## v1.1.1
 
 No breaking changes. v1.1.1 is a patch release over v1.1.0 - every public prop, method, event and style
@@ -102,7 +107,7 @@ workspace root — so put it in the root `package.json` to skip a download for t
 > [!CAUTION]
 > In 1.0.2 through 1.1.1 the download opt-out is read from the workspace root **only**: a block in a
 > workspace app's `package.json` disables the feature at build time but does not stop the install-time
-> download. Later releases also read the workspace members that depend on the package, so an app-level
+> download. 1.2.0 and later also read the workspace members that depend on the package, so an app-level
 > block is enough when every consuming app opts out. See
 > [Which `package.json`?](./NATIVE_ASSETS.md#skipping-the-download-opt-out).
 
