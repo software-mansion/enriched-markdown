@@ -1,5 +1,7 @@
 #import "../../ios/utils/ENRMStreamingEffects.h"
+#import "../../ios/utils/TextViewLayoutManager.h"
 #import <XCTest/XCTest.h>
+#import <objc/runtime.h>
 
 static CGFloat ENRMAlpha(UIColor *color)
 {
@@ -12,6 +14,16 @@ static CGFloat ENRMAlpha(UIColor *color)
 @end
 
 @implementation ENRMStreamingEffectsTests
+
+// The class is set onto layout managers UIKit already made: an ivar's storage would lie past the
+// instance, so the glyph color the effects draw with must live elsewhere.
+- (void)testTheLayoutManagerClassHasNoIvars
+{
+  unsigned int count = 0;
+  Ivar *ivars = class_copyIvarList([TextViewLayoutManager class], &count);
+  free(ivars);
+  XCTAssertEqual(count, 0u);
+}
 
 - (void)testAGradientFadesTheCharactersOwnColorTowardTheEnd
 {

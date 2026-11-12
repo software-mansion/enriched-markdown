@@ -2,7 +2,11 @@ import { act, createRef } from 'react';
 import type { ReactElement } from 'react';
 import { createRoot } from 'test-renderer';
 import type { Root, TestInstance } from 'test-renderer';
-import { EnrichedMarkdownTextInput, EnrichedMarkdownText } from '../src/jest';
+import {
+  EnrichedMarkdownTextInput,
+  EnrichedMarkdownText,
+  createMarkdownStream,
+} from '../src/jest';
 import type { EnrichedMarkdownTextInputInstance } from '../src/EnrichedMarkdownTextInput';
 
 const INSTANCE_METHODS: (keyof EnrichedMarkdownTextInputInstance)[] = [
@@ -320,5 +324,50 @@ describe('EnrichedMarkdownText mock streaming', () => {
       );
     });
     expect(onStreamingEnd).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('EnrichedMarkdownText mock stream', () => {
+  const realRequestAnimationFrame = global.requestAnimationFrame;
+  let frames: (() => void)[] = [];
+
+  beforeEach(() => {
+    frames = [];
+    global.requestAnimationFrame = ((callback: () => void) => {
+      frames.push(callback);
+      return frames.length;
+    }) as typeof requestAnimationFrame;
+  });
+
+  afterAll(() => {
+    global.requestAnimationFrame = realRequestAnimationFrame;
+  });
+
+  function nextFrame() {
+    const pending = frames;
+    frames = [];
+    act(() => pending.forEach((callback) => callback()));
+  }
+
+  it('renders the text as it arrives and calls onStreamingEnd once it ends', () => {
+    const stream = createMarkdownStream();
+    const onStreamingEnd = jest.fn();
+    const { byTestId } = renderMock(
+      <EnrichedMarkdownText
+        testID="display"
+        stream={stream}
+        onStreamingEnd={onStreamingEnd}
+      />
+    );
+    stream.append('Hello ');
+    stream.append('world');
+    nextFrame();
+    expect(byTestId('display').children).toContain('Hello world');
+    expect(onStreamingEnd).not.toHaveBeenCalled();
+
+    stream.end();
+    nextFrame();
+    expect(onStreamingEnd).toHaveBeenCalledTimes(1);
+    stream.dispose();
   });
 });

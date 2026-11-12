@@ -370,7 +370,7 @@ class EnrichedMarkdownText
       pacingChanged = false
       // Smooth pacing renders what has been revealed and hands the rest over frame by frame, so new
       // markdown that reveals nothing yet renders nothing. When the prop turns off, the words still
-      // waiting appear first (within 200 ms), then streaming stops.
+      // waiting drain first, then streaming stops.
       if (pacer.update(currentMarkdown, streamingProp, smooth)) {
         stopStreaming()
         return
@@ -459,6 +459,8 @@ class EnrichedMarkdownText
                 } else {
                   pendingText = rendered
                   pendingRenderedMarkdown = markdown
+                  // Parked, the view lays nothing out: measurement must not take the size it had.
+                  MeasurementStore.clearLaidOutSize(id)
                 }
               }
             } catch (e: Exception) {
@@ -815,6 +817,8 @@ class EnrichedMarkdownText
 
     override fun onDetachedFromWindow() {
       stopSpoilerAnimations()
+      // A detached view parks its renders, so a stream measures in full until it lays out again.
+      MeasurementStore.clearLaidOutSize(id)
       super.onDetachedFromWindow()
     }
 

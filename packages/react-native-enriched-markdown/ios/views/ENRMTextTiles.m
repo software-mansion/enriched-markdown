@@ -237,8 +237,24 @@ static void *kENRMCanvasBoundsContext = &kENRMCanvasBoundsContext;
   }
 }
 
+// The canvas is found by private class name, so an app can turn the tiles off without a release
+// of this library if a future iOS draws differently: set EnrichedMarkdownDisableTextTiles to YES in
+// its Info.plist, and text views draw their whole text as UIKit does.
+static BOOL ENRMTextTilesDisabled(void)
+{
+  static BOOL disabled;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    disabled = [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"EnrichedMarkdownDisableTextTiles"] boolValue];
+  });
+  return disabled;
+}
+
 - (BOOL)prepareTiles
 {
+  if (ENRMTextTilesDisabled()) {
+    return NO;
+  }
   UITextView *textView = _textView;
   if (_canvas != nil && _containerView.superview == textView && _canvas.superview == _containerView) {
     return YES;

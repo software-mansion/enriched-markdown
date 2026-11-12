@@ -93,10 +93,9 @@ function view(root: Root): TestInstance {
   return found;
 }
 
-it('gets the parser module from the native entry', () => {
+it('gets the parser module from the package entry, before any view renders', () => {
   jest.isolateModules(() => {
-    require('../src/native/EnrichedMarkdownText');
-    const { createMarkdownStream: create } = require('../src/markdownStream');
+    const { createMarkdownStream: create } = require('../src/index');
     const before = mockStreams.size;
     create('text');
     expect(mockStreams.size).toBe(before + 1);
@@ -282,9 +281,8 @@ it('frees the native text of a stream JS dropped without dispose()', () => {
   } as unknown as typeof FinalizationRegistry;
   try {
     jest.isolateModules(() => {
-      const streams = require('../src/markdownStream');
-      streams.setNativeMarkdownStreams(NativeEnrichedMarkdownParser);
-      streams.createMarkdownStream('dropped');
+      // No view rendered yet: the package entry has handed streams the native module.
+      require('../src/index').createMarkdownStream('dropped');
     });
     const [id] = [...mockStreams.keys()];
     expect(mockStreams.get(id!)).toBe('dropped');

@@ -141,7 +141,8 @@ export interface StreamingConfig {
    * Controls how incomplete tables are handled during streaming.
    * - `'hidden'`: hide the entire table until it's complete.
    * - `'progressive'` (default): show the table row-by-row as rows complete.
-   * Only effective when `streaming` is `true`.
+   * Only effective while streaming (`streaming`, or a `stream` that hasn't
+   * ended).
    * @default 'progressive'
    * @platform ios, android
    */
@@ -153,7 +154,8 @@ export interface StreamingConfig {
    * - `'progressive'` (default): show the code as it streams in with its header
    *   visible but non-interactive (copying is disabled); syntax highlighting is
    *   deferred until the closing fence arrives, so it appears once atomically.
-   * Only effective when `streaming` is `true`.
+   * Only effective while streaming (`streaming`, or a `stream` that hasn't
+   * ended).
    * @default 'progressive'
    * @platform ios, android
    */
@@ -166,7 +168,8 @@ export interface StreamingConfig {
    * - `'progressive'` (default): show the block as soon as its syntax is
    *   complete (`)` for an image, `>` for a `<video>` tag); the partial line is
    *   hidden until then instead of rendering as text.
-   * Only effective when `streaming` is `true`.
+   * Only effective while streaming (`streaming`, or a `stream` that hasn't
+   * ended).
    * @default 'progressive'
    * @platform ios, android
    */
@@ -178,7 +181,9 @@ export interface StreamingConfig {
    * - `'gradient'`: the last 20 characters run from their own color to
    *   transparent, following the end of the text (see `StreamingGradient`).
    * - `'none'`: new content appears at once.
-   * Only effective when `streaming` is `true`. Reduce Motion turns it off.
+   * Only effective while streaming (`streaming`, or a `stream` that hasn't
+   * ended). Reduce Motion turns it off, and on macOS new content appears at
+   * once.
    * @default 'fade'
    * @platform ios, android
    */
@@ -188,8 +193,8 @@ export interface StreamingConfig {
    * it arrives in: the view shows the text revealed so far, so its layout and
    * blocks grow with the words. Each chunk spreads over the time until the
    * next one, at most a second behind, and what is left shows within 200 ms
-   * when the stream ends. Works with every `animation`. Only effective when
-   * `streaming` is `true`.
+   * when the stream ends. Works with every `animation`. Only effective while
+   * streaming (`streaming`, or a `stream` that hasn't ended).
    * @default false
    * @platform ios, android
    */
@@ -204,6 +209,7 @@ export type StreamingAnimation =
   | StreamingFade
   | StreamingGradient;
 
+/** The `'fade'` animation with its options. */
 export interface StreamingFade {
   type: 'fade';
   /**
@@ -213,6 +219,7 @@ export interface StreamingFade {
   duration?: number;
 }
 
+/** The `'gradient'` animation with its options. */
 export interface StreamingGradient {
   type: 'gradient';
   /**
@@ -475,7 +482,8 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
   streamingAnimation?: boolean;
   /**
    * Fine-grained control over streaming behavior.
-   * Only effective when `streaming` is `true`.
+   * Only effective while streaming (`streaming`, or a `stream` that hasn't
+   * ended).
    * @platform ios, android
    */
   streamingConfig?: StreamingConfig;
@@ -483,7 +491,8 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * Called when the view stops streaming: once `streaming` turns `false` (or
    * the `stream` ends) and, with `smooth`, the last words have appeared. Fires
    * after the final render shows the whole text, once per stream, and not when
-   * the view unmounts while streaming.
+   * the view unmounts while streaming. Not called on web, where a `stream`
+   * still shows its text.
    * @platform ios, android
    */
   onStreamingEnd?: () => void;

@@ -1889,7 +1889,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   if (markdownChanged || streamingEnded || (_dirtyFlags & ENRMDirtyRender)) {
     // Smooth pacing renders what has been revealed and hands the rest over frame by frame, so new
     // markdown that reveals nothing yet renders nothing. When the prop turns off, the words still
-    // waiting appear first (within 200 ms), then streaming stops.
+    // waiting drain first, then streaming stops.
     if ([_pacer updateMarkdown:ENRMStringFromUTF8(newViewProps.markdown)
                      streaming:newViewProps.streaming
                         smooth:newViewProps.streamingConfig.smooth]) {

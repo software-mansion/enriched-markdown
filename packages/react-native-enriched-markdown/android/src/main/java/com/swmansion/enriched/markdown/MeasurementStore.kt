@@ -152,6 +152,8 @@ object MeasurementStore {
     val widthPx: Float,
     // What the measurement returned, filled in once known.
     val size: Long? = null,
+    // Whether that was the size the view laid out, which may be behind the markdown.
+    val fromLaidOut: Boolean = false,
   )
 
   private val laidOutSizes = ConcurrentHashMap<Int, LaidOutSize>()
@@ -649,27 +651,38 @@ object MeasurementStore {
     density: Float,
     rtl: Boolean,
   ): Long? {
+    // Text appended without `streaming` measures in full, so it has its height on the first commit.
+    if (!input.config.streaming) {
+      previousInputs.remove(id)
+      return null
+    }
     val markdown = input.markdown
     val layoutKey = streamLayoutKey(id, input, splitTableSegments, allowFontScaling, fontScale, maxFontSizeMultiplier, density, rtl)
 
     val previous = previousInputs.put(id, MeasuredInputs(markdown, layoutKey, width)) ?: return null
     // The view's size counts for an earlier state of this stream, not a document it replaced.
     val laidOut = laidOutSizes[id]?.takeIf { abs(it.widthPx - width) < 1f && markdownExtends(it.markdown, markdown) }
+    val source =
+      chooseMeasurement(
+        streamUpdate = previous.layoutKey == layoutKey && markdownExtends(previous.markdown, markdown),
+        grew = markdown.length > previous.markdown.length,
+        // A laid-out answer can be behind the markdown, so a newer laid-out size replaces it: the
+        // view may have laid out an update between two of this stream's (or, with smooth pacing,
+        // a further part of it) and asks no more once its height stops changing.
+        viewLaidOutAgain =
+          laidOut != null &&
+            (laidOut.markdown == markdown || ((input.config.smooth || previous.fromLaidOut) && laidOut.size != previous.size)),
+        hasLaidOutSize = laidOut != null,
+        samePreviousWidth = previous.size != null && previous.widthPx == width,
+      )
     val size =
-      when (
-        chooseMeasurement(
-          streamUpdate = previous.layoutKey == layoutKey && markdownExtends(previous.markdown, markdown),
-          grew = markdown.length > previous.markdown.length,
-          viewLaidOutAgain = laidOut != null && (laidOut.markdown == markdown || (input.config.smooth && laidOut.size != previous.size)),
-          hasLaidOutSize = laidOut != null,
-          samePreviousWidth = previous.size != null && previous.widthPx == width,
-        )
-      ) {
+      when (source) {
         MeasurementSource.LAID_OUT -> laidOut?.size
         MeasurementSource.PREVIOUS -> previous.size
         MeasurementSource.FULL -> null
       } ?: return null
-    recordMeasured(id, size)
+    val fromLaidOut = source == MeasurementSource.LAID_OUT || (source == MeasurementSource.PREVIOUS && previous.fromLaidOut)
+    recordMeasured(id, size, fromLaidOut)
     return size
   }
 
@@ -771,8 +784,9 @@ object MeasurementStore {
   internal fun recordMeasured(
     id: Int,
     size: Long,
+    fromLaidOut: Boolean = false,
   ) {
-    previousInputs.computeIfPresent(id) { _, inputs -> inputs.copy(size = size) }
+    previousInputs.computeIfPresent(id) { _, inputs -> inputs.copy(size = size, fromLaidOut = fromLaidOut) }
   }
 
   /** Whether [current] keeps all of [previous] and only adds to it, as every update of a stream does. */

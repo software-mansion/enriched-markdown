@@ -67,13 +67,15 @@ template <typename PropsT> static inline bool ENRMStreamingRenderEqual(const Pro
          a.streamingConfig.mediaMode == b.streamingConfig.mediaMode;
 }
 
-/// Whether `props` is a stream's update on what `previous` measured: the markdown
-/// kept all of the previous and nothing else that sizes the content changed.
+/// Whether `props` is a stream's update on what `previous` measured: still streaming, the
+/// markdown kept all of the previous and nothing else that sizes the content changed. Text
+/// appended without `streaming` measures in full, so it has its height on the first commit.
 template <typename PropsT>
 static inline bool ENRMIsStreamUpdate(const ENRMPreviousMeasurement<PropsT> &previous, const PropsT &props,
                                       const MeasurementCacheKey &layoutKey, NSWritingDirection layoutDirection)
 {
-  return previous.props && previous.layoutKey == layoutKey && previous.layoutDirection == layoutDirection &&
+  return props.streaming && previous.props && previous.layoutKey == layoutKey &&
+         previous.layoutDirection == layoutDirection &&
          ENRMStreamingRenderEqual(*previous.props, props) &&
          ENRMMarkdownExtends(previous.props->markdown, props.markdown);
 }

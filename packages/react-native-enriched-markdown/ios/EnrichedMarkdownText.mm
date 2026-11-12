@@ -68,7 +68,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownTextMd4cFlagsStruct &)props;
 - (void)setupTextView;
 - (void)renderMarkdownContent:(NSString *)markdownString;
-- (void)applyRenderedText:(ENRMRenderResult *)result forceHeightUpdate:(BOOL)scheduledForceHeight;
+- (void)applyRenderedText:(ENRMRenderResult *)result
+                 markdown:(NSString *)markdown
+        forceHeightUpdate:(BOOL)scheduledForceHeight;
 - (void)textTapped:(ENRMTapRecognizer *)recognizer;
 - (void)setupLayoutManager;
 - (void)emitLinkPress:(NSString *)url;
@@ -564,7 +566,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     self->_renderedStyleFingerprint = styleFingerprint;
     [self->_latexErrorCoordinator wireReporters:result.context.mathReporters];
     self->_laidOutMarkdown = ENRMLaidOutMarkdown(markdownString);
-    [self applyRenderedText:result forceHeightUpdate:forceHeightUpdate];
+    [self applyRenderedText:result markdown:markdownString forceHeightUpdate:forceHeightUpdate];
     if (!streaming) {
       [self emitStreamingEndIfPending];
     }
@@ -660,7 +662,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 /// `scheduledForceHeight` is the forced-height request set when this render was
 /// scheduled; one set since stays for the newer render it belongs to.
-- (void)applyRenderedText:(ENRMRenderResult *)result forceHeightUpdate:(BOOL)scheduledForceHeight
+- (void)applyRenderedText:(ENRMRenderResult *)result
+                 markdown:(NSString *)markdown
+        forceHeightUpdate:(BOOL)scheduledForceHeight
 {
   const BOOL patches = [self patchFits:result];
   NSMutableAttributedString *attributedText = result.attributedText;
@@ -697,7 +701,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   }
   // Otherwise the view shows this text already (the cache handed the same segment back).
   _renderedRevision = result.revision;
-  _renderedMarkdown = [_cachedMarkdown copy];
+  // The markdown this render answers, not the newest: an older render can apply after a newer one
+  // is scheduled.
+  _renderedMarkdown = [markdown copy];
   if (!self.window) {
     _needsWindowAttachRefresh = contentBounds.size.width <= 0;
   }
@@ -1017,7 +1023,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   if (markdownChanged || streamingEnded || (_dirtyFlags & ENRMDirtyRender)) {
     // Smooth pacing renders what has been revealed and hands the rest over frame by frame, so new
     // markdown that reveals nothing yet renders nothing. When the prop turns off, the words still
-    // waiting appear first (within 200 ms), then streaming stops.
+    // waiting drain first, then streaming stops.
     if ([_pacer updateMarkdown:ENRMStringFromUTF8(newViewProps.markdown)
                      streaming:newViewProps.streaming
                         smooth:newViewProps.streamingConfig.smooth]) {

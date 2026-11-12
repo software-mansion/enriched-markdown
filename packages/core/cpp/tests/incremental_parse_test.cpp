@@ -133,7 +133,7 @@ void checkStream(const std::string &name, const std::string &document, const Var
   std::shared_ptr<const ParsedDocument> previous;
   StreamingSnapshot previousSnapshot;
   bool previousInParts = false;
-  size_t mostFinished = 0; // finishedBytes can go back, as when `$$` opens a block
+  size_t mostFinished = 0; // finishedBytes can go back, as when a quote line opens fenced code
   size_t reported = 0;
   for (size_t length = 0; length < document.size() && reported < 3;) {
     length += maxStep == 0 ? 1 : 1 + random() % maxStep;
@@ -237,6 +237,11 @@ const char *const kBlocks[] = {
     "| a |\n|---|\n| 1 |\n```\n[after]: https://e.com/after",
     "$$\n```\n$$\n\n[math]: https://e.com/math",
     "~~~\ntilde fence\n\n```\nnot a closer\n~~~",
+    "Uses [late], [deep], [piped] and [tabbed].",
+    " ```\nan indented fence\n```\n\n[late]: https://e.com/late",
+    "```md\n- a list\n\n    ```\n    nested code\n    ```\n```\n\n[deep]: https://e.com/deep",
+    "Run `a | b` like this:\n```\ncode\n```\n\n[piped]: https://e.com/piped",
+    "```\ncode\n\t```\n```\n\n[tabbed]: https://e.com/tabbed",
     "```\nan open fence",
     "    indented code\n\n    after a blank line",
     "| a | b |\n|---|---|\n| 1 | 2 |",

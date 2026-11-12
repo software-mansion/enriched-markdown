@@ -7,7 +7,7 @@ NS_ASSUME_NONNULL_BEGIN
 extern NSString *const CodeAttributeName;
 
 /// The runs of `name` in `range`, each whole: a run crossing an edge of `range` is drawn as one box.
-/// Walking the whole text instead, on every draw of every tile, cost more than the drawing.
+/// Only `range` is searched, since every tile draws its own.
 FOUNDATION_EXPORT void ENRMEnumerateWholeRuns(NSAttributedString *text, NSString *name, NSRange range,
                                               void (^block)(NSRange run));
 

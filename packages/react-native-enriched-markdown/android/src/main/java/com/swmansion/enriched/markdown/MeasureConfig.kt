@@ -33,8 +33,8 @@ internal class MeasureConfig(
 
   val isGFM = map.getBooleanOrDefault("isGFM", false)
 
-  // Absent ones leave the view's own value in place (MeasurementStore keeps them per view); only
-  // EnrichedMarkdownText has a line clamp.
+  // Read only when sent: EnrichedMarkdown has no line clamp, and MeasurementStore keeps the view's
+  // own values for what isn't.
   val allowFontScaling: Boolean? = map?.takeIf { it.hasKey("allowFontScaling") }?.getBoolean("allowFontScaling")
   val maxFontSizeMultiplier: Float? = map?.takeIf { it.hasKey("maxFontSizeMultiplier") }?.getDouble("maxFontSizeMultiplier")?.toFloat()
   val numberOfLines: Int? = map?.takeIf { it.hasKey("numberOfLines") }?.getDouble("numberOfLines")?.toInt()

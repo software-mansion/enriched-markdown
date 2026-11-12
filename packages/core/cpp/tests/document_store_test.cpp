@@ -128,15 +128,24 @@ int main() {
   std::string longer;
   for (int i = 0; i < 200; i++)
     longer += "Paragraph " + std::to_string(i) + " with [a link](https://e.com/" + std::to_string(i) + ").\n\n";
+  // Threads that fall behind store older states after the newest, and the byte budget can then
+  // drop it, so the shared tree is checked on one last state all three parse at once.
   std::vector<std::shared_ptr<const Markdown::ParsedDocument>> seen(3);
   std::vector<std::thread> threads;
   for (int t = 0; t < 3; t++) {
-    threads.emplace_back([&, t] {
+    threads.emplace_back([&] {
       for (int round = 0; round < 50; round++) {
         auto snapshot = store.snapshot(longer + std::to_string(round), options);
-        seen[static_cast<size_t>(t)] = store.parse(snapshot.markdown, flags, true);
+        store.parse(snapshot.markdown, flags, true);
       }
     });
+  }
+  for (auto &thread : threads)
+    thread.join();
+  threads.clear();
+  const std::string last = store.snapshot(longer + "last", options).markdown;
+  for (int t = 0; t < 3; t++) {
+    threads.emplace_back([&, t] { seen[static_cast<size_t>(t)] = store.parse(last, flags, true); });
   }
   for (auto &thread : threads)
     thread.join();

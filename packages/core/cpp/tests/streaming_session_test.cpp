@@ -72,6 +72,7 @@ void checkPrefixes(const std::string &name, const std::string &document, bool wh
       bool repairedSame =
           !wholeRepair || snapshot.markdown == Markdown::repairInlineMarkdown(
                                                    whole.markdown, Markdown::streamingRepairOptions(options.flags));
+      // No fixture has a quoted fence, the one case where finishedBytes goes back (StreamingFilter.hpp).
       bool grows = snapshot.finishedBytes >= previous &&
                    snapshot.markdown.compare(0, snapshot.finishedBytes, prefix, 0, snapshot.finishedBytes) == 0;
       check(same, at + ": the filter differs from filtering it whole");
@@ -118,7 +119,7 @@ int main(int argc, char **argv) {
   expect("See [docs](https://e\n```js\nlet a", "See [docs](https://e\n```js\nlet a",
          "a fence ends the paragraph: nothing to repair");
 
-  // Review cases: the trailing paragraph, not the last line, holds the syntax.
+  // The trailing paragraph, not the last line, holds the syntax.
   expect("a `x\n[a](https://e` b", "a `x\n[a](https://e` b", "code span across lines kept");
   expect("# Heading [draft\nsome text after", "# Heading [draft\nsome text after",
          "a heading ends on its line: the paragraph after it is scanned");
@@ -135,7 +136,7 @@ int main(int argc, char **argv) {
   expect("[a](https://e.com/`q`) then `[b` c", "[a](https://e.com/`q`) then `[b` c",
          "code spans after a skipped destination still count");
 
-  // Review cases: references.
+  // References.
   expect("[r]: https://e.com\n\nSee [docs][r]", "[r]: https://e.com\n\nSee [docs][r]", "full reference kept");
   expect("[r]: https://e.com\n\n![logo][r]", "[r]: https://e.com\n\n![logo][r]", "reference image kept");
   expect("[R  x]: https://e.com\n\nSee [docs][r x]", "[R  x]: https://e.com\n\nSee [docs][r x]",

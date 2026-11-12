@@ -103,7 +103,7 @@ int main() {
   expect("Intro\n\n<https://e.com/q3.pdf>", "Intro\n\n<https://e.com/q3.pdf>", "a closed autolink is complete");
   expect("Intro\n\n<https://e.com/q3", "Intro\n\n", "an open autolink is withheld");
 
-  // Review cases: prose that merely starts with brackets, nested parentheses,
+  // Prose that merely starts with brackets, nested parentheses,
   // autolinks followed by text, indented code, escapes and code spans.
   expect("[INFO] The operation completed", "[INFO] The operation completed", "bracketed prefix is prose", H);
   expect("[INFO] The operation completed", "[INFO] The operation completed", "bracketed prefix is prose (prog)");
@@ -120,7 +120,7 @@ int main() {
   expect("Use ``a[0](`` here", "Use ``a[0](`` here", "double-backtick code span kept");
   expect("Use `a[0](` and more", "Use `a[0](` and more", "single-backtick code span kept");
 
-  // Review cases: parentheses inside titles, pointy destinations, nested labels.
+  // Parentheses inside titles, pointy destinations, nested labels.
   expect("[a](u \"t(\")", "[a](u \"t(\")", "title with an unmatched paren: complete");
   expect("[a](u \"t(\")\n", "", "title with an unmatched paren: withheld (hidden)", H);
   expect("[a](u \"t )", "", "title still open: cut");
@@ -140,7 +140,7 @@ int main() {
   expect("[a [b] c", "", "label with nested brackets still open: cut");
   expect("[a `]` b](https://e", "", "bracket in a code span inside a label: still open");
 
-  // Review cases: containers and other blocks.
+  // Containers and other blocks.
   expect("> ```md\n> ![a](https://e", "> ```md\n> ![a](https://e", "fence inside a quote holds code");
   check(Markdown::renderableMarkdownForStreaming("> ```md\n> ![a](https://e", {}).endsInsideOpenCodeFence,
         "quoted open fence flagged");
@@ -153,7 +153,7 @@ int main() {
          "multi-line video complete (progressive)");
   expect("Intro\n\n<video\n  src=\"u\">\n", "Intro\n\n", "multi-line video withheld (hidden)", H);
 
-  // Review cases: tables without outer pipes, quoted tables.
+  // Tables without outer pipes, quoted tables.
   expect("a | b\n--|--\n1 | 2", "", "table without outer pipes withheld (hidden)", P, H);
   expect("a | b\n--|--\n1 | 2", "a | b\n--|--\n1 | 2", "table without outer pipes kept (progressive)");
   expect("a | b\n--|--\n1 ", "a | b\n--|--\n", "short row of a table without pipes trimmed");

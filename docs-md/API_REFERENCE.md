@@ -22,9 +22,9 @@ Markdown arriving in pieces, from `createMarkdownStream()`: an alternative to `m
 - `reset(text?)` replaces the text and streams again.
 - `dispose()` ends the stream, if `end()` wasn't called, and frees the text once no view shows it.
 
-| Type             | Default Value | Platform |
-| ---------------- | ------------- | -------- |
-| `MarkdownStream` | -             | Both     |
+| Type             | Default Value | Platform  |
+| ---------------- | ------------- | --------- |
+| `MarkdownStream` | -             | Both, Web |
 
 ### `markdownStyle`
 
@@ -569,8 +569,17 @@ Controls how incomplete (still-streaming) tables are rendered:
 
 Controls how a fenced code block whose closing fence has not arrived yet is rendered:
 
-- **`'progressive'`** (default): The code streams in line-by-line with its header (language label + copy button) visible but non-interactive — copying is disabled until the block completes. Syntax highlighting is deferred until the closing fence arrives, so it applies once instead of flickering on every token.
+- **`'progressive'`** (default): The code streams in line-by-line; with `flavor="github"` its header (language label + copy button) is visible but non-interactive — copying is disabled until the block completes. Syntax highlighting is deferred until the closing fence arrives, so it applies once instead of flickering on every token.
 - **`'hidden'`**: The entire code block is hidden until its closing fence arrives, then it appears complete (the same all-or-nothing behavior block math uses).
+
+#### `mediaMode`
+
+Controls how a trailing image paragraph, link paragraph or `<video>` block is rendered while it streams:
+
+- **`'progressive'`** (default): The block is shown as soon as its syntax is complete (the closing `)` or `>`); until then the partial line is withheld instead of rendering as text. A bare URL on its own line can always grow, so it is withheld until the next line arrives.
+- **`'hidden'`**: The block is withheld until a blank line or another block follows it, like `tableMode: 'hidden'`, so it never appears before the content after it. Applies to native images and to blocks drawn by `renderers` alike.
+
+An unterminated block-math (`$$`) block is always withheld until its closing `$$` arrives; that behavior has no key.
 
 #### `animation`
 

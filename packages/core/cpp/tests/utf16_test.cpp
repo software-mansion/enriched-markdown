@@ -19,7 +19,7 @@ void check(bool condition, const std::string &what) {
   }
 }
 
-// The conversions as they were written first, one push_back per unit: the sized ones must match them.
+// The conversions one push_back per unit: the sized ones must match them.
 std::u16string referenceUtf16(std::string_view utf8) {
   std::u16string out;
   for (size_t i = 0; i < utf8.size();) {

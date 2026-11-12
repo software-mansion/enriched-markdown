@@ -337,7 +337,7 @@ bool equalsIgnoringCase(char a, char b) {
   return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
 }
 
-// HTML blocks whose content is raw: nothing in them is Markdown to cut. Tag names compare as md4c
+// HTML blocks that may hold blank lines, so the filter leaves them whole. Tag names compare as md4c
 // does, ignoring case and ending at a space, `>` or the line's end.
 bool startsRawHtmlBlock(std::string_view body) {
   if (startsWith(body, "<!--"))
@@ -388,8 +388,6 @@ std::string_view htmlBlockCloser(std::string_view body) {
 
 } // namespace
 
-// Not indented (code, or a list item's continuation), and no list marker, reference definition,
-// footnote or HTML that could belong to the block above.
 bool startsTopLevelBlock(std::string_view line) {
   if (line.empty())
     return false;
@@ -413,9 +411,10 @@ bool mayDefineLinkReference(std::string_view markdown) {
   // CommonMark's limit for a label, with room for its brackets and escapes.
   constexpr size_t kMaxLinkLabel = 2048;
   // A fence at the start of a line, outside any container, runs to its closing fence or the end:
-  // its lines are code, like `[key: string]: number`. A closing fence is taken at any indent, which
-  // only ever checks more lines. After raw HTML or display math, or right after a table row, a fence
-  // line may not open one, so from there on every line is checked.
+  // its lines are code, like `[key: string]: number`. A closing fence is indented at most three
+  // spaces. A fence line this scan can't follow (indented, inside a quote or list item), raw HTML,
+  // display math, or a fence right after a table row turns the tracking off: from there on every
+  // line is checked, which is only slower.
   char fence = 0;
   size_t fenceLength = 0;
   bool fencesOpen = true;
@@ -428,7 +427,7 @@ bool mayDefineLinkReference(std::string_view markdown) {
     std::string_view line = markdown.substr(lineStart, lineEnd - lineStart);
     if (fence != 0) {
       size_t indent = 0;
-      while (indent < line.size() && isWhitespace(line[indent]))
+      while (indent < 3 && indent < line.size() && line[indent] == ' ')
         indent++;
       size_t run = countRun(line, indent, fence);
       if (run >= fenceLength && isBlankFrom(line, indent + run))
@@ -438,7 +437,9 @@ bool mayDefineLinkReference(std::string_view markdown) {
     }
     if (fencesOpen && !line.empty() && (line[0] == '`' || line[0] == '~')) {
       size_t run = countRun(line, 0, line[0]);
-      if (run >= 3 && !afterTableRow && (line[0] == '~' || line.find('`', run) == npos)) {
+      if (run >= 3 && afterTableRow) {
+        fencesOpen = false;
+      } else if (run >= 3 && (line[0] == '~' || line.find('`', run) == npos)) {
         fence = line[0];
         fenceLength = run;
         lineStart = lineEnd + 1;
@@ -460,6 +461,9 @@ bool mayDefineLinkReference(std::string_view markdown) {
                            markdown[i] == '+' || markdown[i] == '*' || markdown[i] == '.' || markdown[i] == ')' ||
                            std::isdigit(static_cast<unsigned char>(markdown[i]))))
       i++;
+    if (fencesOpen && i > lineStart && i < lineEnd && (markdown[i] == '`' || markdown[i] == '~') &&
+        countRun(line, i - lineStart, markdown[i]) >= 3)
+      fencesOpen = false;
     if (i < lineEnd && markdown[i] == '[') {
       // The label runs to the first `]` not escaped, on this line or a later one.
       size_t labelEnd = std::min(markdown.size(), i + kMaxLinkLabel);

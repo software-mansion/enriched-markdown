@@ -136,6 +136,14 @@ struct ENRMStreamTestProps {
   XCTAssertFalse(ENRMIsStreamUpdate(previous, otherMode, layoutKey, NSWritingDirectionLeftToRight));
 }
 
+- (void)testTextAppendedWithoutStreamingIsNoStreamsUpdate
+{
+  const MeasurementCacheKey layoutKey{};
+  const auto previous = ENRMPreviouslyMeasured({.markdown = "Show", .streaming = false}, layoutKey);
+  XCTAssertFalse(ENRMIsStreamUpdate(previous, {.markdown = "Show more", .streaming = false}, layoutKey,
+                                    NSWritingDirectionLeftToRight));
+}
+
 - (void)testTheFirstMeasurementIsNoStreamsUpdate
 {
   XCTAssertFalse(ENRMIsStreamUpdate(ENRMPreviousMeasurement<ENRMStreamMeasurementProps>{}, {.markdown = "First chunk"},

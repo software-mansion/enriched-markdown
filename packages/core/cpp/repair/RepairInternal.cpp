@@ -749,7 +749,8 @@ bool endsParagraphLine(std::string_view line) {
   return firstEq != npos && line.find_first_not_of(" \t\r=") == npos; // `=` underline of any length
 }
 
-// An HTML block of a kind that may interrupt a paragraph (CommonMark types 1-6).
+// An HTML block opener that may interrupt a paragraph: comments, processing instructions,
+// declarations and the common block tags (a subset of CommonMark's types 1-6).
 bool startsHtmlBlockLine(std::string_view line) {
   static constexpr std::string_view kOpeners[] = {"<!--",      "<?",   "<!",       "<pre",     "<script", "<style",
                                                   "<textarea", "<div", "<details", "<summary", "<table",  "<figure",

@@ -18,8 +18,9 @@ export interface MarkdownStream {
   reset(text?: string): void;
   /**
    * Ends the stream, if `end()` wasn't called, and frees the text once no view
-   * shows it. A view that mounts once it is freed shows nothing. A stream JS no longer references is freed too, where the engine
-   * supports FinalizationRegistry.
+   * shows it. A view that mounts once it is freed shows nothing. A stream JS
+   * no longer references is freed too, where the engine supports
+   * FinalizationRegistry.
    */
   dispose(): void;
 }
@@ -40,8 +41,8 @@ type NativeStreams = Pick<
   'createStream' | 'appendToStream' | 'readStream' | 'disposeStream'
 >;
 
-// Set by the native entry (native/EnrichedMarkdownText): importing the module
-// here would pull react-native into the web build.
+// Set by the native package entry (index.tsx): importing the module here would pull react-native
+// into the web build, which imports this file too.
 let nativeStreams: NativeStreams | null = null;
 
 export function setNativeMarkdownStreams(

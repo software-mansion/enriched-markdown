@@ -16,17 +16,21 @@ The standalone iOS and Android packages have no streaming API. You can still han
 :::
 
 :::warning Migrating from `react-native-streamdown` or `streamingAnimation`
-`react-native-streamdown` is deprecated. This package now holds back incomplete blocks and repairs half-written Markdown itself, in native code, with no Worklets setup: replace `StreamdownText` with `EnrichedMarkdownText` and set [`streaming`](#incremental-rendering) while the text arrives.
+`react-native-streamdown` is no longer needed: streaming is built into this package, which holds back incomplete blocks and repairs half-written Markdown itself, in native code, with no Worklets setup. See [Migrating from `react-native-streamdown`](#migrating-from-react-native-streamdown) for the steps.
 
 `streamingAnimation` is deprecated in favor of `streaming` and logs a warning in development. It no longer only animates: while it is on, incomplete blocks are held back and inline syntax is repaired, so turn it off when the stream ends, or the final render keeps doing so.
 :::
 
 ## Incremental rendering
 
-Feed the growing Markdown string to the display component and set [`streaming`](/react-native/api-reference/enriched-markdown-text#streaming) while it arrives (off by default). Only the tail - the new characters beyond the previous content - fades in on each update, so the already-rendered text stays put. Set it back to `false` when the stream ends, so the final render shows everything:
+Feed the growing Markdown string to the display component and set [`streaming`](/react-native/api-reference/enriched-markdown-text#streaming) while it arrives (off by default). Only the tail - the new characters beyond the previous content - fades in on each update, so the already-rendered text stays put. Set it back to `false` when the stream ends, so the final render shows everything; [`onStreamingEnd`](/react-native/api-reference/enriched-markdown-text#onstreamingend) is called once the view has stopped streaming and the final render shows the whole text:
 
 ```tsx
-<EnrichedMarkdownText markdown={partialMarkdown} streaming={isStreaming} />
+<EnrichedMarkdownText
+  markdown={partialMarkdown}
+  streaming={isStreaming}
+  onStreamingEnd={() => console.log('done')}
+/>
 ```
 
 :::note
@@ -83,6 +87,8 @@ socket.onclose = () => stream.end();
 
 `end()` stops streaming and renders the whole text; `reset()` starts over for a retry. Keep the stream outside the component, so a row of a list that unmounts and mounts again shows the same text. See [`stream`](/react-native/api-reference/enriched-markdown-text#stream).
 
+On web a stream shows its text as it grows, but `onStreamingEnd` does not fire.
+
 ## Incomplete blocks
 
 Some block elements can't be rendered until enough structure has arrived - a table needs its header and separator row, a fenced code block needs its closing fence. [`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig) decides what happens in the meantime.
@@ -102,7 +108,7 @@ This handling, and the inline repair below, applies while `streaming` is on, in 
 
 | Mode | Behavior |
 | --- | --- |
-| `'progressive'` (default) | Streams the code line-by-line with a visible but non-interactive header (copying is disabled until the block completes); syntax highlighting is deferred until the closing fence so it does not flicker on every token. The block appears once the line that opens the fence has ended, so its language label never changes. |
+| `'progressive'` (default) | Streams the code line-by-line; with `flavor="github"` its header is visible but non-interactive (copying is disabled until the block completes); syntax highlighting is deferred until the closing fence so it does not flicker on every token. The block appears once the line that opens the fence has ended, so its language label never changes. |
 | `'hidden'` | Withholds the whole block until its closing fence arrives, then shows it complete. |
 
 A code block drawn by [`renderers.code`](/react-native/guides/custom-block-renderers#code-blocks) follows the same modes. In `'progressive'` its element re-renders with the growing code and receives `isComplete: false` until the closing fence arrives.
@@ -118,15 +124,33 @@ A code block drawn by [`renderers.code`](/react-native/guides/custom-block-rende
 
 ## Half-written inline syntax
 
-Inline Markdown still being typed at the end is repaired, so it never flashes as raw syntax:
+Inline Markdown still being typed at the end is repaired instead of showing as raw syntax:
 
 - emphasis, strikethrough and inline code get their closers: `**bold te` shows as **bold te**;
 - a link shows its label as plain text until its URL is complete: `[docs](https://exa` shows as `docs`;
 - an image, unclosed inline math (`$x^2`) and a lone marker line (`-`, `#`) wait until they can render.
 
-Blocks that have finished are never touched again, so the cost of each update depends on the unfinished tail, not on the length of the document.
+The repair applies only to the unfinished tail; blocks that have finished render as written.
 
 <LivePreview src={StreamingSrc} unavailable unavailableReason={<>iOS and Android only - <code>streaming</code> and <code>streamingConfig</code> are stripped on web.</>} />
+
+## Migrating from `react-native-streamdown`
+
+Streaming is built into this package, so `react-native-streamdown` is no longer needed:
+
+1. Replace `StreamdownText` with `EnrichedMarkdownText` and set [`streaming`](#incremental-rendering) while the text arrives. The other props carry over, since `StreamdownText` accepted every `EnrichedMarkdownText` prop.
+2. Turn `streaming` off when the stream ends; `StreamdownText` had no such step. A view left streaming keeps holding back incomplete blocks in the final render.
+3. Drop `remendConfig`. It has no equivalent: repair of incomplete Markdown is built in.
+4. Uninstall `react-native-streamdown` and `remend`.
+5. If nothing else in your app uses Worklets Bundle Mode, remove its setup: `bundleMode: true` and the `importForwarding` entry for `remend` in `babel.config.js`, the `getBundleModeMetroConfig` entry in `metro.config.js`, and the Metro patch.
+
+```tsx
+// Before
+<StreamdownText markdown={partialMarkdown} />
+
+// After
+<EnrichedMarkdownText markdown={partialMarkdown} streaming={isStreaming} />
+```
 
 ## Reference
 

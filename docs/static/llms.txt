@@ -62,7 +62,7 @@
 - [Mentions](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/mentions): Mentions as ordinary links with custom URL schemes - styling with `linkVariants`, and the editor's mention-authoring flow.
 - [LaTeX math](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/latex-math): Inline and block equations, styling, handling render errors, and excluding the math engine.
 - [Code-block highlighting](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/code-highlighting): tree-sitter syntax highlighting, the token palette, the supported grammars, and trimming the language set.
-- [Markdown streaming](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/markdown-streaming): Rendering LLM output as it arrives, the fade and gradient animations, streaming through `createMarkdownStream()` without re-rendering, and how incomplete tables, code blocks and math are withheld.
+- [Markdown streaming](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/markdown-streaming): Rendering LLM output as it arrives, the fade and gradient animations, streaming through `createMarkdownStream()` without re-rendering, how incomplete tables, code blocks and math are withheld, and migrating from `react-native-streamdown`.
 - [Editor-style text](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/editor-style-text): Reproducing editor content line for line with `hardSoftBreaks` and `preserveBlankLines`.
 
 ## User experience

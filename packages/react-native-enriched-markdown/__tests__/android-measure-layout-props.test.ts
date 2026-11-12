@@ -3,7 +3,7 @@ import { join } from 'path';
 
 // Android measures in Kotlin with only the props conversions.h sends (measureLayoutConfig). A prop
 // that changes layout but is missing there measures with its default, and the measured height
-// disagrees with the rendered one (as `linkRegex` did in #855). Every native prop, and every field
+// disagrees with the rendered one. Every native prop, and every field
 // of the streaming config and md4c flags, must be listed here as not laying the document out, or
 // be sent and read by MeasureConfig.
 

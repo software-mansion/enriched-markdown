@@ -8,18 +8,18 @@
 #import "StyleConfig.h"
 #import <objc/runtime.h>
 
-@implementation TextViewLayoutManager {
-#if !TARGET_OS_OSX
-  UIColor *_glyphColor;
-#endif
-}
+// This class is set onto layout managers the text view already made (ENRMTextViewSetup), so it has
+// no ivars of its own: their storage would lie past the instance. Its state is associated instead.
+@implementation TextViewLayoutManager
 
 #if !TARGET_OS_OSX
+static char kGlyphColorKey;
+
 - (void)drawGlyphsForGlyphRange:(NSRange)glyphRange atPoint:(CGPoint)origin color:(UIColor *)color
 {
-  _glyphColor = color;
+  objc_setAssociatedObject(self, &kGlyphColorKey, color, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
   [self drawGlyphsForGlyphRange:glyphRange atPoint:origin];
-  _glyphColor = nil;
+  objc_setAssociatedObject(self, &kGlyphColorKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 - (void)showCGGlyphs:(const CGGlyph *)glyphs
@@ -30,11 +30,12 @@
           attributes:(NSDictionary<NSAttributedStringKey, id> *)attributes
            inContext:(CGContextRef)context
 {
-  if (_glyphColor != nil) {
+  UIColor *glyphColor = objc_getAssociatedObject(self, &kGlyphColorKey);
+  if (glyphColor != nil) {
     NSMutableDictionary<NSAttributedStringKey, id> *colored = [attributes mutableCopy];
-    colored[NSForegroundColorAttributeName] = _glyphColor;
+    colored[NSForegroundColorAttributeName] = glyphColor;
     attributes = colored;
-    CGContextSetFillColorWithColor(context, _glyphColor.CGColor);
+    CGContextSetFillColorWithColor(context, glyphColor.CGColor);
   }
   [super showCGGlyphs:glyphs
             positions:positions
@@ -57,8 +58,8 @@
   }
 }
 
-// TextKit doesn't pass every character range on as a glyph range: an image scaled right after its
-// first draw stayed blank until the next scroll. The tiles hear of the range here.
+// TextKit doesn't pass every character range on as a glyph range (an attachment resized after its
+// first draw), so the tiles hear of the range here too.
 - (void)invalidateDisplayForCharacterRange:(NSRange)charRange
 {
   [super invalidateDisplayForCharacterRange:charRange];

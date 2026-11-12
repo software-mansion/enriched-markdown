@@ -33,9 +33,10 @@ class StreamMeasurementTest {
     smooth: Boolean = false,
     density: Float = 1f,
     rtl: Boolean = false,
+    streaming: Boolean = true,
   ): Long? {
     val props =
-      JavaOnlyMap.of("markdown", markdown, "markdownStyle", JavaOnlyMap(), "allowTrailingMargin", trailingMargin)
+      JavaOnlyMap.of("markdown", markdown, "markdownStyle", JavaOnlyMap(), "allowTrailingMargin", trailingMargin, "streaming", streaming)
     props.putMap("streamingConfig", streamingConfig ?: JavaOnlyMap.of("smooth", smooth))
     return MeasurementStore.laidOutSizeForStreamUpdate(viewId, width, measureInputOf(props), true, true, 1f, 0f, density, rtl)
   }
@@ -131,6 +132,20 @@ class StreamMeasurementTest {
     assertEquals(taller, streamUpdate("Smooth pacing shows the words", smooth = true))
   }
 
+  // Two updates arrive before the view renders the first; it then lays that one out a line taller
+  // and the stream pauses. The answer was the view's own size, so its newer size replaces it.
+  @Test
+  fun aStreamThatPausesTakesTheViewsSizeOnceItCatchesUp() {
+    MeasurementStore.storeLaidOutSize(viewId, widthPx, laidOut, "Streaming")
+    streamUpdate("Streaming")
+    assertEquals(laidOut, streamUpdate("Streaming **mark"))
+    assertEquals(laidOut, streamUpdate("Streaming **markdown**"))
+    val taller = YogaMeasureOutput.make(360f, 2480f)
+    MeasurementStore.storeLaidOutSize(viewId, widthPx, taller, "Streaming **mark")
+
+    assertEquals(taller, streamUpdate("Streaming **markdown**"))
+  }
+
   // Without smooth pacing an earlier state the view still shows is a render in flight, not an answer.
   @Test
   fun theSameDocumentAgainKeepsItsAnswerWhileTheViewCatchesUp() {
@@ -176,6 +191,24 @@ class StreamMeasurementTest {
 
     assertEquals(laidOut, streamUpdate("Streaming **markdown", streamingConfig = config("none")))
     assertNull(streamUpdate("Streaming **markdown**", streamingConfig = config("none", tableMode = "hidden")))
+  }
+
+  // A detached view clears its size: it lays nothing out until it is attached again.
+  @Test
+  fun aClearedLaidOutSizeMeasuresTheStreamInFull() {
+    MeasurementStore.storeLaidOutSize(viewId, widthPx, laidOut, "Streaming")
+    streamUpdate("Streaming")
+    MeasurementStore.clearLaidOutSize(viewId)
+
+    assertNull(streamUpdate("Streaming **markdown**"))
+  }
+
+  @Test
+  fun textAppendedWithoutStreamingMeasuresInFull() {
+    MeasurementStore.storeLaidOutSize(viewId, widthPx, laidOut, "Show")
+    streamUpdate("Show", streaming = false)
+
+    assertNull(streamUpdate("Show more", streaming = false))
   }
 
   @Test

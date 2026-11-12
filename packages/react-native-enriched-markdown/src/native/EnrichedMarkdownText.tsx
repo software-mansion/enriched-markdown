@@ -30,11 +30,7 @@ import { hasRenderers } from '../blockRenderers';
 import { useImageSources } from './useImageSources';
 import { useLinksChange } from '../linkOccurrences';
 import { useStreamingAnimation } from '../streamingAnimation';
-import {
-  setNativeMarkdownStreams,
-  useMarkdownStreamSnapshot,
-} from '../markdownStream';
-import NativeEnrichedMarkdownParser from '../NativeEnrichedMarkdownParser';
+import { useMarkdownStreamSnapshot } from '../markdownStream';
 import {
   normalizeMenuItem,
   normalizeLegacyBooleanMenuItem,
@@ -112,9 +108,6 @@ export type {
   CodeBlockPressEvent,
   SelectionCopyEvent,
 };
-
-// Streams keep their text in the parser module's C++ buffers.
-setNativeMarkdownStreams(NativeEnrichedMarkdownParser);
 
 // Default English labels for the built-in selection menu actions. Defaults are
 // resolved here (JS-side) so the native code always receives a concrete string.

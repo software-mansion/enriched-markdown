@@ -2,9 +2,25 @@
 
 `EnrichedMarkdownText` renders markdown while it streams, token by token from an LLM for example: new text fades in, incomplete blocks are held back and half-written inline syntax is repaired, all in native code.
 
-## Migrating from react-native-streamdown or streamingAnimation
+## Migrating from react-native-streamdown
 
-`react-native-streamdown` is deprecated: replace `StreamdownText` with `EnrichedMarkdownText` and set `streaming` while the text arrives. No Worklets setup is needed.
+`react-native-streamdown` is no longer needed: streaming is built into `react-native-enriched-markdown`, which holds back incomplete blocks and repairs half-written markdown itself, in native code.
+
+1. Replace `StreamdownText` with `EnrichedMarkdownText` and set `streaming` while the text arrives. The other props carry over, since `StreamdownText` accepted every `EnrichedMarkdownText` prop.
+2. Turn `streaming` off when the stream ends; `StreamdownText` had no such step. A view left streaming keeps holding back incomplete blocks in the final render.
+3. Drop `remendConfig`. It has no equivalent: repair of incomplete markdown is built in.
+4. Uninstall `react-native-streamdown` and `remend`.
+5. If nothing else in your app uses Worklets Bundle Mode, remove its setup: `bundleMode: true` and the `importForwarding` entry for `remend` in `babel.config.js`, the `getBundleModeMetroConfig` entry in `metro.config.js`, and the Metro patch.
+
+```tsx
+// Before
+<StreamdownText markdown={partialMarkdown} />
+
+// After
+<EnrichedMarkdownText markdown={partialMarkdown} streaming={isStreaming} />
+```
+
+## Migrating from streamingAnimation
 
 `streamingAnimation` is deprecated in favor of `streaming` and logs a warning in development. It no longer only animates: while it is on, incomplete blocks are held back and inline syntax is repaired, so turn it off when the stream ends, or the final render keeps doing so.
 
@@ -20,7 +36,7 @@ Feed the growing markdown string to `EnrichedMarkdownText` and set `streaming` w
 />
 ```
 
-Streaming assumes append-only updates: everything past the previous string's length is treated as new. `streamingAnimation` is a deprecated alias of `streaming`.
+Streaming assumes append-only updates: everything past the previous string's length is treated as new.
 
 ## Streaming Without Re-rendering
 
@@ -34,7 +50,7 @@ socket.onclose = () => stream.end();
 <EnrichedMarkdownText stream={stream} flavor="github" />;
 ```
 
-Keep the stream outside the component, so a list row that unmounts and mounts again shows the same text, and call `dispose()` when the message is gone.
+Keep the stream outside the component, so a list row that unmounts and mounts again shows the same text, and call `dispose()` when the message is gone. On web a stream shows its text as it grows, but `onStreamingEnd` does not fire.
 
 ## Incomplete Blocks
 
@@ -62,7 +78,7 @@ While a block's closing fence (```` ``` ````) has not arrived, its content is st
 
 | Mode | Behavior |
 |---|---|
-| `'progressive'` (default) | The code streams in line-by-line with its header (language label + copy button) visible but non-interactive — copying is disabled until the block completes. Syntax highlighting is deferred so it applies once when the closing fence arrives instead of flickering per token. |
+| `'progressive'` (default) | The code streams in line-by-line; with `flavor="github"` its header (language label + copy button) is visible but non-interactive — copying is disabled until the block completes. Syntax highlighting is deferred so it applies once when the closing fence arrives instead of flickering per token. |
 | `'hidden'` | The entire code block is hidden until its closing fence arrives, then it appears complete (the same all-or-nothing behavior block math uses). |
 
 ### Images, Videos and Links (`mediaMode`)
@@ -104,4 +120,4 @@ Animations change only how characters are drawn, never the text. Reduce Motion t
 
 ## Half-Written Inline Syntax
 
-Inline markdown still being typed at the end is repaired, so it never flashes as raw syntax: emphasis, strikethrough and inline code get their closers, a link shows its label until its URL is complete, and an image, unclosed inline math or a lone marker line waits until it can render. Finished blocks are never touched again.
+Inline markdown still being typed at the end is repaired instead of showing as raw syntax: emphasis, strikethrough and inline code get their closers, a link shows its label until its URL is complete, and an image, unclosed inline math or a lone marker line waits until it can render. The repair applies only to the unfinished tail; blocks that have finished render as written.

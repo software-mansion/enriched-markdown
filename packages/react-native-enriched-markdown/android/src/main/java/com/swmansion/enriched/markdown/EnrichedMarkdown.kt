@@ -124,12 +124,12 @@ class EnrichedMarkdown(
     StreamingPacer(
       reveal = {
         renderedSource = it
-        scheduleRenderIfNeeded()
+        scheduleRender()
       },
       done = {
         stopStreaming()
         renderedSource = currentMarkdown
-        scheduleRenderIfNeeded()
+        scheduleRender()
       },
     )
 
@@ -426,7 +426,7 @@ class EnrichedMarkdown(
       streamingEnded = false
       // Smooth pacing renders what has been revealed and hands the rest over frame by frame, so
       // new markdown that reveals nothing yet renders nothing. When the prop turns off, the words
-      // still waiting appear first (within 200 ms), then streaming stops.
+      // still waiting drain first, then streaming stops.
       if (pacer.update(currentMarkdown, streamingProp, smooth)) {
         stopStreaming()
         renderPending = true
@@ -434,7 +434,7 @@ class EnrichedMarkdown(
       val source = pacer.markdownToRender
       if (renderPending || source != renderedSource) {
         renderedSource = source
-        scheduleRenderIfNeeded()
+        scheduleRender()
       }
       renderPending = false
       markdownChanged = false
@@ -450,7 +450,7 @@ class EnrichedMarkdown(
       recreateStyleConfig()
       dirtyFlags += DirtyFlag.RECREATE_SEGMENTS
       dirtyFlags += DirtyFlag.FORCE_HEIGHT
-      scheduleRenderIfNeeded()
+      scheduleRender()
     }
   }
 
@@ -667,11 +667,6 @@ class EnrichedMarkdown(
     }
   }
 
-  // With nothing to render, scheduleRender still ends a stream that has ended.
-  private fun scheduleRenderIfNeeded() {
-    scheduleRender()
-  }
-
   // Everything one render needs, captured on the main thread.
   private class RenderJob(
     val style: StyleConfig,
@@ -747,6 +742,7 @@ class EnrichedMarkdown(
     return renderedSegments to hasPendingCodeBlock
   }
 
+  // With nothing to render, still ends a stream that has ended.
   private fun scheduleRender() {
     if (isDisposed) return
     val job =
