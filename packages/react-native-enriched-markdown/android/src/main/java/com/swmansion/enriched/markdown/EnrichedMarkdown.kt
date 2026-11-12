@@ -1098,12 +1098,14 @@ class EnrichedMarkdown(
       return
     }
     val contentWidth = (width - paddingLeft - paddingRight).toFloat()
-    val contentHeight = (computeSegmentsTotalHeight() - paddingTop - paddingBottom).toFloat()
+    val (contentHeightPx, slots) = reservedSlotLayout()
+    val contentHeight = contentHeightPx.toFloat()
     MeasurementStore.storeLaidOutSize(
       id,
       contentWidth,
       YogaMeasureOutput.make(PixelUtil.toDIPFromPixel(contentWidth), PixelUtil.toDIPFromPixel(contentHeight)),
       laidOutMarkdown,
+      slots,
     )
   }
 
