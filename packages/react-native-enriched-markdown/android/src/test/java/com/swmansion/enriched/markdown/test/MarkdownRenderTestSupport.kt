@@ -26,7 +26,7 @@ object MarkdownRenderTestSupport {
   }
 
   /**
-   * The style map the JS side sends, with [list], [taskList], [blockquote], [codeBlock] and [image] entries replacing
+   * The style map the JS side sends, with [list], [taskList], [blockquote], [codeBlock], [image] and [highlight] entries replacing
    * the defaults.
    * Sizes are Double, colors Int, as in a ReadableMap.
    */
@@ -36,12 +36,14 @@ object MarkdownRenderTestSupport {
     blockquote: Map<String, Any> = emptyMap(),
     codeBlock: Map<String, Any> = emptyMap(),
     image: Map<String, Any> = emptyMap(),
+    highlight: Map<String, Any> = emptyMap(),
   ): StyleConfig {
     DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(context)
     val style = JavaOnlyMap()
     // Headings are read by StyleConfig.needsJustify, which every segment render consults.
     (listOf("paragraph", "strong", "em", "strikethrough", "code", "superscript", "subscript", "highlight") + (1..6).map { "h$it" })
       .forEach { style.putMap(it, textElement()) }
+    style.putMap("highlight", textElement().apply { putAll(highlight) })
     style.putMap("link", textElement().apply { putString("fontFamily", "serif") })
     style.putArray(
       "linkVariants",

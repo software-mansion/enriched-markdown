@@ -1,6 +1,7 @@
 package com.swmansion.enriched.markdown.accessibility
 
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Rect
 import android.text.Spannable
 import android.util.AttributeSet
@@ -9,6 +10,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.appcompat.widget.AppCompatTextView
 import com.swmansion.enriched.markdown.spans.LinkPillSpan
+import com.swmansion.enriched.markdown.spans.TextBackgroundDrawer
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
 import com.swmansion.enriched.markdown.utils.text.view.OnSelectionCopy
 import com.swmansion.enriched.markdown.utils.text.view.SelectionCopyFormat
@@ -29,6 +31,16 @@ abstract class AccessibleMarkdownTextView
     /** The selection toolbar while it is showing, kept up to date by the selection menu callback. */
     internal var selectionActionMode: ActionMode? = null
 
+    // Inline code and highlight backgrounds come from the layout that draws the text, under it.
+    // Made on first draw: setText runs from the TextView constructor, before fields are set.
+    private var textBackgrounds: TextBackgroundDrawer? = null
+
+    override fun onDraw(canvas: Canvas) {
+      val drawer = textBackgrounds ?: TextBackgroundDrawer().also { textBackgrounds = it }
+      drawer.draw(canvas, this)
+      super.onDraw(canvas)
+    }
+
     // The selection menu's Copy ends up here, and Ctrl+C (and TalkBack's copy action) call this directly.
     override fun onTextContextMenuItem(id: Int): Boolean {
       if (id == android.R.id.copy) {
@@ -47,6 +59,7 @@ abstract class AccessibleMarkdownTextView
       type: BufferType?,
     ) {
       prepareSpans(text)
+      textBackgrounds?.invalidateFrom(0)
       super.setText(text, type)
     }
 
@@ -72,6 +85,7 @@ abstract class AccessibleMarkdownTextView
     ): Boolean {
       prepareSpans(tail)
       if (!replaceAdoptedTextTail(text, start, tail, hasLayout = layout != null)) return false
+      textBackgrounds?.invalidateFrom(start)
       // TextView didn't hear of the edit. Without a request, measure() would return the height
       // cached before it.
       requestLayout()
