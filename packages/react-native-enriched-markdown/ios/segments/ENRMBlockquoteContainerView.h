@@ -37,8 +37,9 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 
 - (instancetype)initWithConfig:(StyleConfig *)config;
 
-// Splits the node's children into segments and applies them to this container.
-- (void)applyBlockquoteNode:(MarkdownASTNode *)node;
+// Splits the node's children into segments and applies them to this container. Task-list items are
+// numbered from taskIndexOffset: the document-global index of the quote's first task.
+- (void)applyBlockquoteNode:(MarkdownASTNode *)node taskIndexOffset:(NSInteger)taskIndexOffset;
 
 // Laid-out height of this quote at the given outer width (the width the parent
 // lays it out at, before this view's own inset).

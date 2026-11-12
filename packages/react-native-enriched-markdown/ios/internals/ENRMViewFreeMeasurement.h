@@ -197,7 +197,7 @@ static inline ENRMRenderResult *ENRMRenderMarkdownViewFree(const PropsT &typedPr
       ENRMResolveLineBreakStrategy([[NSString alloc] initWithUTF8String:typedProps.lineBreakStrategyIOS.c_str()]);
   ENRMRenderResult *result =
       ENRMRenderASTNodes(ast.children, config, typedProps.allowTrailingMargin, typedProps.allowFontScaling,
-                         typedProps.maxFontSizeMultiplier, lineBreakStrategy);
+                         typedProps.maxFontSizeMultiplier, lineBreakStrategy, /*startingTaskIndex*/ 0);
   if (result.attributedText.length == 0) {
     return nil;
   }
@@ -296,9 +296,9 @@ ENRMRenderSegmentedMarkdownViewFree(const PropsT &typedProps, StyleConfig *confi
   ENRMWritingDirectionMode writingDirectionMode =
       ENRMResolveWritingDirectionMode([[NSString alloc] initWithUTF8String:typedProps.writingDirection.c_str()]);
 
-  NSArray<ENRMRenderedSegment *> *segments =
-      ENRMRenderSegmentsFromAST(ast, config, typedProps.allowTrailingMargin, typedProps.allowFontScaling,
-                                typedProps.maxFontSizeMultiplier, lineBreakStrategy, /*blockquoteContent*/ NO);
+  NSArray<ENRMRenderedSegment *> *segments = ENRMRenderSegmentsFromAST(
+      ast, config, typedProps.allowTrailingMargin, typedProps.allowFontScaling, typedProps.maxFontSizeMultiplier,
+      lineBreakStrategy, /*blockquoteContent*/ NO, /*startingTaskIndex*/ 0);
   for (ENRMRenderedSegment *segment in segments) {
     if (segment.kind == ENRMSegmentKindText && segment.textResult) {
       ENRMApplyWritingDirectionMode(segment.textResult.attributedText, writingDirectionMode, resolvedLayoutDirection);

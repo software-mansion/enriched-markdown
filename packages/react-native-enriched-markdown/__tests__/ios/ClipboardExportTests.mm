@@ -36,7 +36,7 @@
                                                                     flags:[ENRMMd4cFlags defaultFlags]
                                                                     isGFM:YES];
   StyleConfig *config = [[StyleConfig alloc] init];
-  ENRMRenderResult *result = ENRMRenderASTNodes(ast.children, config, NO, YES, 0, NSLineBreakStrategyStandard);
+  ENRMRenderResult *result = ENRMRenderASTNodes(ast.children, config, NO, YES, 0, NSLineBreakStrategyStandard, 0);
   return generateHTML(result.attributedText, config);
 }
 

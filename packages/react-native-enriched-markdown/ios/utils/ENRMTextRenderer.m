@@ -12,7 +12,7 @@
 static ENRMRenderResult *ENRMRenderASTNodesCore(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config,
                                                 BOOL allowTrailingMargin, BOOL allowFontScaling,
                                                 CGFloat maxFontSizeMultiplier, NSLineBreakStrategy lineBreakStrategy,
-                                                ENRMBlockquoteTextRenderer *block)
+                                                ENRMBlockquoteTextRenderer *block, NSInteger startingTaskIndex)
 {
   AttributedRenderer *renderer = [[AttributedRenderer alloc] initWithConfig:config];
   [renderer setAllowTrailingMargin:allowTrailingMargin];
@@ -20,6 +20,7 @@ static ENRMRenderResult *ENRMRenderASTNodesCore(NSArray<MarkdownASTNode *> *node
   RenderContext *context = [RenderContext new];
   context.allowFontScaling = allowFontScaling;
   context.maxFontSizeMultiplier = maxFontSizeMultiplier;
+  context.taskItemCount = startingTaskIndex;
 
   NSMutableAttributedString *attributedText = [renderer renderNodes:nodes context:context block:block];
 
@@ -38,17 +39,17 @@ static ENRMRenderResult *ENRMRenderASTNodesCore(NSArray<MarkdownASTNode *> *node
 
 ENRMRenderResult *ENRMRenderASTNodes(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config, BOOL allowTrailingMargin,
                                      BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
-                                     NSLineBreakStrategy lineBreakStrategy)
+                                     NSLineBreakStrategy lineBreakStrategy, NSInteger startingTaskIndex)
 {
   return ENRMRenderASTNodesCore(nodes, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
-                                lineBreakStrategy, /*block*/ nil);
+                                lineBreakStrategy, /*block*/ nil, startingTaskIndex);
 }
 
 ENRMRenderResult *ENRMRenderBlockquoteContentNodes(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config,
                                                    BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
-                                                   NSLineBreakStrategy lineBreakStrategy)
+                                                   NSLineBreakStrategy lineBreakStrategy, NSInteger startingTaskIndex)
 {
   ENRMBlockquoteTextRenderer *block = [[ENRMBlockquoteTextRenderer alloc] initWithConfig:config];
   return ENRMRenderASTNodesCore(nodes, config, /*allowTrailingMargin*/ NO, allowFontScaling, maxFontSizeMultiplier,
-                                lineBreakStrategy, block);
+                                lineBreakStrategy, block, startingTaskIndex);
 }

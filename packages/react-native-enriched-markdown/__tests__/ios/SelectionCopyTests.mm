@@ -46,7 +46,7 @@ static MarkdownASTNode *ENRMParse(NSString *markdown)
 {
   StyleConfig *config = [[StyleConfig alloc] init];
   ENRMRenderResult *result =
-      ENRMRenderASTNodes(ENRMParse(@"Value: **42**").children, config, NO, YES, 0, NSLineBreakStrategyStandard);
+      ENRMRenderASTNodes(ENRMParse(@"Value: **42**").children, config, NO, YES, 0, NSLineBreakStrategyStandard, 0);
   EnrichedMarkdownInternalText *view = [[EnrichedMarkdownInternalText alloc] initWithConfig:config];
   [view applyAttributedText:result.attributedText context:result.context];
   return view;
@@ -104,7 +104,7 @@ static void ENRMPerform(UIAction *action)
   quote.accessibilityLabels = [ENRMAccessibilityLabels new];
   quote.frame = CGRectMake(0, 0, 320, 1000);
   quote.onSelectionCopy = [self recorder];
-  [quote applyBlockquoteNode:ENRMParse(@"> quoted text\n").children.firstObject];
+  [quote applyBlockquoteNode:ENRMParse(@"> quoted text\n").children.firstObject taskIndexOffset:0];
 
   EnrichedMarkdownInternalText *text = nil;
   for (RCTUIView *segment in quote.segmentViews) {
@@ -126,7 +126,7 @@ static void ENRMPerform(UIAction *action)
   quote.accessibilityLabels = [ENRMAccessibilityLabels new];
   quote.frame = CGRectMake(0, 0, 320, 1000);
   quote.onSelectionCopy = [self recorder];
-  [quote applyBlockquoteNode:ENRMParse(@"> > nested text\n").children.firstObject];
+  [quote applyBlockquoteNode:ENRMParse(@"> > nested text\n").children.firstObject taskIndexOffset:0];
 
   ENRMBlockquoteContainerView *nested = nil;
   for (RCTUIView *segment in quote.segmentViews) {

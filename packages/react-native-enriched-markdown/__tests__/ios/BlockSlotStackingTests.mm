@@ -34,7 +34,7 @@ static NSString *ENRMFirstSlotId(NSString *markdown)
                                                       inlineCodeLinkRegex:nil
                                                        activeBlockSlotIds:slotIds
                                                            annotateImages:NO];
-  return ENRMRenderSegmentsFromAST(ast, config, NO, YES, 0, NSLineBreakStrategyStandard, NO);
+  return ENRMRenderSegmentsFromAST(ast, config, NO, YES, 0, NSLineBreakStrategyStandard, NO, 0);
 }
 
 - (void)testActiveSlotReservesItsHeightAndRecordsItsFrame

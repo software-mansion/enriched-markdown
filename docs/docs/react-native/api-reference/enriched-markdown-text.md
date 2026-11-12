@@ -799,7 +799,7 @@ Callback fired when a task list checkbox is tapped. The checkbox is toggled nati
 
 ```ts
 interface TaskListItemPressEvent {
-  index: number; // 0-based item index
+  index: number; // 0-based index among all task items in the document, in document order
   checked: boolean; // checked state after toggling
   text: string; // the item's text
 }

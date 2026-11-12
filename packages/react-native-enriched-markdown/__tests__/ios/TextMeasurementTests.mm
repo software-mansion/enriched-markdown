@@ -28,7 +28,7 @@ static StyleConfig *ENRMMeasurementConfig(void)
   MarkdownASTNode *ast = [[[ENRMMarkdownParser alloc] init] parseMarkdown:markdown
                                                                     flags:[ENRMMd4cFlags defaultFlags]
                                                                     isGFM:YES];
-  ENRMRenderResult *result = ENRMRenderASTNodes(ast.children, config, NO, YES, 0, NSLineBreakStrategyStandard);
+  ENRMRenderResult *result = ENRMRenderASTNodes(ast.children, config, NO, YES, 0, NSLineBreakStrategyStandard, 0);
 
   NSTextContainer *container = [[NSTextContainer alloc] initWithSize:CGSizeMake(maxWidth, CGFLOAT_MAX)];
   container.lineFragmentPadding = 0;

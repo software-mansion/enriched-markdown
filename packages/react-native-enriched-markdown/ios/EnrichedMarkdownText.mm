@@ -485,7 +485,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
       return NO;
 
     result = ENRMRenderASTNodes(ast.children, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
-                                lineBreakStrategy);
+                                lineBreakStrategy, /*startingTaskIndex*/ 0);
     ENRMApplyWritingDirectionMode(result.attributedText, writingDirectionMode, resolvedLayoutDirection);
     return YES;
   };
@@ -528,7 +528,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   ENRMRenderResult *result =
       ENRMRenderASTNodes(ast.children, _config, _allowTrailingMargin, _fontScaleObserver.allowFontScaling,
-                         _maxFontSizeMultiplier, _lineBreakStrategy);
+                         _maxFontSizeMultiplier, _lineBreakStrategy, /*startingTaskIndex*/ 0);
   ENRMApplyWritingDirectionMode(result.attributedText, _writingDirectionMode, _resolvedLayoutDirection);
 
   _lastElementMarginBottom = result.lastElementMarginBottom;
