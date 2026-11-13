@@ -65,6 +65,11 @@ export class EditPipeline {
     if (insertedText.length > 0) {
       this.applyPendingStyles(context);
     }
+    this.formattingStore.growToWholeWords(
+      text,
+      editStart,
+      editStart + insertedText.length
+    );
   }
 
   // Only list items continue onto the new line.

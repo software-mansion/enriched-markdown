@@ -87,6 +87,11 @@
     }
   }
 
+  NSString *editedText = [_host plainText];
+  NSUInteger editStart = MIN(editLocation, editedText.length);
+  [_formattingStore growToWholeWordsInText:editedText
+                             touchingRange:NSMakeRange(editStart, MIN(insertedLength, editedText.length - editStart))];
+
   // Determine whether the edit touched a newline (for full-vs-scoped formatting).
   BOOL touchedNewline = context.preEditReplacedNewline;
   if (!touchedNewline && insertedLength > 0) {

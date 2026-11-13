@@ -57,7 +57,7 @@ class InputEventEmitter(
     val link = (linkRange != null) to linkRange?.url.orEmpty()
     val current =
       StyleType.entries.associateWith { style ->
-        isStyleEffectivelyActive(style, pos)
+        isStyleEffectivelyActive(style, pos, view.selectionEnd)
       }
     val headingLevel = view.headingLevelAtCursor()
     val unorderedList = view.listStateAtCursor(BlockType.UNORDERED_LIST_ITEM)
@@ -182,7 +182,7 @@ class InputEventEmitter(
       if (isSelection) {
         store.isStyleActiveInRange(type, selectionStart, selectionEnd)
       } else {
-        isStyleEffectivelyActive(type, selectionStart)
+        isStyleEffectivelyActive(type, selectionStart, selectionEnd)
       }
 
     val contextMenuListState = view.listStateAtCursor(BlockType.UNORDERED_LIST_ITEM)
@@ -212,9 +212,11 @@ class InputEventEmitter(
     )
   }
 
-  private fun isStyleEffectivelyActive(
+  /** Whether [style] shows as active for the selection `[pos, end)`: pending styles first, then the store. */
+  internal fun isStyleEffectivelyActive(
     style: StyleType,
-    pos: Int,
+    pos: Int = view.selectionStart,
+    end: Int = view.selectionEnd,
   ): Boolean {
     if (style == StyleType.LINK) {
       return view.linkForSelection(view.selectionStart, view.selectionEnd) != null
@@ -222,7 +224,7 @@ class InputEventEmitter(
     return view.pendingStyles.contains(style) ||
       (
         !view.pendingStyleRemovals.contains(style) &&
-          view.formattingStore.isStyleActive(style, pos)
+          view.isStoredStyleActive(style, pos, end)
       )
   }
 

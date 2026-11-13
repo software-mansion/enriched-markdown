@@ -735,6 +735,10 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   [_editSession exitPhase];
   [self applyFormatting];
   [self updatePlaceholderVisibility];
+  // A style toggled at the caret belongs to the old document. The import's caret move is
+  // suppressed, so nothing else drops it, and after a send's setValue("") it would style the next
+  // message.
+  [_typingController resetPendingStyles];
 
   if (parsed.plainText.length == 0) {
     [self resetBaseTypingAttributes];
@@ -765,6 +769,9 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
     NSRange shifted = NSMakeRange(block.range.location + editLocation, block.range.length);
     [_blockStore setBlockType:block.type level:block.level forParagraphRange:shifted inText:plainText];
   }
+
+  // The edit pipeline, which grows underlines after an edit, doesn't run for this one.
+  [_formattingStore growToWholeWordsInText:plainText touchingRange:NSMakeRange(editLocation, text.length)];
 
   _lastTextLength = plainText.length;
   _lastSelectedRange = _textView.selectedRange;
@@ -1012,15 +1019,69 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
     return;
   }
 
+  // Underline can't start or end inside a word (see wholeWordRangeForStyle:), so a toggle there
+  // turns it on or off for the whole word. At a caret the toggle also pends.
+  NSRange wordRange = [_formattingStore wholeWordRangeForStyle:styleType
+                                                        inText:ENRMGetPlainText(_textView)
+                                                         range:selection];
+  if (!NSEqualRanges(wordRange, selection) && selection.length == 0 &&
+      (wordRange.location == selection.location || NSMaxRange(wordRange) == selection.location)) {
+    // At a word's edge the toggle only decides what is typed next: the word keeps its state, and
+    // letters typed against it still join it (growToWholeWordsInText:).
+    BOOL turnsOn = [self inlineStyleToggleTurnsOn:styleType selection:selection];
+    [_typingController pendStyle:styleType isOn:turnsOn];
+    [_typingController syncWithPendingStyles];
+    [_inputEventEmitter emitFormattingChanged];
+    return;
+  }
+  if (!NSEqualRanges(wordRange, selection)) {
+    BOOL turnsOn = [self inlineStyleToggleTurnsOn:styleType selection:selection];
+    if (turnsOn) {
+      [_formattingStore addStyle:styleType inRange:wordRange conflictingStyles:mergingConfig.conflictingStyles];
+    } else {
+      [_formattingStore removeType:styleType inRange:wordRange];
+    }
+    if (selection.length > 0) {
+      [_typingController clearPendingStyle:styleType];
+    } else {
+      [_typingController pendStyle:styleType isOn:turnsOn];
+    }
+    [self applyFormatting];
+    [_typingController syncWithPendingStyles];
+    [_inputEventEmitter emitFormattingChanged];
+    return;
+  }
+
   BOOL wasActive = [_formattingStore toggleStyle:styleType
                                          inRange:selection
                                conflictingStyles:mergingConfig.conflictingStyles];
+  if (selection.length > 0) {
+    // Another style's edge can be what keeps an underline's `_` off a letter (`*foo*_bar_`); with
+    // it gone the underline takes the word.
+    [_formattingStore growToWholeWordsInText:ENRMGetPlainText(_textView) touchingRange:selection];
+  }
 
   [_typingController togglePendingStyle:styleType wasActive:wasActive hasSelection:(selection.length > 0)];
 
   [self applyFormatting];
   [_typingController syncWithPendingStyles];
   [_inputEventEmitter emitFormattingChanged];
+}
+
+/// Whether toggleInlineStyle: turns `styleType` on, by the rules the store and togglePendingStyle: apply.
+- (BOOL)inlineStyleToggleTurnsOn:(ENRMInputStyleType)styleType selection:(NSRange)selection
+{
+  if (selection.length > 0) {
+    return ![_formattingStore isStyleFullyActive:styleType inRange:selection];
+  }
+  NSNumber *key = @(styleType);
+  if ([_typingController.pendingStyleRemovals containsObject:key]) {
+    return YES;
+  }
+  if ([_typingController.pendingStyles containsObject:key]) {
+    return NO;
+  }
+  return ![self isStyleActive:styleType atCaret:selection.location];
 }
 
 - (void)toggleHeading:(NSInteger)level
@@ -1432,9 +1493,12 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
 - (void)removeLink
 {
-  if (![_linkCoordinator removeLinkForSelection:_textView.selectedRange]) {
+  ENRMFormattingRange *link = [_linkCoordinator linkForSelection:_textView.selectedRange];
+  if (link == nil || ![_linkCoordinator removeLinkForSelection:_textView.selectedRange]) {
     return;
   }
+  // The link's edge may have been what kept an underline's `_` off a letter.
+  [_formattingStore growToWholeWordsInText:ENRMGetPlainText(_textView) touchingRange:link.range];
   [self applyFormatting];
   [_inputEventEmitter emitFormattingChanged];
 }
@@ -1565,6 +1629,11 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 - (BOOL)isStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position
 {
   return [_formattingStore isStyleActive:type atPosition:position];
+}
+
+- (BOOL)isStyleActive:(ENRMInputStyleType)type atCaret:(NSUInteger)position
+{
+  return [_formattingStore isStyleActive:type atCaret:position inText:ENRMGetPlainText(_textView)];
 }
 
 - (NSString *)currentMarkdown
@@ -1784,6 +1853,14 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
                                                       pendingStyleRemovals:_typingController.pendingStyleRemovals];
 
   BOOL touchedNewline = [_editPipeline processTextChangeWithContext:context];
+
+  // A pending underline removal can't keep letters typed against an underlined word plain, since
+  // growToWholeWordsInText: pulls them into the word. Once they have joined it, the removal no
+  // longer describes the next keystroke, so it goes and the state shows underline again.
+  if ([_typingController.pendingStyleRemovals containsObject:@(ENRMInputStyleTypeUnderline)] &&
+      [self isStyleActive:ENRMInputStyleTypeUnderline atCaret:_textView.selectedRange.location]) {
+    [_typingController clearPendingStyle:ENRMInputStyleTypeUnderline];
+  }
 
   // Consumed: clear pre-edit state so stale values can't leak to the next edit.
   _preEditBlockType = ENRMInputBlockTypeParagraph;

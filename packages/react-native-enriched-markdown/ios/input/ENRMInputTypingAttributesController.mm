@@ -45,7 +45,9 @@
 
 - (BOOL)isEffectiveStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position
 {
-  BOOL inRange = [_dataSource isStyleActive:type atPosition:position];
+  // At a caret the store's answer is the one for typing there (an underlined word's end counts).
+  BOOL inRange = [_dataSource selectedRange].length == 0 ? [_dataSource isStyleActive:type atCaret:position]
+                                                         : [_dataSource isStyleActive:type atPosition:position];
   NSNumber *key = @(type);
   if ([_pendingStyleRemovals containsObject:key]) {
     return NO;
@@ -82,6 +84,14 @@
   NSNumber *key = @(type);
   [_pendingStyles removeObject:key];
   [_pendingStyleRemovals removeObject:key];
+}
+
+- (void)pendStyle:(ENRMInputStyleType)type isOn:(BOOL)isOn
+{
+  NSNumber *key = @(type);
+  [_pendingStyles removeObject:key];
+  [_pendingStyleRemovals removeObject:key];
+  [(isOn ? _pendingStyles : _pendingStyleRemovals) addObject:key];
 }
 
 #pragma mark - Typing attribute synchronization
@@ -151,6 +161,11 @@
   if (_editSession.isPostEditGracePeriod) {
     return;
   }
+  [self resetPendingStyles];
+}
+
+- (void)resetPendingStyles
+{
   [_pendingStyles removeAllObjects];
   [_pendingStyleRemovals removeAllObjects];
   [self rebuildFromContext];

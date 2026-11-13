@@ -28,8 +28,14 @@ export class TypingAttributesController {
 
   // Takes any style, not just a pendable one, because the state a toolbar
   // reads covers links too. A link never pends (see `PendingStyleType`), so
-  // its answer comes straight from the store.
-  isEffectiveStyleActive(type: InputStyleType, position: number): boolean {
+  // its answer comes straight from the store. Given the text, the store's
+  // answer is the one for typing at the caret (see
+  // `FormattingStore.isStyleActiveAtCaret`).
+  isEffectiveStyleActive(
+    type: InputStyleType,
+    position: number,
+    text?: string
+  ): boolean {
     if (type !== 'link') {
       if (this.pendingStyleRemovals.has(type)) {
         return false;
@@ -38,7 +44,9 @@ export class TypingAttributesController {
         return true;
       }
     }
-    return this.formattingStore.isStyleActive(type, position);
+    return text === undefined
+      ? this.formattingStore.isStyleActive(type, position)
+      : this.formattingStore.isStyleActiveAtCaret(type, position, text);
   }
 
   // A toggle at a caret (`caret` is its offset) flips what the next keystroke
@@ -56,6 +64,28 @@ export class TypingAttributesController {
       this.pendingStyleRemovals.add(type);
     } else if (!wasActive && !storeActive) {
       this.pendingStyles.add(type);
+    }
+  }
+
+  // Makes the next keystroke carry `type` (or drop it, with `isOn` false),
+  // after a toggle that also changed the store around the caret (a
+  // whole-word underline).
+  pend(type: PendingStyleType, isOn: boolean): void {
+    this.pendingStyles.delete(type);
+    this.pendingStyleRemovals.delete(type);
+    (isOn ? this.pendingStyles : this.pendingStyleRemovals).add(type);
+  }
+
+  // After an edit: a pending underline removal can't keep letters typed
+  // against an underlined word plain, since `growToWholeWords` pulls them into
+  // the word. Once they have joined it, the removal no longer describes the
+  // next keystroke, so it goes and the state shows underline again.
+  dropRemovalsOutgrown(caret: number, text: string): void {
+    if (
+      this.pendingStyleRemovals.has('underline') &&
+      this.formattingStore.isStyleActiveAtCaret('underline', caret, text)
+    ) {
+      this.pendingStyleRemovals.delete('underline');
     }
   }
 

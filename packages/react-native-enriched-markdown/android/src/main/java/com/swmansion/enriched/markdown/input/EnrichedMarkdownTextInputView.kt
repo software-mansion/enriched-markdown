@@ -428,6 +428,7 @@ class EnrichedMarkdownTextInputView(
           pendingStyleRemovals = pendingStyleRemovals.toSet(),
         )
       editPipeline.processTextChange(context)
+      dropUnderlineRemovalIfOutgrown()
       // Measure only once the pipeline has settled the text and its formatting
       // (list continuation, shortcuts, the ZWSP anchor), never mid-edit.
       layoutManager.invalidateLayout()
@@ -496,20 +497,27 @@ class EnrichedMarkdownTextInputView(
    * Text typed over a non-empty selection inherits the inline styles of the first
    * selected character (mirrors iOS rebuildFromContext and the range-inheritance
    * rule in [com.swmansion.enriched.markdown.input.formatting.RangeEditAdjustment]).
-   * Seeding here is the only chance to carry the style through the whole typed
-   * run: the post-edit grace period above skips reseeding between keystrokes.
+   * Text typed at a caret inherits the styles of the character before it or the one
+   * after it, as on iOS and web: a store range never grows at its edges, so pending
+   * styles are what carry `**foo**` into a letter typed after it. Seeding here is the
+   * only chance to carry the style through the whole typed run: the post-edit grace
+   * period above skips reseeding between keystrokes.
    * LINK is excluded — typing over a selected link replaces it, not extends it.
    */
   private fun seedPendingStylesFromSelection(
     selStart: Int,
     selEnd: Int,
   ) {
-    if (selStart == selEnd) return
+    if (selStart == selEnd && selStart == 0) return
     for (style in StyleType.entries) {
       if (style == StyleType.LINK) continue
-      if (formattingStore.isStyleActive(style, selStart)) {
-        pendingStyles.add(style)
-      }
+      val inherited =
+        if (selStart != selEnd) {
+          formattingStore.isStyleActive(style, selStart)
+        } else {
+          formattingStore.isStyleActive(style, selStart) || formattingStore.isStyleActive(style, selStart - 1)
+        }
+      if (inherited) pendingStyles.add(style)
     }
   }
 
@@ -541,6 +549,8 @@ class EnrichedMarkdownTextInputView(
       editable.replace(start, end, newText)
       adjustStoresForEdit(start, end - start, newText.length)
       postAdjust(editable)
+      // The pipeline, which grows underlines after an edit, doesn't run here either.
+      formattingStore.growToWholeWords(editable, start, start + newText.length)
       lastProcessedText = editable.toString()
       applyFormattingAndEmit()
       eventEmitter.emitChangeText()
@@ -643,7 +653,45 @@ class EnrichedMarkdownTextInputView(
 
     if (formattingStore.isToggleBlocked(styleType, selStart, mergingConfig.blockingStyles)) return
 
+    // Underline can't start or end inside a word (see FormattingStore.wholeWordRange), so a toggle
+    // there turns it on or off for the whole word. At a caret the toggle also pends.
+    val wordRange = text?.let { formattingStore.wholeWordRange(styleType, it, selStart, selEnd) }
+    if (wordRange != null && selStart == selEnd && (wordRange.first == selStart || wordRange.second == selStart)) {
+      // At a word's edge the toggle only decides what is typed next: the word keeps its state,
+      // and letters typed against it still join it (FormattingStore.growToWholeWords).
+      val turnsOn = turnsStyleOn(styleType, selStart, selEnd)
+      pendingStyles.remove(styleType)
+      pendingStyleRemovals.remove(styleType)
+      (if (turnsOn) pendingStyles else pendingStyleRemovals).add(styleType)
+      eventEmitter.emitState()
+      return
+    }
+    if (wordRange != null) {
+      val (wordStart, wordEnd) = wordRange
+      val turnsOn = turnsStyleOn(styleType, selStart, selEnd)
+      if (turnsOn) {
+        formattingStore.addStyle(styleType, wordStart, wordEnd, mergingConfig.conflictingStyles)
+      } else {
+        formattingStore.removeType(styleType, wordStart, wordEnd)
+      }
+      pendingStyles.remove(styleType)
+      pendingStyleRemovals.remove(styleType)
+      if (selStart == selEnd) {
+        (if (turnsOn) pendingStyles else pendingStyleRemovals).add(styleType)
+      }
+      applyFormattingAndEmit()
+      if (selStart != selEnd) {
+        pendingStyles.clear()
+        pendingStyleRemovals.clear()
+        seedPendingStylesFromSelection(selStart, selEnd)
+      }
+      return
+    }
+
     val result = formattingStore.toggleStyle(styleType, selStart, selEnd, mergingConfig.conflictingStyles)
+    // Another style's edge can be what keeps an underline's `_` off a letter (`*foo*_bar_`); with it
+    // gone the underline takes the word.
+    if (selStart != selEnd) text?.let { formattingStore.growToWholeWords(it, selStart, selEnd) }
 
     if (selStart == selEnd) {
       if (pendingStyleRemovals.contains(styleType)) {
@@ -664,6 +712,45 @@ class EnrichedMarkdownTextInputView(
       pendingStyleRemovals.clear()
       seedPendingStylesFromSelection(selStart, selEnd)
     }
+  }
+
+  /**
+   * A pending underline removal can't keep letters typed against an underlined word plain, since
+   * [FormattingStore.growToWholeWords] pulls them into the word. Once they have joined it, the
+   * removal no longer describes the next keystroke, so it goes and the state shows underline again.
+   */
+  private fun dropUnderlineRemovalIfOutgrown() {
+    val editable = text ?: return
+    if (StyleType.UNDERLINE in pendingStyleRemovals &&
+      formattingStore.isStyleActiveAtCaret(StyleType.UNDERLINE, editable, selectionStart)
+    ) {
+      pendingStyleRemovals.remove(StyleType.UNDERLINE)
+    }
+  }
+
+  /** Whether [toggleInlineStyle] turns [styleType] on, by the rules it applies to the store and pending sets. */
+  private fun turnsStyleOn(
+    styleType: StyleType,
+    selStart: Int,
+    selEnd: Int,
+  ): Boolean {
+    if (selStart != selEnd) return !formattingStore.isStyleActive(styleType, selStart)
+    if (pendingStyleRemovals.contains(styleType)) return true
+    if (pendingStyles.contains(styleType)) return false
+    return !isStoredStyleActive(styleType, selStart, selEnd)
+  }
+
+  /** Whether the store gives [styleType] to the selection or, at a caret, to the text typed there. */
+  fun isStoredStyleActive(
+    styleType: StyleType,
+    selStart: Int,
+    selEnd: Int,
+  ): Boolean {
+    val editable = text
+    if (selStart == selEnd && editable != null) {
+      return formattingStore.isStyleActiveAtCaret(styleType, editable, selStart)
+    }
+    return formattingStore.isStyleActive(styleType, selStart)
   }
 
   private fun listBlockAtCursor(): BlockRange? {
@@ -1062,7 +1149,10 @@ class EnrichedMarkdownTextInputView(
   }
 
   fun removeLinkAtCursor() {
+    val link = linkCoordinator.linkForSelection(selectionStart, selectionEnd) ?: return
     if (!linkCoordinator.removeLink(selectionStart, selectionEnd)) return
+    // The link's edge may have been what kept an underline's `_` off a letter.
+    text?.let { formattingStore.growToWholeWords(it, link.start, link.end) }
     applyFormattingAndEmit()
   }
 
@@ -1129,8 +1219,20 @@ class EnrichedMarkdownTextInputView(
       // No invalidateLayout() needed: applyFormatting() already re-measures.
       lastProcessedText = text?.toString() ?: ""
     }
+    // A style toggled at the caret belongs to the old document. The import's caret move is
+    // suppressed, so nothing else drops it, and after a send's setValue("") it would style the
+    // next message. The next keystroke takes what the new caret sits next to, as on iOS and web.
+    pendingStyles.clear()
+    pendingStyleRemovals.clear()
+    seedPendingStylesFromSelection(selectionStart, selectionEnd)
     syncHintVisibility()
     emitSelectionIfChanged()
+  }
+
+  /** The setValue command: loads [markdown] and reports the new state, as iOS's setValue: does. */
+  fun setValueFromCommand(markdown: String) {
+    setValueFromJS(markdown)
+    eventEmitter.emitState()
   }
 
   override fun setBackgroundColor(color: Int) {

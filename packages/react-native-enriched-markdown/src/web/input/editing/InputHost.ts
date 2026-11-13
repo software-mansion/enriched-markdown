@@ -1317,6 +1317,56 @@ export class InputHost {
   private toggleInlineStyle(type: PendingStyleType): void {
     this.command(() => {
       const { start, end } = this.selection;
+      // Underline can't start or end inside a word (see
+      // `FormattingStore.wholeWordRange`), so a toggle there turns it on or
+      // off for the whole word. At a caret the toggle also pends.
+      const turnsOn =
+        start === end
+          ? !this.typing.isEffectiveStyleActive(type, start, this.text)
+          : !this.formattingStore.isStyleFullyActive(
+              type,
+              start,
+              end,
+              this.text
+            );
+      const word = this.formattingStore.wholeWordRange(
+        type,
+        this.text,
+        start,
+        end
+      );
+      // At a word's edge the toggle only decides what is typed next: the
+      // word keeps its state, and letters typed against it still join it
+      // (`growToWholeWords`).
+      if (
+        word !== null &&
+        start === end &&
+        (word.start === start || word.end === start)
+      ) {
+        this.history.breakGroup();
+        this.typing.pend(type, turnsOn);
+        this.emitState();
+        return;
+      }
+      if (word !== null) {
+        this.recordFormatting();
+        this.session.scoped('processing', () => {
+          if (turnsOn) {
+            this.formattingStore.addRange({ type, ...word });
+          } else {
+            this.formattingStore.removeType(type, word.start, word.end);
+          }
+        });
+        this.projector.stylesChanged(word.start, word.end);
+        if (start === end) {
+          this.typing.pend(type, turnsOn);
+        } else {
+          this.typing.resetForSelectionChange(this.selection);
+        }
+        this.render();
+        this.emitFormattingChanged();
+        return;
+      }
       // A caret toggle changes no store, so there is nothing to undo; what
       // is typed with it is a step of its own, though.
       if (start !== end) {
@@ -1325,9 +1375,12 @@ export class InputHost {
         this.history.breakGroup();
       }
       if (start !== end) {
-        this.session.scoped('processing', () =>
-          this.formattingStore.toggleStyle(type, start, end, this.text)
-        );
+        this.session.scoped('processing', () => {
+          this.formattingStore.toggleStyle(type, start, end, this.text);
+          // Another style's edge can be what keeps an underline's "_" off a
+          // letter ("*foo*_bar_"); with it gone the underline takes the word.
+          this.formattingStore.growToWholeWords(this.text, start, end);
+        });
         this.projector.stylesChanged(start, end);
       }
       if (start === end) {
@@ -1395,6 +1448,13 @@ export class InputHost {
           end: range.end + start,
         });
       }
+      // The pipeline grew the underlines before the pasted ones were in, so
+      // a pasted "_bar_" right after "foo" is grown here.
+      this.formattingStore.growToWholeWords(
+        this.text,
+        start,
+        start + plainText.length
+      );
       // A block on the first inserted line only applies when that line
       // starts there; inserted mid-line, the line keeps its own block.
       const blocks = blockRanges.filter(
@@ -1622,6 +1682,7 @@ export class InputHost {
       this.selection = { start: landing, end: landing };
       this.selectionBackward = false;
     });
+    this.typing.dropRemovalsOutgrown(landing, this.text);
   }
 
   // The history packs what it keeps, so the live ranges are handed over as
