@@ -24,7 +24,7 @@
 - ✨ Text selection and copy support
 - 📌 Custom text selection context menu items
 - 🔗 Interactive link handling with [per-URL-pattern styling](../../docs-md/MENTIONS.md#link-variants-styling) (`linkVariants`)
-- 💊 [Native link pills](../../docs-md/MENTIONS.md#native-link-pills) — links as rounded chips with an icon and label, per URL pattern or per link (iOS, Android)
+- 💊 [Native link pills](../../docs-md/MENTIONS.md#native-link-pills) — links as rounded chips with an icon and label, per URL pattern or per link (iOS, Android, web)
 - 📎 [Long-press menus for links](../../docs-md/API_REFERENCE.md#linkcontextmenuitems) with your own items per URL pattern (`linkContextMenuItems`, iOS 17+)
 - 👤 Renders mentions as styled links (compatible with `EnrichedMarkdownTextInput` mention output)
 - 🙈 Spoiler text with animated particle overlay and tap-to-reveal
