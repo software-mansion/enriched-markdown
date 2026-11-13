@@ -52,7 +52,7 @@ It takes **two** conditions, not one: `streamingAnimation` must be on **and** th
 
 | Mode | Behavior |
 | --- | --- |
-| `'progressive'` (default) | Streams the code line-by-line with a visible but non-interactive header (copying is disabled until the block completes); syntax highlighting is deferred until the closing fence so it does not flicker on every token. The block appears once the line that opens the fence has ended, so its language label never changes. |
+| `'progressive'` (default) | Streams the code line-by-line with a visible but non-interactive header (copying is disabled until the block completes); syntax highlighting is deferred until the closing fence so it does not flicker on every token. The block appears once the line that opens the fence has ended, so its language label never changes. The first one or two backticks or tildes of a fence, and the start of its closing fence (including the quote markers or indent before it), are withheld until the next character arrives, so they never flash as text or as a line of code. A fence that starts a list item or quote keeps its bullet or quote bar while it waits. |
 | `'hidden'` | Withholds the whole block until its closing fence arrives, then shows it complete. |
 
 A code block drawn by [`renderers.code`](/react-native/guides/custom-block-renderers#code-blocks) follows the same modes. In `'progressive'` its element re-renders with the growing code and receives `isComplete: false` until the closing fence arrives.
@@ -64,7 +64,7 @@ A code block drawn by [`renderers.code`](/react-native/guides/custom-block-rende
 | `'progressive'` (default) | Shows a trailing image paragraph, link paragraph or `<video>` block once its syntax is complete. A half-streamed `![alt](https://…` or `[label](https://…` is withheld instead of flashing as text, and a partial `<video` tag is not shown. A bare URL on its own line can always grow, so it is withheld until the next line arrives. |
 | `'hidden'` | Withholds the block until a blank line or another block follows it, like `tableMode: 'hidden'`. Applies to native images and to blocks drawn by [`renderers`](/react-native/guides/custom-block-renderers). |
 
-**Block math** has no mode key. An unterminated `$$` block is always withheld, truncated at the opening delimiter, until the closing `$$` arrives. On a page of LLM output that routinely contains LaTeX, this is the third incomplete-block case to expect.
+**Block math** has no mode key. An unterminated `$$` block is always withheld, truncated at the opening delimiter, until the closing `$$` arrives. A lone `$` at the start of a line is held back the same way until the next character shows whether it opens a `$$` block. On a page of LLM output that routinely contains LaTeX, this is the third incomplete-block case to expect.
 
 <LivePreview src={StreamingSrc} unavailable unavailableReason={<>iOS and Android only - <code>streamingAnimation</code> and <code>streamingConfig</code> are stripped on web.</>} />
 

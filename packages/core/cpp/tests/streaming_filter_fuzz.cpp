@@ -2,16 +2,20 @@
  * Streams every fixture one byte at a time through the filter and parses each
  * prefix with md4c: image, link and video syntax that the whole document
  * parses as syntax must never reach the screen as literal text while it
- * streams. md4c is the oracle, so the filter cannot drift from the parser.
+ * streams, and neither must the first characters of a code fence or a `$$`
+ * line (as prose, or as a line of code before the closing fence completes).
+ * md4c is the oracle, so the filter cannot drift from the parser.
  * See scripts/test-core-parser.sh.
  */
 #include "MD4CParser.hpp"
 #include "StreamingFilter.hpp"
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -55,6 +59,19 @@ https://e.com/maps/kyoto
 > const link = "[a](b)";
 > ```
 
+- Install it:
+  ```sh
+  npm i "[pkg](x)"
+  ```
+
+~~~~py
+print("```")
+~~~~
+
+$$
+e^{i\pi} + 1 = 0
+$$
+
 Prices were [about 500 yen][prices], see [notes] and [![thumb](https://e.com/t.jpg)](https://e.com/full.jpg).
 
 [inari]: https://e.com/inari
@@ -91,11 +108,47 @@ bool leaksSyntax(const std::string &fragment, const std::string &wholeText) {
   return false;
 }
 
+// The text of each code block, in document order.
+void collectCode(const MarkdownASTNode &node, std::vector<std::string> &out) {
+  if (node.type == NodeType::CodeBlock) {
+    std::string code;
+    collectText(node, code);
+    out.push_back(code);
+    return;
+  }
+  for (const auto &child : node.children)
+    collectCode(*child, out);
+}
+
+// A text fragment made only of fence characters, or a lone `$`: the start of a
+// fence or `$$` line shown before the rest of it arrived, unless the finished
+// document holds the same text.
+bool flashesDelimiter(const std::string &fragment, const std::string &wholeText) {
+  size_t start = fragment.find_first_not_of(' ');
+  if (start == std::string::npos)
+    return false;
+  size_t end = fragment.find_last_not_of(' ');
+  std::string marks = fragment.substr(start, end - start + 1);
+  bool fenceChars =
+      marks.find_first_not_of('`') == std::string::npos || marks.find_first_not_of('~') == std::string::npos;
+  if (!fenceChars && marks != "$")
+    return false;
+  std::istringstream lines(wholeText);
+  for (std::string line; std::getline(lines, line);) {
+    if (line == fragment)
+      return false;
+  }
+  return true;
+}
+
 int checkDocument(const std::string &name, const std::string &document) {
   Markdown::MD4CParser parser;
   std::string wholeText;
-  if (auto root = parser.parse(document))
+  std::vector<std::string> wholeCode;
+  if (auto root = parser.parse(document)) {
     collectText(*root, wholeText);
+    collectCode(*root, wholeCode);
+  }
   int failures = 0;
   for (StreamingBlockMode mode : {StreamingBlockMode::Progressive, StreamingBlockMode::Hidden}) {
     Markdown::StreamingFilterOptions options;
@@ -111,11 +164,31 @@ int checkDocument(const std::string &name, const std::string &document) {
         continue;
       std::string text;
       collectText(*root, text);
+      // A code block never shows more lines than it ends with: a line that is
+      // only the start of the closing fence, or of its quote markers or indent,
+      // would show as a line of code and then disappear.
+      std::vector<std::string> code;
+      collectCode(*root, code);
+      for (size_t k = 0; k < code.size() && k < wholeCode.size(); k++) {
+        auto lineCount = [](const std::string &s) { return std::count(s.begin(), s.end(), '\n'); };
+        if (lineCount(code[k]) > lineCount(wholeCode[k])) {
+          std::cerr << "FAIL: " << name << (mode == StreamingBlockMode::Hidden ? " (hidden)" : "")
+                    << " shows an extra line in code block " << k << " after " << length << " bytes\n";
+          failures++;
+          break;
+        }
+      }
       std::istringstream fragments(text);
       for (std::string fragment; std::getline(fragments, fragment);) {
         if (leaksSyntax(fragment, wholeText)) {
           std::cerr << "FAIL: " << name << (mode == StreamingBlockMode::Hidden ? " (hidden)" : "")
                     << " shows syntax as text after " << length << " bytes: [" << fragment << "]\n";
+          failures++;
+          break;
+        }
+        if (flashesDelimiter(fragment, wholeText)) {
+          std::cerr << "FAIL: " << name << (mode == StreamingBlockMode::Hidden ? " (hidden)" : "")
+                    << " shows the start of a delimiter after " << length << " bytes: [" << fragment << "]\n";
           failures++;
           break;
         }
