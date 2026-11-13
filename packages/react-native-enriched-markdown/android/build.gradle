@@ -171,6 +171,33 @@ if (consumerConfig.get("codeHighlightLanguages") instanceof List) {
 }
 def codeHighlightActive = enableCodeHighlight && !codeHighlightLanguages.isEmpty()
 
+// Host build of the input core's JNI library for the unit tests: Robolectric runs on
+// the JVM and cannot load the Android library. Needs a C and C++ compiler and a JDK
+// (jni.h), which every macOS and Linux CI machine that runs the tests already has.
+// It has its own name because the real library's name is also loaded by other classes:
+// a JNI library loads into one class loader only, so those would collide. For the same
+// reason every test that reaches the input wrappers must share one Robolectric SDK
+// (a second SDK is a second class loader and cannot load it again).
+def hostInputCoreDir = new File(projectDir, "build/host-input-core")
+def hostInputCoreCppRoot = [
+  new File(projectDir, "../../core/cpp"),
+  new File(projectDir, "../cpp"),
+].find { new File(it, "input").exists() }
+tasks.register("buildHostInputCore", Exec) {
+  group = "verification"
+  description = "Builds the input core's JNI library for the host, for the JVM unit tests."
+  onlyIf { hostInputCoreCppRoot != null }
+  if (hostInputCoreCppRoot != null) {
+    inputs.files(fileTree(hostInputCoreCppRoot) { include "input/**", "parser/**", "enrmrkd/**", "repair/UnicodeTables.hpp" })
+  }
+  inputs.file("src/main/cpp/input-jni.cpp")
+  inputs.file("src/test/host-input-core/build.sh")
+  outputs.dir(hostInputCoreDir)
+  doFirst { hostInputCoreDir.mkdirs() }
+  commandLine "sh", "src/test/host-input-core/build.sh", hostInputCoreCppRoot?.canonicalPath ?: "",
+    hostInputCoreDir.absolutePath, System.getProperty("java.home")
+}
+
 android {
   namespace "com.swmansion.enriched.markdown"
 
@@ -191,6 +218,13 @@ android {
 
   testOptions {
     unitTests.includeAndroidResources = true
+    unitTests.all { testTask ->
+      // The Kotlin input wrappers call the shared C++ input core over JNI; unit tests
+      // load a host build of it (see hostInputCore below) from java.library.path.
+      testTask.dependsOn("buildHostInputCore")
+      testTask.systemProperty "java.library.path", hostInputCoreDir.absolutePath
+      testTask.systemProperty "enriched.markdown.input.library", "enriched_markdown_input_host"
+    }
   }
 
   buildTypes {

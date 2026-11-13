@@ -25,7 +25,7 @@ class InlineStyleAcrossLinesTest {
       view.text.toString(),
       view.allFormattingRangesForSerialization(),
       view.blockStore.allRanges,
-    ) { block -> view.formatter.handlerForBlock(block.type)?.markdownLinePrefix(block) ?: "" }
+    )
 
   private fun styleEverything(style: StyleType = StyleType.BOLD): String {
     view.setSelection(0, view.text!!.length)
@@ -99,7 +99,8 @@ class InlineStyleAcrossLinesTest {
     view.setSelection(3)
     type("\n")
 
-    assertEquals("- **One**\n\n- **Two**", styleEverything())
+    // The core keeps an empty item as a bare marker, like web and iOS.
+    assertEquals("- **One**\n- \n- **Two**", styleEverything())
   }
 
   @Test

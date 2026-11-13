@@ -33,8 +33,4 @@ class OrderedListBlockHandler(
   }
 
   override fun spanClasses(): List<Class<*>> = listOf(InputOrderedListMarkerSpan::class.java, InputListItemSpacingSpan::class.java)
-
-  /** `"1. "` numbering from the range's ordinal, indented three spaces per nesting depth. */
-  override fun markdownLinePrefix(blockRange: BlockRange): String =
-    "   ".repeat(blockRange.level.coerceAtLeast(0)) + "${blockRange.ordinal}. "
 }

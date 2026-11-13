@@ -5,7 +5,7 @@ This file tracks breaking changes and how to migrate for each. Entries are newes
 
 ## Unreleased
 
-### EnrichedMarkdownTextInput on iOS writes and reads markdown with the shared web rules
+### EnrichedMarkdownTextInput on iOS and Android writes and reads markdown with the shared web rules
 
 `getMarkdown()`, `onChangeMarkdown`, copy and `setValue()` now go through one implementation shared with the web
 input, so a value saved on one platform loads unchanged on another. Documents still load; only a value that is
@@ -36,6 +36,8 @@ What changes in how markdown is read:
   longer do.
 - A list item with no text is kept (`- a`, `- `, `- c` loads as three items) instead of being dropped.
 - Blank lines between blocks are kept as empty lines, one per blank line.
+- On Android, an empty list item loaded this way shows its marker right away, like one created by pressing Enter.
+  Copying part of an ordered list keeps the numbers (items 3 and 4 copy as `3.` and `4.`).
 
 **Migrate:** nothing is required. If you store markdown and compare it, re-save once, or compare the parsed value.
 
