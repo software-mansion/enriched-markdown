@@ -2,12 +2,74 @@
 #import "BlockquoteBorder.h"
 #import "CodeBackground.h"
 #import "CodeBlockBackground.h"
+#import "ENRMTextViewport.h"
 #import "ListMarkerDrawer.h"
 #import "RuntimeKeys.h"
 #import "StyleConfig.h"
 #import <objc/runtime.h>
 
+// This class is set onto layout managers the text view already made (ENRMTextViewSetup), so it has
+// no ivars of its own: their storage would lie past the instance. Its state is associated instead.
 @implementation TextViewLayoutManager
+
+#if !TARGET_OS_OSX
+static char kGlyphColorKey;
+
+- (void)drawGlyphsForGlyphRange:(NSRange)glyphRange atPoint:(CGPoint)origin color:(UIColor *)color
+{
+  objc_setAssociatedObject(self, &kGlyphColorKey, color, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  [self drawGlyphsForGlyphRange:glyphRange atPoint:origin];
+  objc_setAssociatedObject(self, &kGlyphColorKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+- (void)showCGGlyphs:(const CGGlyph *)glyphs
+           positions:(const CGPoint *)positions
+               count:(NSInteger)glyphCount
+                font:(UIFont *)font
+          textMatrix:(CGAffineTransform)textMatrix
+          attributes:(NSDictionary<NSAttributedStringKey, id> *)attributes
+           inContext:(CGContextRef)context
+{
+  UIColor *glyphColor = objc_getAssociatedObject(self, &kGlyphColorKey);
+  if (glyphColor != nil) {
+    NSMutableDictionary<NSAttributedStringKey, id> *colored = [attributes mutableCopy];
+    colored[NSForegroundColorAttributeName] = glyphColor;
+    attributes = colored;
+    CGContextSetFillColorWithColor(context, glyphColor.CGColor);
+  }
+  [super showCGGlyphs:glyphs
+            positions:positions
+                count:glyphCount
+                 font:font
+           textMatrix:textMatrix
+           attributes:attributes
+            inContext:context];
+}
+
+// A text view drawing its text itself (ENRMTextViewportView) hears of what to redraw from here too.
+// Called while the text storage edits too: nothing here may generate glyphs.
+- (void)invalidateDisplayForGlyphRange:(NSRange)glyphRange
+{
+  [super invalidateDisplayForGlyphRange:glyphRange];
+  id textView =
+      self.textContainers.count > 0 ? objc_getAssociatedObject(self.textContainers.firstObject, kTextViewKey) : nil;
+  if ([textView conformsToProtocol:@protocol(ENRMTextViewportView)]) {
+    [(id<ENRMTextViewportView>)textView setNeedsDisplayFromGlyphIndex:glyphRange.location];
+  }
+}
+
+// TextKit doesn't pass every character range on as a glyph range (an attachment resized after its
+// first draw), so the tiles hear of the range here too.
+- (void)invalidateDisplayForCharacterRange:(NSRange)charRange
+{
+  [super invalidateDisplayForCharacterRange:charRange];
+  id textView =
+      self.textContainers.count > 0 ? objc_getAssociatedObject(self.textContainers.firstObject, kTextViewKey) : nil;
+  if ([textView conformsToProtocol:@protocol(ENRMTextViewportView)]) {
+    [(id<ENRMTextViewportView>)textView setNeedsDisplayFromCharacterIndex:charRange.location];
+  }
+}
+#endif
 
 - (void)drawBackgroundForGlyphRange:(NSRange)glyphsToShow atPoint:(CGPoint)origin
 {

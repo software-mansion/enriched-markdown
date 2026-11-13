@@ -91,6 +91,20 @@ struct CollectedBlocks {
   const MarkdownASTNode *lastCodeBlock = nullptr;
 };
 
+// collect() in parts: the blocks of each top-level node added get the ids they would have after the
+// ones added so far, so a document whose start was parsed earlier collects as one.
+class BlockCollector {
+public:
+  void add(const MarkdownASTNode &topLevelNode);
+
+  CollectedBlocks collected;
+
+private:
+  // How many earlier slots and images share an id's base.
+  std::unordered_map<std::string, unsigned> slotCounts_;
+  std::unordered_map<std::string, unsigned> imageCounts_;
+};
+
 // Attributes the hosts add to converted nodes (AstOverlay.hpp).
 extern const char *const kBlockSlotIdAttribute;       // on the paragraph, video or code block a slot replaces
 extern const char *const kBlockSlotKindAttribute;     // a kind's name: "image" | "video" | "link" | "code"

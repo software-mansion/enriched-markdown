@@ -453,6 +453,13 @@ interface StreamingConfigInternal {
   tableMode: string;
   codeBlockMode: string;
   mediaMode?: string;
+  animation: string;
+  // The options of `animation`: duration in ms, length in characters.
+  animationDuration?: CodegenTypes.Float;
+  animationLength?: CodegenTypes.Int32;
+  animationStartColor?: ColorValue;
+  animationEndColor?: ColorValue;
+  smooth?: boolean;
 }
 
 interface LinkContextMenuItemConfig {
@@ -486,6 +493,12 @@ export interface NativeProps extends ViewProps {
    * Markdown content to render.
    */
   markdown: string;
+  /**
+   * A stream (createMarkdownStream) whose first `streamLength` bytes replace
+   * `markdown`; the component descriptor fills them in. 0 for none.
+   */
+  streamId?: CodegenTypes.WithDefault<CodegenTypes.Int32, 0>;
+  streamLength?: CodegenTypes.WithDefault<CodegenTypes.Int32, 0>;
   /**
    * Internal style configuration for markdown elements.
    * Always provided with complete defaults via normalizeMarkdownStyle.
@@ -640,15 +653,16 @@ export interface NativeProps extends ViewProps {
    */
   allowTrailingMargin?: CodegenTypes.WithDefault<boolean, false>;
   /**
-   * When true, newly appended content fades in during streaming updates.
-   * Only the tail (new characters beyond the previous content) is animated.
+   * While true, incomplete syntax at the end of `markdown` is held back or
+   * repaired, and new content animates in per `streamingConfig.animation`.
    * @default false
    */
-  streamingAnimation?: CodegenTypes.WithDefault<boolean, false>;
+  streaming?: CodegenTypes.WithDefault<boolean, false>;
   /**
-   * Fine-grained control over streaming behavior for block-level elements.
+   * Fine-grained control over streaming behavior.
    */
   streamingConfig?: StreamingConfigInternal;
+  onStreamingEnd?: CodegenTypes.DirectEventHandler<null>;
   /**
    * Controls how spoiler text is displayed before being revealed.
    * - 'particles' (default): animated particle overlay.

@@ -2520,7 +2520,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   boost: cea1d4f90a3a59537f3deb03ff5656489d7133dd
   DoubleConversion: d31b1eb37f6d6f456530c4fd9124b857d6889cab
-  EnrichedMarkdownCore: a70309d4c2af4b1fba85ae364a444136ba8ae4be
+  EnrichedMarkdownCore: 65375740fa74df1b965129a15b4bc381471f1994
   fast_float: 20817c22759af6ac8d4d67e6e059b8b499953656
   FBLazyVector: bee2ce91926aed5131538dbe216219bb688b064c
   fmt: 24e7591456deb60b4a77518f83d9a916ac84223f
@@ -2589,7 +2589,7 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 81faffd1e23962bc11e006b2a8c975cc0cfce2f5
   ReactCodegen: 7ab7a68e6cfbf489e5da68f272c9a8b4ee99c0b7
   ReactCommon: 4702457a560d38a9b96a98a728100cae76820edc
-  ReactNativeEnrichedMarkdown: c18efdcefb28ac5e7d3a95d0d9d0dd79f4a0c762
+  ReactNativeEnrichedMarkdown: d03c23454f1c62f84a458fb20233aed4a5ebb59c
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: 4e7825418aa0a50bdaa8dff6d3e5fa8a2994d308
 

@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown
 
 import android.content.Context
 import android.content.res.Configuration
+import android.graphics.Canvas
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -10,7 +11,9 @@ import android.view.View
 import androidx.core.view.children
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.uimanager.PixelUtil
 import com.facebook.react.uimanager.StateWrapper
+import com.facebook.yoga.YogaMeasureOutput
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.Md4cFlags
@@ -26,6 +29,7 @@ import com.swmansion.enriched.markdown.segments.SegmentViewConfig
 import com.swmansion.enriched.markdown.segments.SegmentViewCreators
 import com.swmansion.enriched.markdown.segments.SegmentViewFactory
 import com.swmansion.enriched.markdown.segments.TableContainerView
+import com.swmansion.enriched.markdown.segments.TextRenderCache
 import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
 import com.swmansion.enriched.markdown.slots.BlockSlotLayer
 import com.swmansion.enriched.markdown.slots.BlockSlotRevealController
@@ -40,11 +44,14 @@ import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.common.MediaStreamingMode
+import com.swmansion.enriched.markdown.utils.common.RenderCoordinator
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.animatorDurationScale
 import com.swmansion.enriched.markdown.utils.common.isReducedMotionEnabled
-import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
+import com.swmansion.enriched.markdown.utils.text.StreamingEffects
+import com.swmansion.enriched.markdown.utils.text.StreamingEffectsAnimator
+import com.swmansion.enriched.markdown.utils.text.StreamingPacer
 import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
 import com.swmansion.enriched.markdown.utils.text.view.OnSelectionCopy
 import com.swmansion.enriched.markdown.utils.text.view.SelectionCopyFormat
@@ -52,8 +59,10 @@ import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.text.view.TextPressHost
 import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
 import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
+import com.swmansion.enriched.markdown.utils.text.view.emitStreamingEndEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitTextPressEvent
 import java.util.EnumSet
+import java.util.WeakHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -62,7 +71,7 @@ class EnrichedMarkdown(
 ) : ContainerNodeView(context),
   ImagePressHost,
   TextPressHost {
-  private enum class DirtyFlag {
+  internal enum class DirtyFlag {
     RECREATE_SEGMENTS,
     FORCE_HEIGHT,
 
@@ -74,29 +83,101 @@ class EnrichedMarkdown(
   private val parser = Parser.shared
   private val mainHandler = Handler(Looper.getMainLooper())
   private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+  private val renderCoordinator = RenderCoordinator(executor, ::postToMain)
+
+  // Reused by the next render on the executor (see TextRenderCache). Its key is this epoch,
+  // bumped on the main thread whenever the views stop showing what it holds: recreated views,
+  // a synchronous render it didn't see, a missed patch.
+  private val textRenderCache = TextRenderCache()
+  private var textRenderEpoch = 0L
   private val mathContainerClass: Class<*>? by lazy { SegmentViewCreators.mathContainerClass() }
   private val videoContainerClass: Class<*>? by lazy { SegmentViewCreators.videoContainerClass() }
-
-  private var currentRenderId = 0L
 
   // Set when React Native drops the view for good. Detaching from the window is
   // not disposal: a view renders before its first attach and while detached.
   private var isDisposed = false
-  private val dirtyFlags = EnumSet.noneOf(DirtyFlag::class.java)
-  var streamingAnimation: Boolean = false
+  internal val dirtyFlags = EnumSet.noneOf(DirtyFlag::class.java)
+  private val textEffects = WeakHashMap<EnrichedMarkdownInternalText, StreamingEffectsAnimator>()
+  private var effectsConfig = StreamingEffects.Config()
+
+  // The stream ended and its last text has not been rendered yet: it still animates, then settles.
+  private var streamEnding = false
+
+  // The stream ended and onStreamingEnd waits for the render that shows the whole document.
+  private var streamEndPending = false
+
+  // Whether the view streams: after the prop turns off, smooth pacing keeps it on until the words
+  // still waiting have appeared.
+  var streaming: Boolean = false
+    private set
+  private var streamingProp = false
+  private var streamingEnded = false
+
+  /** streamingConfig.smooth: the view renders the markdown [pacer] has revealed so far. */
+  var smooth: Boolean = false
     set(value) {
       if (field == value) return
       field = value
+      renderPending = true
+    }
+  private val pacer =
+    StreamingPacer(
+      reveal = {
+        renderedSource = it
+        scheduleRender()
+      },
+      done = {
+        stopStreaming()
+        renderedSource = currentMarkdown
+        scheduleRender()
+      },
+    )
+
+  // The markdown renders take: all of [currentMarkdown], or what smooth pacing has revealed.
+  private var renderedSource: String = ""
+
+  fun setStreamingProp(value: Boolean) {
+    if (streamingProp == value) return
+    streamingProp = value
+    if (value) {
+      // A new stream: the one before it has ended, whether or not its final render applied.
+      emitStreamingEndIfPending()
+      streaming = true
+      streamEnding = false
+      streamingEnded = false
       // The streaming filter only applies while this is on, so re-render to
       // show or hide the content it holds back.
-      dirtyFlags += DirtyFlag.FORCE_HEIGHT
       renderPending = true
-      if (!value) {
-        blockSlotReveal.cancel()
-        applyBlockSlotReveal()
-        if (width > 0) layoutSegments()
-      }
+      dirtyFlags += DirtyFlag.FORCE_HEIGHT
+    } else {
+      streamingEnded = true
     }
+  }
+
+  // The stream ended: the next render shows the whole document, and what still animates settles.
+  private fun stopStreaming() {
+    streaming = false
+    streamEnding = true
+    streamEndPending = true
+    dirtyFlags += DirtyFlag.FORCE_HEIGHT
+    finishStreamingAnimations()
+    settleTextSegments(except = null)
+  }
+
+  // After the first render scheduled once the stream ended: the last words are on screen.
+  private fun emitStreamingEndIfPending() {
+    if (!streamEndPending) return
+    streamEndPending = false
+    emitStreamingEndEvent()
+  }
+
+  /** Text segments start over with the new animation: 'none' shows what still animates at once. */
+  fun setStreamingAnimation(config: StreamingEffects.Config) {
+    if (config == effectsConfig) return
+    effectsConfig = config
+    textEffects.values.forEach { it.configure(config) }
+    if (config.type == StreamingEffects.Type.NONE) finishStreamingAnimations()
+  }
 
   // used to force a Yoga re-measure when a block image resolves its box height
   var stateWrapper: StateWrapper? = null
@@ -124,6 +205,7 @@ class EnrichedMarkdown(
       renderPending = true
     }
   private var renderPending: Boolean = false
+  private var markdownChanged = false
 
   var currentMarkdown: String = ""
     private set
@@ -258,7 +340,7 @@ class EnrichedMarkdown(
     }
     if (currentMarkdown == markdown) return
     currentMarkdown = markdown
-    renderPending = true
+    markdownChanged = true
   }
 
   fun setMarkdownStyle(style: ReadableMap?) {
@@ -323,12 +405,39 @@ class EnrichedMarkdown(
     renderPending = true
   }
 
+  // Smooth pacing lays out a new line before Yoga has given the view the height for it (that takes
+  // a commit): until then the line stays inside the view rather than drawing over what follows.
+  override fun dispatchDraw(canvas: Canvas) {
+    if (!(streaming && smooth)) {
+      super.dispatchDraw(canvas)
+      return
+    }
+    val saved = canvas.save()
+    // Vertically only: what draws past the sides without pacing still does.
+    canvas.clipRect(-width.toFloat(), 0f, 2f * width, height.toFloat())
+    super.dispatchDraw(canvas)
+    canvas.restoreToCount(saved)
+  }
+
   fun commitProps() {
     if (isDisposed) return
     MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
-    if (renderPending) {
+    if (renderPending || markdownChanged || streamingEnded) {
+      streamingEnded = false
+      // Smooth pacing renders what has been revealed and hands the rest over frame by frame, so
+      // new markdown that reveals nothing yet renders nothing. When the prop turns off, the words
+      // still waiting drain first, then streaming stops.
+      if (pacer.update(currentMarkdown, streamingProp, smooth)) {
+        stopStreaming()
+        renderPending = true
+      }
+      val source = pacer.markdownToRender
+      if (renderPending || source != renderedSource) {
+        renderedSource = source
+        scheduleRender()
+      }
       renderPending = false
-      scheduleRenderIfNeeded()
+      markdownChanged = false
     }
   }
 
@@ -341,7 +450,7 @@ class EnrichedMarkdown(
       recreateStyleConfig()
       dirtyFlags += DirtyFlag.RECREATE_SEGMENTS
       dirtyFlags += DirtyFlag.FORCE_HEIGHT
-      scheduleRenderIfNeeded()
+      scheduleRender()
     }
   }
 
@@ -558,10 +667,6 @@ class EnrichedMarkdown(
     }
   }
 
-  private fun scheduleRenderIfNeeded() {
-    if (currentMarkdown.isNotEmpty()) scheduleRender()
-  }
-
   // Everything one render needs, captured on the main thread.
   private class RenderJob(
     val style: StyleConfig,
@@ -578,11 +683,11 @@ class EnrichedMarkdown(
 
   private fun renderJob(): RenderJob? {
     val style = markdownStyle ?: return null
-    val markdown = currentMarkdown.takeIf { it.isNotEmpty() } ?: return null
+    val markdown = renderedSource.takeIf { it.isNotEmpty() } ?: return null
     return RenderJob(
       style,
       markdown,
-      streamingAnimation,
+      streaming,
       tableStreamingMode,
       codeBlockStreamingMode,
       mediaStreamingMode,
@@ -594,10 +699,15 @@ class EnrichedMarkdown(
   }
 
   // Parses and renders off the main thread's state; safe on any thread.
-  private fun runRenderJob(job: RenderJob): Pair<List<RenderedSegment>, Boolean> {
+  private fun runRenderJob(
+    job: RenderJob,
+    cache: TextRenderCache? = null,
+    cacheKey: Long = 0L,
+  ): Pair<List<RenderedSegment>, Boolean> {
+    val flags = md4cFlags
     val filtered =
       if (job.isStreaming) {
-        StreamingMarkdownFilter.renderableMarkdownForStreaming(job.markdown, job.tableMode, job.codeBlockMode, job.mediaMode)
+        StreamingMarkdownFilter.renderableMarkdownForStreaming(job.markdown, flags, job.tableMode, job.codeBlockMode, job.mediaMode)
       } else {
         null
       }
@@ -608,7 +718,7 @@ class EnrichedMarkdown(
     val ast =
       parser.parseMarkdown(
         renderableMarkdown,
-        md4cFlags,
+        flags,
         isGFM,
         job.textLinkRegex,
         job.codeLinkRegex,
@@ -617,6 +727,7 @@ class EnrichedMarkdown(
       ) ?: return emptyList<RenderedSegment>() to false
 
     val segments = splitASTIntoSegments(ast)
+    cache?.begin(cacheKey)
     val renderedSegments =
       MarkdownSegmentRenderer.render(
         segments,
@@ -625,23 +736,43 @@ class EnrichedMarkdown(
         onLinkPressCallback,
         onLinkLongPressCallback,
         onLatexError = latexErrorReporter,
+        cache = cache,
       )
+    cache?.end()
     return renderedSegments to hasPendingCodeBlock
   }
 
+  // With nothing to render, still ends a stream that has ended.
   private fun scheduleRender() {
     if (isDisposed) return
-    val job = renderJob() ?: return
-    val renderId = ++currentRenderId
-    executor.execute {
+    val job =
+      renderJob() ?: run {
+        // Nothing to render: nothing is left to show either.
+        if (!streaming) emitStreamingEndIfPending()
+        return
+      }
+    // Taken now: an older render can still apply after a newer one is scheduled, and
+    // must not claim the newer one's flags.
+    val scheduledFlags = EnumSet.copyOf(dirtyFlags)
+    // Recreated views hold none of the cached buffers. Every style input recreates them, so the
+    // epoch is all the key needs.
+    if (DirtyFlag.RECREATE_SEGMENTS in scheduledFlags) textRenderEpoch++
+    val cacheKey = textRenderEpoch
+    renderCoordinator.schedule {
       val (segments, pendingCodeBlock) =
         try {
-          runRenderJob(job)
+          runRenderJob(job, textRenderCache, cacheKey)
         } catch (e: Exception) {
+          textRenderCache.clear()
           Log.e(TAG, "Render failed", e)
           emptyList<RenderedSegment>() to false
         }
-      postToMain(renderId) { applyRenderedSegments(segments, pendingCodeBlock) }
+      Runnable {
+        val epoch = textRenderEpoch
+        applyRenderedSegments(segments, pendingCodeBlock, scheduledFlags, job.markdown)
+        // A segment that missed a patch renders again in full (a new epoch): that render shows the end.
+        if (!job.isStreaming && textRenderEpoch == epoch) emitStreamingEndIfPending()
+      }
     }
   }
 
@@ -651,7 +782,8 @@ class EnrichedMarkdown(
   private fun renderSynchronously() {
     if (isDisposed) return
     val job = renderJob() ?: return
-    currentRenderId++
+    renderCoordinator.invalidate()
+    textRenderEpoch++
     val (segments, pendingCodeBlock) =
       try {
         runRenderJob(job)
@@ -659,25 +791,44 @@ class EnrichedMarkdown(
         Log.e(TAG, "Render failed", e)
         emptyList<RenderedSegment>() to false
       }
-    applyRenderedSegments(segments, pendingCodeBlock)
+    val epoch = textRenderEpoch
+    applyRenderedSegments(segments, pendingCodeBlock, EnumSet.copyOf(dirtyFlags), job.markdown)
+    if (!job.isStreaming && textRenderEpoch == epoch) emitStreamingEndIfPending()
   }
 
   // Trailing code block whose closing fence hasn't streamed in yet, if any.
   private var pendingCodeBlockSegment: RenderedSegment.CodeBlock? = null
 
-  private fun applyRenderedSegments(
+  // [scheduledFlags] are the ones set when this render was scheduled: it takes them all, though an
+  // earlier render took them too (a second style change in flight has its own), and flags set since
+  // stay for the newer render they belong to.
+  internal fun applyRenderedSegments(
     renderedSegments: List<RenderedSegment>,
     hasPendingCodeBlock: Boolean,
+    scheduledFlags: Set<DirtyFlag>,
+    renderedMarkdown: String,
   ) {
+    laidOutMarkdown = renderedMarkdown
     pendingCodeBlockSegment =
       if (hasPendingCodeBlock) renderedSegments.lastOrNull() as? RenderedSegment.CodeBlock else null
 
-    val reset = DirtyFlag.RECREATE_SEGMENTS in dirtyFlags
-    val forceHeight = DirtyFlag.FORCE_HEIGHT in dirtyFlags
-    val remeasure = DirtyFlag.REMEASURE in dirtyFlags
-    dirtyFlags.clear()
+    val flags = scheduledFlags
+    dirtyFlags.removeAll(flags)
+    val reset = DirtyFlag.RECREATE_SEGMENTS in flags
+    val forceHeight = DirtyFlag.FORCE_HEIGHT in flags
+    val remeasure = DirtyFlag.REMEASURE in flags
 
     val topologyChanged = applySegments(renderedSegments, reset)
+    streamEnding = false
+    if (streaming) settleTextSegments(except = segmentViews.lastOrNull())
+    // A view that missed a patch gets the whole text from a full render: forgetting its signature
+    // makes the reconciler update it then, where it would keep a view whose segment it matches.
+    val missedPatches = SegmentViewCreators.syncTextRevisions(renderedSegments, segmentViews)
+    if (missedPatches.isNotEmpty()) {
+      missedPatches.forEach { segmentSignatures[it] = UNKNOWN_SIGNATURE }
+      textRenderEpoch++
+      scheduleRender()
+    }
     updateBlockSlotHeights(blockSlotHeights)
 
     // A just-closed block has unchanged content, so the reconciler reuses it
@@ -810,7 +961,7 @@ class EnrichedMarkdown(
           val tableView = view as TableContainerView
           val previousRowCount = tableView.rowCount
           tableView.applyTableNode(segment.node)
-          if (streamingAnimation && !isReducedMotionEnabled(context)) {
+          if (fadesArrivals()) {
             tableView.animateNewRows(previousRowCount, BLOCK_FADE_DURATION_MS)
           }
         }
@@ -844,7 +995,6 @@ class EnrichedMarkdown(
       view: View,
       segment: RenderedSegment,
     ) {
-      if (!streamingAnimation) return
       when (segment) {
         is RenderedSegment.Text -> animateTextViewTail(view as EnrichedMarkdownInternalText, 0)
 
@@ -861,19 +1011,47 @@ class EnrichedMarkdown(
     }
   }
 
+  // A text segment the reconciler drops frees its effects.
+  override fun onViewRemoved(child: View) {
+    super.onViewRemoved(child)
+    if (child is EnrichedMarkdownInternalText) textEffects.remove(child)?.release()
+  }
+
+  private fun effectsOf(view: EnrichedMarkdownInternalText): StreamingEffectsAnimator =
+    textEffects.getOrPut(view) {
+      StreamingEffectsAnimator(view).also { it.configure(effectsConfig) }
+    }
+
   private fun animateTextViewTail(
     view: EnrichedMarkdownInternalText,
     tailStart: Int,
   ) {
-    if (!streamingAnimation) return
-    val textLength = view.text?.length ?: 0
-    if (textLength <= tailStart) return
-    TailFadeInAnimator(view).animate(tailStart, textLength)
+    if (!streaming && !streamEnding) return
+    // Nothing animates: no animator is made for it, and those made already started over with 'none'
+    // or turn it off on arrival (Reduce Motion).
+    if (effectsConfig.type == StreamingEffects.Type.NONE) return
+    if (view !in textEffects && isReducedMotionEnabled(context)) return
+    val effects = effectsOf(view)
+    effects.noteArrival(tailStart, view.text?.length ?: 0)
+    if (streamEnding) effects.finish()
   }
 
+  // What still animates in text segments settles: all of them once the stream ends, or the ones the
+  // document's end has left (a gradient follows only the end of the document).
+  private fun settleTextSegments(except: View?) {
+    for (view in segmentViews) {
+      if (view === except || view !is EnrichedMarkdownInternalText) continue
+      val effects = textEffects[view] ?: continue
+      // A fade ends on its own.
+      if (effects.type == StreamingEffects.Type.GRADIENT) effects.finish()
+    }
+  }
+
+  // New streamed content fades in and slots grow in, unless the animation is 'none' or Reduce Motion is on.
+  private fun fadesArrivals() = streaming && effectsConfig.type != StreamingEffects.Type.NONE && !isReducedMotionEnabled(context)
+
   private fun animateBlockViewFadeIn(view: View) {
-    if (!streamingAnimation) return
-    if (isReducedMotionEnabled(context)) return
+    if (!fadesArrivals()) return
     view.alpha = 0f
     view
       .animate()
@@ -882,12 +1060,9 @@ class EnrichedMarkdown(
       .start()
   }
 
-  private fun postToMain(
-    renderId: Long,
-    action: () -> Unit,
-  ) {
+  internal fun postToMain(action: Runnable) {
     mainHandler.post {
-      if (!isDisposed && renderId == currentRenderId) action()
+      if (!isDisposed) action.run()
     }
   }
 
@@ -902,10 +1077,38 @@ class EnrichedMarkdown(
     slotLayer.layout(0, 0, width, height)
   }
 
+  // The markdown the segments show, behind the prop while a render is in flight.
+  private var laidOutMarkdown = ""
+
+  override fun layoutSegments() {
+    super.layoutSegments()
+    publishLaidOutSize()
+  }
+
+  // What the shadow node takes for a stream's next update instead of measuring the
+  // whole document again (MeasurementStore.storeLaidOutSize). Published by every
+  // layout of the segments, ahead of the height update it may ask for.
+  private fun publishLaidOutSize() {
+    if (width <= 0 || segmentViews.isEmpty()) {
+      MeasurementStore.clearLaidOutSize(id)
+      return
+    }
+    val contentWidth = (width - paddingLeft - paddingRight).toFloat()
+    val (contentHeightPx, slots) = reservedSlotLayout()
+    val contentHeight = contentHeightPx.toFloat()
+    MeasurementStore.storeLaidOutSize(
+      id,
+      contentWidth,
+      YogaMeasureOutput.make(PixelUtil.toDIPFromPixel(contentWidth), PixelUtil.toDIPFromPixel(contentHeight)),
+      laidOutMarkdown,
+      slots,
+    )
+  }
+
   /** A root slot getting its first height while streaming grows into place ([BlockSlotRevealController]). */
   private fun updateBlockSlotHeights(heights: Map<String, Int>): Boolean {
     val changed = applyBlockSlotHeights(heights)
-    blockSlotReveal.noteHeights(heights, segmentViews, streamingAnimation && !isReducedMotionEnabled(context))
+    blockSlotReveal.noteHeights(heights, segmentViews, fadesArrivals())
     applyBlockSlotReveal()
     return changed
   }
@@ -918,6 +1121,24 @@ class EnrichedMarkdown(
   private fun stepBlockSlotReveal() {
     applyBlockSlotReveal()
     if (width > 0) layoutSegments()
+  }
+
+  // Shows what is still fading in at once.
+  private fun finishStreamingAnimations() {
+    blockSlotReveal.cancel()
+    stepBlockSlotReveal()
+    for (view in segmentViews) {
+      when {
+        view is TableContainerView -> {
+          view.finishRowFade()
+        }
+
+        view !is EnrichedMarkdownInternalText && view.alpha < 1f -> {
+          view.animate().cancel()
+          view.alpha = 1f
+        }
+      }
+    }
   }
 
   fun onImageLayoutChanged() {
@@ -938,15 +1159,21 @@ class EnrichedMarkdown(
   // and refuse further work instead of applying it to a view React has dropped.
   fun cleanup() {
     isDisposed = true
-    currentRenderId++
+    renderCoordinator.invalidate()
     blockSlotReveal.reset()
     executor.shutdownNow()
     mainHandler.removeCallbacksAndMessages(null)
     stateWrapper = null
+    textEffects.values.forEach { it.release() }
+    textEffects.clear()
+    pacer.release()
   }
 
   companion object {
     private const val TAG = "EnrichedMarkdown"
     private const val BLOCK_FADE_DURATION_MS = 200L
+
+    // A signature practically no segment has (they are FNV hashes salted per kind).
+    private const val UNKNOWN_SIGNATURE = Long.MIN_VALUE
   }
 }

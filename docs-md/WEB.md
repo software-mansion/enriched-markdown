@@ -23,6 +23,7 @@ Most `EnrichedMarkdownText` features are supported on web (see [Not supported on
 - `onCodeBlockPress` — makes fenced code blocks clickable and keyboard-activatable (Enter/Space) with a button role, receiving the block's `code` and `language`; clicking while code text is selected does not fire
 - `enableTaskListItemToggle` — set to `false` to render task list checkboxes read-only (the click is fully inert: no toggle, no `onTaskListItemPress`). The checkbox keeps its normal appearance, marked `readOnly` / `aria-disabled` and pointer-inert rather than `disabled`, matching iOS and Android
 - `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `strikethrough`, `latexMath`, `highlight`, `hardSoftBreaks`, `preserveBlankLines`, `admonitions`; `strikethrough` is accepted but has no effect, because web always parses GFM)
+- `stream` from `createMarkdownStream()`: the view renders the text appended so far (without the native streaming filter or fade)
 - RTL and mixed-direction (bidi) content, resolved per block as on native — see [RTL Support](RTL.md)
 
 ### Accessibility
@@ -56,8 +57,8 @@ warnings.
 | `flavor` | The web renderer always uses full GFM capabilities. On native, `flavor` controls whether a single `TextView` (CommonMark) or container-based renderer (GitHub) is used; the DOM has no such constraint. |
 | `enableLinkPreview` | iOS-only feature (native link preview on long press). |
 | `allowFontScaling` / `maxFontSizeMultiplier` | React Native text scaling props. Browsers handle font scaling natively via OS accessibility settings. |
-| `streamingAnimation` | Native-only tail fade-in animation. Not yet implemented on web. |
-| `streamingConfig` | Native-only streaming table configuration. Not yet implemented on web. |
+| `streaming`, `streamingAnimation` | Native-only streaming handling and fade-in. Not yet implemented on web. |
+| `streamingConfig` | Native-only streaming configuration. Not yet implemented on web. |
 | `numberOfLines` / `ellipsizeMode` | Native text truncation. Not yet implemented on web. |
 | `spoilerOverlay` | Native-only spoiler reveal animation. Not yet implemented on web. |
 | `contextMenuItems` | Not supported - browsers don't allow extending the native context menu. |
@@ -69,7 +70,7 @@ warnings.
 | `accessibilityLabels` | VoiceOver / TalkBack announcement strings. The web renderer uses semantic HTML and native `aria-*` instead. |
 | `textBreakStrategy` / `lineBreakStrategyIOS` / `writingDirection` | Native line-breaking and paragraph-direction controls. Use `dir` for web text direction. |
 | `enableBlockContextMenu` | Native-only long-press copy popup on block views. |
-| `onCopyPress` / `onLatexError` | Native-only callbacks. |
+| `onCopyPress` / `onLatexError` / `onStreamingEnd` | Native-only callbacks. |
 
 The stripping covers this library's own props only. Generic React Native
 `ViewProps` that the native interface inherits - `accessibilityLabel`,

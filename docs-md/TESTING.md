@@ -38,7 +38,7 @@ module.exports = {
 
 - **Renders a real `TextInput`.** React Native Testing Library queries
   (`getByTestId`, `getByPlaceholderText`, …) and `fireEvent.changeText` work out
-  of the box. `EnrichedMarkdownText` renders its `markdown` prop as plain text, except that with `onLinkPress` / `onLinkLongPress` links become pressable `Text` with the `link` role, and with `onTaskListItemPress` task items become pressable checkboxes.
+  of the box. `EnrichedMarkdownText` renders its `markdown` prop (or a `stream`'s text) as plain text, except that with `onLinkPress` / `onLinkLongPress` links become pressable `Text` with the `link` role, and with `onTaskListItemPress` task items become pressable checkboxes. It calls `onStreamingEnd` when `streaming` turns off or the stream ends.
 - **Emits change events on user input.** Typing fires `onChangeText` and, when a
   handler is provided, `onChangeMarkdown`. The mock cannot parse markdown, so it
   forwards the raw text to `onChangeMarkdown` as a stand-in.

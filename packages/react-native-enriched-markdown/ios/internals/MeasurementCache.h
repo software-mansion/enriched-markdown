@@ -2,14 +2,20 @@
 
 #include <CoreGraphics/CGBase.h>
 #include <React/RCTUtils.h>
+#include <algorithm>
+#include <cmath>
 #include <functional>
 #include <list>
+#include <memory>
 #include <mutex>
+#include <optional>
 #include <react/renderer/graphics/Float.h>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <vector>
 
 namespace facebook::react {
 
@@ -235,12 +241,14 @@ template <typename PropsType> inline size_t ENRMImageSourcesFingerprintForProps(
   }
 }
 
+/// `withMarkdown` false leaves the markdown out (buildLayoutCacheKey).
 template <typename PropsType>
 inline MeasurementCacheKey buildMeasurementCacheKey(const PropsType &props, CGFloat maxWidth, CGFloat fontScale,
-                                                    MarkdownFlavor flavor, size_t wrappedCodeBlocksFingerprint = 0)
+                                                    MarkdownFlavor flavor, size_t wrappedCodeBlocksFingerprint = 0,
+                                                    bool withMarkdown = true)
 {
   return MeasurementCacheKey{
-      .markdown = props.markdown,
+      .markdown = withMarkdown ? props.markdown : std::string(),
       .maxWidth = maxWidth,
       .allowTrailingMargin = props.allowTrailingMargin,
       .allowFontScaling = props.allowFontScaling,
@@ -267,6 +275,169 @@ inline MeasurementCacheKey buildMeasurementCacheKey(const PropsType &props, CGFl
       .linkRegexKey = buildLinkRecognitionCacheKey(props.linkRecognition.text),
       .inlineCodeLinkRegexKey = buildLinkRecognitionCacheKey(props.linkRecognition.inlineCode),
   };
+}
+
+/// The key without the markdown or the width, for telling a stream's next update from new content.
+template <typename PropsType>
+inline MeasurementCacheKey buildLayoutCacheKey(const PropsType &props, CGFloat fontScale, MarkdownFlavor flavor,
+                                               size_t wrappedCodeBlocksFingerprint)
+{
+  return buildMeasurementCacheKey(props, 0, fontScale, flavor, wrappedCodeBlocksFingerprint, false);
+}
+
+/**
+ * What the previous measurement of a view saw. The next one compares against it
+ * to tell a stream's update (the markdown only grew, nothing else changed) from
+ * new content.
+ */
+template <typename PropsT> struct ENRMPreviousMeasurement {
+  std::shared_ptr<const PropsT> props;
+  /// Everything else that sizes the content (buildLayoutCacheKey).
+  std::optional<MeasurementCacheKey> layoutKey;
+  /// The writing direction a parent's `direction` resolved to, which the key leaves out.
+  NSWritingDirection layoutDirection{NSWritingDirectionNatural};
+  /// The state's height counter, which the view advances when it asks for a new height.
+  int heightCounter{-1};
+  /// What the measurement returned, and for which width.
+  CGFloat maxWidth{-1};
+  CGFloat width{0};
+  CGFloat height{0};
+};
+
+/// Whether `current` keeps all of `previous` and only adds to it, as every update
+/// of a stream does. Empty `previous` doesn't count: there is nothing laid out to keep.
+inline bool ENRMMarkdownExtends(const std::string &previous, const std::string &current)
+{
+  return !previous.empty() && current.size() >= previous.size() && current.compare(0, previous.size(), previous) == 0;
+}
+
+/// Where a measurement's size comes from (ENRMChooseMeasurement).
+enum class ENRMMeasurementSource {
+  Full,
+  Previous,
+  LaidOut,
+};
+
+/// What ENRMChooseMeasurement decides from.
+struct ENRMMeasurementInputs {
+  /// Nothing that sizes the content changed except the markdown, which kept all
+  /// of the previous and may have grown.
+  bool streamUpdate;
+  /// The markdown is longer than last time.
+  bool grew;
+  /// The view laid out a render and asked for a new layout since.
+  bool viewAskedForHeight;
+  /// The view is mounted, so it asks again once its height changes.
+  bool hasView;
+  /// The view laid its content out for this width.
+  bool hasLaidOutSize;
+  /// The previous measurement was for this width.
+  bool samePreviousWidth;
+};
+
+/**
+ * Picks the source of a measurement.
+ *
+ * The view's size answers a stream's update (it trails by at most the render in
+ * flight) and a view that asked again. Otherwise the same document measured again
+ * gets the previous answer: Yoga measures twice a pass, and a view sized to its
+ * content lays out narrower than offered, so it keeps that size until it asks.
+ * Without a view nothing would ask, so a grown document measures in full.
+ */
+inline ENRMMeasurementSource ENRMChooseMeasurement(const ENRMMeasurementInputs &inputs)
+{
+  if (!inputs.streamUpdate) {
+    return ENRMMeasurementSource::Full;
+  }
+  if (inputs.hasLaidOutSize && (inputs.grew || inputs.viewAskedForHeight)) {
+    return ENRMMeasurementSource::LaidOut;
+  }
+  if (!inputs.viewAskedForHeight && inputs.samePreviousWidth && (inputs.hasView || !inputs.grew)) {
+    return ENRMMeasurementSource::Previous;
+  }
+  return ENRMMeasurementSource::Full;
+}
+
+/// A block slot as the last full measurement placed it, with the height its child has now.
+struct ENRMMeasuredSlot {
+  std::string_view id;
+  double y;
+  double height;
+  bool placed;
+  double childHeight;
+};
+
+/// A block slot placeholder as the view laid it out (ENRMLaidOutSlot).
+struct ENRMShownSlot {
+  std::string_view id;
+  double y;
+  double height;
+};
+
+/**
+ * Whether a stream's update on a document with block slots can take the height the view laid out
+ * and keep the slot frames of the last full measurement, instead of measuring the whole document
+ * again. The view must show every slot the measurement placed where it placed it, at the height
+ * its child still has, and no slot the measurement doesn't know. With `smooth`, a slot pacing has
+ * not revealed yet is not shown and must lie below that height; otherwise a slot the view doesn't
+ * show (nested in a quote, or placed but not applied yet) fails. So does anything above a slot that
+ * moved it (an image that loaded, a late reference definition): the document measures in full.
+ */
+inline bool ENRMCanTakeLaidOutSlotLayout(bool smooth, double laidOutHeight,
+                                         const std::vector<ENRMMeasuredSlot> &measured,
+                                         const std::vector<ENRMShownSlot> &shown, double tolerance)
+{
+  if (laidOutHeight <= 0 || measured.empty()) {
+    return false;
+  }
+  size_t matched = 0;
+  for (const auto &slot : measured) {
+    if (!slot.placed) {
+      return false;
+    }
+    auto view = std::find_if(shown.begin(), shown.end(), [&](const ENRMShownSlot &s) { return s.id == slot.id; });
+    if (view == shown.end()) {
+      if (!smooth || slot.y < laidOutHeight - tolerance) {
+        return false;
+      }
+      continue;
+    }
+    if (std::abs(view->y - slot.y) > tolerance || std::abs(view->height - slot.height) > tolerance ||
+        std::abs(slot.childHeight - slot.height) > tolerance) {
+      return false;
+    }
+    matched++;
+  }
+  return matched == shown.size();
+}
+
+/**
+ * A code block still streaming into the last slot (the snapshot ends inside its open fence) is the
+ * document's end, so its child's new height decides the document's: where the slot starts, plus
+ * that height, plus what followed it at the last full measurement (`measuredHeight`). The view must
+ * show every slot as ENRMCanTakeLaidOutSlotLayout checks, the last at the height it had, and end
+ * there. Returns 0 when that doesn't hold.
+ */
+inline double ENRMGrowingTailSlotHeight(bool endsInsideOpenFence, double measuredHeight, double laidOutHeight,
+                                        const std::vector<ENRMMeasuredSlot> &measured,
+                                        const std::vector<ENRMShownSlot> &shown, double tolerance)
+{
+  if (!endsInsideOpenFence || measured.empty() || shown.empty()) {
+    return 0;
+  }
+  ENRMMeasuredSlot last = measured.back();
+  const double trailing = measuredHeight - (last.y + last.height);
+  if (trailing < -tolerance ||
+      std::abs(laidOutHeight - (shown.back().y + shown.back().height) - trailing) > tolerance) {
+    return 0;
+  }
+  std::vector<ENRMMeasuredSlot> others = measured;
+  others.back().childHeight = last.height;
+  if (!ENRMCanTakeLaidOutSlotLayout(/*smooth*/ false, laidOutHeight, others, shown, tolerance) ||
+      shown.back().id != last.id) {
+    return 0;
+  }
+  return last.y + last.childHeight + trailing;
 }
 
 /**

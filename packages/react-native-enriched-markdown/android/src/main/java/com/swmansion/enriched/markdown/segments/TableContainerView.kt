@@ -27,6 +27,7 @@ import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkPillSpan
+import com.swmansion.enriched.markdown.spans.TextBackgroundDrawer
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableStyle
 import com.swmansion.enriched.markdown.utils.common.BoundsForWidthUtils
@@ -105,6 +106,15 @@ class TableContainerView(
         .alpha(1f)
         .setDuration(durationMs)
         .start()
+    }
+  }
+
+  fun finishRowFade() {
+    val grid = gridContainer
+    for (i in 0 until grid.childCount) {
+      val cell = grid.getChildAt(i) ?: continue
+      cell.animate().cancel()
+      cell.alpha = 1f
     }
   }
 
@@ -626,6 +636,23 @@ class TableContainerView(
       val result = super.onTouchEvent(event)
       if (event.action == MotionEvent.ACTION_DOWN) cancelJSTouchForLinkTap(event)
       return result
+    }
+
+    // Made on first draw: setText runs from the TextView constructor, before fields are set.
+    private var textBackgrounds: TextBackgroundDrawer? = null
+
+    override fun setText(
+      text: CharSequence?,
+      type: BufferType?,
+    ) {
+      textBackgrounds?.invalidateFrom(0)
+      super.setText(text, type)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+      val drawer = textBackgrounds ?: TextBackgroundDrawer().also { textBackgrounds = it }
+      drawer.draw(canvas, this)
+      super.onDraw(canvas)
     }
   }
 

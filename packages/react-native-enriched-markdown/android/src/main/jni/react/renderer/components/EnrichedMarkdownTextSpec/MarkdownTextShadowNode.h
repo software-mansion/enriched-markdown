@@ -21,7 +21,8 @@ public:
   using ConcreteViewShadowNode::ConcreteViewShadowNode;
 
   MarkdownTextShadowNode(ShadowNode const &sourceShadowNode, ShadowNodeFragment const &fragment)
-      : ConcreteViewShadowNode(sourceShadowNode, fragment) {
+      : ConcreteViewShadowNode(sourceShadowNode, fragment),
+        measureKeys_(static_cast<const MarkdownTextShadowNode &>(sourceShadowNode).measureKeys_) {
     forceHeightRecalculationCounter_ =
         static_cast<const MarkdownTextShadowNode &>(sourceShadowNode).forceHeightRecalculationCounter_;
     dirtyLayoutIfNeeded();
@@ -48,6 +49,10 @@ protected:
 private:
   int forceHeightRecalculationCounter_{0};
   std::shared_ptr<MarkdownTextMeasurementManager> measurementsManager_;
+  // The keys measurement sends for the current props, brought up to them first.
+  const MarkdownMeasureKeys &measureKeys() const;
+
+  mutable MarkdownMeasureKeys measureKeys_;
 };
 
 } // namespace facebook::react

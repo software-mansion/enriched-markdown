@@ -27,6 +27,7 @@ import com.swmansion.enriched.markdown.utils.common.emitLinkLongPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkPress
 import com.swmansion.enriched.markdown.utils.common.emitSelectionCopy
 import com.swmansion.enriched.markdown.utils.common.emitTaskListItemPress
+import com.swmansion.enriched.markdown.utils.common.getBooleanOrDefault
 import com.swmansion.enriched.markdown.utils.common.markdownEventTypeConstants
 import com.swmansion.enriched.markdown.utils.common.parseAccessibilityLabels
 import com.swmansion.enriched.markdown.utils.common.parseContextMenuItems
@@ -36,6 +37,7 @@ import com.swmansion.enriched.markdown.utils.common.parseLinkPillContent
 import com.swmansion.enriched.markdown.utils.common.parseLinkRecognition
 import com.swmansion.enriched.markdown.utils.common.parseMd4cFlags
 import com.swmansion.enriched.markdown.utils.common.parseSelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.text.StreamingEffects
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListToggleUtils
 
 // A ViewGroupManager because the React slot children (`renderers`) mount into the
@@ -158,6 +160,19 @@ class EnrichedMarkdownManager :
   ) {
     view?.setMarkdownContent(markdown ?: "")
   }
+
+  // A stream's text arrives as `markdown`, filled in by the component descriptor.
+  @ReactProp(name = "streamId", defaultInt = 0)
+  override fun setStreamId(
+    view: EnrichedMarkdown?,
+    streamId: Int,
+  ) = Unit
+
+  @ReactProp(name = "streamLength", defaultInt = 0)
+  override fun setStreamLength(
+    view: EnrichedMarkdown?,
+    streamLength: Int,
+  ) = Unit
 
   @ReactProp(name = "markdownStyle")
   override fun setMarkdownStyle(
@@ -311,12 +326,12 @@ class EnrichedMarkdownManager :
     // No-op on Android — first-strong per-paragraph resolution is the platform default
   }
 
-  @ReactProp(name = "streamingAnimation", defaultBoolean = false)
-  override fun setStreamingAnimation(
+  @ReactProp(name = "streaming", defaultBoolean = false)
+  override fun setStreaming(
     view: EnrichedMarkdown?,
-    streamingAnimation: Boolean,
+    streaming: Boolean,
   ) {
-    view?.streamingAnimation = streamingAnimation
+    view?.setStreamingProp(streaming)
   }
 
   @ReactProp(name = "streamingConfig")
@@ -328,6 +343,8 @@ class EnrichedMarkdownManager :
     view.tableStreamingMode = TableStreamingMode.fromString(config?.getString("tableMode"))
     view.codeBlockStreamingMode = CodeBlockStreamingMode.fromString(config?.getString("codeBlockMode"))
     view.mediaStreamingMode = MediaStreamingMode.fromString(config?.getString("mediaMode"))
+    view.setStreamingAnimation(StreamingEffects.Config.from(config, view.context))
+    view.smooth = config.getBooleanOrDefault("smooth", false)
   }
 
   @ReactProp(name = "spoilerOverlay")

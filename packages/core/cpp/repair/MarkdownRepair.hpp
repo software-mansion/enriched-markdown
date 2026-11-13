@@ -58,6 +58,16 @@
 // - Closers are inserted before trailing whitespace, not only before newlines.
 // - A fence closes only with a run at least as long as its opener, so a ```
 //   line inside a ```` fence is content. The reference toggles on every ```.
+// - A link URL is read as the parser reads it: incomplete while the text ends
+//   inside the destination, nested parentheses, a `<...>` destination or a
+//   title (`[a](u "t )`), and prose when other text follows the destination
+//   (`[a](u then more`). The reference calls any `)` after `](` the end of the
+//   link and drops everything after a `](` with none.
+// - A `[` left open more than 512 bytes before the end is a stray bracket in
+//   prose, not a link label.
+// - An HTML block that may interrupt a paragraph (`<div`, `<pre`, `<!--` and
+//   the like) ends one, as a heading or a fence does.
+// - An escaped `\!` before `[` starts no image.
 // The affected recorded cases in the test data are marked as ours.
 //
 // Additions with no reference counterpart: closers for spoilers, highlight,
@@ -108,7 +118,9 @@ struct RepairOptions {
   bool subscript = false;
 
   // Remove half-written syntax at the end of a streamed prefix instead of
-  // closing it; withholdMath also reads `$` with the parser's rules.
+  // closing it; withholdMath also reads `$` with the parser's rules. With
+  // withholdIncomplete, a `[label]` that ends the text shows without its
+  // brackets until the `(` of a link may follow.
   bool withholdIncomplete = false;
   bool withholdMath = false;
 };

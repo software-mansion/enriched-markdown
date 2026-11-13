@@ -66,6 +66,8 @@ private:
     CGFloat width{-1};
     CGSize size{0, 0};
     std::vector<SlotFrame> frames;
+    // What the next pass compares a stream's update with (ENRMIsStreamUpdate).
+    ENRMPreviousMeasurement<EnrichedMarkdownProps> stream;
   };
 
   std::vector<SlotChild> slotChildren() const;
@@ -75,11 +77,15 @@ private:
                               CGFloat width, const LayoutContext &layoutContext, LayoutDirection layoutDirection) const;
   bool slotHeightsUnchanged(const std::vector<SlotChild> &slots, const LayoutContext &layoutContext,
                             LayoutDirection layoutDirection) const;
+  bool takeLaidOutSlotLayout(const std::vector<SlotChild> &slots, const MeasurementCacheKey &key, int counter,
+                             CGFloat width, NSWritingDirection resolvedLayoutDirection, CGFloat fontScale,
+                             size_t wrappedFingerprint, const LayoutContext &layoutContext,
+                             LayoutDirection layoutDirection) const;
   std::vector<ENRMBlockSlotPlacement> slotPlacements() const;
+  CGFloat revealedHeight(CGFloat width, CGFloat pointScaleFactor) const;
 
   int localHeightRecalculationCounter_{0};
-  mutable int lastExactMeasurementCounter_{0};
-  mutable CGSize lastExactMeasurementSize_{0, 0};
+  mutable ENRMPreviousMeasurement<EnrichedMarkdownProps> previousMeasurement_;
   mutable SlotMeasurement slotMeasurement_;
 };
 

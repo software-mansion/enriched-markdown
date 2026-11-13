@@ -5,6 +5,36 @@ This file tracks breaking changes and how to migrate for each. Entries are newes
 
 ## Unreleased
 
+### `streamingAnimation` is deprecated in favor of `streaming`, and no longer only animates
+
+`streamingAnimation` still works as an alias of `streaming` and logs a warning in development. Like
+`streaming`, while it is on it holds back trailing blocks that have not finished arriving and repairs
+half-written inline syntax, as well as fading new text in. Set `streaming` while the text arrives and turn
+it off when the stream ends: a view that leaves it on renders a finished message with that handling.
+
+`streamingConfig` now applies under `flavor="commonmark"` too; before, it took effect only with
+`flavor="github"`. A `commonmark` view with `streamingAnimation` on therefore now holds back unfinished code
+blocks, images, videos, links and block math while the text streams.
+
+**Migrate:** replace `streamingAnimation` with `streaming`, and turn it off when the stream ends.
+
+Before:
+
+```tsx
+<EnrichedMarkdownText markdown={partialMarkdown} streamingAnimation />
+```
+
+After:
+
+```tsx
+<EnrichedMarkdownText markdown={partialMarkdown} streaming={isStreaming} />
+```
+
+`react-native-streamdown` is no longer needed: streaming is built into `react-native-enriched-markdown`,
+including repair of incomplete Markdown, with no Worklets setup. See
+[Migrating from react-native-streamdown](./MARKDOWN_STREAMING.md#migrating-from-react-native-streamdown)
+for the steps.
+
 ## v1.2.0
 
 No breaking changes. v1.2.0 is additive over v1.1.1 - every public prop, method, event and style key

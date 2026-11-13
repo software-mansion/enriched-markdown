@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import com.swmansion.enriched.markdown.utils.common.SlotLayoutReuse
 import kotlin.math.ceil
 import kotlin.math.max
 
@@ -185,7 +186,7 @@ open class ContainerNodeView(
     return result.viewsToAttach.isNotEmpty() || result.viewsToRemove.isNotEmpty()
   }
 
-  protected fun layoutSegments() {
+  protected open fun layoutSegments() {
     val containerWidth = width
     if (containerWidth <= 0) return
 
@@ -251,6 +252,24 @@ open class ContainerNodeView(
     val widthSpec = MeasureSpec.makeMeasureSpec(contentWidth, MeasureSpec.EXACTLY)
     val heightSpec = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
     segmentViews.forEach { it.measure(widthSpec, heightSpec) }
+  }
+
+  /**
+   * The content height and the root slot placeholders the shadow node may take for a stream's
+   * update (MeasurementStore.storeLaidOutSize), px within the content box. A slot growing in counts
+   * at the height it reserved, as the shadow node measures it, and so does where each slot after it
+   * starts. Read after [layoutSegments].
+   */
+  internal fun reservedSlotLayout(): Pair<Int, List<SlotLayoutReuse.ShownSlot>> {
+    var reservedShift = 0
+    val slots = mutableListOf<SlotLayoutReuse.ShownSlot>()
+    segmentViews.forEach { view ->
+      if (view is BlockSlotSegmentView) {
+        slots.add(SlotLayoutReuse.ShownSlot(view.slotId, (view.top - paddingTop + reservedShift).toFloat(), view.slotHeight.toFloat()))
+        reservedShift += view.slotHeight - view.revealedHeight
+      }
+    }
+    return (computeSegmentsTotalHeight() - paddingTop - paddingBottom) to slots
   }
 
   protected fun computeSegmentsTotalHeight(): Int {

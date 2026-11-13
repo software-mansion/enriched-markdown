@@ -4,19 +4,25 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.text.Layout
 import android.text.Spanned
-import android.text.style.LineBackgroundSpan
 import com.swmansion.enriched.markdown.spoiler.isConcealedBySpoiler
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import kotlin.math.max
 import kotlin.math.min
 
+/** Marks inline code; [TextBackgroundDrawer] draws its background from the text's layout. */
 class CodeBackgroundSpan(
   private val styleConfig: StyleConfig,
-) : LineBackgroundSpan {
+) {
   companion object {
     private const val CORNER_RADIUS = 6.0f
     private const val BORDER_WIDTH = 1.0f
+    private const val R = CORNER_RADIUS
+    private val ROUND_BOTH = floatArrayOf(R, R, R, R, R, R, R, R)
+    private val ROUND_LEFT = floatArrayOf(R, R, 0f, 0f, 0f, 0f, R, R)
+    private val ROUND_RIGHT = floatArrayOf(0f, 0f, R, R, R, R, 0f, 0f)
+    private val ROUND_NONE = FloatArray(8)
 
     private val sharedBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val sharedBorderPaint =
@@ -32,28 +38,27 @@ class CodeBackgroundSpan(
   private val rect = RectF()
   private val path = Path()
 
-  override fun drawBackground(
+  /** Draws this span's background, from [spanStart] to [spanEnd], on [line] of [layout], from [lineStart] to [lineEnd]. */
+  internal fun drawLine(
     canvas: Canvas,
-    p: Paint,
-    left: Int,
-    right: Int,
-    top: Int,
-    baseline: Int,
-    bottom: Int,
-    text: CharSequence,
-    start: Int,
-    end: Int,
-    lineNum: Int,
+    drawer: TextBackgroundDrawer,
+    layout: Layout,
+    line: Int,
+    lineStart: Int,
+    lineEnd: Int,
+    spanStart: Int,
+    spanEnd: Int,
+    text: Spanned,
   ) {
-    if (text !is Spanned) return
-
-    val spanStart = text.getSpanStart(this)
-    val spanEnd = text.getSpanEnd(this)
-    if (spanStart !in 0 until spanEnd) return
+    if (spanEnd <= lineStart || spanStart >= lineEnd) return
 
     // The spoiler overlay only covers the text's glyph box, so a background drawn to the line's bounds
     // would outline the hidden code around it.
-    if (text.isConcealedBySpoiler(maxOf(spanStart, start), minOf(spanEnd, end))) return
+    if (text.isConcealedBySpoiler(maxOf(spanStart, lineStart), minOf(spanEnd, lineEnd))) return
+
+    val rightToLeft = layout.getParagraphDirection(line) == Layout.DIR_RIGHT_TO_LEFT
+    val top = layout.getLineTop(line)
+    val bottom = adjustBottomForMargin(text, lineEnd, layout.getLineTop(line + 1))
 
     // Keep CodeSpan and this background span intact for semantic extraction. Draw only
     // portions outside replacement pills, including code surrounding a partially covered run.
@@ -61,38 +66,21 @@ class CodeBackgroundSpan(
       rangeStart: Int,
       rangeEnd: Int,
     ) {
-      if (max(rangeStart, start) >= min(rangeEnd, end)) return
-      // 1. Determine relative positioning
-      val isFirst = rangeStart >= start
-      val isLast = rangeEnd <= end
+      if (max(rangeStart, lineStart) >= min(rangeEnd, lineEnd)) return
+      val isFirst = rangeStart >= lineStart
+      val isLast = rangeEnd <= lineEnd
+      val startX = drawer.x(layout, line, lineStart, lineEnd, if (isFirst) rangeStart else lineStart)
+      val endX = drawer.x(layout, line, lineStart, lineEnd, if (isLast) rangeEnd else lineEnd)
+      rect.set(min(startX, endX), top.toFloat(), max(startX, endX), bottom.toFloat())
 
-      // 2. Calculate coordinates
-      val finalBottom = adjustBottomForMargin(text, end, bottom)
-      val leadingMargin = InlineBackgroundGeometry.leadingMarginAt(text, start)
-      val startX =
-        if (isFirst) {
-          InlineBackgroundGeometry.horizontalOffset(text, start, end, rangeStart, p, leadingMargin) + left
-        } else {
-          left.toFloat() + leadingMargin
-        }
-      val endX =
-        if (isLast) {
-          InlineBackgroundGeometry.horizontalOffset(text, start, end, rangeEnd, p, leadingMargin) + left
-        } else {
-          right.toFloat()
-        }
-
-      rect.set(min(startX, endX), top.toFloat(), max(startX, endX), finalBottom.toFloat())
-
-      // 3. Apply Style
       val codeStyle = styleConfig.codeStyle
       sharedBackgroundPaint.color = codeStyle.backgroundColor
       sharedBorderPaint.color = codeStyle.borderColor
-
-      drawShapes(canvas, isFirst, isLast)
+      // A right-to-left line starts on the right, so the span's first fragment is closed there.
+      if (rightToLeft) drawShapes(canvas, isLast, isFirst) else drawShapes(canvas, isFirst, isLast)
     }
 
-    // Runs per code span, per line, per draw: only query for pills if the style can produce any.
+    // Only query for pills if the style can produce any.
     val pills = if (styleConfig.hasLinkPills) text.getSpans(spanStart, spanEnd, LinkPillSpan::class.java) else emptyArray()
     if (pills.isEmpty()) {
       drawUncoveredRange(spanStart, spanEnd)
@@ -110,40 +98,39 @@ class CodeBackgroundSpan(
     drawUncoveredRange(cursor, spanEnd)
   }
 
+  // Rounds and closes the [closedLeft] and [closedRight] sides of [rect].
   private fun drawShapes(
     canvas: Canvas,
-    isFirst: Boolean,
-    isLast: Boolean,
+    closedLeft: Boolean,
+    closedRight: Boolean,
   ) {
-    val radii = createRadii(isFirst, isLast)
-
     path.reset()
-    path.addRoundRect(rect, radii, Path.Direction.CW)
+    path.addRoundRect(rect, radii(closedLeft, closedRight), Path.Direction.CW)
     canvas.drawPath(path, sharedBackgroundPaint)
 
-    if (isFirst && isLast) {
+    if (closedLeft && closedRight) {
       canvas.drawPath(path, sharedBorderPaint)
     } else {
-      drawOpenBorders(canvas, isFirst, isLast)
+      drawOpenBorders(canvas, closedLeft, closedRight)
     }
   }
 
   private fun drawOpenBorders(
     canvas: Canvas,
-    isFirst: Boolean,
-    isLast: Boolean,
+    closedLeft: Boolean,
+    closedRight: Boolean,
   ) {
     val r = CORNER_RADIUS
     path.reset()
 
-    if (isFirst) {
+    if (closedLeft) {
       path.moveTo(rect.right, rect.top)
       path.lineTo(rect.left + r, rect.top)
       path.quadTo(rect.left, rect.top, rect.left, rect.top + r)
       path.lineTo(rect.left, rect.bottom - r)
       path.quadTo(rect.left, rect.bottom, rect.left + r, rect.bottom)
       path.lineTo(rect.right, rect.bottom)
-    } else if (isLast) {
+    } else if (closedRight) {
       path.moveTo(rect.left, rect.top)
       path.lineTo(rect.right - r, rect.top)
       path.quadTo(rect.right, rect.top, rect.right, rect.top + r)
@@ -159,34 +146,14 @@ class CodeBackgroundSpan(
     canvas.drawPath(path, sharedBorderPaint)
   }
 
-  private fun createRadii(
-    isFirst: Boolean,
-    isLast: Boolean,
+  private fun radii(
+    closedLeft: Boolean,
+    closedRight: Boolean,
   ) = when {
-    isFirst && isLast -> {
-      floatArrayOf(
-        CORNER_RADIUS,
-        CORNER_RADIUS,
-        CORNER_RADIUS,
-        CORNER_RADIUS,
-        CORNER_RADIUS,
-        CORNER_RADIUS,
-        CORNER_RADIUS,
-        CORNER_RADIUS,
-      )
-    }
-
-    isFirst -> {
-      floatArrayOf(CORNER_RADIUS, CORNER_RADIUS, 0f, 0f, 0f, 0f, CORNER_RADIUS, CORNER_RADIUS)
-    }
-
-    isLast -> {
-      floatArrayOf(0f, 0f, CORNER_RADIUS, CORNER_RADIUS, CORNER_RADIUS, CORNER_RADIUS, 0f, 0f)
-    }
-
-    else -> {
-      floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
-    }
+    closedLeft && closedRight -> ROUND_BOTH
+    closedLeft -> ROUND_LEFT
+    closedRight -> ROUND_RIGHT
+    else -> ROUND_NONE
   }
 
   private fun adjustBottomForMargin(

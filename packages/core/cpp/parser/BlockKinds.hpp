@@ -49,8 +49,9 @@ std::string nodeAttribute(const MarkdownASTNode &node, const std::string &key);
 // link's label.
 std::string inlineText(const MarkdownASTNode &node);
 
-// Inline syntax helpers shared by the line classifiers and the streaming
-// filter's tail scanner, so both read `[label](destination)` the same way.
+// Inline syntax helpers for the line classifiers. Repair reads a destination
+// still being typed with its own scan (destinationIsOpen in RepairHandlers.cpp);
+// the two must agree on what closes one.
 namespace InlineSyntax {
 // Whether the character at `index` is escaped by an odd run of backslashes.
 bool isEscaped(std::string_view text, size_t index);
@@ -80,9 +81,9 @@ size_t labelEnd(std::string_view text, size_t bracket, const CodeSpans &spans);
 // after `]`): the destination may be `<pointy>` or hold balanced parentheses,
 // the optional title is quoted or parenthesised, and escapes are honoured
 // throughout; npos when it has not arrived, kInvalid when what follows can no
-// longer close it (`[a](u then prose`), with `stop` set to where it gave up.
+// longer close it (`[a](u then prose`).
 constexpr size_t kInvalid = std::string_view::npos - 1;
-size_t destinationEnd(std::string_view text, size_t openParen, size_t *stop = nullptr);
+size_t destinationEnd(std::string_view text, size_t openParen);
 // How far a `[label](destination)` or `![alt](destination)` that starts at
 // `bracket` (the `[`) has streamed in: Open while its syntax can still close,
 // Complete when it closed and only whitespace follows, None when it is prose

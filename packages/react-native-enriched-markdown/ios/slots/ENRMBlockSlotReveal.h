@@ -7,7 +7,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 static const CGFloat ENRMBlockSlotNoClip = -1;
 
-/// The tail fade's ease.
+/// The ease a block drawn by `renderers` grows into place with.
 static inline CGFloat ENRMBlockSlotRevealEaseOut(CGFloat progress)
 {
   return 1.0 - (1.0 - progress) * (1.0 - progress);

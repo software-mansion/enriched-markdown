@@ -2,6 +2,7 @@
 #import "ENRMAdmonitionIcons.h"
 #import "ENRMBlockSlotSegmentView.h"
 #import "ENRMCodeBlockContainerView.h"
+#import "ENRMDroppableContent.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMLinkContextMenus.h"
 #import "ENRMSegmentHeightMeasurer.h"
@@ -116,7 +117,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 @end
 
 #if !TARGET_OS_OSX
-@interface ENRMBlockquoteContainerView () <UITextViewDelegate, ENRMLinkContextMenuSource>
+@interface ENRMBlockquoteContainerView () <UITextViewDelegate, ENRMLinkContextMenuSource, ENRMDroppableContent>
 @end
 #endif
 

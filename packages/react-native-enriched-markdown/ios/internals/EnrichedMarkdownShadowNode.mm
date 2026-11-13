@@ -25,18 +25,11 @@ EnrichedMarkdownShadowNode::EnrichedMarkdownShadowNode(const ShadowNode &sourceS
     : ConcreteViewShadowNode(sourceShadowNode, fragment),
       localHeightRecalculationCounter_(
           static_cast<const EnrichedMarkdownShadowNode &>(sourceShadowNode).localHeightRecalculationCounter_),
-      lastExactMeasurementCounter_(
-          static_cast<const EnrichedMarkdownShadowNode &>(sourceShadowNode).lastExactMeasurementCounter_),
-      lastExactMeasurementSize_(
-          static_cast<const EnrichedMarkdownShadowNode &>(sourceShadowNode).lastExactMeasurementSize_),
+      previousMeasurement_(static_cast<const EnrichedMarkdownShadowNode &>(sourceShadowNode).previousMeasurement_),
       slotMeasurement_(static_cast<const EnrichedMarkdownShadowNode &>(sourceShadowNode).slotMeasurement_)
 {
   const auto &oldProps = *std::static_pointer_cast<const EnrichedMarkdownProps>(sourceShadowNode.getProps());
   const auto &newProps = *std::static_pointer_cast<const EnrichedMarkdownProps>(this->getProps());
-
-  if (newProps.streamingAnimation && ENRMPropsNeedExactStreamingMeasurement(oldProps, newProps)) {
-    lastExactMeasurementCounter_ = -1;
-  }
 
   // New children, e.g. every frame of an animation inside a slot: the next pass
   // re-checks the slot heights before reusing the measurement.
@@ -46,7 +39,7 @@ EnrichedMarkdownShadowNode::EnrichedMarkdownShadowNode(const ShadowNode &sourceS
   }
   // The streaming modes decide what the walk renders but are not part of the
   // measurement key (the LRU cache is never used while streaming).
-  if (fragment.props && (oldProps.streamingAnimation != newProps.streamingAnimation ||
+  if (fragment.props && (oldProps.streaming != newProps.streaming ||
                          oldProps.streamingConfig.tableMode != newProps.streamingConfig.tableMode ||
                          oldProps.streamingConfig.codeBlockMode != newProps.streamingConfig.codeBlockMode ||
                          oldProps.streamingConfig.mediaMode != newProps.streamingConfig.mediaMode)) {
@@ -145,6 +138,85 @@ bool EnrichedMarkdownShadowNode::slotHeightsUnchanged(const std::vector<SlotChil
   return true;
 }
 
+// A stream's update: when the view laid out what the last full measurement placed, its height
+// stands and the slot frames with it (ENRMCanTakeLaidOutSlotLayout), so the document is not
+// rendered and laid out again. Rewrites the memo for the markdown, so Yoga's second measure and
+// layout() match it.
+bool EnrichedMarkdownShadowNode::takeLaidOutSlotLayout(const std::vector<SlotChild> &slots,
+                                                       const MeasurementCacheKey &key, int counter, CGFloat width,
+                                                       NSWritingDirection resolvedLayoutDirection, CGFloat fontScale,
+                                                       size_t wrappedFingerprint, const LayoutContext &layoutContext,
+                                                       LayoutDirection layoutDirection) const
+{
+  auto &m = slotMeasurement_;
+  if (!m.valid || m.width != width || m.frames.size() != slots.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < slots.size(); i++) {
+    if (m.frames[i].id != slots[i].id) {
+      return false;
+    }
+  }
+  const auto props = std::static_pointer_cast<const EnrichedMarkdownProps>(getProps());
+  MeasurementCacheKey layoutKey = buildLayoutCacheKey(*props, fontScale, MarkdownFlavor::GitHub, wrappedFingerprint);
+  if (!ENRMIsStreamUpdate(m.stream, *props, layoutKey, resolvedLayoutDirection)) {
+    return false;
+  }
+  RCTInternalGenericWeakWrapper *weakWrapper =
+      (RCTInternalGenericWeakWrapper *)unwrapManagedObject(getStateData().getComponentViewRef());
+  EnrichedMarkdown *view = weakWrapper ? (EnrichedMarkdown *)weakWrapper.object : nil;
+  if (!view) {
+    return false;
+  }
+  ENRMLaidOutLayout laidOut = [view laidOutLayoutForWidth:width
+                                         pointScaleFactor:layoutContext.pointScaleFactor
+                                                 markdown:props->markdown];
+  std::vector<ENRMMeasuredSlot> measured;
+  measured.reserve(slots.size());
+  for (size_t i = 0; i < slots.size(); i++) {
+    const auto &frame = m.frames[i];
+    measured.push_back(
+        {frame.id, frame.y, frame.height, frame.placed,
+         frame.placed ? ENRMSlotChildHeight(*slots[i].node, layoutContext, layoutDirection, frame.width) : 0});
+  }
+  std::vector<ENRMShownSlot> shown;
+  if (laidOut.slots) {
+    shown.reserve(laidOut.slots->size());
+    for (const auto &slot : *laidOut.slots) {
+      shown.push_back({slot.id, slot.y, slot.height});
+    }
+  }
+  const double tolerance = 1 / layoutContext.pointScaleFactor;
+  CGFloat height = laidOut.size.height;
+  if (!ENRMCanTakeLaidOutSlotLayout(props->streamingConfig.smooth, height, measured, shown, tolerance)) {
+    // A code block streaming into its renderer at the end: only that slot's child grew.
+    BOOL endsInsideOpenFence = NO;
+    if (!props->streamingConfig.smooth) {
+      ENRMMd4cFlags *flags = ENRMMd4cFlagsFromProps(props->md4cFlags);
+      const auto &config = props->streamingConfig;
+      ENRMRenderableMarkdownForStreaming(ENRMStringFromUTF8(props->markdown), flags,
+                                         ENRMStreamingModeFromString<ENRMTableStreamingMode>(config.tableMode),
+                                         ENRMStreamingModeFromString<ENRMCodeBlockStreamingMode>(config.codeBlockMode),
+                                         ENRMStreamingModeFromString<ENRMMediaStreamingMode>(config.mediaMode),
+                                         &endsInsideOpenFence);
+    }
+    height =
+        ENRMGrowingTailSlotHeight(endsInsideOpenFence, m.size.height, laidOut.size.height, measured, shown, tolerance);
+    if (height <= 0) {
+      return false;
+    }
+    m.frames.back().height = (Float)measured.back().childHeight;
+  }
+  // The width stays the measured one: the view's comes from Yoga's rounded frame.
+  m.size.height = height;
+  m.key = key;
+  m.counter = counter;
+  m.slotHeightsChecked = true;
+  m.stream.props = props;
+  m.stream.layoutKey = std::move(layoutKey);
+  return true;
+}
+
 std::vector<ENRMBlockSlotPlacement> EnrichedMarkdownShadowNode::slotPlacements() const
 {
   std::vector<ENRMBlockSlotPlacement> placements;
@@ -153,6 +225,21 @@ std::vector<ENRMBlockSlotPlacement> EnrichedMarkdownShadowNode::slotPlacements()
     placements.push_back({frame.id, frame.height, frame.placed});
   }
   return placements;
+}
+
+// With smooth pacing the view shows only a start of the markdown, the slots' blocks
+// arriving with the words: the height it laid that start out at, 0 when it shows all.
+CGFloat EnrichedMarkdownShadowNode::revealedHeight(CGFloat width, CGFloat pointScaleFactor) const
+{
+  const auto &props = getConcreteProps();
+  if (!props.streamingConfig.smooth) {
+    return 0;
+  }
+  RCTInternalGenericWeakWrapper *weakWrapper =
+      (RCTInternalGenericWeakWrapper *)unwrapManagedObject(getStateData().getComponentViewRef());
+  EnrichedMarkdown *view = weakWrapper ? (EnrichedMarkdown *)weakWrapper.object : nil;
+  return view ? [view partialLaidOutSizeForWidth:width pointScaleFactor:pointScaleFactor markdown:props.markdown].height
+              : 0;
 }
 
 // Measures the document with the slot children taking part: each slot is sized
@@ -187,6 +274,11 @@ CGSize EnrichedMarkdownShadowNode::measureWithSlots(const std::vector<SlotChild>
   if (slotMeasurementMatches(slots, key, receivedCounter, maxWidth, layoutContext, layoutConstraints.layoutDirection)) {
     return slotMeasurement_.size;
   }
+  if (props.streaming && takeLaidOutSlotLayout(slots, key, receivedCounter, maxWidth, resolvedLayoutDirection,
+                                               fontScale, ENRMWrappedCodeBlocksFingerprint(wrappedCodeBlocks),
+                                               layoutContext, layoutConstraints.layoutDirection)) {
+    return slotMeasurement_.size;
+  }
 
   NSMutableSet<NSString *> *slotIds = [NSMutableSet setWithCapacity:slots.size()];
   for (const auto &slot : slots) {
@@ -210,7 +302,7 @@ CGSize EnrichedMarkdownShadowNode::measureWithSlots(const std::vector<SlotChild>
               }];
 
   id rendered = ENRMPrepareFirstRender(
-      view != nil, props.streamingAnimation, {getProps(), fontScale, resolvedLayoutDirection, slotIds}, ^id {
+      view != nil, props.streaming, {getProps(), fontScale, resolvedLayoutDirection, slotIds}, ^id {
         return ENRMRenderSegmentedMarkdownViewFree(props, ENRMStyleConfigFromProps(props, fontScale),
                                                    resolvedLayoutDirection, slotIds);
       });
@@ -230,8 +322,13 @@ CGSize EnrichedMarkdownShadowNode::measureWithSlots(const std::vector<SlotChild>
       slotFrames.push_back({slot.id, 0, 0, 0, 0, false});
     }
   }
-  slotMeasurement_ =
-      SlotMeasurement{true, true, std::move(key), receivedCounter, maxWidth, size, std::move(slotFrames)};
+  ENRMPreviousMeasurement<EnrichedMarkdownProps> stream;
+  stream.props = std::static_pointer_cast<const EnrichedMarkdownProps>(getProps());
+  stream.layoutKey = buildLayoutCacheKey(props, fontScale, MarkdownFlavor::GitHub,
+                                         ENRMWrappedCodeBlocksFingerprint(wrappedCodeBlocks));
+  stream.layoutDirection = resolvedLayoutDirection;
+  slotMeasurement_ = SlotMeasurement{true,     true, std::move(key),        receivedCounter,
+                                     maxWidth, size, std::move(slotFrames), std::move(stream)};
   return size;
 }
 
@@ -240,7 +337,6 @@ Size EnrichedMarkdownShadowNode::measureContent(const LayoutContext &layoutConte
 {
   const auto propsHandle = std::static_pointer_cast<const EnrichedMarkdownProps>(this->getProps());
   const auto &typedProps = *propsHandle;
-  const int receivedCounter = getStateData().getHeightRecalculationCounter();
   const EnrichedMarkdownProps *props = propsHandle.get();
   CGFloat pointScaleFactor = layoutContext.pointScaleFactor;
   NSWritingDirection resolvedLayoutDirection = layoutConstraints.layoutDirection == LayoutDirection::RightToLeft
@@ -249,7 +345,14 @@ Size EnrichedMarkdownShadowNode::measureContent(const LayoutContext &layoutConte
 
   const auto slots = slotChildren();
   if (!slots.empty()) {
+    // Slot children are measured where the walk places them; nothing here takes the view's size.
+    previousMeasurement_ = {};
     CGSize size = measureWithSlots(slots, layoutContext, layoutConstraints, layoutConstraints.maximumSize.width);
+    // The whole document places every slot, so a block's space is reserved as soon as it is revealed.
+    CGFloat revealed = revealedHeight(slotMeasurement_.width, pointScaleFactor);
+    if (revealed > 0 && revealed < size.height) {
+      size.height = revealed;
+    }
     return ENRMClampMeasuredSize(size, layoutConstraints);
   }
   slotMeasurement_ = SlotMeasurement{};
@@ -261,7 +364,7 @@ Size EnrichedMarkdownShadowNode::measureContent(const LayoutContext &layoutConte
   NSSet<NSNumber *> *wrappedCodeBlocks = typedProps.enableCodeBlockWrapToggle ? view.wrappedCodeBlockIndices : nil;
 
   return ENRMMeasureMarkdownContent<EnrichedMarkdownProps, EnrichedMarkdown>(
-      propsHandle, componentViewRef, receivedCounter, lastExactMeasurementCounter_, lastExactMeasurementSize_,
+      propsHandle, componentViewRef, getStateData().getHeightRecalculationCounter(), previousMeasurement_,
       MarkdownFlavor::GitHub, layoutContext, layoutConstraints, resolvedLayoutDirection,
       ^id(CGFloat fontScale) {
         return ENRMRenderSegmentedMarkdownViewFree(*props, ENRMStyleConfigFromProps(*props, fontScale),
@@ -298,6 +401,11 @@ void EnrichedMarkdownShadowNode::layout(LayoutContext layoutContext)
   // the height counter, the width or the children changed: the memoized measure
   // checks every input and returns at once when none did.
   measureWithSlots(slots, layoutContext, layoutConstraints, contentFrame.size.width);
+  // Slots that start below what smooth pacing has revealed wait for their words; one that has started
+  // shows while it grows, as text does.
+  CGFloat revealed = revealedHeight(slotMeasurement_.width, layoutMetrics.pointScaleFactor);
+  // A stream's update that took the view's height (takeLaidOutSlotLayout) measured only what was revealed.
+  const bool clipped = revealed > 0;
 
   auto hostShadowNode = static_cast<EnrichedMarkdownShadowNode *>(this);
   auto hostOwningShadowNode = std::shared_ptr<ShadowNode>{};
@@ -314,7 +422,7 @@ void EnrichedMarkdownShadowNode::layout(LayoutContext layoutContext)
     hostShadowNode = static_cast<EnrichedMarkdownShadowNode *>(hostOwningShadowNode.get());
     auto &layoutableShadowNode = static_cast<LayoutableShadowNode &>(*clonedShadowNode);
 
-    if (!frame.placed) {
+    if (!frame.placed || (clipped && frame.y >= revealed - 1 / layoutMetrics.pointScaleFactor)) {
       layoutableShadowNode.setLayoutMetrics(LayoutMetrics{.frame = {}, .displayType = DisplayType::None});
       continue;
     }

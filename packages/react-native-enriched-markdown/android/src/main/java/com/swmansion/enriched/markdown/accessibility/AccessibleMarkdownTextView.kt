@@ -1,17 +1,21 @@
 package com.swmansion.enriched.markdown.accessibility
 
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Rect
+import android.text.Spannable
 import android.util.AttributeSet
 import android.view.ActionMode
 import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.appcompat.widget.AppCompatTextView
 import com.swmansion.enriched.markdown.spans.LinkPillSpan
+import com.swmansion.enriched.markdown.spans.TextBackgroundDrawer
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
 import com.swmansion.enriched.markdown.utils.text.view.OnSelectionCopy
 import com.swmansion.enriched.markdown.utils.text.view.SelectionCopyFormat
 import com.swmansion.enriched.markdown.utils.text.view.copySelection
+import com.swmansion.enriched.markdown.utils.text.view.replaceAdoptedTextTail
 
 /** AppCompatTextView with built-in TalkBack support via MarkdownAccessibilityHelper. */
 abstract class AccessibleMarkdownTextView
@@ -26,6 +30,18 @@ abstract class AccessibleMarkdownTextView
 
     /** The selection toolbar while it is showing, kept up to date by the selection menu callback. */
     internal var selectionActionMode: ActionMode? = null
+
+    // Inline code and highlight backgrounds come from the layout that draws the text, under it.
+    // Made on first draw: setText runs from the TextView constructor, before fields are set.
+    private var textBackgrounds: TextBackgroundDrawer? = null
+
+    override fun onDraw(canvas: Canvas) {
+      // Past the pre-draw where TextView would have scrolled for a patch.
+      keepScroll = false
+      val drawer = textBackgrounds ?: TextBackgroundDrawer().also { textBackgrounds = it }
+      drawer.draw(canvas, this)
+      super.onDraw(canvas)
+    }
 
     // The selection menu's Copy ends up here, and Ctrl+C (and TalkBack's copy action) call this directly.
     override fun onTextContextMenuItem(id: Int): Boolean {
@@ -44,13 +60,55 @@ abstract class AccessibleMarkdownTextView
       text: CharSequence?,
       type: BufferType?,
     ) {
-      // Prime pills and images before the layout for the new text is built, and register for icons
-      // that load later. Runs from the TextView constructor too: use nothing initialized after it.
+      prepareSpans(text)
+      textBackgrounds?.invalidateFrom(0)
+      super.setText(text, type)
+    }
+
+    /**
+     * Primes pills and images before the layout for [text] is built, and registers for icons that
+     * load later. Runs from the TextView constructor too: use nothing initialized after it.
+     */
+    protected fun prepareSpans(text: CharSequence?) {
       val contentWidth = width - compoundPaddingLeft - compoundPaddingRight
       if (contentWidth > 0) prepareWidthAwareSpans(text, contentWidth)
       LinkPillSpan.registerView(text, this)
-      super.setText(text, type)
     }
+
+    /**
+     * Replaces the text from [start] on with [tail]. The layout keeps the lines before the edit
+     * (DynamicLayout reflows from the changed paragraph), where setting the whole text would lay
+     * all of it out again. False when the view holds no buffer to edit, or its layout wouldn't
+     * hear of the edit.
+     */
+    protected fun replaceTextTail(
+      start: Int,
+      tail: Spannable,
+    ): Boolean {
+      prepareSpans(tail)
+      keepScroll = true
+      if (!replaceAdoptedTextTail(text, start, tail, hasLayout = layout != null)) {
+        keepScroll = false
+        return false
+      }
+      textBackgrounds?.invalidateFrom(start)
+      // Without a request, measure() would return the height cached before the edit.
+      requestLayout()
+      invalidate()
+      accessibilityHelper.invalidateAccessibilityItems()
+      return true
+    }
+
+    // Set while a tail patch reaches TextView, until the view draws it: TextView scrolls its parent
+    // to the selection on an edit, then and again before the next draw, and a patch is no edit.
+    private var keepScroll = false
+
+    override fun bringPointIntoView(offset: Int): Boolean = !keepScroll && super.bringPointIntoView(offset)
+
+    override fun bringPointIntoView(
+      offset: Int,
+      requestRectWithoutFocus: Boolean,
+    ): Boolean = !keepScroll && super.bringPointIntoView(offset, requestRectWithoutFocus)
 
     override fun onMeasure(
       widthMeasureSpec: Int,

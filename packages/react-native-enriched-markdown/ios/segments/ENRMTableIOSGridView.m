@@ -1,9 +1,10 @@
 #import "ENRMTableIOSGridView.h"
+#import "ENRMDroppableContent.h"
 #import "LinkTapUtils.h"
 
 #if !TARGET_OS_OSX
 
-@interface ENRMTableIOSGridView () <UIGestureRecognizerDelegate>
+@interface ENRMTableIOSGridView () <UIGestureRecognizerDelegate, ENRMDroppableContent>
 @end
 
 @implementation ENRMTableIOSItemHit

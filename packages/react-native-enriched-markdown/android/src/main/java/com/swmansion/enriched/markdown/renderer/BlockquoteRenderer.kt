@@ -70,7 +70,7 @@ class BlockquoteRenderer(
         .sortedBy { it.first }
 
     // The accent bar / background span covers the full box, incl. the top spacer.
-    // Top priority draws it first, so inline pill/chip backgrounds paint on top of its fill.
+    // Top priority applies its font first, so inline spans inside override it.
     builder.setSpan(
       BlockquoteSpan(style, depth, factory.context, factory.styleCache),
       start,

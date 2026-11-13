@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.os.Build
+import android.text.Layout
 import android.text.Spannable
 import android.text.Spanned
 import android.text.StaticLayout
@@ -39,20 +40,16 @@ import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
 import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.common.MediaStreamingMode
+import com.swmansion.enriched.markdown.utils.common.SlotLayoutReuse
+import com.swmansion.enriched.markdown.utils.common.StreamingFilterResult
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
-import com.swmansion.enriched.markdown.utils.common.getArrayOrNull
-import com.swmansion.enriched.markdown.utils.common.getBooleanOrDefault
-import com.swmansion.enriched.markdown.utils.common.getIntOrDefault
-import com.swmansion.enriched.markdown.utils.common.getMapOrNull
-import com.swmansion.enriched.markdown.utils.common.getStringOrDefault
-import com.swmansion.enriched.markdown.utils.common.parseImageRequestHeaders
-import com.swmansion.enriched.markdown.utils.common.parseImageSources
-import com.swmansion.enriched.markdown.utils.common.parseLinkPillContent
-import com.swmansion.enriched.markdown.utils.common.parseLinkRecognition
+import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
+import com.swmansion.enriched.markdown.utils.text.view.isAdoptedText
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.abs
 import kotlin.math.ceil
 
 /**
@@ -62,12 +59,15 @@ import kotlin.math.ceil
 object MeasurementStore {
   private const val TAG = "MeasurementStore"
 
-  private data class PaintParams(
+  // Rounding between the view's dp size and the walk's px frames.
+  private const val SLOT_TOLERANCE_PX = 1.5f
+
+  internal data class PaintParams(
     val typeface: Typeface,
     val fontSize: Float,
   )
 
-  private data class MeasurementParams(
+  internal data class MeasurementParams(
     val cachedWidth: Float,
     val cachedSize: Long,
     val spannable: CharSequence?,
@@ -75,7 +75,7 @@ object MeasurementStore {
     val markdownHash: Int,
   )
 
-  private val data = ConcurrentHashMap<Int, MeasurementParams>()
+  internal val data = ConcurrentHashMap<Int, MeasurementParams>()
 
   // Store font scaling settings per view ID
   private data class FontScalingSettings(
@@ -95,20 +95,87 @@ object MeasurementStore {
   // Code blocks the user wrapped, by document-order index across nesting (see CodeBlockWrapState).
   private val wrappedCodeBlocks = ConcurrentHashMap<Int, Set<Int>>()
 
+  // The content size each view last laid its rendered markdown out at, and what each
+  // view's last measurement saw: a stream's next update takes the first instead of
+  // measuring the whole document again (laidOutSizeForStreamUpdate).
+  private data class LaidOutSize(
+    val widthPx: Float,
+    val size: Long,
+    val markdown: String,
+    val slots: List<SlotLayoutReuse.ShownSlot> = emptyList(),
+  )
+
+  // A slot child's frame as the walk placed it, px within the host's content box.
+  private data class SlotFrame(
+    val id: String,
+    val x: Float,
+    val y: Float,
+    val width: Float,
+    val height: Float,
+  )
+
+  // The last full measurement of a streamed document with block slots, for the next update to
+  // take the view's height instead (slotStreamUpdate).
+  private data class SlotMeasured(
+    val markdown: String,
+    val layoutKey: StreamLayoutKey,
+    val slotIds: List<String>,
+    val widthPx: Float,
+    val heightPx: Float,
+    val size: Long,
+    val frames: List<SlotFrame>,
+  )
+
+  private val slotMeasurements = ConcurrentHashMap<Int, SlotMeasured>()
+
+  // The frames the walk of the current full measurement places, in document order.
+  private val recordedFrames = ThreadLocal<MutableList<SlotFrame>?>()
+
+  // Everything besides the markdown and the width that a streamed document's layout depends on,
+  // compared whole: a hash of it could collide.
+  private data class StreamLayoutKey(
+    // The layout props (MeasureConfig.key).
+    val config: Int,
+    val fontScale: Float,
+    val allowFontScaling: Boolean,
+    val maxFontSizeMultiplier: Float,
+    val splitTableSegments: Boolean,
+    val wrappedCodeBlocks: Set<Int>?,
+    val breakStrategy: String?,
+    val density: Float,
+    val rtl: Boolean,
+  )
+
+  private data class MeasuredInputs(
+    val markdown: String,
+    val layoutKey: StreamLayoutKey,
+    val widthPx: Float,
+    // What the measurement returned, filled in once known.
+    val size: Long? = null,
+    // Whether that was the size the view laid out, which may be behind the markdown.
+    val fromLaidOut: Boolean = false,
+  )
+
+  private val laidOutSizes = ConcurrentHashMap<Int, LaidOutSize>()
+
+  // For each line of the text a view laid out itself at [widthPx], the widest line up to it
+  // ([storeLaidOut]).
+  private class LaidOutLines(
+    val widthPx: Int,
+    val widths: FloatArray,
+  )
+
+  private val laidOutLines = ConcurrentHashMap<Int, LaidOutLines>()
+  private val previousInputs = ConcurrentHashMap<Int, MeasuredInputs>()
+
   private fun resolveFontScalingSettings(
     viewId: Int?,
-    props: ReadableMap?,
+    config: MeasureConfig,
   ): FontScalingSettings {
     val stored = viewId?.let { fontScalingSettings[it] }
     return FontScalingSettings(
-      allowFontScaling =
-        props?.takeIf { it.hasKey("allowFontScaling") }?.getBoolean("allowFontScaling")
-          ?: stored?.allowFontScaling
-          ?: true,
-      maxFontSizeMultiplier =
-        props?.takeIf { it.hasKey("maxFontSizeMultiplier") }?.getDouble("maxFontSizeMultiplier")?.toFloat()
-          ?: stored?.maxFontSizeMultiplier
-          ?: 0f,
+      allowFontScaling = config.allowFontScaling ?: stored?.allowFontScaling ?: true,
+      maxFontSizeMultiplier = config.maxFontSizeMultiplier ?: stored?.maxFontSizeMultiplier ?: 0f,
     )
   }
 
@@ -130,6 +197,66 @@ object MeasurementStore {
   @JvmStatic
   private external fun nativeDiscardBlockSlotFrames()
 
+  // The markdown and layout config the shadow node measures with (MarkdownMeasureSession): pulled
+  // only when Kotlin doesn't have them, since the markdown is a long string to cross over and the
+  // config a map to parse.
+  @JvmStatic
+  private external fun nativeMeasureMarkdown(): String?
+
+  @JvmStatic
+  private external fun nativeMeasureConfig(): ReadableMap?
+
+  // Keys the shadow node sends instead of the props: one per distinct layout config and one per
+  // distinct markdown (MarkdownMeasureSession.h).
+  private const val CONFIG_KEY = "configKey"
+  private const val TEXT_KEY = "textKey"
+
+  // Parsed configs by key; messages with the same style and content props share one. The bound is
+  // against an app that makes new ones on every render; clearing only costs parsing them again.
+  private const val MAX_CONFIGS = 256
+  private val configs = ConcurrentHashMap<Int, MeasureConfig>()
+
+  private class MeasuredMarkdown(
+    val key: Int,
+    val markdown: String,
+  )
+
+  // Each view's last markdown: Yoga measures twice per update with the same props.
+  private val measuredMarkdown = ConcurrentHashMap<Int, MeasuredMarkdown>()
+
+  private fun measureInput(
+    id: Int?,
+    props: ReadableMap?,
+  ): MeasureInput {
+    if (props == null || !props.hasKey(CONFIG_KEY)) {
+      Log.w(TAG, "Measured without the shadow node's keys; measuring nothing")
+      return MeasureInput("", MeasureConfig(0, null))
+    }
+    return MeasureInput(markdownFor(id, props.getInt(TEXT_KEY)), configFor(props.getInt(CONFIG_KEY)))
+  }
+
+  private fun configFor(key: Int): MeasureConfig {
+    configs[key]?.let { return it }
+    // No session means no measurement to take the config from; parse nothing into the cache.
+    val map = nativeMeasureConfig() ?: return MeasureConfig(key, null).also { Log.w(TAG, "No layout config to measure with") }
+    val config = MeasureConfig(key, map)
+    if (configs.size >= MAX_CONFIGS) configs.clear()
+    configs[key] = config
+    return config
+  }
+
+  private fun markdownFor(
+    id: Int?,
+    key: Int,
+  ): String {
+    val kept = id?.let { measuredMarkdown[it] }
+    if (kept != null && kept.key == key) return kept.markdown
+    // No session means no measurement to take the markdown from; keep nothing.
+    val markdown = nativeMeasureMarkdown() ?: return "".also { Log.w(TAG, "No markdown to measure") }
+    if (id != null) measuredMarkdown[id] = MeasuredMarkdown(key, markdown)
+    return markdown
+  }
+
   private val slotMeasurer =
     object : BlockSlotMeasurer {
       override fun measure(
@@ -137,9 +264,17 @@ object MeasurementStore {
         xPx: Float,
         yPx: Float,
         widthPx: Float,
-      ) = nativeMeasureBlockSlot(slotId, xPx, yPx, widthPx)
+      ) = nativeMeasureBlockSlot(slotId, xPx, yPx, widthPx).also { heightPx ->
+        recordedFrames.get()?.let { frames ->
+          frames.removeAll { it.id == slotId }
+          frames.add(SlotFrame(slotId, xPx, yPx, widthPx, heightPx))
+        }
+      }
 
-      override fun discard() = nativeDiscardBlockSlotFrames()
+      override fun discard() {
+        recordedFrames.get()?.clear()
+        nativeDiscardBlockSlotFrames()
+      }
     }
 
   @Volatile
@@ -151,6 +286,7 @@ object MeasurementStore {
     spannable: CharSequence?,
     paint: TextPaint,
     trailingMarginBottomPx: Float = 0f,
+    renderedMarkdown: String = "",
   ): Boolean {
     val cached = data[id]
     val width = cached?.cachedWidth ?: 0f
@@ -159,6 +295,9 @@ object MeasurementStore {
     val paintParams = PaintParams(paint.typeface ?: Typeface.DEFAULT, paint.textSize)
 
     var newSize = measure(width, spannable, paint, id)
+    // A view's adopted buffer changes in place as patches land, on the main thread: a later
+    // measurement at another width renders the markdown again instead of laying it out.
+    val keptText = spannable.takeUnless { isAdoptedText(it) }
     if (trailingMarginBottomPx > 0f) {
       newSize =
         YogaMeasureOutput.make(
@@ -166,12 +305,81 @@ object MeasurementStore {
           YogaMeasureOutput.getHeight(newSize) + PixelUtil.toDIPFromPixel(trailingMarginBottomPx),
         )
     }
-    data[id] = MeasurementParams(width, newSize, spannable, paintParams, existingHash)
+    data[id] = MeasurementParams(width, newSize, keptText, paintParams, existingHash)
+    laidOutLines.remove(id)
+    // Without the width the last measurement offered, the size isn't laid out for
+    // it: the next measurement goes the full way and brings the width back.
+    if (width > 0f) laidOutSizes[id] = LaidOutSize(width, newSize, renderedMarkdown) else laidOutSizes.remove(id)
     return oldSize != newSize
+  }
+
+  /**
+   * [store] from the view's own [layout], which reflowed the text from [changedFrom] on: only
+   * those lines are measured again. Null when [layout] isn't the one the measurement would build
+   * (another width, or a line limit), and the caller stores in full.
+   */
+  fun storeLaidOut(
+    id: Int,
+    layout: Layout,
+    changedFrom: Int,
+    trailingMarginBottomPx: Float,
+    renderedMarkdown: String,
+  ): Boolean? {
+    val cached = data[id] ?: return null
+    val width = cached.cachedWidth
+    if (width <= 0f || resolveMaxLines(id) > 0 || layout.width != ceil(width).toInt().coerceAtLeast(1)) return null
+
+    val lineCount = layout.lineCount
+    val previousWidths = laidOutLines[id]?.takeIf { it.widthPx == layout.width }?.widths
+    val kept =
+      if (previousWidths == null ||
+        changedFrom <= 0
+      ) {
+        0
+      } else {
+        minOf(layout.getLineForOffset(changedFrom), previousWidths.size, lineCount)
+      }
+    val widths = FloatArray(lineCount)
+    previousWidths?.copyInto(widths, 0, 0, kept)
+    for (line in kept until lineCount) {
+      widths[line] = maxOf(if (line > 0) widths[line - 1] else 0f, layout.getLineWidth(line))
+    }
+    laidOutLines[id] = LaidOutLines(layout.width, widths)
+
+    val height = if (lineCount > 0) layout.getLineBottom(lineCount - 1).toFloat() else 0f
+    val newSize =
+      YogaMeasureOutput.make(
+        PixelUtil.toDIPFromPixel(ceil(widths.lastOrNull() ?: 0f)),
+        PixelUtil.toDIPFromPixel(height) + PixelUtil.toDIPFromPixel(trailingMarginBottomPx),
+      )
+    data[id] = cached.copy(cachedSize = newSize, spannable = null)
+    laidOutSizes[id] = LaidOutSize(width, newSize, renderedMarkdown)
+    return cached.cachedSize != newSize
+  }
+
+  /** The content size [id]'s view laid out [markdown] at, laid out for [widthPx]. */
+  internal fun storeLaidOutSize(
+    id: Int,
+    widthPx: Float,
+    size: Long,
+    markdown: String,
+    slots: List<SlotLayoutReuse.ShownSlot> = emptyList(),
+  ) {
+    laidOutSizes[id] = LaidOutSize(widthPx, size, markdown, slots)
+  }
+
+  fun clearLaidOutSize(id: Int) {
+    laidOutSizes.remove(id)
   }
 
   fun release(id: Int) {
     data.remove(id)
+    laidOutSizes.remove(id)
+    laidOutLines.remove(id)
+    previousInputs.remove(id)
+    slotMeasurements.remove(id)
+    measuredMarkdown.remove(id)
+    breakStrategies.remove(id)
     numberOfLinesByViewId.remove(id)
     ellipsizeModeByViewId.remove(id)
     wrappedCodeBlocks.remove(id)
@@ -209,25 +417,22 @@ object MeasurementStore {
     // Early exit for empty markdown. Honor widthMode here too: empty content has
     // zero intrinsic width, so only fill when the width is EXACTLY assigned -
     // otherwise an empty view would claim all available horizontal space.
-    val markdown = props.getStringOrDefault("markdown", "")
-    if (markdown.isEmpty()) {
+    val input = measureInput(id, props)
+    if (input.markdown.isEmpty()) {
       val emptyWidth = if (widthMode === YogaMeasureMode.EXACTLY) PixelUtil.toDIPFromPixel(width) else 0f
       return YogaMeasureOutput.make(emptyWidth, 0f)
     }
 
-    // Resolve the line clamp from props here so the (background) measure pass and
-    // the (main-thread) display TextView never race on the per-viewId cache. Only
-    // overwrite when the key is present so we never clobber the view's value.
-    if (id != null && props != null) {
-      if (props.hasKey("numberOfLines")) {
-        numberOfLinesByViewId[id] = props.getDouble("numberOfLines").toInt()
-      }
-      if (props.hasKey("ellipsizeMode")) {
-        ellipsizeModeByViewId[id] = props.getString("ellipsizeMode") ?: EllipsizeUtils.DEFAULT_MODE
-      }
+    // Take the line clamp and break strategy from the props measured, so the first measurement,
+    // before the view exists, lays out as the view will. The view writes the same values when it
+    // gets these props; only overwrite when the key is present so we never clobber the view's value.
+    if (id != null) {
+      input.config.numberOfLines?.let { numberOfLinesByViewId[id] = it }
+      input.config.ellipsizeMode?.let { ellipsizeModeByViewId[id] = it }
+      input.config.textBreakStrategy?.let { breakStrategies[id] = it }
     }
 
-    val size = getMeasureByIdInternal(context, id, width, props, splitTableSegments, blockSlotIds)
+    val size = getMeasureByIdInternal(context, id, width, input, splitTableSegments, blockSlotIds)
 
     // Honor the Yoga width contract. When the parent assigns an exact width
     // (flex child, alignItems: stretch, explicit width / width: "100%"), fill it
@@ -301,31 +506,127 @@ object MeasurementStore {
     context: Context,
     id: Int?,
     width: Float,
-    props: ReadableMap?,
+    input: MeasureInput,
     splitTableSegments: Boolean,
     blockSlotIds: List<String>,
   ): Long {
-    val (allowFontScaling, maxFontSizeMultiplier) = resolveFontScalingSettings(id, props)
+    val (allowFontScaling, maxFontSizeMultiplier) = resolveFontScalingSettings(id, input.config)
 
     val fontScale = checkAndUpdateFontScale(context, allowFontScaling, maxFontSizeMultiplier)
 
+    if (id == null || blockSlotIds.isNotEmpty()) {
+      // Slot children are measured where the walk places them; a stream's update takes the view's
+      // height when the view shows them where the last walk did (slotStreamUpdate).
+      if (id != null) previousInputs.remove(id)
+      val streaming = input.config.streaming
+      val layoutKey =
+        id?.takeIf { streaming }?.let {
+          streamLayoutKey(
+            it,
+            input,
+            splitTableSegments,
+            allowFontScaling,
+            fontScale,
+            maxFontSizeMultiplier,
+            context.resources.displayMetrics.density,
+            context.resources.isLayoutRTL(),
+          )
+        }
+      if (id != null && layoutKey != null) {
+        slotStreamUpdate(id, width, input, layoutKey, blockSlotIds)?.let { return it }
+      }
+      val frames = mutableListOf<SlotFrame>()
+      // A slot child can hold a document with slots of its own, measured within this walk.
+      val outerFrames = recordedFrames.get()
+      recordedFrames.set(frames)
+      val full =
+        try {
+          measureInFull(context, id, width, input, splitTableSegments, blockSlotIds, allowFontScaling, fontScale, maxFontSizeMultiplier)
+        } finally {
+          recordedFrames.set(outerFrames)
+        }
+      if (id != null && layoutKey != null) {
+        val markdown = input.markdown
+        val heightPx = PixelUtil.toPixelFromDIP(YogaMeasureOutput.getHeight(full))
+        slotMeasurements[id] = SlotMeasured(markdown, layoutKey, blockSlotIds, width, heightPx, full, frames.toList())
+      } else if (id != null) {
+        slotMeasurements.remove(id)
+      }
+      return revealedSize(id, width, input, full) ?: full
+    }
+    slotMeasurements.remove(id)
+    laidOutSizeForStreamUpdate(
+      id,
+      width,
+      input,
+      splitTableSegments,
+      allowFontScaling,
+      fontScale,
+      maxFontSizeMultiplier,
+      context.resources.displayMetrics.density,
+      context.resources.isLayoutRTL(),
+    )?.let { return it }
+    return measureInFull(context, id, width, input, splitTableSegments, blockSlotIds, allowFontScaling, fontScale, maxFontSizeMultiplier)
+      .also { recordMeasured(id, it) }
+  }
+
+  // With smooth pacing the view shows only a start of the markdown, the slots' blocks arriving with
+  // the words: the height it laid that start out at. The whole document still places every slot, so a
+  // block's space is reserved as soon as it is revealed (the shadow node hides the slots below).
+  private fun revealedSize(
+    id: Int?,
+    width: Float,
+    input: MeasureInput,
+    full: Long,
+  ): Long? = revealedSize(id, width, input, full, id?.let { laidOutSizes[it] })
+
+  private fun revealedSize(
+    id: Int?,
+    width: Float,
+    input: MeasureInput,
+    full: Long,
+    published: LaidOutSize?,
+  ): Long? {
+    if (id == null || !input.config.smooth) return null
+    val markdown = input.markdown
+    val laidOut =
+      published?.takeIf {
+        abs(it.widthPx - width) < 1f && it.markdown.length < markdown.length && markdownExtends(it.markdown, markdown)
+      } ?: return null
+    val height = YogaMeasureOutput.getHeight(laidOut.size)
+    return if (height < YogaMeasureOutput.getHeight(full)) YogaMeasureOutput.make(YogaMeasureOutput.getWidth(full), height) else null
+  }
+
+  private fun measureInFull(
+    context: Context,
+    id: Int?,
+    width: Float,
+    input: MeasureInput,
+    splitTableSegments: Boolean,
+    blockSlotIds: List<String>,
+    allowFontScaling: Boolean,
+    fontScale: Float,
+    maxFontSizeMultiplier: Float,
+  ): Long {
     // Split measurement always goes through the full measure path (no spannable caching)
     if (splitTableSegments) {
-      return measureAndCacheSplit(context, id, width, props, allowFontScaling, fontScale, maxFontSizeMultiplier, blockSlotIds)
+      return measureAndCacheSplit(context, id, width, input, allowFontScaling, fontScale, maxFontSizeMultiplier, blockSlotIds)
     }
 
-    val safeId = id ?: return measureAndCache(context, null, width, props, allowFontScaling, fontScale, maxFontSizeMultiplier)
-    val cached = data[safeId] ?: return measureAndCache(context, safeId, width, props, allowFontScaling, fontScale, maxFontSizeMultiplier)
+    val safeId = id ?: return measureAndCache(context, null, width, input, allowFontScaling, fontScale, maxFontSizeMultiplier)
+    val cached = data[safeId] ?: return measureAndCache(context, safeId, width, input, allowFontScaling, fontScale, maxFontSizeMultiplier)
 
-    val currentHash = computePropsHash(props, allowFontScaling, fontScale, maxFontSizeMultiplier)
+    val currentHash = computePropsHash(input, allowFontScaling, fontScale, maxFontSizeMultiplier)
 
     if (cached.markdownHash != currentHash) {
-      return measureAndCache(context, safeId, width, props, allowFontScaling, fontScale, maxFontSizeMultiplier)
+      return measureAndCache(context, safeId, width, input, allowFontScaling, fontScale, maxFontSizeMultiplier)
     }
 
     // Width changed - re-measure with cached spannable
     if (cached.cachedWidth != width) {
-      val newSize = measure(width, cached.spannable, cached.paintParams, safeId)
+      val spannable =
+        cached.spannable ?: return measureAndCache(context, safeId, width, input, allowFontScaling, fontScale, maxFontSizeMultiplier)
+      val newSize = measure(width, spannable, cached.paintParams, safeId)
       data[safeId] = cached.copy(cachedWidth = width, cachedSize = newSize)
       return newSize
     }
@@ -333,57 +634,207 @@ object MeasurementStore {
     return cached.cachedSize
   }
 
-  private fun md4cFlagsFromProps(props: ReadableMap?): Md4cFlags {
-    val flags = props.getMapOrNull("md4cFlags")
-    return Md4cFlags(
-      underline = flags.getBooleanOrDefault("underline", false),
-      latexMath = FeatureFlags.IS_MATH_ENABLED && flags.getBooleanOrDefault("latexMath", true),
-      superscript = flags.getBooleanOrDefault("superscript", false),
-      subscript = flags.getBooleanOrDefault("subscript", false),
-      strikethrough = flags.getBooleanOrDefault("strikethrough", false),
-      highlight = flags.getBooleanOrDefault("highlight", false),
-      hardSoftBreaks = flags.getBooleanOrDefault("hardSoftBreaks", false),
-      preserveBlankLines = flags.getBooleanOrDefault("preserveBlankLines", false),
-      admonitions = flags.getBooleanOrDefault("admonitions", true),
-    )
+  // A stream's update: the markdown only grew and nothing else that sizes the content
+  // changed. The view lays out every render it applies and asks for a new layout when
+  // its height changes, so the size it laid out at is behind by at most the render in
+  // flight; taking it spares rendering and measuring the whole document again on every
+  // update. The same document at the same width gets the previous answer back; new
+  // content, another width or a view that hasn't laid anything out yet measure in full.
+  internal fun laidOutSizeForStreamUpdate(
+    id: Int,
+    width: Float,
+    input: MeasureInput,
+    splitTableSegments: Boolean,
+    allowFontScaling: Boolean,
+    fontScale: Float,
+    maxFontSizeMultiplier: Float,
+    density: Float,
+    rtl: Boolean,
+  ): Long? {
+    // Text appended without `streaming` measures in full, so it has its height on the first commit.
+    if (!input.config.streaming) {
+      previousInputs.remove(id)
+      return null
+    }
+    val markdown = input.markdown
+    val layoutKey = streamLayoutKey(id, input, splitTableSegments, allowFontScaling, fontScale, maxFontSizeMultiplier, density, rtl)
+
+    val previous = previousInputs.put(id, MeasuredInputs(markdown, layoutKey, width)) ?: return null
+    // The view's size counts for an earlier state of this stream, not a document it replaced.
+    val laidOut = laidOutSizes[id]?.takeIf { abs(it.widthPx - width) < 1f && markdownExtends(it.markdown, markdown) }
+    val source =
+      chooseMeasurement(
+        streamUpdate = previous.layoutKey == layoutKey && markdownExtends(previous.markdown, markdown),
+        grew = markdown.length > previous.markdown.length,
+        // A laid-out answer can be behind the markdown, so a newer laid-out size replaces it: the
+        // view may have laid out an update between two of this stream's (or, with smooth pacing,
+        // a further part of it) and asks no more once its height stops changing.
+        viewLaidOutAgain =
+          laidOut != null &&
+            (laidOut.markdown == markdown || ((input.config.smooth || previous.fromLaidOut) && laidOut.size != previous.size)),
+        hasLaidOutSize = laidOut != null,
+        samePreviousWidth = previous.size != null && previous.widthPx == width,
+      )
+    val size =
+      when (source) {
+        MeasurementSource.LAID_OUT -> laidOut?.size
+        MeasurementSource.PREVIOUS -> previous.size
+        MeasurementSource.FULL -> null
+      } ?: return null
+    val fromLaidOut = source == MeasurementSource.LAID_OUT || (source == MeasurementSource.PREVIOUS && previous.fromLaidOut)
+    recordMeasured(id, size, fromLaidOut)
+    return size
   }
 
+  // Everything besides the markdown and the width that lays a streamed document out (StreamLayoutKey).
+  private fun streamLayoutKey(
+    id: Int,
+    input: MeasureInput,
+    splitTableSegments: Boolean,
+    allowFontScaling: Boolean,
+    fontScale: Float,
+    maxFontSizeMultiplier: Float,
+    density: Float,
+    rtl: Boolean,
+  ): StreamLayoutKey =
+    StreamLayoutKey(
+      config = input.config.key,
+      fontScale = fontScale,
+      allowFontScaling = allowFontScaling,
+      maxFontSizeMultiplier = maxFontSizeMultiplier,
+      splitTableSegments = splitTableSegments,
+      wrappedCodeBlocks = wrappedCodeBlocks[id],
+      breakStrategy = breakStrategies[id],
+      density = density,
+      rtl = rtl,
+    )
+
+  // A stream's update on a document with block slots: the view's height when it shows every slot
+  // where the last full measurement placed it (SlotLayoutReuse), else null to measure in full.
+  // Measuring the slots' children again records their frames for the shadow node.
+  private fun slotStreamUpdate(
+    id: Int,
+    width: Float,
+    input: MeasureInput,
+    layoutKey: StreamLayoutKey,
+    slotIds: List<String>,
+  ): Long? {
+    if (!input.config.streaming) return null
+    val previous = slotMeasurements[id] ?: return null
+    val markdown = input.markdown
+    if (abs(previous.widthPx - width) >= 1f || previous.layoutKey != layoutKey || previous.slotIds != slotIds ||
+      !markdownExtends(previous.markdown, markdown)
+    ) {
+      return null
+    }
+    // Every slot was placed by the last walk.
+    if (previous.frames.size != slotIds.size) return null
+    val laidOut = laidOutSizes[id]?.takeIf { abs(it.widthPx - width) < 1f && markdownExtends(it.markdown, markdown) } ?: return null
+    // A shown slot takes the view's position (SlotLayoutReuse). Measuring a child again records its
+    // frame there for the shadow node.
+    val shownY = previous.frames.map { frame -> laidOut.slots.firstOrNull { it.id == frame.id }?.y ?: frame.y }
+    val measured =
+      previous.frames.mapIndexed { i, frame ->
+        SlotLayoutReuse.MeasuredSlot(frame.id, frame.y, frame.height, nativeMeasureBlockSlot(frame.id, frame.x, shownY[i], frame.width))
+      }
+    val laidOutHeight = PixelUtil.toPixelFromDIP(YogaMeasureOutput.getHeight(laidOut.size))
+    val smooth = input.config.smooth
+    var heightPx = laidOutHeight
+    if (!SlotLayoutReuse.canTake(smooth, heightPx, measured, laidOut.slots, SLOT_TOLERANCE_PX)) {
+      // A code block streaming into its renderer at the end: only that slot's child grew.
+      val endsInsideOpenFence = !smooth && renderableResult(input).endsInsideOpenCodeFence
+      heightPx =
+        SlotLayoutReuse.growingTailHeight(endsInsideOpenFence, previous.heightPx, laidOutHeight, measured, laidOut.slots, SLOT_TOLERANCE_PX)
+      if (heightPx <= 0f) {
+        nativeDiscardBlockSlotFrames()
+        return null
+      }
+    }
+    val size = YogaMeasureOutput.make(YogaMeasureOutput.getWidth(previous.size), PixelUtil.toDIPFromPixel(heightPx))
+    val frames = previous.frames.mapIndexed { i, frame -> frame.copy(y = shownY[i], height = measured[i].childHeight) }
+    slotMeasurements[id] = previous.copy(markdown = markdown, heightPx = heightPx, size = size, frames = frames)
+    // With smooth pacing, from the same layout the height came from.
+    return revealedSize(id, width, input, size, laidOut) ?: size
+  }
+
+  internal enum class MeasurementSource { FULL, PREVIOUS, LAID_OUT }
+
+  /**
+   * Picks the source of a measurement, as iOS's ENRMChooseMeasurement does. Android's
+   * measurement can't see the view's height counter, so the view having laid out this
+   * document, or with smooth pacing (it renders part of it) a size other than the last
+   * answer, stands in for the view asking again, and a grown document never takes the previous
+   * answer: a view sized to its content would keep it for good.
+   */
+  internal fun chooseMeasurement(
+    streamUpdate: Boolean,
+    grew: Boolean,
+    viewLaidOutAgain: Boolean,
+    hasLaidOutSize: Boolean,
+    samePreviousWidth: Boolean,
+  ): MeasurementSource =
+    when {
+      !streamUpdate -> MeasurementSource.FULL
+      hasLaidOutSize && (grew || viewLaidOutAgain) -> MeasurementSource.LAID_OUT
+      !grew && samePreviousWidth -> MeasurementSource.PREVIOUS
+      else -> MeasurementSource.FULL
+    }
+
+  // Remembers what the measurement of [id] returned, for the next one to compare with.
+  internal fun recordMeasured(
+    id: Int,
+    size: Long,
+    fromLaidOut: Boolean = false,
+  ) {
+    previousInputs.computeIfPresent(id) { _, inputs -> inputs.copy(size = size, fromLaidOut = fromLaidOut) }
+  }
+
+  /** Whether [current] keeps all of [previous] and only adds to it, as every update of a stream does. */
+  internal fun markdownExtends(
+    previous: String,
+    current: String,
+  ): Boolean = previous.isNotEmpty() && current.startsWith(previous)
+
   private fun computePropsHash(
-    props: ReadableMap?,
+    input: MeasureInput,
     allowFontScaling: Boolean,
     fontScale: Float,
     maxFontSizeMultiplier: Float,
   ): Int {
-    val markdown = props.getStringOrDefault("markdown", "")
-    return computePropsHashForMarkdown(markdown, props, allowFontScaling, fontScale, maxFontSizeMultiplier)
+    val markdown = renderableMarkdown(input)
+    return computePropsHashForMarkdown(markdown, input, allowFontScaling, fontScale, maxFontSizeMultiplier)
   }
+
+  // The markdown as the view renders it: while streaming, the core streaming session's
+  // snapshot. The modes come with the layout props (conversions.h), so the first measurement
+  // and one after a mode change prepare exactly what the view renders.
+  private fun renderableMarkdown(input: MeasureInput): String {
+    if (!input.config.streaming) return input.markdown
+    return renderableResult(input).markdown
+  }
+
+  // The streaming session's snapshot of the markdown.
+  private fun renderableResult(input: MeasureInput): StreamingFilterResult =
+    StreamingMarkdownFilter.renderableMarkdownForStreaming(
+      input.markdown,
+      input.config.md4cFlags,
+      TableStreamingMode.fromString(input.config.tableMode),
+      CodeBlockStreamingMode.fromString(input.config.codeBlockMode),
+      MediaStreamingMode.fromString(input.config.mediaMode),
+    )
 
   private fun computePropsHashForMarkdown(
     markdown: String,
-    props: ReadableMap?,
+    input: MeasureInput,
     allowFontScaling: Boolean,
     fontScale: Float,
     maxFontSizeMultiplier: Float,
   ): Int {
-    val styleMap = props.getMapOrNull("markdownStyle")
-    val md4cFlagsMap = props.getMapOrNull("md4cFlags")
-    val allowTrailingMargin = props.getBooleanOrDefault("allowTrailingMargin", false)
-    val imageRequestHeaders = parseImageRequestHeaders(props.getArrayOrNull("imageRequestHeaders"))
-    val imageSources = parseImageSources(props.getArrayOrNull("imageSources"))
-    val linkPillContent = parseLinkPillContent(props.getArrayOrNull("linkPillContent"))
     var result = markdown.hashCode()
-    result = 31 * result + (styleMap?.hashCode() ?: 0)
-    result = 31 * result + (md4cFlagsMap?.hashCode() ?: 0)
-    result = 31 * result + parseLinkRecognition(props.getMapOrNull("linkRecognition")).hashCode()
+    result = 31 * result + input.config.key
     result = 31 * result + fontScale.toBits()
     result = 31 * result + allowFontScaling.hashCode()
     result = 31 * result + maxFontSizeMultiplier.toBits()
-    result = 31 * result + allowTrailingMargin.hashCode()
-    result = 31 * result + imageRequestHeaders.hashCode()
-    result = 31 * result + imageSources.hashCode()
-    result = 31 * result + linkPillContent.hashCode()
-    result = 31 * result + props.getIntOrDefault("numberOfLines", 0)
-    result = 31 * result + props.getStringOrDefault("ellipsizeMode", EllipsizeUtils.DEFAULT_MODE).hashCode()
     return result
   }
 
@@ -417,24 +868,24 @@ object MeasurementStore {
     context: Context,
     id: Int?,
     width: Float,
-    props: ReadableMap?,
+    input: MeasureInput,
     allowFontScaling: Boolean,
     fontScale: Float,
     maxFontSizeMultiplier: Float,
   ): Long {
     // 1. Extract Props & Setup
-    val markdown = props.getStringOrDefault("markdown", "")
-    val styleMap = props.getMapOrNull("markdownStyle")
-    val md4cFlags = md4cFlagsFromProps(props)
-    val isGFM = props.getBooleanOrDefault("isGFM", false)
+    val config = input.config
+    val styleMap = config.markdownStyle
+    val md4cFlags = config.md4cFlags
+    val markdown = renderableMarkdown(input)
+    val isGFM = config.isGFM
 
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
-    val propsHash = computePropsHash(props, allowFontScaling, fontScale, maxFontSizeMultiplier)
+    val propsHash = computePropsHash(input, allowFontScaling, fontScale, maxFontSizeMultiplier)
 
     // 2. Render & Measure
     measurePaint.textSize = fontSize
-    val imageRequestHeaders = parseImageRequestHeaders(props.getArrayOrNull("imageRequestHeaders"))
-    val linkRecognition = parseLinkRecognition(props.getMapOrNull("linkRecognition"))
+    val linkRecognition = config.linkRecognition
     val spannable =
       tryRenderMarkdown(
         markdown,
@@ -444,8 +895,8 @@ object MeasurementStore {
         isGFM,
         allowFontScaling,
         maxFontSizeMultiplier,
-        imageRequestHeaders,
-        parseLinkPillContent(props.getArrayOrNull("linkPillContent")),
+        config.imageRequestHeaders,
+        config.linkPillContent,
         linkRecognition.text,
         linkRecognition.inlineCode,
       )
@@ -454,7 +905,7 @@ object MeasurementStore {
     val (size, _) = measureWithLayout(width, textToMeasure, measurePaint, id)
 
     // 3. Calculate Margin
-    val allowTrailingMargin = props.getBooleanOrDefault("allowTrailingMargin", false)
+    val allowTrailingMargin = config.allowTrailingMargin
     val marginBottom =
       if (allowTrailingMargin && spannable != null) {
         PixelUtil.toDIPFromPixel(measureRenderer.getLastElementMarginBottom())
@@ -478,46 +929,18 @@ object MeasurementStore {
     context: Context,
     id: Int?,
     width: Float,
-    props: ReadableMap?,
+    input: MeasureInput,
     allowFontScaling: Boolean,
     fontScale: Float,
     maxFontSizeMultiplier: Float,
     blockSlotIds: List<String>,
   ): Long {
-    val isStreaming = props.getBooleanOrDefault("streamingAnimation", false)
-
-    val rawMarkdown = props.getStringOrDefault("markdown", "")
-    // The modes come with the props (conversions.h), so the first measurement and
-    // a measurement after a mode change filter exactly what the view will render.
-    val streamingConfig = props.getMapOrNull("streamingConfig")
-    val tableMode =
-      if (isStreaming && streamingConfig.getStringOrDefault("tableMode", "") == "hidden") {
-        TableStreamingMode.HIDDEN
-      } else {
-        TableStreamingMode.PROGRESSIVE
-      }
-    val codeBlockMode =
-      if (isStreaming && streamingConfig.getStringOrDefault("codeBlockMode", "") == "hidden") {
-        CodeBlockStreamingMode.HIDDEN
-      } else {
-        CodeBlockStreamingMode.PROGRESSIVE
-      }
-    val mediaMode =
-      if (isStreaming && streamingConfig.getStringOrDefault("mediaMode", "") == "hidden") {
-        MediaStreamingMode.HIDDEN
-      } else {
-        MediaStreamingMode.PROGRESSIVE
-      }
-    val markdown =
-      if (isStreaming) {
-        StreamingMarkdownFilter
-          .renderableMarkdownForStreaming(rawMarkdown, tableMode, codeBlockMode, mediaMode)
-          .markdown
-      } else {
-        rawMarkdown
-      }
+    val config = input.config
+    val isStreaming = config.streaming
+    val md4cFlags = config.md4cFlags
+    val markdown = renderableMarkdown(input)
     val wrapped =
-      if (props.getBooleanOrDefault("enableCodeBlockWrapToggle", true)) {
+      if (config.enableCodeBlockWrapToggle) {
         id?.let { wrappedCodeBlocks[it] } ?: emptySet()
       } else {
         emptySet()
@@ -530,14 +953,14 @@ object MeasurementStore {
     val propsHash =
       31 * (
         31 * (
-          31 * computePropsHashForMarkdown(markdown, props, allowFontScaling, fontScale, maxFontSizeMultiplier) +
+          31 * computePropsHashForMarkdown(markdown, input, allowFontScaling, fontScale, maxFontSizeMultiplier) +
             wrapped.sorted().hashCode()
         ) + density.hashCode()
       ) + blockSlotIds.hashCode()
 
-    // Streaming shortcut: reuse cached size when the filtered content and
-    // width are unchanged. When the filter output changes (e.g. a table
-    // becomes complete), the hash differs and we fall through to full measure.
+    // Streaming shortcut: reuse cached size when the prepared content and
+    // width are unchanged. When it changes (e.g. a table becomes complete),
+    // the hash differs and we fall through to full measure.
     // Slot children need their frames recorded on every measure, so they never
     // take it.
     if (isStreaming && id != null && blockSlotIds.isEmpty()) {
@@ -547,16 +970,15 @@ object MeasurementStore {
       }
     }
     val styleMap =
-      props.getMapOrNull("markdownStyle")
+      config.markdownStyle
         ?: return YogaMeasureOutput.make(PixelUtil.toDIPFromPixel(width), 0f)
 
-    val md4cFlags = md4cFlagsFromProps(props)
-    val isGFM = props.getBooleanOrDefault("isGFM", true)
-    val allowTrailingMargin = props.getBooleanOrDefault("allowTrailingMargin", false)
+    val isGFM = config.isGFM
+    val allowTrailingMargin = config.allowTrailingMargin
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
 
-    val linkRecognition = parseLinkRecognition(props.getMapOrNull("linkRecognition"))
-    val imageSources = parseImageSources(props.getArrayOrNull("imageSources"))
+    val linkRecognition = config.linkRecognition
+    val imageSources = config.imageSources
 
     return try {
       val ast =
@@ -572,9 +994,9 @@ object MeasurementStore {
           ?: return YogaMeasureOutput.make(PixelUtil.toDIPFromPixel(width), 0f)
 
       val style = StyleConfig(styleMap, context, allowFontScaling, maxFontSizeMultiplier)
-      style.imageRequestHeaders = parseImageRequestHeaders(props.getArrayOrNull("imageRequestHeaders"))
+      style.imageRequestHeaders = config.imageRequestHeaders
       style.imageSourceOverrides = imageSources
-      style.linkPillContent = parseLinkPillContent(props.getArrayOrNull("linkPillContent"))
+      style.linkPillContent = config.linkPillContent
       val segments = splitASTIntoSegments(ast)
       val renderedSegments = MarkdownSegmentRenderer.render(segments, style, context, null, null)
 
@@ -632,7 +1054,7 @@ object MeasurementStore {
       // The fallback measures without slots, so every block renders natively.
       slotMeasurer.discard()
       Log.w(TAG, "Split measurement failed, falling back without block renderers", e)
-      measureAndCache(context, id, width, props, allowFontScaling, fontScale, maxFontSizeMultiplier)
+      measureAndCache(context, id, width, input, allowFontScaling, fontScale, maxFontSizeMultiplier)
     }
   }
 

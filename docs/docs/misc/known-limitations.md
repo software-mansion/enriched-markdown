@@ -43,6 +43,12 @@ planned, see the [Roadmap](/misc/roadmap); for the full per-feature matrix,
   promotes the text to `DynamicLayout`, which has no `maxLines` support - React
   Native's own `Text` behaves the same way. Both are restored once the clamp is
   removed, and iOS keeps selection and links while clamped.
+- **[iOS] Text far off screen is not drawn.** A long text draws only the part
+  near the visible area, so a snapshot of the whole content (for example with
+  `react-native-view-shot`) comes out blank further away. The drawing relies on
+  UIKit internals: if a future iOS version shows blank or doubled text, set
+  `EnrichedMarkdownDisableTextTiles` to `YES` in your app's `Info.plist` to
+  draw text the standard way, and please report it.
 - **Raw HTML is not rendered.** Inline HTML is disabled and HTML tags in the
   source are ignored. The one allowlisted exception is a block-level
   [`<video>`](/react-native/api-reference/element-structure#videos) tag, of which
@@ -174,7 +180,7 @@ other native-only props. See
 
 **Block math is silently dropped** under `flavor="github"` - the equation
 produces no segment and no fallback text. Inline math renders. Beyond that: the
-tail fade-in animation falls back to an instant reveal, system font-scale
+streaming animations (`'fade'`, `'gradient'`) fall back to an instant reveal, system font-scale
 changes are not observed, VoiceOver is stubbed, and `selectionColor` tints only
 the selection background - AppKit's `NSTextView` does not expose caret and
 handle tinting via `tintColor`. See

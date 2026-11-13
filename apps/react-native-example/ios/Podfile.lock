@@ -2532,7 +2532,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   boost: 8502bfdc46e2804408af2e163049ece181009af4
   DoubleConversion: 501a575c40c0b50c89685762dd3e415e6bb26fb0
-  EnrichedMarkdownCore: aee87ab892948582ad340ded7e5d168b919a4c43
+  EnrichedMarkdownCore: 2a72789805c826a95391cda260a9e2ba57887c38
   fast_float: 7c925d1cebf8328d4018d061f49377e9f887e3b4
   FBLazyVector: fdebac2dfe9c53bca49f8218fbdf1e24e36c8be0
   fmt: ba0886e864ebb21d14c98b2e12e164b8002f5b93
@@ -2617,7 +2617,7 @@ SPEC CHECKSUMS:
   ReactCodegen: 7b71f4464442e9b6eae41094d11076d56c51c0e3
   ReactCommon: 145a14b942b19fc2fe38927f261955ada56978aa
   ReactNativeDependencies: d3b7423ba1e52525e42085c8470109abde583d2e
-  ReactNativeEnrichedMarkdown: dd787dda7c00e14bba4ba9479ec884e4d3bc2404
+  ReactNativeEnrichedMarkdown: 47c216230b174cf75e305f54feb5e41c865a8478
   RNCAsyncStorage: 3a34af458c28403fc907178ac44bee8f6960ced1
   RNDateTimePicker: b541d17d1cc0b28b52063d455a0e347e52282e1e
   RNGestureHandler: 0124c0b5117c1376f013aaac888ed4134ca88b58

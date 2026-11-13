@@ -88,6 +88,8 @@ extern "C" {
 
 uint64_t ENRMSignatureForNode(MarkdownASTNode *_Nullable node);
 uint64_t ENRMSignatureForNodes(NSArray<MarkdownASTNode *> *nodes);
+// ENRMSignatureForNodes from each node's ENRMSignatureForNode.
+uint64_t ENRMSignatureForNodeSignatures(NSArray<NSNumber *> *nodeSignatures);
 
 #ifdef __cplusplus
 }

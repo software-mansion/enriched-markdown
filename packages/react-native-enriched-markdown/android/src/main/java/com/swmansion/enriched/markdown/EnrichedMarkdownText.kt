@@ -21,19 +21,32 @@ import com.facebook.react.uimanager.style.LogicalEdge
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
+import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
 import com.swmansion.enriched.markdown.renderer.Renderer
+import com.swmansion.enriched.markdown.segments.RenderedSegment
+import com.swmansion.enriched.markdown.segments.TextRenderCache
+import com.swmansion.enriched.markdown.segments.TextRenderResult
+import com.swmansion.enriched.markdown.segments.textRenderResult
 import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
 import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
+import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
 import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
+import com.swmansion.enriched.markdown.utils.common.MediaStreamingMode
+import com.swmansion.enriched.markdown.utils.common.RenderCoordinator
+import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
+import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.emitCodeBlockPress
-import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
+import com.swmansion.enriched.markdown.utils.common.isReducedMotionEnabled
+import com.swmansion.enriched.markdown.utils.text.StreamingEffects
+import com.swmansion.enriched.markdown.utils.text.StreamingEffectsAnimator
+import com.swmansion.enriched.markdown.utils.text.StreamingPacer
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
 import com.swmansion.enriched.markdown.utils.text.view.CodeBlockPressHost
 import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
@@ -48,6 +61,7 @@ import com.swmansion.enriched.markdown.utils.text.view.createSelectionActionMode
 import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkLongPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkPressEvent
+import com.swmansion.enriched.markdown.utils.text.view.emitStreamingEndEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitTextPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.setupAsMarkdownTextView
 import java.util.concurrent.Executors
@@ -88,7 +102,7 @@ class EnrichedMarkdownText
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor()
-    private var currentRenderId = 0L
+    private val renderCoordinator = RenderCoordinator(executor) { mainHandler.post(it) }
 
     val layoutManager = EnrichedMarkdownTextLayoutManager(this)
 
@@ -119,14 +133,58 @@ class EnrichedMarkdownText
     private var imageRequestHeaders: Map<String, String> = emptyMap()
     private var linkPillContent: Map<String, LinkPillContent> = emptyMap()
 
-    private var streamingAnimation: Boolean = false
+    // Whether the view streams: after the prop turns off, smooth pacing keeps it on until the words
+    // still waiting have appeared.
+    var isStreaming: Boolean = false
+      private set
+    private var streamingProp = false
+
+    // The stream ended and onStreamingEnd waits for the render that shows the whole text.
+    private var streamEndPending = false
+    private var pacingChanged = false
+
+    // streamingConfig.smooth: the view renders the markdown [pacer] has revealed so far.
+    private var smooth = false
+    private val pacer =
+      StreamingPacer(
+        reveal = {
+          renderedSource = it
+          scheduleRenderIfNeeded()
+        },
+        done = { stopStreaming() },
+      )
+
+    // The markdown renders take: all of [currentMarkdown], or what smooth pacing has revealed.
+    private var renderedSource = ""
+
+    val isJustified: Boolean get() = markdownStyle?.needsJustify == true
+    private var tableStreamingMode = TableStreamingMode.PROGRESSIVE
+    private var codeBlockStreamingMode = CodeBlockStreamingMode.PROGRESSIVE
+    private var mediaStreamingMode = MediaStreamingMode.PROGRESSIVE
     private var previousTextLength: Int = 0
-    private var fadeAnimator: TailFadeInAnimator? = null
+
+    private var streamEnding = false
+    private var effectsConfig = StreamingEffects.Config()
+    private var effectsAnimator: StreamingEffectsAnimator? = null
     override var spoilerOverlayDrawer: SpoilerOverlayDrawer? = null
       private set
     var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
 
-    private var pendingStyledText: CharSequence? = null
+    private var pendingText: RenderedSegment.Text? = null
+    private var pendingRenderedMarkdown = ""
+
+    // Reused by the next render on the executor (see TextRenderCache). Every input but the
+    // markdown bumps the key, which drops it.
+    private val textRenderCache = TextRenderCache()
+    private var textRenderKey = 0L
+
+    // The revision of the text shown (see RenderedSegment.Text.revision), and its trailing margin.
+    private var renderedRevision = 0L
+    private var renderedLastElementMarginBottom = 0f
+
+    // The markdown the displayed text was rendered from, behind the prop while a render is in flight.
+    internal var renderedMarkdown = ""
+      private set
 
     private var mdNumberOfLines: Int = 0
     private var mdEllipsizeMode: String = EllipsizeUtils.DEFAULT_MODE
@@ -158,7 +216,7 @@ class EnrichedMarkdownText
     fun setMarkdownContent(markdown: String) {
       if (currentMarkdown == markdown) return
       currentMarkdown = markdown
-      scheduleRender()
+      pacingChanged = true
     }
 
     fun setMarkdownStyle(style: ReadableMap?) {
@@ -171,6 +229,7 @@ class EnrichedMarkdownText
       if (markdownStyle == newStyle) return
       markdownStyle = newStyle
       updateJustificationMode(newStyle)
+      textRenderKey++
       scheduleRender()
     }
 
@@ -249,30 +308,87 @@ class EnrichedMarkdownText
       scheduleRenderIfNeeded()
     }
 
-    fun setStreamingAnimation(enabled: Boolean) {
-      if (streamingAnimation == enabled) return
-      streamingAnimation = enabled
+    fun setStreaming(enabled: Boolean) {
+      if (streamingProp == enabled) return
+      streamingProp = enabled
+      pacingChanged = true
       if (enabled) {
+        // A new stream: the one before it has ended, whether or not its final render applied.
+        emitStreamingEndIfPending()
+        isStreaming = true
+        streamEnding = false
         previousTextLength = text?.length ?: 0
-      } else {
-        fadeAnimator?.cancelAll()
-        fadeAnimator = null
-        previousTextLength = 0
+        // The streaming session decides what renders, so the text renders again.
+        scheduleRenderIfNeeded()
       }
+    }
+
+    fun setSmooth(enabled: Boolean) {
+      if (smooth == enabled) return
+      smooth = enabled
+      pacingChanged = true
+    }
+
+    // The stream ended: the next render shows the whole text, and what still animates settles.
+    private fun stopStreaming() {
+      isStreaming = false
+      streamEnding = true
+      streamEndPending = true
+      effectsAnimator?.finish()
+      renderedSource = currentMarkdown
+      scheduleRenderIfNeeded()
+    }
+
+    // After the first render scheduled once the stream ended: the last words are on screen.
+    private fun emitStreamingEndIfPending() {
+      if (!streamEndPending) return
+      streamEndPending = false
+      emitStreamingEndEvent()
+    }
+
+    fun setStreamingModes(
+      tableMode: TableStreamingMode,
+      codeBlockMode: CodeBlockStreamingMode,
+      mediaMode: MediaStreamingMode,
+    ) {
+      if (tableMode == tableStreamingMode && codeBlockMode == codeBlockStreamingMode && mediaMode == mediaStreamingMode) return
+      tableStreamingMode = tableMode
+      codeBlockStreamingMode = codeBlockMode
+      mediaStreamingMode = mediaMode
+      if (isStreaming) scheduleRenderIfNeeded()
+    }
+
+    fun setStreamingAnimation(config: StreamingEffects.Config) {
+      if (config == effectsConfig) return
+      effectsConfig = config
+      effectsAnimator?.configure(config)
     }
 
     fun commitProps() {
       updateMeasurementStoreFontScaling()
+      if (!pacingChanged) return
+      pacingChanged = false
+      // Smooth pacing renders what has been revealed and hands the rest over frame by frame, so new
+      // markdown that reveals nothing yet renders nothing. When the prop turns off, the words still
+      // waiting drain first, then streaming stops.
+      if (pacer.update(currentMarkdown, streamingProp, smooth)) {
+        stopStreaming()
+        return
+      }
+      val source = pacer.markdownToRender
+      if (source == renderedSource) return
+      renderedSource = source
+      scheduleRender()
     }
 
     private fun updateMeasurementStoreFontScaling() {
       MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
     }
 
+    // With nothing to render, scheduleRender still ends a stream that has ended.
     private fun scheduleRenderIfNeeded() {
-      if (currentMarkdown.isNotEmpty()) {
-        scheduleRender()
-      }
+      textRenderKey++
+      scheduleRender()
     }
 
     private fun recreateStyleConfig() {
@@ -298,67 +414,148 @@ class EnrichedMarkdownText
     }
 
     private fun scheduleRender() {
-      val style = markdownStyle ?: return
-      val markdown = currentMarkdown
-      if (markdown.isEmpty()) return
+      val style = markdownStyle
+      val markdown = renderedSource
+      if (style == null || markdown.isEmpty()) {
+        // Nothing to render: nothing is left to show either.
+        if (!isStreaming) emitStreamingEndIfPending()
+        return
+      }
 
       val textLinkRegex = linkRegex
       val codeLinkRegex = inlineCodeLinkRegex
-      val renderId = ++currentRenderId
+      val flags = md4cFlags
+      val streaming = isStreaming
+      val tableMode = tableStreamingMode
+      val codeBlockMode = codeBlockStreamingMode
+      val mediaMode = mediaStreamingMode
+      val renderKey = textRenderKey
 
-      executor.execute {
-        try {
-          val ast =
-            parser.parseMarkdown(markdown, md4cFlags, isGFM, textLinkRegex, codeLinkRegex) ?: run {
-              mainHandler.post { if (renderId == currentRenderId && isAttachedToWindow) text = "" }
-              return@execute
-            }
+      renderCoordinator.schedule {
+        val apply =
+          run render@{
+            try {
+              val renderableMarkdown =
+                if (streaming) {
+                  StreamingMarkdownFilter.renderableMarkdownForStreaming(markdown, flags, tableMode, codeBlockMode, mediaMode).markdown
+                } else {
+                  markdown
+                }
+              val ast =
+                parser.parseMarkdown(renderableMarkdown, flags, isGFM, textLinkRegex, codeLinkRegex)
+                  ?: return@render Runnable { if (isAttachedToWindow) clearText() }
 
-          renderer.configure(style, context, latexErrorReporter)
-          val styledText = renderer.renderDocument(ast, onLinkPressCallback, onLinkLongPressCallback)
+              renderer.configure(style, context, latexErrorReporter)
+              textRenderCache.begin(renderKey)
+              val (rendered, _) =
+                textRenderCache.render(ast.children, startingTaskIndex = 0, isLast = true) { nodes, taskIndex ->
+                  renderText(nodes, taskIndex, style)
+                }
+              textRenderCache.end()
 
-          mainHandler.post {
-            if (renderId == currentRenderId) {
-              if (isAttachedToWindow) {
-                applyRenderedText(styledText)
-              } else {
-                pendingStyledText = styledText
+              Runnable {
+                if (isAttachedToWindow) {
+                  applyRenderedText(rendered, markdown)
+                } else {
+                  pendingText = rendered
+                  pendingRenderedMarkdown = markdown
+                  // Parked, the view lays nothing out: measurement must not take the size it had.
+                  MeasurementStore.clearLaidOutSize(id)
+                }
               }
+            } catch (e: Exception) {
+              textRenderCache.clear()
+              Log.e(TAG, "Render failed: ${e.message}", e)
+              Runnable { if (isAttachedToWindow) clearText() }
             }
           }
-        } catch (e: Exception) {
-          Log.e(TAG, "Render failed: ${e.message}", e)
-          mainHandler.post { if (renderId == currentRenderId && isAttachedToWindow) text = "" }
+        // The first render scheduled once the stream ended shows its last words.
+        Runnable {
+          val key = textRenderKey
+          apply.run()
+          // A patch the view can't take renders again in full (a new key): that render shows the end.
+          if (!streaming && textRenderKey == key) emitStreamingEndIfPending()
         }
       }
     }
 
-    private fun applyRenderedText(styledText: CharSequence) {
-      val tailStart = previousTextLength
+    private fun renderText(
+      nodes: List<MarkdownASTNode>,
+      startingTaskIndex: Int,
+      style: StyleConfig,
+    ): TextRenderResult {
+      val styledText = renderer.renderContent(nodes, onLinkPressCallback, onLinkLongPressCallback, startingTaskIndex = startingTaskIndex)
+      return renderer.textRenderResult(styledText, style.needsJustify)
+    }
+
+    // For a patch to text this view doesn't show (it was detached for a render).
+    private fun renderInFull() {
+      textRenderKey++
+      scheduleRender()
+    }
+
+    private fun clearText() {
+      text = ""
+      renderedRevision = 0L
+    }
+
+    private fun applyRenderedText(
+      rendered: RenderedSegment.Text,
+      markdown: String,
+    ) {
+      // The cache handed back the segment this view shows.
+      if (rendered.revision == renderedRevision) {
+        renderedMarkdown = markdown
+        // The stream ended on text this view already shows.
+        if (streamEnding) {
+          previousTextLength = 0
+          streamEnding = false
+        }
+        return
+      }
+      // A patch applies only to the text it was made against.
+      val patch = rendered.patch?.takeIf { it.baseRevision == renderedRevision }
+      if (patch == null && rendered.styledText == null) {
+        renderInFull()
+        return
+      }
 
       markdownStyle?.paragraphStyle?.fontSize?.let {
         setTextSize(TypedValue.COMPLEX_UNIT_PX, it)
       }
 
-      text = styledText
+      var changedFrom = 0
+      if (patch != null && replaceTextTail(patch.start, patch.tail)) {
+        patch.tailImageSpans.forEach { it.registerTextView(this) }
+        changedFrom = patch.start
+      } else {
+        text = rendered.styledText ?: return renderInFull()
+        rendered.imageSpans.forEach { it.registerTextView(this) }
+        accessibilityHelper.invalidateAccessibilityItems()
+      }
+      val tailStart = previousTextLength
+      renderedMarkdown = markdown
+      renderedRevision = rendered.revision
+      renderedLastElementMarginBottom = rendered.lastElementMarginBottom
+      val styledText = text
 
       applyInteractivity()
 
-      renderer.getCollectedImageSpans().forEach { span ->
-        span.registerTextView(this)
-      }
-
       spoilerOverlayDrawer = SpoilerOverlayDrawer.setupIfNeeded(this, styledText, spoilerOverlayDrawer, spoilerOverlay)
 
-      layoutManager.invalidateLayout()
-      accessibilityHelper.invalidateAccessibilityItems()
+      layoutManager.invalidateLayout(changedFrom)
 
-      if (streamingAnimation) {
-        if (fadeAnimator == null) {
-          fadeAnimator = TailFadeInAnimator(this)
+      if (isStreaming || streamEnding) {
+        // Made once something animates; one made already started over with 'none'.
+        if (effectsAnimator == null && effectsConfig.type != StreamingEffects.Type.NONE && !isReducedMotionEnabled(context)) {
+          effectsAnimator = StreamingEffectsAnimator(this).also { it.configure(effectsConfig) }
         }
-        fadeAnimator?.animate(tailStart, styledText.length)
-        previousTextLength = styledText.length
+        effectsAnimator?.let {
+          it.noteArrival(tailStart, styledText.length)
+          if (streamEnding) it.finish()
+        }
+        previousTextLength = if (isStreaming) styledText.length else 0
+        streamEnding = false
       }
 
       applySelectionColors(selectionColor, selectionHandleColor)
@@ -366,7 +563,7 @@ class EnrichedMarkdownText
 
     // Trailing bottom margin included in the shadow-node measurement — must be
     // mirrored when re-storing the measurement from the display text.
-    fun trailingMarginBottomPx(): Float = if (allowTrailingMargin) renderer.getLastElementMarginBottom() else 0f
+    fun trailingMarginBottomPx(): Float = if (allowTrailingMargin) renderedLastElementMarginBottom else 0f
 
     fun setContextMenuItems(items: List<String>) {
       contextMenuItemTexts = items
@@ -531,12 +728,14 @@ class EnrichedMarkdownText
     }
 
     fun cleanup() {
-      currentRenderId++
+      renderCoordinator.invalidate()
       executor.shutdownNow()
       mainHandler.removeCallbacksAndMessages(null)
-      pendingStyledText = null
-      fadeAnimator?.cancelAll()
-      fadeAnimator = null
+      pendingText = null
+      pendingRenderedMarkdown = ""
+      effectsAnimator?.release()
+      effectsAnimator = null
+      pacer.release()
     }
 
     override fun setPadding(
@@ -610,14 +809,16 @@ class EnrichedMarkdownText
 
     override fun onAttachedToWindow() {
       super.onAttachedToWindow()
-      pendingStyledText?.let {
-        pendingStyledText = null
-        applyRenderedText(it)
+      pendingText?.let {
+        pendingText = null
+        applyRenderedText(it, pendingRenderedMarkdown)
       }
     }
 
     override fun onDetachedFromWindow() {
       stopSpoilerAnimations()
+      // A detached view parks its renders, so a stream measures in full until it lays out again.
+      MeasurementStore.clearLaidOutSize(id)
       super.onDetachedFromWindow()
     }
 

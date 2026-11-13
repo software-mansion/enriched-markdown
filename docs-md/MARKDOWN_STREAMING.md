@@ -1,62 +1,123 @@
 # Markdown Streaming
 
-If you need to render markdown that streams token-by-token from an LLM, check out [react-native-streamdown](https://github.com/software-mansion-labs/react-native-streamdown) — a streaming-ready markdown component built on top of `react-native-enriched-markdown`.
+`EnrichedMarkdownText` renders markdown while it streams, token by token from an LLM for example: new text fades in, incomplete blocks are held back and half-written inline syntax is repaired, all in native code.
 
-It combines [remend](https://www.npmjs.com/package/remend) for fixing incomplete markdown on the fly with [react-native-worklets](https://docs.swmansion.com/react-native-worklets/) **Bundle Mode** to run all processing off the JS thread, keeping your UI responsive while tokens arrive.
+## Migrating from react-native-streamdown
+
+`react-native-streamdown` is no longer needed: streaming is built into `react-native-enriched-markdown`, which holds back incomplete blocks and repairs half-written markdown itself, in native code.
+
+1. Replace `StreamdownText` with `EnrichedMarkdownText` and set `streaming` while the text arrives. The other props carry over, since `StreamdownText` accepted every `EnrichedMarkdownText` prop.
+2. Turn `streaming` off when the stream ends; `StreamdownText` had no such step. A view left streaming keeps holding back incomplete blocks in the final render.
+3. Drop `remendConfig`. It has no equivalent: repair of incomplete markdown is built in.
+4. Uninstall `react-native-streamdown` and `remend`.
+5. If nothing else in your app uses Worklets Bundle Mode, remove its setup: `bundleMode: true` and the `importForwarding` entry for `remend` in `babel.config.js`, the `getBundleModeMetroConfig` entry in `metro.config.js`, and the Metro patch.
 
 ```tsx
-import { StreamdownText } from 'react-native-streamdown';
+// Before
+<StreamdownText markdown={partialMarkdown} />
 
-<StreamdownText markdown={partialMarkdown} />;
+// After
+<EnrichedMarkdownText markdown={partialMarkdown} streaming={isStreaming} />
 ```
 
-`StreamdownText` accepts all props from `EnrichedMarkdownText` and adds a `remendConfig` prop for customizing the markdown repair pipeline. See the [react-native-streamdown README](https://github.com/software-mansion-labs/react-native-streamdown#readme) for full setup instructions including the required Babel and Metro configuration for Bundle Mode.
+## Migrating from streamingAnimation
 
-## Table Streaming (GFM)
+`streamingAnimation` is deprecated in favor of `streaming` and logs a warning in development. It no longer only animates: while it is on, incomplete blocks are held back and inline syntax is repaired, so turn it off when the stream ends, or the final render keeps doing so.
 
-When using `flavor="github"` with streaming content, tables require special handling because they are block-level elements that can't be rendered until the parser has enough structure (at minimum a header row and separator line).
+## Incremental Rendering
 
-The `streamingConfig` prop controls this behavior:
+Feed the growing markdown string to `EnrichedMarkdownText` and set `streaming` while it arrives (off by default). Only the new characters fade in on each update. Set it back to `false` when the stream ends, so the final render shows everything; `onStreamingEnd` is called once the view has stopped streaming and the final render shows the whole text.
 
 ```tsx
 <EnrichedMarkdownText
-  markdown={streamingMarkdown}
-  flavor="github"
-  streamingAnimation
-  streamingConfig={{ tableMode: 'hidden' }}
+  markdown={partialMarkdown}
+  streaming={isStreaming}
+  onStreamingEnd={() => console.log('done')}
 />
 ```
 
-### Table Modes
+Streaming assumes append-only updates: everything past the previous string's length is treated as new.
+
+## Streaming Without Re-rendering
+
+Passing a growing `markdown` re-renders your component on every chunk. A stream from `createMarkdownStream()` doesn't: append chunks to it and the view updates once per frame on its own, with the text kept in native memory.
+
+```tsx
+const stream = createMarkdownStream();
+socket.onmessage = (event) => stream.append(event.data);
+socket.onclose = () => stream.end();
+
+<EnrichedMarkdownText stream={stream} flavor="github" />;
+```
+
+Keep the stream outside the component, so a list row that unmounts and mounts again shows the same text, and call `dispose()` when the message is gone. On web a stream shows its text as it grows, but `onStreamingEnd` does not fire.
+
+## Incomplete Blocks
+
+Some blocks can't be rendered until enough of them has arrived. The `streamingConfig` prop decides what happens in the meantime, in both flavors, while `streaming` is `true`.
+
+```tsx
+<EnrichedMarkdownText
+  markdown={partialMarkdown}
+  flavor="github"
+  streaming={isStreaming}
+  streamingConfig={{ tableMode: 'hidden', codeBlockMode: 'progressive' }}
+/>
+```
+
+### Tables (`tableMode`, GFM only)
 
 | Mode | Behavior |
 |---|---|
-| `'progressive'` (default) | Renders the table row-by-row as content arrives. New rows fade in when `streamingAnimation` is enabled. Incomplete trailing rows are automatically trimmed. |
+| `'progressive'` (default) | Renders the table row-by-row as content arrives. New rows fade in unless `animation` is `'none'`. Incomplete trailing rows are automatically trimmed. |
 | `'hidden'` | The table is completely hidden until it is followed by a blank line, indicating the table is complete. Prevents visual jank from partially formed tables. |
 
-## Code Block Streaming (GFM)
+### Code Blocks (`codeBlockMode`)
 
-Fenced code blocks are also block-level elements. While a block's closing fence
-(```` ``` ````) has not arrived, its content is still changing, which would
-otherwise make syntax highlighting flicker on every token.
-
-The `codeBlockMode` field of `streamingConfig` controls this:
-
-```tsx
-<EnrichedMarkdownText
-  markdown={streamingMarkdown}
-  flavor="github"
-  streamingAnimation
-  streamingConfig={{ codeBlockMode: 'progressive' }}
-/>
-```
-
-### Code Block Modes
+While a block's closing fence (```` ``` ````) has not arrived, its content is still changing, which would otherwise make syntax highlighting flicker on every token.
 
 | Mode | Behavior |
 |---|---|
-| `'progressive'` (default) | The code streams in line-by-line with its header (language label + copy button) visible but non-interactive — copying is disabled until the block completes. Syntax highlighting is deferred so it applies once when the closing fence arrives instead of flickering per token. |
+| `'progressive'` (default) | The code streams in line-by-line; with `flavor="github"` its header (language label + copy button) is visible but non-interactive — copying is disabled until the block completes. Syntax highlighting is deferred so it applies once when the closing fence arrives instead of flickering per token. |
 | `'hidden'` | The entire code block is hidden until its closing fence arrives, then it appears complete (the same all-or-nothing behavior block math uses). |
 
-Both modes only take effect when `streamingAnimation` is `true`.
+### Images, Videos and Links (`mediaMode`)
 
+| Mode | Behavior |
+|---|---|
+| `'progressive'` (default) | Shows a trailing image paragraph, link paragraph or `<video>` block once its syntax is complete; a half-streamed `![alt](https://…` or `[label](https://…` is withheld instead of flashing as text. |
+| `'hidden'` | Withholds the block until a blank line or another block follows it. |
+
+An unterminated `$$` block math is always withheld until its closing `$$` arrives.
+
+## Arrival Animation (`animation`)
+
+| Value | Behavior |
+|---|---|
+| `'fade'` (default) | Each new word fades in over its own 200 ms; new blocks and table rows fade in. |
+| `'gradient'` | The last 20 characters run from their own color to transparent, following the end of the text as it grows, and settle to their own colors over 200 ms when the stream ends. |
+| `'none'` | Nothing animates; the incomplete-block handling above still applies. |
+
+A preset with its options: `{ type: 'fade', duration }` sets the text's fade in milliseconds (blocks and table rows keep 200 ms); `{ type: 'gradient', length, startColor, endColor }` sets how many characters it covers and the colors at its start and end.
+
+```tsx
+<EnrichedMarkdownText
+  markdown={partialMarkdown}
+  streaming={isStreaming}
+  streamingConfig={{ animation: { type: 'gradient', length: 15, startColor: '#107ACA', endColor: 'transparent' } }}
+/>
+```
+
+Animations change only how characters are drawn, never the text. Reduce Motion turns them off.
+
+## Smooth Pacing (`smooth`)
+
+`streamingConfig.smooth` reveals the text word by word at a steady pace instead of in the bursts it arrives in, so lines, list items and blocks grow with the words. Each chunk spreads over the time until the next one, at most a second behind; when the stream ends, what is left shows within 200 ms, and `onStreamingEnd` fires then. Off by default. It works with every animation, and Reduce Motion keeps the pacing and turns off only the animation.
+
+```tsx
+<EnrichedMarkdownText markdown={partialMarkdown} streaming={isStreaming} streamingConfig={{ smooth: true }} />
+```
+
+## Half-Written Inline Syntax
+
+Inline markdown still being typed at the end is repaired instead of showing as raw syntax: emphasis, strikethrough and inline code get their closers, a link shows its label until its URL is complete, and an image, unclosed inline math or a lone marker line waits until it can render. The repair applies only to the unfinished tail; blocks that have finished render as written.

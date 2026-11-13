@@ -1,4 +1,5 @@
 #pragma once
+#import "ENRMTextViewport.h"
 #import "ENRMUIKit.h"
 #import "LastElementUtils.h"
 #import "StyleConfig.h"
@@ -116,17 +117,27 @@ static inline CGSize ENRMFinalizeMeasuredTextSize(ENRMTextLayoutResult layout, N
   return CGSizeMake(ceil(measuredWidth * scale) / scale, ceil(measuredHeight * scale) / scale);
 }
 
-static inline CGSize ENRMMeasureMarkdownText(ENRMPlatformTextView *textView, CGFloat maxWidth, StyleConfig *config,
-                                             BOOL allowTrailingMargin, CGFloat lastElementMarginBottom)
+static inline CGSize ENRMMeasureMarkdownText(ENRMTextViewport *viewport, ENRMPlatformTextView *textView,
+                                             CGFloat maxWidth, StyleConfig *config, BOOL allowTrailingMargin,
+                                             CGFloat lastElementMarginBottom)
 {
   NSAttributedString *text = ENRMGetAttributedText(textView);
   if (text.length == 0) {
     return CGSizeZero;
   }
 
-  ENRMTextLayoutResult layout = ENRMMeasureTextLayout(textView, maxWidth);
+  ENRMTextLayoutResult layout = [viewport measureLayoutAtWidth:maxWidth];
   return ENRMFinalizeMeasuredTextSize(layout, textView.layoutManager, maxWidth, config, allowTrailingMargin,
                                       lastElementMarginBottom, YES, RCTScreenScale());
+}
+
+/// A new config redraws the whole text: set only when it is new, not on every streamed update.
+static inline void ENRMSetLayoutManagerConfig(NSLayoutManager *layoutManager, StyleConfig *_Nullable config)
+{
+  if ([layoutManager isKindOfClass:[TextViewLayoutManager class]] &&
+      ((TextViewLayoutManager *)layoutManager).config != config) {
+    [layoutManager setValue:config forKey:@"config"];
+  }
 }
 
 NS_ASSUME_NONNULL_END

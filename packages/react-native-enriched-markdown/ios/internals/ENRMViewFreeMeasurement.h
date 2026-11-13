@@ -170,6 +170,25 @@ static inline CGSize ENRMMeasureAttributedTextViewFree(NSAttributedString *text,
 }
 
 /**
+ * The props' markdown as the view renders it: while streaming, the core
+ * streaming session's snapshot (`ENRMRenderableMarkdownForStreaming`) with the
+ * props' streamingConfig modes and parser flags.
+ */
+template <typename PropsT>
+static inline NSString *ENRMRenderableMarkdownFromProps(const PropsT &typedProps, ENRMMd4cFlags *flags)
+{
+  NSString *markdown = ENRMStringFromUTF8(typedProps.markdown);
+  if (!typedProps.streaming) {
+    return markdown;
+  }
+  const auto &config = typedProps.streamingConfig;
+  return ENRMRenderableMarkdownForStreaming(
+      markdown, flags, ENRMStreamingModeFromString<ENRMTableStreamingMode>(config.tableMode),
+      ENRMStreamingModeFromString<ENRMCodeBlockStreamingMode>(config.codeBlockMode),
+      ENRMStreamingModeFromString<ENRMMediaStreamingMode>(config.mediaMode), NULL);
+}
+
+/**
  * Renders EnrichedMarkdownText content from props alone, on the calling thread,
  * with the calls `renderMarkdownContent:` makes: parse, `ENRMRenderASTNodes`,
  * then the props' writing-direction mode. Returns nil for empty markdown, parse
@@ -183,9 +202,15 @@ static inline ENRMRenderResult *ENRMRenderMarkdownViewFree(const PropsT &typedPr
     return nil;
   }
 
+  ENRMMd4cFlags *flags = ENRMMd4cFlagsFromProps(typedProps.md4cFlags);
+  NSString *markdown = ENRMRenderableMarkdownFromProps(typedProps, flags);
+  if (markdown.length == 0) {
+    return nil;
+  }
+
   ENRMMarkdownParser *parser = [[ENRMMarkdownParser alloc] init];
-  MarkdownASTNode *ast = [parser parseMarkdown:ENRMStringFromUTF8(typedProps.markdown)
-                                         flags:ENRMMd4cFlagsFromProps(typedProps.md4cFlags)
+  MarkdownASTNode *ast = [parser parseMarkdown:markdown
+                                         flags:flags
                                          isGFM:typedProps.isGFM
                                      linkRegex:ENRMLinkRegexConfigFromProps(typedProps.linkRecognition.text)
                            inlineCodeLinkRegex:ENRMLinkRegexConfigFromProps(typedProps.linkRecognition.inlineCode)];
@@ -244,8 +269,8 @@ static inline CGSize ENRMMeasureMarkdownViewFree(const PropsT &typedProps, CGFlo
 
 /**
  * Renders segmented EnrichedMarkdown content from props alone, on the calling
- * thread, with the calls `renderMarkdownContent:` makes: the streaming filter
- * (`ENRMRenderableMarkdownForStreaming` with the props' streamingConfig modes),
+ * thread, with the calls `renderMarkdownContent:` makes: the streaming session
+ * (`ENRMRenderableMarkdownFromProps`),
  * the parse stamping `slotIds`, `ENRMRenderSegmentsFromAST`, then the props'
  * writing-direction mode on each text segment. Returns nil for empty markdown,
  * parse failures and empty output.
@@ -259,29 +284,15 @@ ENRMRenderSegmentedMarkdownViewFree(const PropsT &typedProps, StyleConfig *confi
     return nil;
   }
 
-  NSString *markdown = ENRMStringFromUTF8(typedProps.markdown);
-
-  if (typedProps.streamingAnimation) {
-    NSString *tableModeStr = [[NSString alloc] initWithUTF8String:typedProps.streamingConfig.tableMode.c_str()];
-    ENRMTableStreamingMode tableStreamingMode =
-        [tableModeStr isEqualToString:@"hidden"] ? ENRMTableStreamingModeHidden : ENRMTableStreamingModeProgressive;
-    NSString *codeBlockModeStr = [[NSString alloc] initWithUTF8String:typedProps.streamingConfig.codeBlockMode.c_str()];
-    ENRMCodeBlockStreamingMode codeBlockStreamingMode = [codeBlockModeStr isEqualToString:@"hidden"]
-                                                            ? ENRMCodeBlockStreamingModeHidden
-                                                            : ENRMCodeBlockStreamingModeProgressive;
-    NSString *mediaModeStr = [[NSString alloc] initWithUTF8String:typedProps.streamingConfig.mediaMode.c_str()];
-    ENRMMediaStreamingMode mediaStreamingMode =
-        [mediaModeStr isEqualToString:@"hidden"] ? ENRMMediaStreamingModeHidden : ENRMMediaStreamingModeProgressive;
-    markdown = ENRMRenderableMarkdownForStreaming(markdown, tableStreamingMode, codeBlockStreamingMode,
-                                                  mediaStreamingMode, NULL);
-    if (markdown.length == 0) {
-      return nil;
-    }
+  ENRMMd4cFlags *flags = ENRMMd4cFlagsFromProps(typedProps.md4cFlags);
+  NSString *markdown = ENRMRenderableMarkdownFromProps(typedProps, flags);
+  if (markdown.length == 0) {
+    return nil;
   }
 
   ENRMMarkdownParser *parser = [[ENRMMarkdownParser alloc] init];
   MarkdownASTNode *ast = [parser parseMarkdown:markdown
-                                         flags:ENRMMd4cFlagsFromProps(typedProps.md4cFlags)
+                                         flags:flags
                                          isGFM:typedProps.isGFM
                                      linkRegex:ENRMLinkRegexConfigFromProps(typedProps.linkRecognition.text)
                            inlineCodeLinkRegex:ENRMLinkRegexConfigFromProps(typedProps.linkRecognition.inlineCode)

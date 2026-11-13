@@ -11,8 +11,7 @@ const val SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE = SpannableString.SPAN_EXCLUSIVE_EXCLUS
  * Higher-priority spans are iterated — and therefore applied and drawn — first,
  * so lower-priority spans over the same range override them. Use this for a
  * block span set after its children that must not override the inline spans
- * inside it (e.g. [HeadingSpan]), or for a container background that must sit
- * under inline pill/chip backgrounds (e.g. [BlockquoteSpan]).
+ * inside it (e.g. [HeadingSpan], [BlockquoteSpan]).
  */
 const val SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE_PRIORITY =
   Spanned.SPAN_EXCLUSIVE_EXCLUSIVE or Spanned.SPAN_PRIORITY

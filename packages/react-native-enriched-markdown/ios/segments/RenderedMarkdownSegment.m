@@ -184,7 +184,11 @@ uint64_t ENRMSignatureForNode(MarkdownASTNode *node)
   if (!node)
     return kFNVOffsetBasis;
 
-  uint64_t hash = kFNVOffsetBasis;
+  uint64_t hash = node.cachedSignature;
+  if (hash != 0)
+    return hash;
+
+  hash = kFNVOffsetBasis;
   hash = fnvMixUInt64(hash, (uint64_t)node.type);
   hash = fnvMixString(hash, node.content);
 
@@ -198,6 +202,7 @@ uint64_t ENRMSignatureForNode(MarkdownASTNode *node)
     hash = fnvMixUInt64(hash, ENRMSignatureForNode(child));
   }
 
+  node.cachedSignature = hash;
   return hash;
 }
 
@@ -206,6 +211,15 @@ uint64_t ENRMSignatureForNodes(NSArray<MarkdownASTNode *> *nodes)
   uint64_t hash = kFNVOffsetBasis;
   for (MarkdownASTNode *node in nodes) {
     hash = fnvMixUInt64(hash, ENRMSignatureForNode(node));
+  }
+  return hash;
+}
+
+uint64_t ENRMSignatureForNodeSignatures(NSArray<NSNumber *> *nodeSignatures)
+{
+  uint64_t hash = kFNVOffsetBasis;
+  for (NSNumber *nodeSignature in nodeSignatures) {
+    hash = fnvMixUInt64(hash, nodeSignature.unsignedLongLongValue);
   }
   return hash;
 }

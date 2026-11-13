@@ -52,18 +52,34 @@ echo "==> Building the vendored parser and the AST dumper"
   "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/ast-dump"
 
 echo "==> Checking the block slot collector"
-"$CXX_BIN" -O1 -std=c++17 -Wall -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" \
+"$CXX_BIN" -O1 -std=c++17 -Wall -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" -I "$CPP_ROOT/repair" \
   "$TESTS_DIR/block_slots_test.cpp" \
   "$CPP_ROOT/parser/MD4CParser.cpp" \
   "$CPP_ROOT/parser/BlockSlots.cpp" \
   "$CPP_ROOT/parser/BlockKinds.cpp" \
   "$CPP_ROOT/parser/DocumentStore.cpp" \
   "$CPP_ROOT/parser/StreamingFilter.cpp" \
+  "$CPP_ROOT/parser/StreamingSession.cpp" \
   "$CPP_ROOT/parser/TextLinkRecognizer.cpp" \
+  "$CPP_ROOT"/repair/*.cpp \
   "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/block-slots-test"
 "$WORK/block-slots-test" "$TESTS_DIR/fixtures/block_slot_ids.txt" \
   "$TESTS_DIR/fixtures/block_ids/document.md" "$TESTS_DIR/fixtures/block_ids/ids.txt" \
   "$TESTS_DIR/fixtures/block_ids/links.txt"
+
+echo "==> Checking that a stream parsed in parts equals its whole text"
+"$CXX_BIN" -O1 -std=c++17 -Wall -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" -I "$CPP_ROOT/repair" \
+  "$TESTS_DIR/incremental_parse_test.cpp" \
+  "$CPP_ROOT/parser/MD4CParser.cpp" \
+  "$CPP_ROOT/parser/BlockSlots.cpp" \
+  "$CPP_ROOT/parser/BlockKinds.cpp" \
+  "$CPP_ROOT/parser/DocumentStore.cpp" \
+  "$CPP_ROOT/parser/StreamingFilter.cpp" \
+  "$CPP_ROOT/parser/StreamingSession.cpp" \
+  "$CPP_ROOT/parser/TextLinkRecognizer.cpp" \
+  "$CPP_ROOT"/repair/*.cpp \
+  "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/incremental-parse-test"
+"$WORK/incremental-parse-test" "$TESTS_DIR"/fixtures/*.md "$TESTS_DIR/fixtures/block_ids/document.md"
 
 echo "==> Checking the shared document store"
 # Under the thread sanitizer where its runtime starts; some macOS releases crash
@@ -80,13 +96,15 @@ if "$CXX_BIN" -fsanitize=thread -x c++ -o "$WORK/tsan-probe" - <<< 'int main(){}
 else
   echo "    thread sanitizer unavailable here; running without it"
 fi
-"$CXX_BIN" -O1 -std=c++17 -Wall $tsan_flag -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" \
+"$CXX_BIN" -O1 -std=c++17 -Wall $tsan_flag -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" -I "$CPP_ROOT/repair" \
   "$TESTS_DIR/document_store_test.cpp" \
   "$CPP_ROOT/parser/MD4CParser.cpp" \
   "$CPP_ROOT/parser/BlockSlots.cpp" \
   "$CPP_ROOT/parser/BlockKinds.cpp" \
   "$CPP_ROOT/parser/DocumentStore.cpp" \
   "$CPP_ROOT/parser/StreamingFilter.cpp" \
+  "$CPP_ROOT/parser/StreamingSession.cpp" \
+  "$CPP_ROOT"/repair/*.cpp \
   "${store_objects[@]}" -lpthread -o "$WORK/document-store-test"
 "$WORK/document-store-test"
 
@@ -101,21 +119,34 @@ echo "==> Checking the streaming filter"
   "$CPP_ROOT/parser/BlockKinds.cpp" -o "$WORK/streaming-filter-test"
 "$WORK/streaming-filter-test"
 
-echo "==> Streaming every fixture through the filter and md4c"
-"$CXX_BIN" -O1 -std=c++17 -Wall -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" \
-  "$TESTS_DIR/streaming_filter_fuzz.cpp" \
-  "$CPP_ROOT/parser/MD4CParser.cpp" \
+echo "==> Checking the streaming session"
+"$CXX_BIN" -O1 -std=c++17 -Wall -I "$CPP_ROOT/parser" -I "$CPP_ROOT/repair" \
+  "$TESTS_DIR/streaming_session_test.cpp" \
+  "$CPP_ROOT/parser/StreamingSession.cpp" \
   "$CPP_ROOT/parser/StreamingFilter.cpp" \
   "$CPP_ROOT/parser/BlockKinds.cpp" \
-  "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/streaming-filter-fuzz"
-"$WORK/streaming-filter-fuzz" "$TESTS_DIR"/fixtures/*.md
+  "$CPP_ROOT"/repair/*.cpp -o "$WORK/streaming-session-test"
+"$WORK/streaming-session-test" "$TESTS_DIR"/fixtures/*.md
 
-echo "==> Checking the streaming filter's cost per tick"
-"$CXX_BIN" -O2 -std=c++17 -Wall -I "$CPP_ROOT/parser" \
-  "$TESTS_DIR/streaming_filter_bench.cpp" \
+echo "==> Streaming every fixture through the session and md4c"
+"$CXX_BIN" -O1 -std=c++17 -Wall -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" -I "$CPP_ROOT/repair" \
+  "$TESTS_DIR/streaming_session_fuzz.cpp" \
+  "$CPP_ROOT/parser/MD4CParser.cpp" \
+  "$CPP_ROOT/parser/StreamingSession.cpp" \
   "$CPP_ROOT/parser/StreamingFilter.cpp" \
-  "$CPP_ROOT/parser/BlockKinds.cpp" -o "$WORK/streaming-filter-bench"
-"$WORK/streaming-filter-bench"
+  "$CPP_ROOT/parser/BlockKinds.cpp" \
+  "$CPP_ROOT"/repair/*.cpp \
+  "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/streaming-session-fuzz"
+"$WORK/streaming-session-fuzz" "$TESTS_DIR"/fixtures/*.md
+
+echo "==> Checking the streaming session's cost per tick"
+"$CXX_BIN" -O2 -std=c++17 -Wall -I "$CPP_ROOT/parser" -I "$CPP_ROOT/repair" \
+  "$TESTS_DIR/streaming_session_bench.cpp" \
+  "$CPP_ROOT/parser/StreamingSession.cpp" \
+  "$CPP_ROOT/parser/StreamingFilter.cpp" \
+  "$CPP_ROOT/parser/BlockKinds.cpp" \
+  "$CPP_ROOT"/repair/*.cpp -o "$WORK/streaming-session-bench"
+"$WORK/streaming-session-bench"
 
 echo "==> Checking the vendored parser's exported symbols"
 if command -v nm >/dev/null 2>&1; then

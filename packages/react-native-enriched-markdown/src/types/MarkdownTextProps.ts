@@ -1,4 +1,5 @@
 import type { ColorValue, ViewProps, ViewStyle, TextStyle } from 'react-native';
+import type { MarkdownStream } from '../markdownStream';
 import type { MarkdownStyle, Md4cFlags } from './MarkdownStyle';
 import type { AccessibilityLabels } from './AccessibilityLabels';
 import type {
@@ -140,7 +141,8 @@ export interface StreamingConfig {
    * Controls how incomplete tables are handled during streaming.
    * - `'hidden'`: hide the entire table until it's complete.
    * - `'progressive'` (default): show the table row-by-row as rows complete.
-   * Only effective when `streamingAnimation` is `true`.
+   * Only effective while streaming (`streaming`, or a `stream` that hasn't
+   * ended).
    * @default 'progressive'
    * @platform ios, android
    */
@@ -152,7 +154,8 @@ export interface StreamingConfig {
    * - `'progressive'` (default): show the code as it streams in with its header
    *   visible but non-interactive (copying is disabled); syntax highlighting is
    *   deferred until the closing fence arrives, so it appears once atomically.
-   * Only effective when `streamingAnimation` is `true`.
+   * Only effective while streaming (`streaming`, or a `stream` that hasn't
+   * ended).
    * @default 'progressive'
    * @platform ios, android
    */
@@ -165,19 +168,90 @@ export interface StreamingConfig {
    * - `'progressive'` (default): show the block as soon as its syntax is
    *   complete (`)` for an image, `>` for a `<video>` tag); the partial line is
    *   hidden until then instead of rendering as text.
-   * Only effective when `streamingAnimation` is `true`.
+   * Only effective while streaming (`streaming`, or a `stream` that hasn't
+   * ended).
    * @default 'progressive'
    * @platform ios, android
    */
   mediaMode?: 'hidden' | 'progressive';
+  /**
+   * How newly arrived content appears during streaming.
+   * - `'fade'` (default): each new word fades in over 200 ms, new blocks and
+   *   table rows fade in, and a block drawn by `renderers` grows into place.
+   * - `'gradient'`: the last 20 characters run from their own color to
+   *   transparent, following the end of the text (see `StreamingGradient`).
+   * - `'none'`: new content appears at once.
+   * Only effective while streaming (`streaming`, or a `stream` that hasn't
+   * ended). Reduce Motion turns it off, and on macOS new content appears at
+   * once.
+   * @default 'fade'
+   * @platform ios, android
+   */
+  animation?: StreamingAnimation;
+  /**
+   * Reveals new text word by word at a steady pace instead of in the bursts
+   * it arrives in: the view shows the text revealed so far, so its layout and
+   * blocks grow with the words. Each chunk spreads over the time until the
+   * next one, at most a second behind, and what is left shows within 200 ms
+   * when the stream ends. Works with every `animation`. Only effective while
+   * streaming (`streaming`, or a `stream` that hasn't ended).
+   * @default false
+   * @platform ios, android
+   */
+  smooth?: boolean;
+}
+
+/** `streamingConfig.animation`: a preset name, or a preset with its options. */
+export type StreamingAnimation =
+  | 'fade'
+  | 'gradient'
+  | 'none'
+  | StreamingFade
+  | StreamingGradient;
+
+/** The `'fade'` animation with its options. */
+export interface StreamingFade {
+  type: 'fade';
+  /**
+   * How long a new word takes to appear, in milliseconds.
+   * @default 200
+   */
+  duration?: number;
+}
+
+/** The `'gradient'` animation with its options. */
+export interface StreamingGradient {
+  type: 'gradient';
+  /**
+   * How many characters from the end the gradient covers.
+   * @default 20
+   */
+  length?: number;
+  /**
+   * The color where the gradient starts (older characters). Unset keeps each
+   * character's own color.
+   */
+  startColor?: ColorValue;
+  /**
+   * The color of the newest character.
+   * @default 'transparent'
+   */
+  endColor?: ColorValue;
 }
 
 export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
   /**
-   * Markdown content to render.
+   * Markdown content to render. Ignored while `stream` is set.
    * @platform ios, android, web
    */
-  markdown: string;
+  markdown?: string;
+  /**
+   * Markdown arriving in pieces, from `createMarkdownStream()`. Shown instead of
+   * `markdown` and updated once per frame without re-rendering your component;
+   * streams until `stream.end()` unless `streaming` says otherwise.
+   * @platform ios, android, web
+   */
+  stream?: MarkdownStream;
   /**
    * Style configuration for markdown elements.
    * @platform ios, android, web
@@ -394,19 +468,34 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   flavor?: 'commonmark' | 'github';
   /**
-   * When true, newly appended content fades in during streaming updates.
-   * Only the tail (new characters beyond the previous content) is animated.
-   * Recommended for LLM streaming use cases with `flavor="commonmark"`.
+   * Set while `markdown` is still arriving (an LLM answer streaming in).
+   * Incomplete syntax at the end is held back or repaired instead of rendering
+   * as raw markdown, and new content fades in (see `streamingConfig`). Set it
+   * back to `false` when the stream ends: the final render shows everything.
    * @default false
    * @platform ios, android
    */
+  streaming?: boolean;
+  /**
+   * @deprecated Use `streaming` instead.
+   */
   streamingAnimation?: boolean;
   /**
-   * Fine-grained control over streaming behavior for block-level elements.
-   * Only effective when `streamingAnimation` is `true`.
+   * Fine-grained control over streaming behavior.
+   * Only effective while streaming (`streaming`, or a `stream` that hasn't
+   * ended).
    * @platform ios, android
    */
   streamingConfig?: StreamingConfig;
+  /**
+   * Called when the view stops streaming: once `streaming` turns `false` (or
+   * the `stream` ends) and, with `smooth`, the last words have appeared. Fires
+   * after the final render shows the whole text, once per stream, and not when
+   * the view unmounts while streaming. Not called on web, where a `stream`
+   * still shows its text.
+   * @platform ios, android
+   */
+  onStreamingEnd?: () => void;
   /**
    * Controls how spoiler text is displayed before being revealed.
    * - `'particles'` (default): animated particle overlay (CAEmitterLayer on iOS,

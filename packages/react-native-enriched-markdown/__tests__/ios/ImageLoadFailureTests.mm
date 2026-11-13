@@ -173,7 +173,9 @@ static const CGFloat kBlockHeight = 100;
   view.textView.textContainer.size = CGSizeMake(320, CGFLOAT_MAX);
   CGFloat before = CGRectGetHeight([view.accessibilityElements.firstObject accessibilityFrameInContainerSpace]);
 
-  view.textView.textContainer.size = CGSizeMake(80, CGFLOAT_MAX);
+  // The text reflows as it does around a settled image; its container's size belongs to the viewport.
+  NSTextStorage *storage = view.textView.textStorage;
+  [storage addAttribute:NSFontAttributeName value:[UIFont systemFontOfSize:48] range:NSMakeRange(0, storage.length)];
   if (notify) {
     [view imageAttachmentDidResolveLayout];
   }

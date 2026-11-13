@@ -1,4 +1,5 @@
 #include "MarkdownContainerShadowNode.h"
+#include "conversions.h"
 
 #include <cmath>
 #include <limits>
@@ -97,6 +98,11 @@ bool MarkdownContainerShadowNode::slotHeightsUnchanged(const LayoutContext &layo
   return true;
 }
 
+const MarkdownMeasureKeys &MarkdownContainerShadowNode::measureKeys() const {
+  measureKeys_.update<EnrichedMarkdownProps>(getProps(), [](const auto &props) { return measureLayoutConfig(props); });
+  return measureKeys_;
+}
+
 std::vector<BlockSlotPlacement> MarkdownContainerShadowNode::slotPlacements() const {
   std::vector<BlockSlotPlacement> placements;
   placements.reserve(slotMeasurement_.frames.size());
@@ -119,7 +125,8 @@ Size MarkdownContainerShadowNode::measureWithSlots(const LayoutContext &layoutCo
   {
     BlockSlotMeasureSession::Scope scope(&session);
     size =
-        measurementsManager_->measure(getSurfaceId(), getTag(), getConcreteProps(), session.ids(), layoutConstraints);
+        measurementsManager_->measure(getSurfaceId(), getTag(), getConcreteProps().markdown, measureKeys(), session.ids(),
+                                      layoutConstraints);
   }
   slotMeasurement_ = SlotMeasurement{true,  true, getProps().get(), getStateData().getForceHeightRecalculationCounter(),
                                      width, size, session.frames()};
@@ -139,7 +146,8 @@ Size MarkdownContainerShadowNode::measureContent(const LayoutContext &layoutCont
   const auto children = slotChildren();
   if (children.empty()) {
     slotMeasurement_ = SlotMeasurement{};
-    return measurementsManager_->measure(getSurfaceId(), getTag(), getConcreteProps(), {}, layoutConstraints);
+    return measurementsManager_->measure(getSurfaceId(), getTag(), getConcreteProps().markdown, measureKeys(), {},
+                                         layoutConstraints);
   }
   return measureWithSlots(layoutContext, layoutConstraints, children);
 }
@@ -195,7 +203,10 @@ void MarkdownContainerShadowNode::layout(LayoutContext layoutContext) {
     containerShadowNode = static_cast<MarkdownContainerShadowNode *>(owningShadowNode.get());
 
     auto &layoutableShadowNode = static_cast<LayoutableShadowNode &>(*clonedShadowNode);
-    if (!frame.placed) {
+    // With smooth pacing the height is what the view has revealed: slots that start below it wait for
+    // their words; one that has started shows while it grows, as text does.
+    const bool revealed = frame.y < slotMeasurement_.size.height - 1 / layoutMetrics.pointScaleFactor;
+    if (!frame.placed || !revealed) {
       layoutableShadowNode.setLayoutMetrics(LayoutMetrics{.frame = {}, .displayType = DisplayType::None});
       continue;
     }

@@ -2,6 +2,11 @@
 #import "StyleConfig.h"
 #import <React/RCTViewComponentView.h>
 
+#ifdef __cplusplus
+#include "ENRMLaidOutSize.h"
+#include <string_view>
+#endif
+
 #ifndef EnrichedMarkdownNativeComponent_h
 #define EnrichedMarkdownNativeComponent_h
 
@@ -14,12 +19,24 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)hasRenderedMarkdown:(NSString *)markdown;
 - (BOOL)hasRenderedWithStyleFingerprint:(size_t)fingerprint;
 
-/// Size last committed by Fabric via `updateLayoutMetrics:`, readable from
-/// any thread without blocking (issue #550: the shadow-node measure path must
-/// never wait on the main thread, and reading `bounds` off-main is unsafe).
-/// Backed by a single lock-free atomic, so the pair can't tear. Returns
-/// CGSizeZero until the first layout is committed.
-- (CGSize)lastCommittedLayoutSize;
+#ifdef __cplusplus
+/// The content size the view last laid its rendered markdown out at, if it laid
+/// it out for `width` and `markdown` keeps all of what it rendered; else
+/// CGSizeZero. Readable from any thread without blocking (issue #550), so the
+/// shadow node can take it instead of measuring a growing document again.
+- (CGSize)laidOutSizeForWidth:(CGFloat)width
+             pointScaleFactor:(CGFloat)pointScaleFactor
+                     markdown:(std::string_view)markdown;
+/// laidOutSizeForWidth:, with the block slot placeholders laid out at the root of the stack. The
+/// size counts each slot at the height it reserved, even while it grows in.
+- (ENRMLaidOutLayout)laidOutLayoutForWidth:(CGFloat)width
+                          pointScaleFactor:(CGFloat)pointScaleFactor
+                                  markdown:(std::string_view)markdown;
+/// laidOutSizeForWidth:, when the view rendered only a start of `markdown` (smooth pacing revealing it).
+- (CGSize)partialLaidOutSizeForWidth:(CGFloat)width
+                    pointScaleFactor:(CGFloat)pointScaleFactor
+                            markdown:(std::string_view)markdown;
+#endif
 
 /// Document-order indexes, counted across nesting, of the code blocks the user
 /// wrapped with the header toggle (see ENRMCodeBlockWrapState). Written on main,

@@ -186,7 +186,7 @@ it('passes the streaming filter settings so the collector sees the rendered docu
     <EnrichedMarkdownText
       markdown="x"
       flavor="github"
-      streamingAnimation
+      streaming
       streamingConfig={{ mediaMode: 'hidden', tableMode: 'hidden' }}
       renderers={{ image: () => <View /> }}
     />
@@ -197,6 +197,120 @@ it('passes the streaming filter settings so the collector sees the rendered docu
     codeBlockMode: 'progressive',
     mediaMode: 'hidden',
   });
+});
+
+it('takes the deprecated streamingAnimation as streaming', () => {
+  render(
+    <EnrichedMarkdownText
+      markdown="x"
+      flavor="github"
+      streamingAnimation
+      renderers={{ image: () => <View /> }}
+    />
+  );
+  expect(mockCollect).toHaveBeenCalledWith(
+    'x',
+    expect.anything(),
+    true,
+    expect.objectContaining({ enabled: true })
+  );
+});
+
+it('passes streaming and the animation to the native view', () => {
+  const root = render(
+    <EnrichedMarkdownText markdown="x" flavor="github" streaming />
+  );
+  expect(host(root).props.streaming).toBe(true);
+  expect(host(root).props.streamingConfig.animation).toBe('fade');
+  act(() =>
+    root.render(
+      <EnrichedMarkdownText
+        markdown="x"
+        flavor="github"
+        streaming
+        streamingConfig={{ animation: 'none' }}
+      />
+    )
+  );
+  expect(host(root).props.streamingConfig.animation).toBe('none');
+});
+
+it('passes smooth pacing to the native view, off by default', () => {
+  const root = render(
+    <EnrichedMarkdownText markdown="x" flavor="github" streaming />
+  );
+  expect(host(root).props.streamingConfig.smooth).toBe(false);
+  act(() =>
+    root.render(
+      <EnrichedMarkdownText
+        markdown="x"
+        flavor="github"
+        streaming
+        streamingConfig={{ smooth: true }}
+      />
+    )
+  );
+  expect(host(root).props.streamingConfig.smooth).toBe(true);
+});
+
+it('calls onStreamingEnd when the native view stops streaming', () => {
+  const onStreamingEnd = jest.fn();
+  const root = render(
+    <EnrichedMarkdownText
+      markdown="x"
+      flavor="github"
+      streaming
+      onStreamingEnd={onStreamingEnd}
+    />
+  );
+  act(() => host(root).props.onStreamingEnd({ nativeEvent: null }));
+  expect(onStreamingEnd).toHaveBeenCalledTimes(1);
+});
+
+it('sends the deprecated streamingAnimation to the native view as streaming', () => {
+  const root = render(
+    <EnrichedMarkdownText markdown="x" flavor="github" streamingAnimation />
+  );
+  expect(host(root).props.streaming).toBe(true);
+});
+
+it('warns once in development that streamingAnimation is deprecated', () => {
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  // A fresh module: an earlier test already set the flag that keeps it to once.
+  jest.isolateModules(() => {
+    const { act: freshAct } = require('react');
+    const { createRoot: freshRoot } = require('test-renderer');
+    const {
+      EnrichedMarkdownText: Fresh,
+    } = require('../src/native/EnrichedMarkdownText');
+    freshAct(() => {
+      freshRoot().render(<Fresh markdown="x" streamingAnimation />);
+      freshRoot().render(<Fresh markdown="y" streamingAnimation={false} />);
+    });
+  });
+  const deprecations = warn.mock.calls.filter(([message]) =>
+    String(message).includes('`streamingAnimation` is deprecated')
+  );
+  expect(deprecations).toHaveLength(1);
+  warn.mockRestore();
+});
+
+it('lets streaming override the deprecated streamingAnimation', () => {
+  render(
+    <EnrichedMarkdownText
+      markdown="x"
+      flavor="github"
+      streaming={false}
+      streamingAnimation
+      renderers={{ image: () => <View /> }}
+    />
+  );
+  expect(mockCollect).toHaveBeenCalledWith(
+    'x',
+    expect.anything(),
+    true,
+    expect.objectContaining({ enabled: false })
+  );
 });
 
 it('parses once per flag values, not per md4cFlags object identity', () => {

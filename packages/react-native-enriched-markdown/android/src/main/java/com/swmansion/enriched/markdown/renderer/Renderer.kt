@@ -16,6 +16,8 @@ class Renderer {
 
   private val collectedImageSpans = mutableListOf<ImageSpan>()
   private var lastElementMarginBottom: Float = 0f
+  private var blockStarts = IntArray(0)
+  private var blockTaskStarts = IntArray(0)
 
   fun configure(
     style: StyleConfig,
@@ -80,9 +82,15 @@ class Renderer {
 
     val builder = SpannableStringBuilder()
 
+    blockStarts = IntArray(nodes.size)
+    blockTaskStarts = IntArray(nodes.size)
     block?.push(factory.blockStyleContext)
     try {
-      factory.renderNodes(nodes, builder, onLinkPress, onLinkLongPress)
+      for ((index, node) in nodes.withIndex()) {
+        blockStarts[index] = builder.length
+        blockTaskStarts[index] = factory.blockStyleContext.taskItemCount
+        factory.renderNode(node, builder, onLinkPress, onLinkLongPress)
+      }
     } finally {
       block?.pop(factory.blockStyleContext)
     }
@@ -96,6 +104,17 @@ class Renderer {
 
   /** Task-list items rendered by the last [renderContent], continuing from its `startingTaskIndex`. */
   fun getTaskItemCount(): Int = cachedFactory?.blockStyleContext?.taskItemCount ?: 0
+
+  /**
+   * Where each top-level node of the last [renderContent] starts in its buffer, and the task
+   * count before it. Rendering resumes at any of them: between top-level nodes the context is
+   * back at its baseline, and the buffer is empty or ends in "\n", which renderers treat alike.
+   * So rendering the nodes from one on gives that part of the buffer, as long as every top-level
+   * node renders nothing or ends in "\n" (TextRenderCacheTest covers each kind).
+   */
+  fun getBlockStarts(): IntArray = blockStarts
+
+  fun getBlockTaskStarts(): IntArray = blockTaskStarts
 
   /** Removes trailing newlines and captures the margin of the final element. */
   private fun removeTrailingMargin(builder: SpannableStringBuilder) {

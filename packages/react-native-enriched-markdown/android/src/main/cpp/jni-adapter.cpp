@@ -4,10 +4,17 @@
 #include "CodeBlockLanguages.hpp"
 #include "DocumentStore.hpp"
 #include "LatexSpeech.hpp"
+#include "MarkdownMeasureSession.h"
+#include "StreamingEffects.hpp"
+#include "StreamingPacer.hpp"
 #include "TextLinkRecognizer.hpp"
 #include "Utf16.hpp"
+#include <algorithm>
 #include <android/log.h>
+#include <array>
 #include <jni.h>
+#include <mutex>
+#include <react/jni/ReadableNativeMap.h>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -134,12 +141,45 @@ public:
     }
   }
 
+  // The Document node of `blocks`, whose first `shared` are the first children of `convertedRoot`,
+  // a Document converted earlier: those are taken from it, and only the rest is converted.
+  jobject createDocument(const std::vector<std::shared_ptr<MarkdownASTNode>> &blocks, size_t shared,
+                         jobject convertedRoot, const AstOverlay &overlay) {
+    if (!ready_ || env_->PushLocalFrame(16) != JNI_OK)
+      return nullptr;
+    jobject children = env_->NewObject(listClass_, listInit_, static_cast<jint>(blocks.size()));
+    if (shared > 0) {
+      jobject converted = env_->CallObjectMethod(convertedRoot, getChildren_);
+      jobject first = env_->CallObjectMethod(converted, listSubList_, 0, static_cast<jint>(shared));
+      env_->CallBooleanMethod(children, listAddAll_, first);
+    }
+    // The overlay replaces only Text and Code nodes, never a top-level block.
+    for (size_t i = shared; i < blocks.size(); i++)
+      addChild(children, *blocks[i], overlay);
+    jobject attributes = env_->NewObject(mapClass_, mapInit_, 0);
+    return popNode(NodeType::Document, "", attributes, children);
+  }
+
+  // How many children a converted Document has.
+  size_t childCount(jobject convertedRoot) {
+    if (!ready_)
+      return 0;
+    jobject converted = env_->CallObjectMethod(convertedRoot, getChildren_);
+    jint count = converted && !env_->ExceptionCheck() ? env_->CallIntMethod(converted, listSize_) : 0;
+    if (env_->ExceptionCheck()) {
+      // Counted as none: the conversion is then never reused.
+      env_->ExceptionClear();
+      count = 0;
+    }
+    env_->DeleteLocalRef(converted);
+    return static_cast<size_t>(count);
+  }
+
   // Each node gets its own local frame, so a deep tree never runs out of local
   // references and only the returned node outlives the call.
   jobject create(const MarkdownASTNode &node, const AstOverlay &overlay) {
     if (!ready_ || env_->PushLocalFrame(16) != JNI_OK)
       return nullptr;
-    jobject nodeType = env_->GetObjectArrayElement(nodeTypes_, nodeTypeToJavaOrdinal(node.type));
     jobject attributes = env_->NewObject(mapClass_, mapInit_, static_cast<jint>(node.attributes.size()));
     auto put = [&](std::string_view key, std::string_view value) {
       env_->CallObjectMethod(attributes, mapPut_, javaString(env_, key), javaString(env_, value));
@@ -149,15 +189,24 @@ public:
     overlay.forEachAttribute(node, [&](const char *key, const std::string &value) { put(key, value); });
 
     jobject children = env_->NewObject(listClass_, listInit_, static_cast<jint>(node.children.size()));
-    overlay.forEachChild(node, [&](const std::shared_ptr<MarkdownASTNode> &child) {
-      if (jobject javaChild = create(*child, overlay)) {
-        env_->CallBooleanMethod(children, listAdd_, javaChild);
-        env_->DeleteLocalRef(javaChild);
-      }
-    });
+    overlay.forEachChild(node,
+                         [&](const std::shared_ptr<MarkdownASTNode> &child) { addChild(children, *child, overlay); });
+    return popNode(node.type, node.content, attributes, children);
+  }
 
+private:
+  void addChild(jobject children, const MarkdownASTNode &child, const AstOverlay &overlay) {
+    if (jobject javaChild = create(child, overlay)) {
+      env_->CallBooleanMethod(children, listAdd_, javaChild);
+      env_->DeleteLocalRef(javaChild);
+    }
+  }
+
+  // Builds the node and pops the local frame its caller pushed; null if the node failed.
+  jobject popNode(NodeType type, std::string_view content, jobject attributes, jobject children) {
+    jobject nodeType = env_->GetObjectArrayElement(nodeTypes_, nodeTypeToJavaOrdinal(type));
     jobject javaNode =
-        env_->NewObject(nodeClass_, constructor_, nodeType, javaString(env_, node.content), attributes, children);
+        env_->NewObject(nodeClass_, constructor_, nodeType, javaString(env_, content), attributes, children);
     if (env_->ExceptionCheck()) {
       env_->ExceptionDescribe();
       env_->ExceptionClear();
@@ -167,7 +216,6 @@ public:
     return env_->PopLocalFrame(javaNode);
   }
 
-private:
   bool lookUp() {
     nodeClass_ = env_->FindClass("com/swmansion/enriched/markdown/parser/MarkdownASTNode");
     if (!nodeClass_)
@@ -196,7 +244,15 @@ private:
       return false;
     listInit_ = env_->GetMethodID(listClass_, "<init>", "(I)V");
     listAdd_ = env_->GetMethodID(listClass_, "add", "(Ljava/lang/Object;)Z");
-    return listInit_ && listAdd_;
+    listAddAll_ = env_->GetMethodID(listClass_, "addAll", "(Ljava/util/Collection;)Z");
+    jclass list = env_->FindClass("java/util/List");
+    if (!list)
+      return false;
+    listSubList_ = env_->GetMethodID(list, "subList", "(II)Ljava/util/List;");
+    listSize_ = env_->GetMethodID(list, "size", "()I");
+    env_->DeleteLocalRef(list);
+    getChildren_ = env_->GetMethodID(nodeClass_, "getChildren", "()Ljava/util/List;");
+    return listInit_ && listAdd_ && listAddAll_ && listSubList_ && listSize_ && getChildren_;
   }
 
   JNIEnv *env_;
@@ -209,8 +265,29 @@ private:
   jmethodID mapPut_ = nullptr;
   jmethodID listInit_ = nullptr;
   jmethodID listAdd_ = nullptr;
+  jmethodID listAddAll_ = nullptr;
+  jmethodID listSubList_ = nullptr;
+  jmethodID listSize_ = nullptr;
+  jmethodID getChildren_ = nullptr;
   bool ready_ = false;
 };
+
+// The last few documents converted without link recognition, by what their nodes got on the way.
+// A stream's finished blocks keep their nodes from one update to the next (DocumentStore), so the
+// next conversion takes their Kotlin nodes from here.
+struct Conversion {
+  std::shared_ptr<const ParsedDocument> document;
+  std::unordered_set<std::string> slotIds;
+  bool imageIds;
+  jobject root; // global reference
+  // The root's children, counted when stored: a block that failed to convert is missing.
+  size_t children;
+};
+std::mutex recentConversionsMutex;
+// Holds up to kRecentConversions Kotlin trees for the life of the process, outside the
+// DocumentStore's budget: the last streamed documents a view converted.
+std::vector<Conversion> recentConversions; // most recent first
+constexpr size_t kRecentConversions = 4;
 
 } // namespace
 
@@ -305,6 +382,71 @@ static Markdown::TextLinkMatchers makeTextLinkMatchers(JNIEnv *env, jobject text
   return matchers;
 }
 
+// The Kotlin Md4cFlags data class as the core's flags; defaults for null.
+static Md4cFlags md4cFlagsFromJava(JNIEnv *env, jobject flags) {
+  Md4cFlags md4cFlags;
+  if (!flags)
+    return md4cFlags;
+  struct Field {
+    bool Md4cFlags::*member;
+    const char *name;
+  };
+  static constexpr Field kFields[] = {
+      {&Md4cFlags::underline, "underline"},
+      {&Md4cFlags::latexMath, "latexMath"},
+      {&Md4cFlags::superscript, "superscript"},
+      {&Md4cFlags::subscript, "subscript"},
+      {&Md4cFlags::strikethrough, "strikethrough"},
+      {&Md4cFlags::highlight, "highlight"},
+      {&Md4cFlags::permissiveAutolinks, "permissiveAutolinks"},
+      {&Md4cFlags::hardSoftBreaks, "hardSoftBreaks"},
+      {&Md4cFlags::preserveBlankLines, "preserveBlankLines"},
+      {&Md4cFlags::admonitions, "admonitions"},
+  };
+  constexpr size_t kFieldCount = sizeof(kFields) / sizeof(kFields[0]);
+  // Looked up once: a field id stays valid while the class is loaded.
+  static const std::array<jfieldID, kFieldCount> fieldIds = [env, flags] {
+    std::array<jfieldID, kFieldCount> ids{};
+    jclass flagsClass = env->GetObjectClass(flags);
+    for (size_t i = 0; i < kFieldCount; i++) {
+      ids[i] = env->GetFieldID(flagsClass, kFields[i].name, "Z");
+      if (!ids[i])
+        clearHostException(env);
+    }
+    env->DeleteLocalRef(flagsClass);
+    return ids;
+  }();
+  for (size_t i = 0; i < kFieldCount; i++) {
+    if (fieldIds[i])
+      md4cFlags.*kFields[i].member = env->GetBooleanField(flags, fieldIds[i]) == JNI_TRUE;
+  }
+  return md4cFlags;
+}
+
+// The core's streaming effects (StreamingEffects.hpp) and pacer (StreamingPacer.hpp), one per view; Kotlin holds
+// the pointer.
+namespace {
+Markdown::EffectColor effectColor(jint argb) {
+  auto channel = [&](int shift) { return static_cast<float>((static_cast<uint32_t>(argb) >> shift) & 0xFF) / 255.0f; };
+  return {channel(16), channel(8), channel(0), channel(24)};
+}
+
+jint argbOf(const Markdown::EffectColor &color) {
+  auto channel = [](float value, int shift) {
+    return static_cast<uint32_t>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f) << shift;
+  };
+  return static_cast<jint>(channel(color.a, 24) | channel(color.r, 16) | channel(color.g, 8) | channel(color.b, 0));
+}
+
+Markdown::StreamingEffects *effectsOf(jlong handle) {
+  return reinterpret_cast<Markdown::StreamingEffects *>(handle);
+}
+
+Markdown::StreamingPacer *pacerOf(jlong handle) {
+  return reinterpret_cast<Markdown::StreamingPacer *>(handle);
+}
+} // namespace
+
 extern "C" {
 
 JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nativeParseMarkdown(
@@ -316,55 +458,7 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
   }
 
   try {
-    // Extract flags from Kotlin Md4cFlags data class
-    Md4cFlags md4cFlags;
-    if (flags) {
-      jclass flagsClass = env->GetObjectClass(flags);
-      if (flagsClass) {
-        jfieldID underlineField = env->GetFieldID(flagsClass, "underline", "Z");
-        if (underlineField) {
-          md4cFlags.underline = env->GetBooleanField(flags, underlineField) == JNI_TRUE;
-        }
-        jfieldID latexMathField = env->GetFieldID(flagsClass, "latexMath", "Z");
-        if (latexMathField) {
-          md4cFlags.latexMath = env->GetBooleanField(flags, latexMathField) == JNI_TRUE;
-        }
-        jfieldID superscriptField = env->GetFieldID(flagsClass, "superscript", "Z");
-        if (superscriptField) {
-          md4cFlags.superscript = env->GetBooleanField(flags, superscriptField) == JNI_TRUE;
-        }
-        jfieldID subscriptField = env->GetFieldID(flagsClass, "subscript", "Z");
-        if (subscriptField) {
-          md4cFlags.subscript = env->GetBooleanField(flags, subscriptField) == JNI_TRUE;
-        }
-        jfieldID strikethroughField = env->GetFieldID(flagsClass, "strikethrough", "Z");
-        if (strikethroughField) {
-          md4cFlags.strikethrough = env->GetBooleanField(flags, strikethroughField) == JNI_TRUE;
-        }
-        jfieldID highlightField = env->GetFieldID(flagsClass, "highlight", "Z");
-        if (highlightField) {
-          md4cFlags.highlight = env->GetBooleanField(flags, highlightField) == JNI_TRUE;
-        }
-        jfieldID permissiveAutolinksField = env->GetFieldID(flagsClass, "permissiveAutolinks", "Z");
-        if (permissiveAutolinksField) {
-          md4cFlags.permissiveAutolinks = env->GetBooleanField(flags, permissiveAutolinksField) == JNI_TRUE;
-        }
-        jfieldID hardSoftBreaksField = env->GetFieldID(flagsClass, "hardSoftBreaks", "Z");
-        if (hardSoftBreaksField) {
-          md4cFlags.hardSoftBreaks = env->GetBooleanField(flags, hardSoftBreaksField) == JNI_TRUE;
-        }
-        jfieldID preserveBlankLinesField = env->GetFieldID(flagsClass, "preserveBlankLines", "Z");
-        if (preserveBlankLinesField) {
-          md4cFlags.preserveBlankLines = env->GetBooleanField(flags, preserveBlankLinesField) == JNI_TRUE;
-        }
-        jfieldID admonitionsField = env->GetFieldID(flagsClass, "admonitions", "Z");
-        if (admonitionsField) {
-          md4cFlags.admonitions = env->GetBooleanField(flags, admonitionsField) == JNI_TRUE;
-        }
-        env->DeleteLocalRef(flagsClass);
-      }
-    }
-
+    Md4cFlags md4cFlags = md4cFlagsFromJava(env, flags);
     auto document = DocumentStore::shared().parse(utf8String(env, markdown), md4cFlags, isGFM == JNI_TRUE);
     if (!document->ast) {
       return nullptr;
@@ -385,15 +479,65 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
         env->DeleteLocalRef(id);
       }
     }
-    TextLinkReplacements links;
+    JavaNodeFactory factory(env);
     if (textLinkRegex || inlineCodeLinkRegex) {
-      links = recognizeTextLinks(*document->ast, makeTextLinkMatchers(env, textLinkRegex, inlineCodeLinkRegex));
+      TextLinkReplacements links =
+          recognizeTextLinks(*document->ast, makeTextLinkMatchers(env, textLinkRegex, inlineCodeLinkRegex));
+      AstOverlay overlay(*document, std::move(ids), withImageIds, std::move(links));
+      jobject javaNode = factory.create(*document->ast, overlay);
+      if (!javaNode) {
+        LOGE("Failed to create Java node from AST");
+      }
+      return javaNode;
     }
-    AstOverlay overlay(*document, std::move(ids), withImageIds, std::move(links));
 
-    jobject javaNode = JavaNodeFactory(env).create(*document->ast, overlay);
+    // The blocks a recent conversion already holds are taken from it.
+    const auto &blocks = document->ast->children;
+    size_t shared = 0;
+    jobject converted = nullptr;
+    {
+      std::lock_guard<std::mutex> lock(recentConversionsMutex);
+      for (auto recent = recentConversions.begin(); recent != recentConversions.end(); ++recent) {
+        if (recent->imageIds != withImageIds)
+          continue;
+        if (recent->document == document && recent->slotIds == ids && recent->children == blocks.size()) {
+          // The same document again: its conversion, kept at the front.
+          if (converted)
+            env->DeleteLocalRef(converted);
+          std::rotate(recentConversions.begin(), recent, std::next(recent));
+          return env->NewLocalRef(recentConversions.front().root);
+        }
+        size_t same = sharedLeadingBlocks(*document, *recent->document, ids, recent->slotIds);
+        if (same > shared && recent->children == recent->document->ast->children.size()) {
+          shared = same;
+          if (converted)
+            env->DeleteLocalRef(converted);
+          converted = env->NewLocalRef(recent->root);
+        }
+      }
+    }
+
+    AstOverlay overlay(*document, ids, withImageIds, {});
+    jobject javaNode = factory.createDocument(blocks, shared, converted, overlay);
+    if (converted)
+      env->DeleteLocalRef(converted);
     if (!javaNode) {
       LOGE("Failed to create Java node from AST");
+      return nullptr;
+    }
+
+    size_t children = factory.childCount(javaNode);
+    std::lock_guard<std::mutex> lock(recentConversionsMutex);
+    for (const Conversion &recent : recentConversions) {
+      // Another thread converted it meanwhile: one entry, so other streams keep theirs.
+      if (recent.document == document && recent.imageIds == withImageIds && recent.slotIds == ids)
+        return javaNode;
+    }
+    recentConversions.insert(recentConversions.begin(),
+                             Conversion{document, std::move(ids), withImageIds, env->NewGlobalRef(javaNode), children});
+    while (recentConversions.size() > kRecentConversions) {
+      env->DeleteGlobalRef(recentConversions.back().root);
+      recentConversions.pop_back();
     }
     return javaNode;
   } catch (const std::exception &e) {
@@ -405,25 +549,26 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
   }
 }
 
-// The core's streaming filter (StreamingFilter.hpp), shared with iOS and the JS
-// block collector. Returns a StreamingFilterResult, or null if that class cannot
-// be constructed (the caller then renders the markdown unfiltered).
+// The core's streaming session (StreamingSession.hpp), shared with iOS and the
+// JS block collector. Returns a StreamingFilterResult, or null if that class
+// cannot be constructed (the caller then renders the markdown as it is).
 JNIEXPORT jobject JNICALL
 Java_com_swmansion_enriched_markdown_utils_common_StreamingMarkdownFilter_nativeRenderableMarkdownForStreaming(
-    JNIEnv *env, jclass /* clazz */, jstring markdown, jboolean hideTables, jboolean hideCodeBlocks,
+    JNIEnv *env, jclass /* clazz */, jstring markdown, jobject flags, jboolean hideTables, jboolean hideCodeBlocks,
     jboolean hideMedia) {
   if (!markdown) {
     return nullptr;
   }
-  Markdown::StreamingFilterOptions options;
-  options.tableMode =
+  Markdown::StreamingOptions options;
+  options.blocks.tableMode =
       hideTables == JNI_TRUE ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
-  options.codeBlockMode =
+  options.blocks.codeBlockMode =
       hideCodeBlocks == JNI_TRUE ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
-  options.mediaMode =
+  options.blocks.mediaMode =
       hideMedia == JNI_TRUE ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
-  // Through the shared store: the tick's collect, measurement and render filter once.
-  Markdown::StreamingFilterResult result = DocumentStore::shared().filter(utf8String(env, markdown), options);
+  options.flags = md4cFlagsFromJava(env, flags);
+  // Through the shared store: the tick's collect, measurement and render prepare once.
+  Markdown::StreamingSnapshot result = DocumentStore::shared().snapshot(utf8String(env, markdown), options);
 
   // consumer-rules.pro keeps the class; a failed lookup leaves a pending
   // exception that would throw in Kotlin instead of returning null.
@@ -461,6 +606,36 @@ JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_MeasurementStore_nat
     JNIEnv * /* env */, jclass /* clazz */) {
   if (auto *session = facebook::react::BlockSlotMeasureSession::current()) {
     session->discard();
+  }
+}
+
+// Called by MeasurementStore while a markdown shadow node measures, for the inputs it doesn't keep;
+// see MarkdownMeasureSession. Outside a measurement there is no session and nothing to pull.
+JNIEXPORT jstring JNICALL Java_com_swmansion_enriched_markdown_MeasurementStore_nativeMeasureMarkdown(JNIEnv *env,
+                                                                                                      jclass /* clazz */) {
+  auto *session = facebook::react::MarkdownMeasureSession::current();
+  if (!session) {
+    return nullptr;
+  }
+  try {
+    return javaString(env, session->markdown());
+  } catch (...) {
+    LOGE("Could not hand the markdown to measurement");
+    return nullptr;
+  }
+}
+
+JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_MeasurementStore_nativeMeasureConfig(JNIEnv * /* env */,
+                                                                                                    jclass /* clazz */) {
+  auto *session = facebook::react::MarkdownMeasureSession::current();
+  if (!session) {
+    return nullptr;
+  }
+  try {
+    return facebook::react::ReadableNativeMap::newObjectCxxArgs(session->config()).release();
+  } catch (...) {
+    LOGE("Could not hand the layout config to measurement");
+    return nullptr;
   }
 }
 
@@ -533,6 +708,143 @@ JNIEXPORT jintArray JNICALL Java_com_swmansion_enriched_markdown_utils_common_Co
   }
   env->SetIntArrayRegion(result, 0, static_cast<jsize>(flat.size()), flat.data());
   return result;
+}
+
+JNIEXPORT jlong JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeCreate(JNIEnv *,
+                                                                                                      jclass) {
+  return reinterpret_cast<jlong>(new Markdown::StreamingEffects());
+}
+
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeDestroy(JNIEnv *, jclass,
+                                                                                                      jlong handle) {
+  delete effectsOf(handle);
+}
+
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeConfigure(
+    JNIEnv *, jclass, jlong handle, jint type, jdouble duration, jint length, jboolean hasStartColor, jint startColor,
+    jboolean hasEndColor, jint endColor) {
+  Markdown::StreamingEffectConfig config;
+  config.type = type == 2   ? Markdown::StreamingEffectType::Gradient
+                : type == 1 ? Markdown::StreamingEffectType::Fade
+                            : Markdown::StreamingEffectType::None;
+  config.duration = duration;
+  config.length = static_cast<size_t>(std::max(length, 0));
+  if (hasStartColor == JNI_TRUE) {
+    config.startColor = effectColor(startColor);
+  }
+  if (hasEndColor == JNI_TRUE) {
+    config.endColor = effectColor(endColor);
+  }
+  effectsOf(handle)->configure(config);
+}
+
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeNoteArrival(
+    JNIEnv *env, jclass, jlong handle, jint start, jint end, jdouble time, jstring text, jchar previous) {
+  const jchar *chars = env->GetStringChars(text, nullptr);
+  std::u16string_view added(reinterpret_cast<const char16_t *>(chars), static_cast<size_t>(env->GetStringLength(text)));
+  effectsOf(handle)->noteArrival(static_cast<size_t>(std::max(start, 0)), static_cast<size_t>(std::max(end, 0)), time,
+                                 added, static_cast<char16_t>(previous));
+  env->ReleaseStringChars(text, chars);
+}
+
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeFinish(JNIEnv *, jclass,
+                                                                                                     jlong handle,
+                                                                                                     jdouble time) {
+  effectsOf(handle)->finish(time);
+}
+
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeReset(JNIEnv *, jclass,
+                                                                                                    jlong handle) {
+  effectsOf(handle)->reset();
+}
+
+JNIEXPORT jboolean JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeChangesOverTime(
+    JNIEnv *, jclass, jlong handle, jdouble time) {
+  return effectsOf(handle)->changesOverTime(time) ? JNI_TRUE : JNI_FALSE;
+}
+
+// The animated range as (start << 32 | length), or -1 for none.
+JNIEXPORT jlong JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeAnimatedRange(
+    JNIEnv *, jclass, jlong handle, jdouble time) {
+  auto range = effectsOf(handle)->animatedRange(time);
+  if (!range) {
+    return -1;
+  }
+  return (static_cast<jlong>(range->start) << 32) | static_cast<jlong>(range->length & 0xFFFFFFFF);
+}
+
+// The looks of `count` characters from `start`, in one call per frame.
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeLooks(
+    JNIEnv *env, jclass, jlong handle, jint start, jint count, jdouble time, jintArray tints, jfloatArray tintAmounts,
+    jfloatArray opacities) {
+  if (count <= 0) {
+    return;
+  }
+  if (env->GetArrayLength(tints) < count || env->GetArrayLength(tintAmounts) < count ||
+      env->GetArrayLength(opacities) < count) {
+    return;
+  }
+  // Written in place: lookAt makes no JNI calls and does not block.
+  auto *tintValues = static_cast<jint *>(env->GetPrimitiveArrayCritical(tints, nullptr));
+  auto *amountValues = static_cast<jfloat *>(env->GetPrimitiveArrayCritical(tintAmounts, nullptr));
+  auto *opacityValues = static_cast<jfloat *>(env->GetPrimitiveArrayCritical(opacities, nullptr));
+  if (tintValues && amountValues && opacityValues) {
+    auto *effects = effectsOf(handle);
+    for (jint i = 0; i < count; i++) {
+      Markdown::CharacterLook look = effects->lookAt(static_cast<size_t>(start + i), time);
+      tintValues[i] = argbOf(look.tint);
+      amountValues[i] = look.tintAmount;
+      opacityValues[i] = look.opacity;
+    }
+  }
+  if (opacityValues) {
+    env->ReleasePrimitiveArrayCritical(opacities, opacityValues, 0);
+  }
+  if (amountValues) {
+    env->ReleasePrimitiveArrayCritical(tintAmounts, amountValues, 0);
+  }
+  if (tintValues) {
+    env->ReleasePrimitiveArrayCritical(tints, tintValues, 0);
+  }
+}
+
+JNIEXPORT jlong JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeCreate(JNIEnv *, jclass) {
+  return reinterpret_cast<jlong>(new Markdown::StreamingPacer());
+}
+
+JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeDestroy(JNIEnv *, jclass,
+                                                                                                    jlong handle) {
+  delete pacerOf(handle);
+}
+
+JNIEXPORT jboolean JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeUpdate(
+    JNIEnv *env, jclass, jlong handle, jstring markdown, jboolean streaming, jboolean smooth, jdouble time) {
+  const jchar *chars = env->GetStringChars(markdown, nullptr);
+  std::u16string_view text(reinterpret_cast<const char16_t *>(chars),
+                           static_cast<size_t>(env->GetStringLength(markdown)));
+  bool ends = pacerOf(handle)->update(text, streaming == JNI_TRUE, smooth == JNI_TRUE, time);
+  env->ReleaseStringChars(markdown, chars);
+  return ends ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeDrained(JNIEnv *,
+                                                                                                        jclass,
+                                                                                                        jlong handle,
+                                                                                                        jdouble time) {
+  return pacerOf(handle)->drained(time) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeRevealed(JNIEnv *, jclass,
+                                                                                                     jlong handle,
+                                                                                                     jdouble time) {
+  return static_cast<jint>(pacerOf(handle)->revealed(time));
+}
+
+JNIEXPORT jboolean JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingPacer_nativeWaiting(JNIEnv *,
+                                                                                                        jclass,
+                                                                                                        jlong handle,
+                                                                                                        jdouble time) {
+  return pacerOf(handle)->waiting(time) ? JNI_TRUE : JNI_FALSE;
 }
 
 } // extern "C"

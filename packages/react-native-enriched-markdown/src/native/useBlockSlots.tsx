@@ -37,11 +37,14 @@ let warnedAboutFlavor = false;
  * in document order, from one parse by
  * the C++ core. While streaming, the core applies the host's streaming filter
  * first, so nothing is collected for a block the host is not rendering yet.
+ * A `streamId` other than 0 parses that native stream instead of `markdown`.
  * Empty when disabled, when the module is unavailable (old architecture, web,
  * Jest) or when the flavor is not GitHub, where the native hosts place no slots.
  */
 export function useCollectedMarkdown(
   markdown: string,
+  streamId: number,
+  streamLength: number,
   flags: NativeMd4cFlags,
   isGFM: boolean,
   enabled: boolean,
@@ -67,12 +70,21 @@ export function useCollectedMarkdown(
       }
       return NOT_COLLECTED;
     }
-    const collected = NativeEnrichedMarkdownParser.collect(
-      markdown,
-      flags,
-      isGFM,
-      streaming
-    );
+    const collected =
+      streamId !== 0
+        ? NativeEnrichedMarkdownParser.collectStream(
+            streamId,
+            streamLength,
+            flags,
+            isGFM,
+            streaming
+          )
+        : NativeEnrichedMarkdownParser.collect(
+            markdown,
+            flags,
+            isGFM,
+            streaming
+          );
     return {
       blocks: collected.slots.map((slot): MarkdownBlock => {
         const placement = slot.placement as MarkdownBlockPlacement;
@@ -118,7 +130,7 @@ export function useCollectedMarkdown(
       })),
       links: collected.links,
     };
-  }, [markdown, flags, isGFM, enabled, streaming]);
+  }, [markdown, streamId, streamLength, flags, isGFM, enabled, streaming]);
 }
 
 /**
