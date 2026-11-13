@@ -33,6 +33,7 @@
 #import "ENRMBlockSlotRevealController.h"
 #import "ENRMBlockSlotSegmentView.h"
 #import "ENRMBlockquoteContainerView.h"
+#import "ENRMCapture.h"
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMCodeBlockWrapState.h"
 #import "ENRMDroppableContent.h"
@@ -114,7 +115,14 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
 @end
 
 #if !TARGET_OS_OSX
-@interface EnrichedMarkdown () <ENRMLinkContextMenuSource>
+@interface EnrichedMarkdown () <ENRMLinkContextMenuSource, ENRMCaptureParticipant>
+- (nullable NSArray<RCTUIView *> *)drawSegmentsForCaptureInRect:(CGRect)rect;
+- (void)dropSegmentsAfterCapture:(nullable NSArray<RCTUIView *> *)segments;
+@end
+
+/// A document's layer. renderInContext: renders the layer tree as it is: the block segments that
+/// dropped their bitmaps off screen draw them again for it.
+@interface ENRMDocumentLayer : CALayer
 @end
 #endif
 
@@ -134,6 +142,9 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   CGRect _drawnVisibleRect;
   // Block segments off screen, their bitmaps dropped (see updateDrawnSegments).
   NSHashTable<RCTUIView *> *_undrawnSegments;
+  // The ones drawn again for the hooked captures in progress (ENRMCapture).
+  NSMutableArray<RCTUIView *> *_capturedSegments;
+  NSInteger _captures;
   ENRMSegmentViewRegistry *_segmentViewRegistry;
   ENRMDirtyFlags _dirtyFlags;
 
@@ -328,6 +339,9 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
     _visibleArea = [[ENRMVisibleArea alloc] initWithView:self onChange:^{ [weakSelf updateDrawnSegments]; }];
     _drawnVisibleRect = CGRectNull;
     _undrawnSegments = [NSHashTable weakObjectsHashTable];
+#if !TARGET_OS_OSX
+    ENRMCaptureAddParticipant(self);
+#endif
     _fontScaleObserver.onChange = ^{
       EnrichedMarkdown *strongSelf = weakSelf;
       if (!strongSelf)
@@ -1944,6 +1958,17 @@ static void ENRMUpdateNestedViewports(UIView *view, ENRMVisibleArea *area)
   }
 }
 
+// Draws now what Core Animation's commit would draw of the views in `view` that draw their own.
+static void ENRMDisplayDroppableContent(UIView *view)
+{
+  if ([view conformsToProtocol:@protocol(ENRMDroppableContent)]) {
+    [view.layer displayIfNeeded];
+  }
+  for (UIView *subview in view.subviews) {
+    ENRMDisplayDroppableContent(subview);
+  }
+}
+
 // Drops (`draws` NO) or redraws the bitmaps of the views in `view` that draw their own
 // (ENRMDroppableContent). Text views draw only their drawn rect already.
 static void ENRMSetViewDrawsContent(UIView *view, BOOL draws)
@@ -2057,6 +2082,69 @@ static void ENRMAfterCommit(dispatch_block_t block)
   }
 #endif
 }
+
+#if !TARGET_OS_OSX
++ (Class)layerClass
+{
+  return [ENRMDocumentLayer class];
+}
+
+// The dropped block segments in `rect` (this view's space), drawn again for a capture.
+- (nullable NSArray<RCTUIView *> *)drawSegmentsForCaptureInRect:(CGRect)rect
+{
+  NSMutableArray<RCTUIView *> *drawn = nil;
+  for (RCTUIView *segment in _segmentViews) {
+    if ([_undrawnSegments containsObject:segment] && CGRectIntersectsRect(segment.frame, rect) &&
+        ![_capturedSegments containsObject:segment]) {
+      drawn = drawn ?: [NSMutableArray array];
+      [drawn addObject:segment];
+      // Now, not at the commit: a capture may not commit, and the drop after it must find it drawn.
+      ENRMSetViewDrawsContent(segment, YES);
+      ENRMDisplayDroppableContent(segment);
+    }
+  }
+  return drawn;
+}
+
+- (void)dropSegmentsAfterCapture:(nullable NSArray<RCTUIView *> *)segments
+{
+  for (RCTUIView *segment in segments) {
+    if ([_undrawnSegments containsObject:segment]) {
+      ENRMSetViewDrawsContent(segment, NO);
+    }
+  }
+}
+
+- (ENRMCaptureCoverage)beginCaptureOfView:(UIView *)view
+{
+  if (self.window != view.window || ![self isDescendantOfView:view]) {
+    return ENRMCaptureCoverageNone;
+  }
+  CGRect shown = CGRectIntersection([view convertRect:view.bounds toView:self], self.bounds);
+  if (CGRectIsEmpty(shown)) {
+    return ENRMCaptureCoverageNone;
+  }
+  _captures++;
+  NSArray<RCTUIView *> *drawn = [self drawSegmentsForCaptureInRect:shown];
+  if (drawn == nil) {
+    return ENRMCaptureCoverageDrawn;
+  }
+  _capturedSegments = _capturedSegments ?: [NSMutableArray array];
+  [_capturedSegments addObjectsFromArray:drawn];
+  return ENRMCaptureCoverageAdded;
+}
+
+// A capture inside another one ends with the outer one.
+- (void)endCapture
+{
+  if (--_captures > 0) {
+    return;
+  }
+  NSArray<RCTUIView *> *segments = _capturedSegments;
+  _capturedSegments = nil;
+  [self dropSegmentsAfterCapture:segments];
+}
+#endif
 
 - (void)didMoveToWindow
 {
@@ -2486,3 +2574,22 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
 #endif
 
 @end
+
+#if !TARGET_OS_OSX
+@implementation ENRMDocumentLayer
+
+- (void)renderInContext:(CGContextRef)context
+{
+  EnrichedMarkdown *document = (EnrichedMarkdown *)self.delegate;
+  NSArray<RCTUIView *> *drawn = nil;
+  if (NSThread.isMainThread && [document isKindOfClass:[EnrichedMarkdown class]]) {
+    drawn = [document drawSegmentsForCaptureInRect:CGContextGetClipBoundingBox(context)];
+  }
+  [super renderInContext:context];
+  if (drawn != nil) {
+    [document dropSegmentsAfterCapture:drawn];
+  }
+}
+
+@end
+#endif

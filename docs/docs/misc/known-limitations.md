@@ -43,17 +43,21 @@ planned, see the [Roadmap](/misc/roadmap); for the full per-feature matrix,
   promotes the text to `DynamicLayout`, which has no `maxLines` support - React
   Native's own `Text` behaves the same way. Both are restored once the clamp is
   removed, and iOS keeps selection and links while clamped.
-- **[iOS] Text far off screen is not drawn.** Every text view draws only the
-  part within about 600 pt of the visible area, streaming or not. A snapshot
-  of the layers as they are (`drawViewHierarchyInRect:`, `renderInContext:`, or
-  `react-native-view-shot`'s `captureRef` of a view inside a scroll view) comes
-  out blank further away. To capture a long text whole, capture the scroll view
-  with its content resized to fit, as `react-native-view-shot`'s
-  `snapshotContentContainer` option does: the text then draws all of it. Setting
-  `EnrichedMarkdownDisableTextTiles` to `YES` in your app's `Info.plist` draws
-  text the standard way everywhere; set it too if a future iOS version shows
-  blank or doubled text (the drawing relies on UIKit internals), and please
-  report it.
+- **[iOS] Captures of very tall content.** Text, code blocks, tables, quotes and
+  math draw only near the visible area, and draw the rest when they are
+  captured: `renderInContext:` gets all of it at any size, and so does
+  `drawViewHierarchyInRect:` (`react-native-view-shot`'s default) for a view up
+  to 8,192 pixels tall and wide (about 2,730 pt on a 3x iPhone). UIKit renders
+  nothing for a larger view; `react-native-view-shot`'s `useRenderInContext`
+  option captures it. Snapshot views (`snapshotViewAfterScreenUpdates:`,
+  `resizableSnapshotViewFromRect:afterScreenUpdates:withCapInsets:`) get it
+  too. A capture made off the main thread shows the content near the visible
+  area only, and so does anything that mirrors the live view instead of
+  capturing it (a context menu or drag preview of the view itself, a scaled-down
+  ancestor). The drawing relies on
+  UIKit internals: if a future iOS version shows blank or doubled text, set
+  `EnrichedMarkdownDisableTextTiles` to `YES` in your app's `Info.plist` to draw
+  text the standard way, and please report it.
 - **Raw HTML is not rendered.** Inline HTML is disabled and HTML tags in the
   source are ignored. The one allowlisted exception is a block-level
   [`<video>`](/react-native/api-reference/element-structure#videos) tag, of which

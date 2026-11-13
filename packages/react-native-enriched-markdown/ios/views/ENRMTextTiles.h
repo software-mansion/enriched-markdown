@@ -11,6 +11,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// text holds a bitmap for all of it. The canvas is kept 0 high and the tiles draw the text instead.
 /// When UIKit has no such canvas (it is found by class name), or the app sets
 /// EnrichedMarkdownDisableTextTiles in its Info.plist, the text view draws the whole text itself.
+///
+/// A capture still gets the whole text: renderInContext: draws it straight into the capture, and a
+/// hooked capture (ENRMCapture) has the part it shows covered with tiles.
 @interface ENRMTextTiles : NSObject
 
 - (instancetype)initWithTextView:(UITextView *)textView NS_DESIGNATED_INITIALIZER;
