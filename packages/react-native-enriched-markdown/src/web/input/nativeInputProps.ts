@@ -41,6 +41,7 @@ const NATIVE_ONLY_INPUT_PROP_NAMES: Record<
   onEndMention: true,
   contextMenuItems: true,
   selectionMenuConfig: true,
+  selectionHandleColor: true,
   formatMenuConfig: true,
   linkRegex: true,
   writingDirection: true,

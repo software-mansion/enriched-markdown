@@ -917,6 +917,14 @@ Color of the text selection highlight.
 | ------------ | ------------- | -------- |
 | `ColorValue` | -             | Both     |
 
+### `selectionHandleColor`
+
+Color of the selection handles (drag anchors). No-op on Android API levels below 29. On iOS the handles share a single tint with the caret and selection highlight, so use `selectionColor` there.
+
+| Type         | Default Value | Platform |
+| ------------ | ------------- | -------- |
+| `ColorValue` | -             | Android  |
+
 ### `markdownStyle`
 
 Style configuration for formatted text in the input.
