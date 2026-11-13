@@ -20,6 +20,7 @@ static ENRMRenderResult *ENRMRenderASTNodesCore(NSArray<MarkdownASTNode *> *node
   RenderContext *context = [RenderContext new];
   context.allowFontScaling = allowFontScaling;
   context.maxFontSizeMultiplier = maxFontSizeMultiplier;
+  context.fontScale = config.fontScaleMultiplier;
 
   NSMutableAttributedString *attributedText = [renderer renderNodes:nodes context:context block:block];
 
