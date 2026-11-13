@@ -35,6 +35,14 @@ including repair of incomplete Markdown, with no Worklets setup. See
 [Migrating from react-native-streamdown](./MARKDOWN_STREAMING.md#migrating-from-react-native-streamdown)
 for the steps.
 
+### `markdown` is optional in `EnrichedMarkdownTextProps`
+
+A view now takes its text from `markdown` or from `stream`, so `markdown` is typed `string | undefined`.
+TypeScript code that reads `props.markdown` as a `string`, in a wrapper that takes
+`EnrichedMarkdownTextProps`, no longer compiles under `strict`.
+
+**Migrate:** handle `undefined` where you read it, for example `props.markdown ?? ''`.
+
 ## v1.2.0
 
 No breaking changes. v1.2.0 is additive over v1.1.1 - every public prop, method, event and style key

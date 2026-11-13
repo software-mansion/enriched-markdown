@@ -73,6 +73,7 @@ import type {
   OnLinkContextMenuItemPressEvent,
   SelectionCopyEvent,
 } from '../types/events';
+import { isDev } from '../utils/isDev';
 
 export type { MarkdownStyle, Md4cFlags };
 export type {
@@ -464,11 +465,7 @@ export const EnrichedMarkdownText = ({
     [onSelectionCopy]
   );
 
-  if (
-    __DEV__ &&
-    streamingAnimation !== undefined &&
-    !warnedStreamingAnimation
-  ) {
+  if (isDev && streamingAnimation !== undefined && !warnedStreamingAnimation) {
     warnedStreamingAnimation = true;
     console.warn(
       '[react-native-enriched-markdown] `streamingAnimation` is deprecated: use `streaming`, and turn it off when the stream ends. ' +

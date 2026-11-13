@@ -37,6 +37,12 @@ After:
 
 `react-native-streamdown` is no longer needed: streaming is built into `react-native-enriched-markdown`, including repair of incomplete Markdown, with no Worklets setup. See [Migrating from `react-native-streamdown`](/rich-text-formatting/markdown-streaming#migrating-from-react-native-streamdown) for the steps.
 
+### `markdown` is optional in `EnrichedMarkdownTextProps`
+
+A view now takes its text from `markdown` or from [`stream`](/react-native/api-reference/enriched-markdown-text#stream), so `markdown` is typed `string | undefined`. TypeScript code that reads `props.markdown` as a `string`, in a wrapper that takes `EnrichedMarkdownTextProps`, no longer compiles under `strict`.
+
+**Migrate:** handle `undefined` where you read it, for example `props.markdown ?? ''`.
+
 ## v1.0.2
 
 ### The Expo config plugin was removed

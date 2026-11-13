@@ -58,3 +58,18 @@ it('treats a fade over no time or a gradient over no characters as none', () => 
     normalizeStreamingAnimation({ type: 'gradient', length: 0 }).animation
   ).toBe('none');
 });
+
+it('sends a whole number of characters, and no animation for less than one', () => {
+  const gradient = (length: number) =>
+    normalizeStreamingAnimation({ type: 'gradient', length });
+  expect(gradient(12.5).animationLength).toBe(13);
+  for (const length of [0.4, NaN, Infinity]) {
+    expect(gradient(length)).toMatchObject({
+      animation: 'none',
+      animationLength: 20,
+    });
+  }
+  expect(
+    normalizeStreamingAnimation({ type: 'fade', duration: NaN }).animation
+  ).toBe('none');
+});

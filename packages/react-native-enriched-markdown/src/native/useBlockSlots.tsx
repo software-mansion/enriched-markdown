@@ -15,6 +15,7 @@ import type {
   MarkdownLinkOccurrence,
   MarkdownRenderers,
 } from '../types/MarkdownTextProps';
+import { isDev } from '../utils/isDev';
 
 export interface CollectedMarkdown {
   blocks: ReadonlyArray<MarkdownBlock>;
@@ -53,7 +54,7 @@ export function useCollectedMarkdown(
   return useMemo(() => {
     if (!enabled) return NOT_COLLECTED;
     if (!isGFM) {
-      if (__DEV__ && !warnedAboutFlavor) {
+      if (isDev && !warnedAboutFlavor) {
         warnedAboutFlavor = true;
         console.warn(
           '[EnrichedMarkdownText] `renderers`, `resolveImageSource` and `onLinksChange` only apply to flavor="github"; the CommonMark renderer keeps native images, videos and code blocks.'
@@ -62,7 +63,7 @@ export function useCollectedMarkdown(
       return NOT_COLLECTED;
     }
     if (NativeEnrichedMarkdownParser == null) {
-      if (__DEV__ && !warnedAboutModule) {
+      if (isDev && !warnedAboutModule) {
         warnedAboutModule = true;
         console.warn(
           '[EnrichedMarkdownText] `renderers`, `resolveImageSource` and `onLinksChange` need the EnrichedMarkdownParser TurboModule, which is not registered; rebuild the native app. Images, videos, links and code blocks render natively meanwhile.'

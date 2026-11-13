@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { processColor } from 'react-native';
 import type { ProcessedColorValue } from 'react-native';
 import type { StreamingAnimation } from './types/MarkdownTextProps';
+import { isDev } from './utils/isDev';
 
 /** `streamingConfig.animation` as the native views take it. */
 export interface NormalizedStreamingAnimation {
@@ -23,7 +24,7 @@ export function normalizeStreamingAnimation(
     options?.type ?? (typeof animation === 'string' ? animation : 'fade');
   // An effect this version does not know shows new content at once.
   if (!PRESETS.has(type)) {
-    if (__DEV__ && !warned.has(type)) {
+    if (isDev && !warned.has(type)) {
       warned.add(type);
       console.warn(
         `[react-native-enriched-markdown] Unknown streamingConfig.animation '${type}'; showing new content without one.`
@@ -32,15 +33,24 @@ export function normalizeStreamingAnimation(
     type = 'none';
   }
   const duration = options?.type === 'fade' ? (options.duration ?? 200) : 200;
-  const length = options?.type === 'gradient' ? (options.length ?? 20) : 20;
-  // A fade over no time, or a gradient over no characters, is no animation.
-  if (duration <= 0 || length <= 0) {
+  // A whole number of characters: the native prop is an Int32.
+  const length = Math.round(
+    options?.type === 'gradient' ? (options.length ?? 20) : 20
+  );
+  // A fade over no time, or a gradient over no characters, is no animation; the native props
+  // still get numbers they can hold.
+  const animates =
+    duration > 0 &&
+    Number.isFinite(duration) &&
+    length > 0 &&
+    Number.isFinite(length);
+  if (!animates) {
     type = 'none';
   }
   return {
     animation: type,
-    animationDuration: duration,
-    animationLength: length,
+    animationDuration: animates ? duration : 200,
+    animationLength: animates ? length : 20,
     // Colors nested in a prop are not processed for native on their own.
     animationStartColor:
       options?.type === 'gradient' && options.startColor != null

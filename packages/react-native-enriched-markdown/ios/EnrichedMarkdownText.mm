@@ -949,7 +949,11 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   BOOL streamingEnded = NO;
   if (newViewProps.streaming != oldViewProps.streaming) {
     if (newViewProps.streaming) {
-      // A new stream: the one before it has ended, whether or not its final render applied.
+      // A new stream: the one before it has ended, whether or not its last words drained or its
+      // final render applied.
+      if (_streaming) {
+        _streamEndPending = YES;
+      }
       [self emitStreamingEndIfPending];
       _streaming = YES;
       _streamEnding = NO;

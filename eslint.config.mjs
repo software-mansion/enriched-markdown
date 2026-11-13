@@ -24,6 +24,20 @@ export default defineConfig([
     },
   },
   {
+    // Web bundlers don't define React Native's `__DEV__`: the library reads it through `isDev`.
+    files: ['packages/react-native-enriched-markdown/src/**/*.{ts,tsx}'],
+    ignores: [
+      'packages/react-native-enriched-markdown/src/utils/isDev.ts',
+      'packages/react-native-enriched-markdown/src/**/__tests__/**',
+    ],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        { name: '__DEV__', message: "Use `isDev` from 'src/utils/isDev'." },
+      ],
+    },
+  },
+  {
     ignores: [
       'node_modules/',
       'packages/react-native-enriched-markdown/lib/',
