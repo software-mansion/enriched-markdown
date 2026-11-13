@@ -116,6 +116,11 @@ packages/react-native-enriched-markdown/ios/vendor/
 packages/react-native-enriched-markdown/ios/vendor.staging/
 packages/react-native-enriched-markdown/ios/vendor.backup/
 
+# Kotlin sources shared with packages/enriched-markdown-android (listed in
+# android/shared-sources.txt). The monorepo build compiles them from the library;
+# this copy exists only between prepack and postpack, for the npm tarball.
+packages/react-native-enriched-markdown/android/shared-sources/
+
 # React Native Nitro Modules
 nitrogen/
 

@@ -1,0 +1,38 @@
+# Kotlin sources this module compiles straight from the standalone Android library
+# (packages/enriched-markdown-android) instead of keeping its own copy.
+#
+# One file per line, as a path relative to the library root:
+#   <module>/src/main/java/<package path>/<File>.kt
+#
+# build.gradle copies exactly these files into build/generated and compiles them with
+# the rest of the module; scripts/prepare-npm-publish.sh copies them into
+# android/shared-sources/ for the npm tarball. To share another file, make the
+# library's copy the only one (delete it from src/main/java here) and add its line.
+ui/src/main/java/com/swmansion/enriched/markdown/renderer/BaselineShiftRenderer.kt
+ui/src/main/java/com/swmansion/enriched/markdown/renderer/BlankLineRenderer.kt
+ui/src/main/java/com/swmansion/enriched/markdown/renderer/CodeRenderer.kt
+ui/src/main/java/com/swmansion/enriched/markdown/renderer/EmphasisRenderer.kt
+ui/src/main/java/com/swmansion/enriched/markdown/renderer/HighlightRenderer.kt
+ui/src/main/java/com/swmansion/enriched/markdown/renderer/LineBreakRenderer.kt
+ui/src/main/java/com/swmansion/enriched/markdown/renderer/ListContextManager.kt
+ui/src/main/java/com/swmansion/enriched/markdown/renderer/SoftBreakRenderer.kt
+ui/src/main/java/com/swmansion/enriched/markdown/renderer/StrongRenderer.kt
+ui/src/main/java/com/swmansion/enriched/markdown/renderer/SubscriptRenderer.kt
+ui/src/main/java/com/swmansion/enriched/markdown/renderer/SuperscriptRenderer.kt
+ui/src/main/java/com/swmansion/enriched/markdown/renderer/TextRenderer.kt
+ui/src/main/java/com/swmansion/enriched/markdown/renderer/ThematicBreakRenderer.kt
+ui/src/main/java/com/swmansion/enriched/markdown/segments/SegmentReconciler.kt
+ui/src/main/java/com/swmansion/enriched/markdown/spans/BaselineShiftSpan.kt
+ui/src/main/java/com/swmansion/enriched/markdown/spans/EmphasisSpan.kt
+ui/src/main/java/com/swmansion/enriched/markdown/spans/FadeInSpan.kt
+ui/src/main/java/com/swmansion/enriched/markdown/spans/HeadingSpan.kt
+ui/src/main/java/com/swmansion/enriched/markdown/spans/LineHeightSpan.kt
+ui/src/main/java/com/swmansion/enriched/markdown/spans/StrongSpan.kt
+ui/src/main/java/com/swmansion/enriched/markdown/spans/TextSpan.kt
+ui/src/main/java/com/swmansion/enriched/markdown/spans/ThematicBreakSpan.kt
+ui/src/main/java/com/swmansion/enriched/markdown/spans/UnorderedListSpan.kt
+ui/src/main/java/com/swmansion/enriched/markdown/styles/BaseBlockStyle.kt
+ui/src/main/java/com/swmansion/enriched/markdown/utils/common/layout/RTLUtils.kt
+ui/src/main/java/com/swmansion/enriched/markdown/utils/text/extensions/ParagraphUtils.kt
+ui/src/main/java/com/swmansion/enriched/markdown/utils/text/view/TextSelectionColors.kt
+ui/src/main/java/com/swmansion/enriched/markdown/views/CopyGlyph.kt

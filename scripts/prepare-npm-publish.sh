@@ -5,6 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 RN_PKG="$REPO_ROOT/packages/react-native-enriched-markdown"
 CORE_CPP="$REPO_ROOT/packages/core/cpp"
+ANDROID_LIB="$REPO_ROOT/packages/enriched-markdown-android"
+# Kotlin sources the RN Android module compiles from the standalone Android library;
+# see the manifest and android/build.gradle.
+SHARED_SOURCES_MANIFEST="$RN_PKG/android/shared-sources.txt"
+SHARED_SOURCES_DIR="$RN_PKG/android/shared-sources"
 
 mode="${1:-}"
 
@@ -24,6 +29,11 @@ case "$mode" in
     # Restore RaTeX so we can verify the vendor tree is healthy, but its
     # contents are excluded from the tarball (downloaded by postinstall.mjs).
     node "$REPO_ROOT/vendor/vendor-ratex.mjs"
+
+    if [[ ! -f "$SHARED_SOURCES_MANIFEST" ]]; then
+      echo "[react-native-enriched-markdown] error: shared sources manifest not found at $SHARED_SOURCES_MANIFEST" >&2
+      exit 1
+    fi
 
     cd "$RN_PKG"
     rm -rf cpp
@@ -45,6 +55,26 @@ case "$mode" in
     # RaTeX vendor tree (ios/vendor) is excluded from the tarball by the
     # "!ios/vendor" entry in package.json's "files" array — no need to delete it.
 
+    # Materialize the Kotlin sources shared with the standalone Android library.
+    # In the monorepo android/build.gradle compiles them from
+    # packages/enriched-markdown-android; the tarball ships a copy of exactly the
+    # files listed in the manifest, laid out as in the library, which build.gradle
+    # resolves first.
+    rm -rf "$SHARED_SOURCES_DIR"
+    while IFS= read -r entry || [[ -n "$entry" ]]; do
+      entry="${entry#"${entry%%[![:space:]]*}"}"
+      entry="${entry%"${entry##*[![:space:]]}"}"
+      if [[ -z "$entry" || "$entry" == \#* ]]; then
+        continue
+      fi
+      if [[ ! -f "$ANDROID_LIB/$entry" ]]; then
+        echo "[react-native-enriched-markdown] error: shared source $entry listed in $SHARED_SOURCES_MANIFEST not found in $ANDROID_LIB" >&2
+        exit 1
+      fi
+      mkdir -p "$SHARED_SOURCES_DIR/$(dirname "$entry")"
+      cp "$ANDROID_LIB/$entry" "$SHARED_SOURCES_DIR/$entry"
+    done < "$SHARED_SOURCES_MANIFEST"
+
     # Ship the RaTeX manifest so postinstall.mjs can fetch it.
     cp "$REPO_ROOT/vendor/ratex-version.json" ratex-version.json
 
@@ -58,6 +88,8 @@ case "$mode" in
     cd "$RN_PKG"
     rm -rf cpp
     ln -s ../core/cpp cpp
+
+    rm -rf "$SHARED_SOURCES_DIR"
 
     rm -f LICENSE ratex-version.json vendor-grammars.mjs vendor-ratex.mjs
     ;;
