@@ -69,13 +69,15 @@ class ListRenderer(
     factory: RendererFactory,
   ): Float {
     val wideNumbers = mutableListOf<Int>()
+    val hierarchical = listStyle.numbering == "hierarchical"
+    val prefix = if (hierarchical) factory.blockStyleContext.orderedListChildPrefix() else emptyList()
     var number = startNumber
     for (item in node.children) {
       if (item.type != MarkdownASTNode.NodeType.ListItem) continue
-      if (number >= 100 && item.attributes["isTask"] != "true") wideNumbers += number
+      if ((hierarchical || number >= 100) && item.attributes["isTask"] != "true") wideNumbers += number
       number++
     }
-    return OrderedListSpan.measureExtraWidth(listStyle, factory.context, wideNumbers)
+    return OrderedListSpan.measureExtraWidth(listStyle, factory.context, wideNumbers, prefix)
   }
 
   private fun applyListSpacing(
