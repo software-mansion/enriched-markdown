@@ -4,7 +4,9 @@ import {
   parseToPlainTextAndRanges,
   type ParseResult,
 } from '../formatting/InputParser';
-import { serialize } from '../formatting/MarkdownSerializer';
+import { serializeOrPlainText } from '../formatting/MarkdownSerializer';
+import { isInputCoreLoaded } from '../formatting/inputCore';
+import { loadParser } from '../../parseMarkdown';
 import type { RangeBounds } from '../model/rangeBounds';
 import type { TextEdit } from '../model/textEdit';
 import { DomRenderer } from '../render/DomRenderer';
@@ -195,6 +197,29 @@ export class InputHost {
 
     this.addListeners();
     this.render();
+    this.loadInputCore();
+  }
+
+  // The markdown comes from the C++ core in the WASM module, which loads
+  // asynchronously while `getMarkdown` is synchronous. Loading starts here, and
+  // `onChangeMarkdown` is held until it settles, then emits once with the
+  // current value. A failed load settles too: the value then goes out as the
+  // plain text `getMarkdown` falls back to.
+  private inputCoreSettled = isInputCoreLoaded();
+  private markdownEmitHeld = false;
+
+  private loadInputCore(): void {
+    if (this.inputCoreSettled) {
+      return;
+    }
+    const settle = () => {
+      this.inputCoreSettled = true;
+      if (this.markdownEmitHeld && !this.destroyed) {
+        this.markdownEmitHeld = false;
+        this.emitMarkdown();
+      }
+    };
+    loadParser().then(settle, settle);
   }
 
   // Keeps the document, its DOM and the undo history, so that `attach` picks
@@ -287,7 +312,7 @@ export class InputHost {
   }
 
   getMarkdown(): string {
-    return serialize(
+    return serializeOrPlainText(
       this.text,
       this.formattingStore.allRanges,
       this.blockStore.allRanges
@@ -1076,7 +1101,7 @@ export class InputHost {
               end: Math.min(range.end, end) - start,
             },
           ];
-    return serialize(
+    return serializeOrPlainText(
       this.text.slice(start, end),
       this.formattingStore.allRanges.flatMap(clip),
       this.blockStore.allRanges.flatMap(clip)
@@ -1810,6 +1835,10 @@ export class InputHost {
       !this.markdownEmitEnabled ||
       !this.callbacks.onChangeMarkdown
     ) {
+      return;
+    }
+    if (!this.inputCoreSettled) {
+      this.markdownEmitHeld = true;
       return;
     }
     const markdown = this.getMarkdown();

@@ -1,10 +1,10 @@
-import {
-  markdownLinePrefix,
-  serialize,
-  serializeInline,
-} from '../MarkdownSerializer';
-import { createBlockRange, MAX_LIST_DEPTH } from '../../model/blocks';
+import { loadParser } from '../../../parseMarkdown';
+import { serialize, serializeInline } from '../MarkdownSerializer';
+import { createBlockRange } from '../../model/blocks';
 import { createFormattingRange as range } from '../../model/inlineStyles';
+
+// Import and export run in the WASM core, which loads asynchronously.
+beforeAll(() => loadParser());
 
 describe('serializeInline', () => {
   it('wraps each style in its dialect delimiters', () => {
@@ -329,34 +329,5 @@ describe('serialize', () => {
     expect(serialize('a\n', [], [createBlockRange('h1', 2, 2, 1)])).toBe(
       'a\n# '
     );
-  });
-});
-
-describe('markdownLinePrefix', () => {
-  // With no parent content column passed, nesting falls back to assuming
-  // single-digit markers all the way up; `serialize` passes the real width.
-  it('builds heading, bullet and numbered markers', () => {
-    expect(markdownLinePrefix(createBlockRange('h3', 0, 5, 3))).toBe('### ');
-    expect(markdownLinePrefix(createBlockRange('paragraph', 0, 5))).toBe('');
-    expect(
-      markdownLinePrefix(createBlockRange('unordered-list-item', 0, 5, 1))
-    ).toBe('   - ');
-    expect(
-      markdownLinePrefix({
-        ...createBlockRange('ordered-list-item', 0, 5, 2),
-        ordinal: 3,
-      })
-    ).toBe('      3. ');
-  });
-
-  it('takes the heading level from the type, not from level', () => {
-    expect(markdownLinePrefix(createBlockRange('h3', 0, 5))).toBe('### ');
-    expect(markdownLinePrefix(createBlockRange('h6', 0, 5, 2))).toBe('###### ');
-  });
-
-  it('clamps list indentation to the deepest nesting the store allows', () => {
-    expect(
-      markdownLinePrefix(createBlockRange('unordered-list-item', 0, 5, 9))
-    ).toBe('   '.repeat(MAX_LIST_DEPTH) + '- ');
   });
 });
