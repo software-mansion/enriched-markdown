@@ -3,6 +3,7 @@
 #import "ENRMTextRenderer.h"
 #import "MarkdownASTNode.h"
 #import "ParagraphStyleUtils.h"
+#import "RenderContext.h"
 #import "RenderedMarkdownSegment.h"
 #import "StyleConfig.h"
 
@@ -35,6 +36,28 @@ static uint64_t ENRMMixImageSourceOverrides(uint64_t hash, NSArray<MarkdownASTNo
     hash = ENRMMixImageSourceOverrides(hash, node.children, overrides);
   }
   return hash;
+}
+
+// Mixes the first task index into the signature, so a segment re-renders when earlier tasks change.
+static uint64_t ENRMMixTaskIndexOffset(uint64_t signature, NSInteger taskIndexOffset)
+{
+  uint64_t value = (uint64_t)taskIndexOffset;
+  for (int byte = 0; byte < 8; byte++) {
+    signature ^= (value >> (byte * 8)) & 0xFF;
+    signature *= 1099511628211ULL;
+  }
+  return signature;
+}
+
+// Counts task items as ListItemRenderer does: a quote's children render later, in its own view.
+static NSInteger ENRMCountTaskItems(MarkdownASTNode *node)
+{
+  NSInteger count =
+      (node.type == MarkdownNodeTypeListItem && [node.attributes[@"isTask"] isEqualToString:@"true"]) ? 1 : 0;
+  for (MarkdownASTNode *child in node.children) {
+    count += ENRMCountTaskItems(child);
+  }
+  return count;
 }
 
 static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root)
@@ -116,10 +139,12 @@ static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root)
 NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, StyleConfig *config,
                                                           BOOL allowTrailingMargin, BOOL allowFontScaling,
                                                           CGFloat maxFontSizeMultiplier,
-                                                          NSLineBreakStrategy lineBreakStrategy, BOOL blockquoteContent)
+                                                          NSLineBreakStrategy lineBreakStrategy, BOOL blockquoteContent,
+                                                          NSInteger startingTaskIndex)
 {
   NSArray *segments = ENRMSplitASTIntoSegments(ast);
   NSMutableArray<ENRMRenderedSegment *> *renderedSegments = [NSMutableArray array];
+  NSInteger taskIndexOffset = startingTaskIndex;
 
   static const uint64_t kTextKindSalt = 0x7465787400000000ULL;       // "text"
   static const uint64_t kTableKindSalt = 0x7461626C00000000ULL;      // "tabl"
@@ -133,15 +158,21 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
   for (id segment in segments) {
     if ([segment isKindOfClass:[ENRMTextSegment class]]) {
       ENRMTextSegment *textSegment = (ENRMTextSegment *)segment;
-      ENRMRenderResult *rendered = blockquoteContent
-                                       ? ENRMRenderBlockquoteContentNodes(textSegment.nodes, config, allowFontScaling,
-                                                                          maxFontSizeMultiplier, lineBreakStrategy)
-                                       : ENRMRenderASTNodes(textSegment.nodes, config, allowTrailingMargin,
-                                                            allowFontScaling, maxFontSizeMultiplier, lineBreakStrategy);
+      ENRMRenderResult *rendered =
+          blockquoteContent
+              ? ENRMRenderBlockquoteContentNodes(textSegment.nodes, config, allowFontScaling, maxFontSizeMultiplier,
+                                                 lineBreakStrategy, taskIndexOffset)
+              : ENRMRenderASTNodes(textSegment.nodes, config, allowTrailingMargin, allowFontScaling,
+                                   maxFontSizeMultiplier, lineBreakStrategy, taskIndexOffset);
       uint64_t signature = ENRMSignatureForNodes(textSegment.nodes) ^ kTextKindSalt;
       if (imageSourceOverrides.count > 0) {
         signature = ENRMMixImageSourceOverrides(signature, textSegment.nodes, imageSourceOverrides);
       }
+      NSInteger nextTaskIndex = rendered.context.taskItemCount;
+      if (nextTaskIndex > taskIndexOffset) {
+        signature = ENRMMixTaskIndexOffset(signature, taskIndexOffset);
+      }
+      taskIndexOffset = nextTaskIndex;
       [renderedSegments addObject:[ENRMRenderedSegment textSegmentWithResult:rendered signature:signature]];
     } else if ([segment isKindOfClass:[ENRMTableSegment class]]) {
       ENRMTableSegment *tableSegment = (ENRMTableSegment *)segment;
@@ -175,6 +206,12 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
       if (imageSourceOverrides.count > 0) {
         signature = ENRMMixImageSourceOverrides(signature, @[ blockquoteSegment.blockquoteNode ], imageSourceOverrides);
       }
+      NSInteger taskItemCount = ENRMCountTaskItems(blockquoteSegment.blockquoteNode);
+      if (taskItemCount > 0) {
+        signature = ENRMMixTaskIndexOffset(signature, taskIndexOffset);
+      }
+      blockquoteSegment.taskIndexOffset = taskIndexOffset;
+      taskIndexOffset += taskItemCount;
       [renderedSegments addObject:[ENRMRenderedSegment blockquoteSegmentWithSegment:blockquoteSegment
                                                                           signature:signature]];
     }

@@ -412,7 +412,8 @@ static char kENRMSegmentFadeAnimatorKey;
                           }
                           updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
                             [(ENRMBlockquoteContainerView *)view
-                                applyBlockquoteNode:segment.blockquoteSegment.blockquoteNode];
+                                applyBlockquoteNode:segment.blockquoteSegment.blockquoteNode
+                                    taskIndexOffset:segment.blockquoteSegment.taskIndexOffset];
                           }]];
 
   [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindBlockSlot
@@ -509,7 +510,7 @@ static char kENRMSegmentFadeAnimatorKey;
       [strongSelf emitTextPress:index text:text];
   };
 
-  [view applyBlockquoteNode:blockquoteSegment.blockquoteNode];
+  [view applyBlockquoteNode:blockquoteSegment.blockquoteNode taskIndexOffset:blockquoteSegment.taskIndexOffset];
   return view;
 }
 
@@ -1039,7 +1040,7 @@ static char kENRMSegmentFadeAnimatorKey;
 
     renderedSegments = ENRMRenderSegmentsFromAST(ast, config, allowTrailingMargin, allowFontScaling,
                                                  maxFontSizeMultiplier, lineBreakStrategy,
-                                                 /*blockquoteContent*/ NO);
+                                                 /*blockquoteContent*/ NO, /*startingTaskIndex*/ 0);
     for (ENRMRenderedSegment *segment in renderedSegments) {
       if (segment.kind == ENRMSegmentKindText && segment.textResult) {
         ENRMApplyWritingDirectionMode(segment.textResult.attributedText, writingDirectionMode, resolvedLayoutDirection);
@@ -1087,9 +1088,9 @@ static char kENRMSegmentFadeAnimatorKey;
     return nil;
   }
 
-  NSArray<ENRMRenderedSegment *> *segments =
-      ENRMRenderSegmentsFromAST(ast, _config, _allowTrailingMargin, _fontScaleObserver.allowFontScaling,
-                                _maxFontSizeMultiplier, _lineBreakStrategy, /*blockquoteContent*/ NO);
+  NSArray<ENRMRenderedSegment *> *segments = ENRMRenderSegmentsFromAST(
+      ast, _config, _allowTrailingMargin, _fontScaleObserver.allowFontScaling, _maxFontSizeMultiplier,
+      _lineBreakStrategy, /*blockquoteContent*/ NO, /*startingTaskIndex*/ 0);
   for (ENRMRenderedSegment *segment in segments) {
     if (segment.kind == ENRMSegmentKindText && segment.textResult) {
       ENRMApplyWritingDirectionMode(segment.textResult.attributedText, _writingDirectionMode, _resolvedLayoutDirection);

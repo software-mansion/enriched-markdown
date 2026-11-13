@@ -32,10 +32,12 @@
 // quote's content honors them the same way the root document path does.
 static NSArray<ENRMRenderedSegment *> *ENRMRenderBlockquoteChildren(MarkdownASTNode *node, StyleConfig *config,
                                                                     BOOL allowFontScaling,
-                                                                    NSLineBreakStrategy lineBreakStrategy)
+                                                                    NSLineBreakStrategy lineBreakStrategy,
+                                                                    NSInteger taskIndexOffset)
 {
   return ENRMRenderSegmentsFromAST(node, config, /*allowTrailingMargin*/ NO, allowFontScaling,
-                                   config.maxFontSizeMultiplier, lineBreakStrategy, /*blockquoteContent*/ YES);
+                                   config.maxFontSizeMultiplier, lineBreakStrategy, /*blockquoteContent*/ YES,
+                                   taskIndexOffset);
 }
 
 // The admonition type ("note"/"tip"/…) for a node, or nil for a plain quote.
@@ -145,14 +147,14 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
   return self;
 }
 
-- (void)applyBlockquoteNode:(MarkdownASTNode *)node
+- (void)applyBlockquoteNode:(MarkdownASTNode *)node taskIndexOffset:(NSInteger)taskIndexOffset
 {
   self.admonitionType = ENRMAdmonitionTypeForNode(node);
   self.contentInsets = ENRMBlockquoteContentInsetsForNode(self.config, self.admonitionType != nil);
   self.cachedMarkdown = markdownFromBlockquoteNode(node);
   self.cachedPlainText = plainTextFromASTNode(node);
   NSArray<ENRMRenderedSegment *> *rendered =
-      ENRMRenderBlockquoteChildren(node, self.config, self.allowFontScaling, self.lineBreakStrategy);
+      ENRMRenderBlockquoteChildren(node, self.config, self.allowFontScaling, self.lineBreakStrategy, taskIndexOffset);
   [self applySegments:rendered reset:NO];
 #if !TARGET_OS_OSX
   [self setNeedsDisplay];
@@ -321,12 +323,14 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                                   s.onLinkLongPress(url);
                               };
                             }
-                            [view applyBlockquoteNode:segment.blockquoteSegment.blockquoteNode];
+                            [view applyBlockquoteNode:segment.blockquoteSegment.blockquoteNode
+                                      taskIndexOffset:segment.blockquoteSegment.taskIndexOffset];
                             return view;
                           }
                           updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
                             [(ENRMBlockquoteContainerView *)view
-                                applyBlockquoteNode:segment.blockquoteSegment.blockquoteNode];
+                                applyBlockquoteNode:segment.blockquoteSegment.blockquoteNode
+                                    taskIndexOffset:segment.blockquoteSegment.taskIndexOffset];
                           }]];
 
 #if ENRICHED_MARKDOWN_MATH
@@ -446,7 +450,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
   CGFloat innerWidth = MAX(maxWidth - insets.left - insets.right, 1);
 
   NSArray<ENRMRenderedSegment *> *rendered =
-      ENRMRenderBlockquoteChildren(node, config, allowFontScaling, lineBreakStrategy);
+      ENRMRenderBlockquoteChildren(node, config, allowFontScaling, lineBreakStrategy, /*taskIndexOffset*/ 0);
   CGFloat childrenHeight = ENRMMeasureSegmentsHeightViewFree(
       rendered, config, innerWidth, /*allowTrailingMargin*/ NO, pointScaleFactor, ENRMWritingDirectionModeFirstStrong,
       NSWritingDirectionNatural, allowFontScaling, lineBreakStrategy, wrapCursor, slotMeasurer,

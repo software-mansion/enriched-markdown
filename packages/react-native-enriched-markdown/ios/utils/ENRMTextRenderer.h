@@ -19,9 +19,12 @@ NS_ASSUME_NONNULL_BEGIN
 extern "C" {
 #endif
 
+// Task-list items are numbered from startingTaskIndex, so a document rendered in several segments
+// keeps their indices document-global; result.context.taskItemCount is the index after the last one.
+// A caller rendering a whole document passes 0.
 ENRMRenderResult *ENRMRenderASTNodes(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config, BOOL allowTrailingMargin,
                                      BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
-                                     NSLineBreakStrategy lineBreakStrategy);
+                                     NSLineBreakStrategy lineBreakStrategy, NSInteger startingTaskIndex);
 
 // Renders a blockquote's own text content: like ENRMRenderASTNodes but with a blockquote baseline
 // (tight paragraphs, quote font/color) and the quote's line height applied over the result. Draws
@@ -29,7 +32,7 @@ ENRMRenderResult *ENRMRenderASTNodes(NSArray<MarkdownASTNode *> *nodes, StyleCon
 // BlockquoteTextRenderer.
 ENRMRenderResult *ENRMRenderBlockquoteContentNodes(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config,
                                                    BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
-                                                   NSLineBreakStrategy lineBreakStrategy);
+                                                   NSLineBreakStrategy lineBreakStrategy, NSInteger startingTaskIndex);
 
 #ifdef __cplusplus
 }
