@@ -53,6 +53,8 @@ class CodeHighlightStyleScope internal constructor(
   var tag: Color? by token(SyntaxTokenType.TAG)
   var attribute: Color? by token(SyntaxTokenType.ATTRIBUTE)
   var embedded: Color? by token(SyntaxTokenType.EMBEDDED)
+  var inserted: Color? by token(SyntaxTokenType.INSERTED)
+  var deleted: Color? by token(SyntaxTokenType.DELETED)
 
   /** The color for [type], for code that picks the token at runtime. */
   operator fun set(

@@ -86,6 +86,8 @@ export interface CodeBlockSyntaxColorsInternal {
   tag: string;
   attribute: string;
   embedded: string;
+  inserted: string;
+  deleted: string;
 }
 
 interface CodeBlockStyleInternal extends BaseBlockStyleInternal {

@@ -6,7 +6,7 @@
 #import <React/RCTUtils.h>
 
 static const NSInteger kENRMCodeBlockSyntaxColorCount =
-    static_cast<NSInteger>(Markdown::HighlightTokenType::Embedded) + 1;
+    static_cast<NSInteger>(Markdown::HighlightTokenType::Deleted) + 1;
 
 static inline NSString *normalizedFontWeight(NSString *fontWeight)
 {

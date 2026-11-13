@@ -62,6 +62,8 @@ class CodeHighlightStyleDslTest {
           tag = colors.getValue(SyntaxTokenType.TAG)
           attribute = colors.getValue(SyntaxTokenType.ATTRIBUTE)
           embedded = colors.getValue(SyntaxTokenType.EMBEDDED)
+          inserted = colors.getValue(SyntaxTokenType.INSERTED)
+          deleted = colors.getValue(SyntaxTokenType.DELETED)
         }
       }
 

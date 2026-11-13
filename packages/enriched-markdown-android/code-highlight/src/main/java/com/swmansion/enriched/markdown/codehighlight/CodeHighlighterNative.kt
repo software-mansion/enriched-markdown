@@ -9,7 +9,7 @@ package com.swmansion.enriched.markdown.codehighlight
  */
 internal object CodeHighlighterNative {
   /** Token types in the seam's `HighlightTokenType` order; `HighlightJni.cpp` pins the count. */
-  const val TOKEN_TYPE_COUNT = 14
+  const val TOKEN_TYPE_COUNT = 16
 
   init {
     // Not caught here: the failure reaches the caller, which logs it once and stops calling.

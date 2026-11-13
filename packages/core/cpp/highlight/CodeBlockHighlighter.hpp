@@ -25,7 +25,8 @@
 //
 // Token types follow tree-sitter's standard highlight capture names,
 // flattened to one level. Values are explicit because they cross the JNI
-// boundary as plain integers.
+// boundary as plain integers. Diffs have no grammar: their lines are
+// classified directly, as additions, deletions, hunk ranges and headers.
 //
 // Both markdown flavors call this seam: the github flavor highlights the code
 // string in its container view, and the commonmark renderers
@@ -35,32 +36,35 @@
 namespace Markdown {
 
 enum class HighlightTokenType : uint8_t {
-    Keyword = 0,
-    Operator = 1,
-    Punctuation = 2,
-    String = 3,
-    Number = 4,
-    Constant = 5,
-    Comment = 6,
-    Function = 7,
-    Type = 8,
-    Variable = 9,
-    Property = 10,
-    Tag = 11,
-    Attribute = 12,
-    Embedded = 13,
+  Keyword = 0,
+  Operator = 1,
+  Punctuation = 2,
+  String = 3,
+  Number = 4,
+  Constant = 5,
+  Comment = 6,
+  Function = 7,
+  Type = 8,
+  Variable = 9,
+  Property = 10,
+  Tag = 11,
+  Attribute = 12,
+  Embedded = 13,
+  // Added and removed lines of a diff.
+  Inserted = 14,
+  Deleted = 15,
 };
 
 struct HighlightToken {
-    uint32_t start;
-    uint32_t end;
-    HighlightTokenType type;
+  uint32_t start;
+  uint32_t end;
+  HighlightTokenType type;
 };
 
 // code is the UTF-8 code block content without the fence lines; language is
 // the fence info string (for example "python"), empty when absent. Returns an
 // empty vector whenever highlighting is unavailable (module compiled out,
 // unknown language, parse failure).
-std::vector<HighlightToken> highlightCode(const std::string& code, const std::string& language);
+std::vector<HighlightToken> highlightCode(const std::string &code, const std::string &language);
 
 } // namespace Markdown

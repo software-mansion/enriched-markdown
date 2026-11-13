@@ -672,7 +672,7 @@ struct CodeSampleView: View {
 }
 ```
 
-`SyntaxTokenType` has fourteen cases: `.keyword`, `.operator`, `.punctuation`, `.string`, `.number`, `.constant`, `.comment`, `.function`, `.type`, `.variable`, `.property`, `.tag`, `.attribute`, and `.embedded`.
+`SyntaxTokenType` has sixteen cases: `.keyword`, `.operator`, `.punctuation`, `.string`, `.number`, `.constant`, `.comment`, `.function`, `.type`, `.variable`, `.property`, `.tag`, `.attribute`, `.embedded`, `.inserted`, and `.deleted`.
 
 Turning highlighting on layers `MarkdownTheme.syntaxHighlightingDefault` - GitHub's palette - above `MarkdownTheme.default` and below your own themes, so a `SyntaxToken` you set overrides one type and leaves the rest. The palette switches between light and dark with the color scheme:
 
@@ -685,6 +685,8 @@ Turning highlighting on layers `MarkdownTheme.syntaxHighlightingDefault` - GitHu
 | `.function` | `#8250DF` | `#D2A8FF` |
 | `.type` | `#953800` | `#FFA657` |
 | `.tag` | `#116329` | `#7EE787` |
+| `.inserted` | `#1A7F37` | `#3FB950` |
+| `.deleted` | `#D1242F` | `#F85149` |
 
 `.operator`, `.punctuation`, `.variable`, and `.embedded` have no default color, so they keep the code block's color until you give them one.
 

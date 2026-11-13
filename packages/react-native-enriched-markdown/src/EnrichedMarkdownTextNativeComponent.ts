@@ -73,6 +73,8 @@ interface CodeBlockSyntaxColorsInternal {
   tag: ColorValue;
   attribute: ColorValue;
   embedded: ColorValue;
+  inserted: ColorValue;
+  deleted: ColorValue;
 }
 
 interface CodeBlockStyleInternal extends BaseBlockStyleInternal {

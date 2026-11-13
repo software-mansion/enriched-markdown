@@ -343,6 +343,8 @@ Per-token foreground colors for syntax highlighting, keyed on the highlight toke
 | `tag` | `string` | Markup tags |
 | `attribute` | `string` | Markup attributes |
 | `embedded` | `string` | Embedded/injected language regions |
+| `inserted` | `string` | Added lines in a `diff` block |
+| `deleted` | `string` | Removed lines in a `diff` block |
 
 > [!NOTE]
 > Inside list items, code blocks (background included) indent to the item's content column.

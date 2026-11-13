@@ -145,6 +145,8 @@ export const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
       tag: '#7EE787',
       attribute: '#79C0FF',
       embedded: '#F3F4F6',
+      inserted: '#3FB950',
+      deleted: '#F85149',
     },
   },
   link: {

@@ -42,6 +42,8 @@ public extension MarkdownTheme {
         SyntaxToken(.property).foregroundStyle(light: 0x0550AE, dark: 0x79C0FF)
         SyntaxToken(.tag).foregroundStyle(light: 0x116329, dark: 0x7EE787)
         SyntaxToken(.attribute).foregroundStyle(light: 0x0550AE, dark: 0x79C0FF)
+        SyntaxToken(.inserted).foregroundStyle(light: 0x1A7F37, dark: 0x3FB950)
+        SyntaxToken(.deleted).foregroundStyle(light: 0xD1242F, dark: 0xF85149)
     }
 }
 

@@ -8,7 +8,7 @@
 
 static_assert(static_cast<int>(Markdown::HighlightTokenType::Keyword) == 0,
               "HighlightTokenType enum must stay in sync with Swift SyntaxTokenType");
-static_assert(static_cast<int>(Markdown::HighlightTokenType::Embedded) == 13,
+static_assert(static_cast<int>(Markdown::HighlightTokenType::Deleted) == 15,
               "HighlightTokenType enum must stay in sync with Swift SyntaxTokenType");
 
 extern "C" {
