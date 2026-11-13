@@ -3,11 +3,15 @@ package com.swmansion.enriched.markdown.accessibility
 import android.content.Context
 import android.graphics.Rect
 import android.util.AttributeSet
+import android.view.ActionMode
 import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.appcompat.widget.AppCompatTextView
 import com.swmansion.enriched.markdown.spans.LinkPillSpan
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
+import com.swmansion.enriched.markdown.utils.text.view.OnSelectionCopy
+import com.swmansion.enriched.markdown.utils.text.view.SelectionCopyFormat
+import com.swmansion.enriched.markdown.utils.text.view.copySelection
 
 /** AppCompatTextView with built-in TalkBack support via MarkdownAccessibilityHelper. */
 abstract class AccessibleMarkdownTextView
@@ -18,15 +22,32 @@ abstract class AccessibleMarkdownTextView
     defStyleAttr: Int = 0,
   ) : AppCompatTextView(context, attrs, defStyleAttr) {
     val accessibilityHelper = MarkdownAccessibilityHelper(this)
+    var onSelectionCopyCallback: OnSelectionCopy? = null
+
+    /** The selection toolbar while it is showing, kept up to date by the selection menu callback. */
+    internal var selectionActionMode: ActionMode? = null
+
+    // The selection menu's Copy ends up here, and Ctrl+C (and TalkBack's copy action) call this directly.
+    override fun onTextContextMenuItem(id: Int): Boolean {
+      if (id == android.R.id.copy) {
+        // The platform's copy is what tells the user when the clipboard refuses the clip.
+        if (!copySelection(SelectionCopyFormat.PLAIN, onSelectionCopyCallback)) {
+          return super.onTextContextMenuItem(id)
+        }
+        selectionActionMode?.finish()
+        return true
+      }
+      return super.onTextContextMenuItem(id)
+    }
 
     override fun setText(
       text: CharSequence?,
       type: BufferType?,
     ) {
-      // Prime pills before the layout for the new text is built, and register for icons
+      // Prime pills and images before the layout for the new text is built, and register for icons
       // that load later. Runs from the TextView constructor too: use nothing initialized after it.
       val contentWidth = width - compoundPaddingLeft - compoundPaddingRight
-      if (contentWidth > 0) prepareWidthAwareSpans(text, contentWidth, includeImages = false)
+      if (contentWidth > 0) prepareWidthAwareSpans(text, contentWidth)
       LinkPillSpan.registerView(text, this)
       super.setText(text, type)
     }
@@ -38,7 +59,7 @@ abstract class AccessibleMarkdownTextView
       if (MeasureSpec.getMode(widthMeasureSpec) != MeasureSpec.UNSPECIFIED) {
         val width = (MeasureSpec.getSize(widthMeasureSpec) - compoundPaddingLeft - compoundPaddingRight).coerceAtLeast(1)
         // TextView keeps its layout when the new width still fits the old lines.
-        if (prepareWidthAwareSpans(text, width, includeImages = false) && layout != null) dropTextLayout()
+        if (prepareWidthAwareSpans(text, width) && layout != null) dropTextLayout()
       }
       super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }

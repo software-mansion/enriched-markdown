@@ -39,9 +39,9 @@
 #endif
 
 #import <ReactNativeEnrichedMarkdown/EnrichedMarkdownTextInputComponentDescriptor.h>
-#import <ReactNativeEnrichedMarkdown/EventEmitters.h>
-#import <ReactNativeEnrichedMarkdown/Props.h>
-#import <ReactNativeEnrichedMarkdown/RCTComponentViewHelpers.h>
+#import <react/renderer/components/EnrichedMarkdownTextSpec/EventEmitters.h>
+#import <react/renderer/components/EnrichedMarkdownTextSpec/Props.h>
+#import <react/renderer/components/EnrichedMarkdownTextSpec/RCTComponentViewHelpers.h>
 
 #import "EnrichedMarkdownTextInputShadowNode.h"
 #import "HeightUpdateUtils.h"
@@ -1811,6 +1811,8 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 - (void)handleTextChanged
 {
   if (_editSession.isComposing) {
+    // Marked text is already in the view; hide the placeholder under it.
+    [self updatePlaceholderVisibility];
     return;
   }
 

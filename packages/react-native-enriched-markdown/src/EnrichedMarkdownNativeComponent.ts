@@ -355,6 +355,14 @@ export interface OnContextMenuItemPressEvent {
   selectionEnd: CodegenTypes.Int32;
 }
 
+export interface SelectionCopyEvent {
+  text: string;
+  // 'plain' | 'markdown' | 'imageUrls'
+  format: string;
+  selectionStart: CodegenTypes.Int32;
+  selectionEnd: CodegenTypes.Int32;
+}
+
 export interface AccessibilityLabelsListProps {
   bulletPoint: string;
   nestedBulletPoint: string;
@@ -694,6 +702,12 @@ export interface NativeProps extends ViewProps {
    * Receives the item label, the currently selected text, and the selection range.
    */
   onContextMenuItemPress?: CodegenTypes.BubblingEventHandler<OnContextMenuItemPressEvent>;
+  /**
+   * Fired after a text selection is copied from the selection menu, with the
+   * keyboard shortcut, or through TalkBack. Receives the copied text, its
+   * format, and the range.
+   */
+  onSelectionCopy?: CodegenTypes.BubblingEventHandler<SelectionCopyEvent>;
   /**
    * Sets the text break strategy on Android (API 23+).
    * @default 'highQuality'

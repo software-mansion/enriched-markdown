@@ -2,6 +2,7 @@
 
 #include <CoreGraphics/CGBase.h>
 #include <React/RCTUtils.h>
+#include <functional>
 #include <list>
 #include <mutex>
 #include <react/renderer/graphics/Float.h>
@@ -302,6 +303,9 @@ public:
 
   void set(const MeasurementCacheKey &key, CachedSize size)
   {
+    const size_t keyBytes = keyStorageBytes(key);
+    if (keyBytes > kMaxKeyBytes)
+      return;
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto it = map_.find(key);
@@ -311,14 +315,16 @@ public:
       return;
     }
 
-    list_.push_front({key, size});
-    map_[key] = list_.begin();
-
-    if (map_.size() > kMaxEntries) {
+    while (map_.size() >= kMaxEntries || keyBytes_ + keyBytes > kMaxKeyBytes) {
       auto &lastEntry = list_.back();
+      keyBytes_ -= keyStorageBytes(lastEntry.key);
       map_.erase(lastEntry.key);
       list_.pop_back();
     }
+
+    list_.push_front({key, size});
+    map_.emplace(std::cref(list_.front().key), list_.begin());
+    keyBytes_ += keyBytes;
   }
 
   void removeMatchingMarkdown(const std::string &markdown)
@@ -327,6 +333,7 @@ public:
 
     for (auto it = list_.begin(); it != list_.end();) {
       if (it->key.markdown == markdown) {
+        keyBytes_ -= keyStorageBytes(it->key);
         map_.erase(it->key);
         it = list_.erase(it);
       } else {
@@ -339,10 +346,27 @@ private:
   MeasurementCache() = default;
 
   static constexpr size_t kMaxEntries = 512;
+  // Bytes held by keys; allocator/node overhead is additional.
+  static constexpr size_t kMaxKeyBytes = 8 * 1024 * 1024;
+  static size_t keyStorageBytes(const MeasurementCacheKey &key)
+  {
+    return sizeof(CacheEntry) + key.markdown.size() + key.lineBreakStrategyIOS.size() + key.writingDirection.size() +
+           key.ellipsizeMode.size() + key.linkRegexKey.size() + key.inlineCodeLinkRegexKey.size();
+  }
+
+  // The map refers to the key its list node owns, so each key is stored once.
+  using KeyRef = std::reference_wrapper<const MeasurementCacheKey>;
+  struct KeyRefEqual {
+    bool operator()(const MeasurementCacheKey &a, const MeasurementCacheKey &b) const
+    {
+      return a == b;
+    }
+  };
+  size_t keyBytes_ = 0;
   mutable std::mutex mutex_;
 
   std::list<CacheEntry> list_;
-  std::unordered_map<MeasurementCacheKey, std::list<CacheEntry>::iterator, MeasurementCacheKeyHash> map_;
+  std::unordered_map<KeyRef, std::list<CacheEntry>::iterator, MeasurementCacheKeyHash, KeyRefEqual> map_;
 };
 
 } // namespace facebook::react

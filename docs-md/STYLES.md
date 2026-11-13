@@ -455,7 +455,7 @@ Videos render as native player views — `AVPlayerViewController` on iOS and Exo
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `size` | `number` | Image size (square) |
+| `size` | `number` | Side length of the square the image is drawn in; the image is scaled up or down to fit inside it, keeping its proportions |
 
 ### Thematic Break (Horizontal Rule)-specific
 

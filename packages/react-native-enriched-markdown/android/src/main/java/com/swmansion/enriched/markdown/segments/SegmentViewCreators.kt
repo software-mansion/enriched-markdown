@@ -13,6 +13,7 @@ import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
+import com.swmansion.enriched.markdown.utils.text.view.OnSelectionCopy
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
 
@@ -72,6 +73,7 @@ data class SegmentViewConfig(
   val onTaskListItemPress: ((taskIndex: Int, checked: Boolean, itemText: String) -> Unit)?,
   val onContextMenuItemPress: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)?,
   val onLatexError: LatexErrorReporter? = null,
+  val onSelectionCopy: OnSelectionCopy? = null,
 )
 
 /**
@@ -105,6 +107,7 @@ object SegmentViewCreators {
       onTaskListItemPressCallback = { taskIndex, checked, itemText ->
         config.onTaskListItemPress?.invoke(taskIndex, checked, itemText)
       }
+      onSelectionCopyCallback = config.onSelectionCopy
 
       if (config.contextMenuItemTexts.isNotEmpty()) {
         val onPress = config.onContextMenuItemPress

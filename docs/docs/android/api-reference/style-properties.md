@@ -472,9 +472,9 @@ markdownStyle {
 
 An image sitting inside a line of text, sized to the line rather than the container.
 
-| Property | Type | Default | Description                          |
-| -------- | ---- | ------- | ------------------------------------ |
-| `size`   | `Dp` | `20.dp` | Width and height of the inline image |
+| Property | Type | Default | Description                                                                                                               |
+| -------- | ---- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `size`   | `Dp` | `20.dp` | Side length of the square the image is drawn in. The image is scaled up or down to fit inside it, keeping its proportions |
 
 ```kotlin
 markdownStyle {

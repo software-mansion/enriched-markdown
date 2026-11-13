@@ -3,6 +3,7 @@
 #import "ENRMSpoilerCapable.h"
 #import "ENRMSpoilerOverlayView.h"
 #import "ENRMUIKit.h"
+#import "EditMenuUtils.h"
 #import "LinkTapUtils.h"
 #import "StyleConfig.h"
 
@@ -34,6 +35,11 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) BOOL allowTrailingMargin;
 
 @property (nonatomic, assign) CGFloat lastElementMarginBottom;
+
+/// Called after the text view's `copy:` copies a selection: the Copy key command (⌘C), and the
+/// system menu's Copy where the host keeps that menu (quotes). Set by the host to bridge up to the
+/// JS onSelectionCopy; a menu the host builds reports through the host instead.
+@property (nonatomic, copy, nullable) ENRMSelectionCopyHandler onSelectionCopy;
 
 #if TARGET_OS_OSX
 - (void)setContextMenuProvider:(ENRMContextMenuProvider)provider;

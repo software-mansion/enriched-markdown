@@ -171,7 +171,8 @@ object MarkdownExtractor {
 
     val codeBlockSpans = spannable.getSpans(segmentStart, segmentEnd, CodeBlockSpan::class.java)
     if (codeBlockSpans.isNotEmpty()) {
-      appendCodeBlock(segmentText, result, state)
+      val opensBlock = codeBlockSpans.any { spannable.getSpanStart(it) == segmentStart }
+      appendCodeBlock(spannable, codeBlockSpans[0], segmentText, opensBlock, result, state)
       return true
     }
 
@@ -291,7 +292,10 @@ object MarkdownExtractor {
   }
 
   private fun appendCodeBlock(
+    spannable: Spannable,
+    block: CodeBlockSpan,
     text: String,
+    opensBlock: Boolean,
     result: StringBuilder,
     state: ExtractionState,
   ) {
@@ -300,14 +304,42 @@ object MarkdownExtractor {
       state.needsBlankLine = false
     }
 
-    val needsFence = result.isEmpty() || result.endsWith("\n\n")
-    if (needsFence) result.append("```\n")
+    // A code block inside a list item lines up under the item's text.
+    val item = block.listItem
 
-    result.append(text)
+    // When the block opens its item, the item's marker span is not attached at all or sits after the block.
+    val itemStart = item?.let { spannable.getSpanStart(it) } ?: -1
+    val markerSpanDetached = itemStart < 0
+    val markerSpanAfterBlock = itemStart >= spannable.getSpanEnd(block)
+    val blockOpensItem = item != null && (markerSpanDetached || markerSpanAfterBlock)
+
+    // The fence takes the item's marker only when the selection includes the block's first line.
+    val opensItem = opensBlock && blockOpensItem
+    val nestedItem = item?.takeIf { opensItem || result.isNotEmpty() }
+    val indent = nestedItem?.let { contentIndent(it) } ?: ""
+    if (nestedItem != null) state.listDepth = nestedItem.depth
+
+    val needsFence = result.isEmpty() || result.endsWith("\n\n") || opensBlock
+    if (needsFence) {
+      if (!result.isAtLineStart()) result.append("\n")
+      if (opensItem) {
+        result.append(listMarker(item))
+        state.itemOpenedByCode = item
+      } else {
+        result.append(indent)
+      }
+      result.append("```\n")
+    }
+
+    text.split('\n').forEachIndexed { index, line ->
+      if (index > 0) result.append('\n')
+      if (line.isNotEmpty() && result.isAtLineStart()) result.append(indent)
+      result.append(line)
+    }
 
     if (text.endsWith("\n")) {
-      result.append("```\n")
-      state.needsBlankLine = true
+      result.append(indent).append("```\n")
+      state.needsBlankLine = nestedItem == null
     }
   }
 
@@ -346,6 +378,13 @@ object MarkdownExtractor {
     }
 
     state.listDepth = listSpan.depth
+
+    // Text after a code block continues its item rather than starting a new one.
+    val continuesItem = !listSpan.drawsMarker || listSpan === state.itemOpenedByCode
+    return if (continuesItem) contentIndent(listSpan) else listMarker(listSpan)
+  }
+
+  private fun listMarker(listSpan: BaseListSpan): String {
     val indent = "  ".repeat(listSpan.depth)
 
     return when (listSpan) {
@@ -353,6 +392,12 @@ object MarkdownExtractor {
       is OrderedListSpan -> "$indent${listSpan.itemNumber}. "
       else -> "$indent- "
     }
+  }
+
+  /** The column an item's text starts at; a task item's checkbox is part of its text. */
+  private fun contentIndent(listSpan: BaseListSpan): String {
+    val markerWidth = if (listSpan is OrderedListSpan) "${listSpan.itemNumber}. ".length else 2
+    return " ".repeat(2 * listSpan.depth + markerWidth)
   }
 
   private fun applyInlineFormatting(
@@ -424,6 +469,7 @@ object MarkdownExtractor {
     var blockquoteDepth: Int = -1,
     var listDepth: Int = -1,
     var needsBlankLine: Boolean = false,
+    var itemOpenedByCode: BaseListSpan? = null,
   )
 
   private class HeadingAccumulator {

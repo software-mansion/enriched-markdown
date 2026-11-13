@@ -556,8 +556,13 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     return;
   }
 
+  // The row elements carry the old row frames.
+  _cachedAccessibilityElements = nil;
   [self renderGrid];
   [self setNeedsLayout];
+#if !TARGET_OS_OSX
+  UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+#endif
 
   [[self.superview enrm_imageLayoutObserver] imageAttachmentDidResolveLayout];
 }

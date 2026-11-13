@@ -23,6 +23,13 @@ final class ImageRenderer: NodeRenderer {
         )
 
         var attributes: [NSAttributedString.Key: Any] = [.attachment: attachment]
+
+        // Without a font TextKit uses Helvetica 12, whose descent would grow the line.
+        if isInline {
+            let textFont = context.getTextAttributes()[.font] as? UIFont
+            attachment.textFont = textFont
+            attributes[.font] = (textFont ?? UIFont.systemFont(ofSize: UIFont.systemFontSize)).withSize(1)
+        }
         SourceOffsetAnnotator.tagSourceRange(in: &attributes, of: node)
         output.append(NSAttributedString(string: "\u{FFFC}", attributes: attributes))
     }

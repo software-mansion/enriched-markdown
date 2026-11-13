@@ -18,6 +18,7 @@
   NSArray<NSNumber *> *_rowHeights;
   UIColor *_borderColor;
   CGFloat _borderWidth;
+  CGFloat _cornerRadius;
   CGFloat _horizontalCellPadding;
   CGFloat _verticalCellPadding;
 }
@@ -58,6 +59,7 @@
   _rowHeights = [rowHeights copy];
   _borderColor = borderColor;
   _borderWidth = borderWidth;
+  _cornerRadius = cornerRadius;
   _horizontalCellPadding = horizontalCellPadding;
   _verticalCellPadding = verticalCellPadding;
   [self setNeedsDisplay];
@@ -113,6 +115,14 @@
       xOffset += columnWidth;
     }
     yOffset += rowHeight;
+  }
+
+  // The container's corner mask cuts the square cell strokes; draw the arcs.
+  if (_cornerRadius > 0 && _borderWidth > 0) {
+    [_borderColor setStroke];
+    UIBezierPath *outline = [UIBezierPath bezierPathWithRoundedRect:self.bounds cornerRadius:_cornerRadius];
+    outline.lineWidth = _borderWidth;
+    [outline stroke];
   }
 }
 

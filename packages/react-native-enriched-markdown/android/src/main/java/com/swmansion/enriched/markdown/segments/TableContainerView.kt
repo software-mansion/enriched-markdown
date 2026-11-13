@@ -468,8 +468,9 @@ class TableContainerView(
       val columnWidths = FloatArray(texts.maxOfOrNull { it.size } ?: 0)
       texts.forEach { row ->
         row.forEachIndexed { colIndex, cellText ->
-          // Images are sized in the row pass below, once the column width is known.
-          prepareWidthAwareSpans(cellText, maxColumnWidth.toInt(), includeImages = false)
+          // Block images are sized in the row pass below, once the column width is known. A
+          // failure chip is sized now, or it keeps the width of the column it failed in.
+          prepareWidthAwareSpans(cellText, maxColumnWidth.toInt(), includeBlockImages = false)
           val layout =
             StaticLayout.Builder
               .obtain(cellText, 0, cellText.length, paint, maxColumnWidth.toInt())

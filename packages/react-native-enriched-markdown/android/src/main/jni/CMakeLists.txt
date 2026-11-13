@@ -5,7 +5,10 @@ set(LIB_LITERAL EnrichedMarkdownTextSpec)
 set(LIB_TARGET_NAME react_codegen_${LIB_LITERAL})
 
 set(LIB_ANDROID_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
-set(LIB_ANDROID_GENERATED_JNI_DIR ${LIB_ANDROID_DIR}/generated/jni)
+# Written by this library's generateCodegenArtifactsFromSchema (run by its preBuild).
+# The RN Gradle plugin runs it before the app's CMake configure only when the app
+# module is named "app", as it wires :app:preBuild to every library's preBuild.
+set(LIB_ANDROID_GENERATED_JNI_DIR ${LIB_ANDROID_DIR}/build/generated/source/codegen/jni)
 set(LIB_ANDROID_GENERATED_COMPONENTS_DIR ${LIB_ANDROID_GENERATED_JNI_DIR}/react/renderer/components/${LIB_LITERAL})
 
 # cpp/ is a symlink to packages/core/cpp in the monorepo; published tarballs
@@ -102,14 +105,6 @@ target_include_directories(
 )
 
 target_compile_reactnative_options(${LIB_TARGET_NAME} PRIVATE)
-# The generated/ code is pre-generated at publish time against one RN version;
-# newer RN deprecates APIs it calls (e.g. invokeJavaMethod with cachedMethodId),
-# which -Werror would otherwise turn into a build failure for consumers.
-# TODO: Remove once we stop shipping pre-generated codegen
-# (includesGeneratedCode: false), so the app generates this code with its own
-# RN version. Must happen before RN removes the deprecated invokeJavaMethod
-# overload, which this flag can't work around.
-target_compile_options(${LIB_TARGET_NAME} PRIVATE -Wno-error=deprecated-declarations)
 
 # Math off in the build: the JS block collector parses without it, like the host.
 if(DEFINED ENRICHED_MARKDOWN_MATH AND NOT ENRICHED_MARKDOWN_MATH)

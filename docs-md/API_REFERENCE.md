@@ -206,6 +206,25 @@ Only fires when `flavor="github"` — the copy button is part of the GitHub flav
 />
 ```
 
+### `onSelectionCopy`
+
+Callback after a text selection is copied, from the selection menu's **Copy**, **Copy as Markdown**, or **Copy Image URL** item, the keyboard shortcut (⌘C / Ctrl+C), or TalkBack's copy action. Receives `text` (the copied plain text), `format` (`'plain'`, also used by keyboard and TalkBack copies, `'markdown'`, or `'imageUrls'`), and `selection` (`{ start, end }` in the rendered text; with `flavor="github"`, they restart at each block that renders as its own view, such as a table, code block or quote, so consecutive paragraphs count as one run of text). Code block copies are reported by `onCopyPress` instead.
+
+| Type                                    | Default Value | Platform    |
+| --------------------------------------- | ------------- | ----------- |
+| `(event: SelectionCopyEvent) => void`   | -             | Both, macOS |
+
+**Example:**
+
+```tsx
+<EnrichedMarkdownText
+  markdown="Select some of this **text** and copy it."
+  onSelectionCopy={({ text, format }) => {
+    console.log(`Copied ${format}:`, text);
+  }}
+/>
+```
+
 ### `onLatexError`
 
 Callback when a math expression cannot be parsed or rendered by the LaTeX engine. Receives `source` (the raw LaTeX of the failing expression, without `$`/`$$` delimiters), `message` (the engine's error message, or `undefined` when the engine provides none), and `displayMode` (`false` for inline `$...$`, `true` for block `$$...$$`).
@@ -906,7 +925,7 @@ Style configuration for formatted text in the input.
 | -------------------- | ------------- | -------- |
 | `MarkdownTextInputStyle` | `{}`          | Both     |
 
-On web, the [experimental web editor](WEB_INPUT.md#styling) honors every key except `linkVariants`.
+On web, the [web editor](WEB_INPUT.md#styling) honors every key except `linkVariants`.
 
 **Properties:**
 
@@ -1016,7 +1035,7 @@ interface StyleState {
 
 ### `onChangeHistoryState`
 
-Fires when whether [`undo()`](#undo) or [`redo()`](#redo) has a step to take changes. It fires only when one of the two values flips, not on every edit, so it is cheap to drive toolbar buttons from. Web-only for now, part of the [experimental web editor](WEB_INPUT.md): iOS and Android never call it.
+Fires when whether [`undo()`](#undo) or [`redo()`](#redo) has a step to take changes. It fires only when one of the two values flips, not on every edit, so it is cheap to drive toolbar buttons from. Web-only for now, part of the [web editor](WEB_INPUT.md): iOS and Android never call it.
 
 | Type                                                         | Default Value | Platform |
 | ------------------------------------------------------------ | ------------- | -------- |
@@ -1389,11 +1408,11 @@ On iOS, macOS and Android the clipboard receives both plain text and the Markdow
 
 ### `undo()`
 
-Steps back over the last edit: typing up to a pause or a caret move, a single Backspace run, a paste, a cut, a newline, an IME composition, or one formatting command. Text, formatting and selection all return to how they were before it. Web-only for now, part of the [experimental web editor](WEB_INPUT.md): a no-op on iOS and Android. On web, **Cmd+Z** / **Ctrl+Z** and the browser's Edit menu do the same.
+Steps back over the last edit: typing up to a pause or a caret move, a single Backspace run, a paste, a cut, a newline, an IME composition, or one formatting command. Text, formatting and selection all return to how they were before it. Web-only for now, part of the [web editor](WEB_INPUT.md): a no-op on iOS and Android. On web, **Cmd+Z** / **Ctrl+Z** and the browser's Edit menu do the same.
 
 ### `redo()`
 
-Re-applies the last step `undo()` took back. Any new edit clears what is left to redo. Web-only for now, part of the [experimental web editor](WEB_INPUT.md): a no-op on iOS and Android. On web, **Cmd+Shift+Z** / **Ctrl+Shift+Z** / **Ctrl+Y** and the browser's Edit menu do the same.
+Re-applies the last step `undo()` took back. Any new edit clears what is left to redo. Web-only for now, part of the [web editor](WEB_INPUT.md): a no-op on iOS and Android. On web, **Cmd+Shift+Z** / **Ctrl+Shift+Z** / **Ctrl+Y** and the browser's Edit menu do the same.
 
 ### `startMention(indicator: string)`
 

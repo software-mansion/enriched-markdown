@@ -41,21 +41,24 @@
 
 - (void)setupTextView
 {
-#if !TARGET_OS_OSX
-  ENRMMarkdownTextView *markdownTextView = [[ENRMMarkdownTextView alloc] init];
   __weak EnrichedMarkdownInternalText *weakCopyOwner = self;
-  markdownTextView.copySelectionHandler = ^(NSRange range) {
+  void (^copySelectionHandler)(NSRange) = ^(NSRange range) {
     EnrichedMarkdownInternalText *owner = weakCopyOwner;
     if (!owner)
       return;
     NSAttributedString *text = owner->_textView.textStorage;
-    copyAttributedStringToPasteboard([text attributedSubstringFromRange:range],
-                                     extractMarkdownFromAttributedString(text, range), owner -> _config);
+    ENRMCopySelection([text attributedSubstringFromRange:range], range,
+                      extractMarkdownFromAttributedString(text, range), owner -> _config, owner.onSelectionCopy);
   };
+#if !TARGET_OS_OSX
+  ENRMMarkdownTextView *markdownTextView = [[ENRMMarkdownTextView alloc] init];
+  markdownTextView.copySelectionHandler = copySelectionHandler;
   _textView = markdownTextView;
   _textView.text = @"";
 #else
-  _textView = [[ENRMContextMenuTextView alloc] init];
+  ENRMContextMenuTextView *contextMenuTextView = [[ENRMContextMenuTextView alloc] init];
+  contextMenuTextView.copySelectionHandler = copySelectionHandler;
+  _textView = contextMenuTextView;
   _textView.string = @"";
 #endif
   ENRMConfigureMarkdownTextView(_textView);
@@ -128,6 +131,11 @@
 {
   [_spoilerManager setNeedsUpdate];
   [_spoilerManager updateIfNeeded];
+  // VoiceOver's elements hold frames from the old layout.
+  _accessibilityNeedsRebuild = YES;
+#if !TARGET_OS_OSX
+  UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+#endif
   [[self.superview enrm_imageLayoutObserver] imageAttachmentDidResolveLayout];
 }
 
