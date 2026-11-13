@@ -196,8 +196,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
                                                            autoLinkDetector:_autoLinkDetector];
     _clipboardCoordinator = [[ENRMClipboardCoordinator alloc] initWithFormattingStore:_formattingStore
                                                                            blockStore:_blockStore
-                                                               transientRangeProvider:_detectorPipeline
-                                                                            formatter:_formatter];
+                                                               transientRangeProvider:_detectorPipeline];
   }
   return self;
 }
