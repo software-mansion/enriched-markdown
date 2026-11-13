@@ -497,20 +497,27 @@ class EnrichedMarkdownTextInputView(
    * Text typed over a non-empty selection inherits the inline styles of the first
    * selected character (mirrors iOS rebuildFromContext and the range-inheritance
    * rule in [com.swmansion.enriched.markdown.input.formatting.RangeEditAdjustment]).
-   * Seeding here is the only chance to carry the style through the whole typed
-   * run: the post-edit grace period above skips reseeding between keystrokes.
+   * Text typed at a caret inherits the styles of the character before it or the one
+   * after it, as on iOS and web: a store range never grows at its edges, so pending
+   * styles are what carry `**foo**` into a letter typed after it. Seeding here is the
+   * only chance to carry the style through the whole typed run: the post-edit grace
+   * period above skips reseeding between keystrokes.
    * LINK is excluded — typing over a selected link replaces it, not extends it.
    */
   private fun seedPendingStylesFromSelection(
     selStart: Int,
     selEnd: Int,
   ) {
-    if (selStart == selEnd) return
+    if (selStart == selEnd && selStart == 0) return
     for (style in StyleType.entries) {
       if (style == StyleType.LINK) continue
-      if (formattingStore.isStyleActive(style, selStart)) {
-        pendingStyles.add(style)
-      }
+      val inherited =
+        if (selStart != selEnd) {
+          formattingStore.isStyleActive(style, selStart)
+        } else {
+          formattingStore.isStyleActive(style, selStart) || formattingStore.isStyleActive(style, selStart - 1)
+        }
+      if (inherited) pendingStyles.add(style)
     }
   }
 
@@ -1214,9 +1221,10 @@ class EnrichedMarkdownTextInputView(
     }
     // A style toggled at the caret belongs to the old document. The import's caret move is
     // suppressed, so nothing else drops it, and after a send's setValue("") it would style the
-    // next message.
+    // next message. The next keystroke takes what the new caret sits next to, as on iOS and web.
     pendingStyles.clear()
     pendingStyleRemovals.clear()
+    seedPendingStylesFromSelection(selectionStart, selectionEnd)
     syncHintVisibility()
     emitSelectionIfChanged()
   }
