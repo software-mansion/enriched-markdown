@@ -13,6 +13,7 @@
         "src/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/android/**",
         "!$TURBO_ROOT$/packages/react-native-enriched-markdown/android/build/**",
+        "$TURBO_ROOT$/packages/enriched-markdown-android/*/src/main/java/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/src/**",
         "$TURBO_ROOT$/packages/core/cpp/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/package.json"
@@ -51,6 +52,7 @@
         "src/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/android/**",
         "!$TURBO_ROOT$/packages/react-native-enriched-markdown/android/build/**",
+        "$TURBO_ROOT$/packages/enriched-markdown-android/*/src/main/java/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/src/**",
         "$TURBO_ROOT$/packages/core/cpp/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/package.json"

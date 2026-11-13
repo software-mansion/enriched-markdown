@@ -43,6 +43,9 @@ jobs:
               - '.github/**'
             react-native:
               - 'packages/react-native-enriched-markdown/**'
+              # Kotlin sources the RN Android module compiles from the library
+              # (packages/react-native-enriched-markdown/android/shared-sources.txt).
+              - 'packages/enriched-markdown-android/*/src/main/java/**'
               - 'packages/core/**'
               - 'apps/react-native-example/**'
               - 'apps/react-native-web-example/**'
@@ -197,7 +200,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-android-${{ hashFiles('yarn.lock', 'packages/react-native-enriched-markdown/android/**', 'packages/react-native-enriched-markdown/src/**', 'packages/core/cpp/**', 'apps/react-native-example/android/**') }}
+          key: ${{ runner.os }}-turborepo-android-${{ hashFiles('yarn.lock', 'packages/react-native-enriched-markdown/android/**', 'packages/enriched-markdown-android/*/src/main/java/**', 'packages/react-native-enriched-markdown/src/**', 'packages/core/cpp/**', 'apps/react-native-example/android/**') }}
           restore-keys: |
             ${{ runner.os }}-turborepo-android-
 
@@ -318,7 +321,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-rn-android-test-${{ hashFiles('yarn.lock', 'packages/react-native-enriched-markdown/android/**', 'packages/react-native-enriched-markdown/src/**', 'packages/core/cpp/**', 'apps/react-native-example/android/**') }}
+          key: ${{ runner.os }}-turborepo-rn-android-test-${{ hashFiles('yarn.lock', 'packages/react-native-enriched-markdown/android/**', 'packages/enriched-markdown-android/*/src/main/java/**', 'packages/react-native-enriched-markdown/src/**', 'packages/core/cpp/**', 'apps/react-native-example/android/**') }}
           restore-keys: |
             ${{ runner.os }}-turborepo-rn-android-test-
 
