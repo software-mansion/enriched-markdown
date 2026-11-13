@@ -224,6 +224,8 @@ type PendingRequest<T> = {
   reject: (error: Error) => void;
 };
 
+const PRESS_DRAG_DISTANCE = 10;
+
 function getNativeRef(ref: React.RefObject<NativeRef | null>): NativeRef {
   if (ref.current == null) {
     throw new Error(
@@ -510,6 +512,9 @@ export const EnrichedMarkdownTextInput = ({
     onBlur?.();
   }, [onBlur]);
 
+  const pressStart = useRef({ pageX: 0, pageY: 0 });
+  const pressDragged = useRef(false);
+
   /**
    * React Native TextInput attaches usePressability to the native host so taps
    * claim the JS touch responder and ancestor Pressable handlers do not also
@@ -523,7 +528,7 @@ export const EnrichedMarkdownTextInput = ({
       hitSlop,
       onPress: (event: GestureResponderEvent) => {
         onPress?.(event);
-        if (editable !== false) {
+        if (editable !== false && !pressDragged.current) {
           // Same call TextInput's host focus() makes. A tap on the text view
           // focuses it natively, which makes this a no-op; it matters when the
           // press lands outside the native view, e.g. in the hitSlop area.
@@ -531,6 +536,13 @@ export const EnrichedMarkdownTextInput = ({
         }
       },
       onPressIn,
+      onPressMove: (event: GestureResponderEvent) => {
+        const { pageX, pageY } = event.nativeEvent;
+        const start = pressStart.current;
+        pressDragged.current ||=
+          Math.hypot(pageX - start.pageX, pageY - start.pageY) >
+          PRESS_DRAG_DISTANCE;
+      },
       onPressOut,
     }),
     [
@@ -552,8 +564,19 @@ export const EnrichedMarkdownTextInput = ({
     onBlur: _onBlur,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     onFocus: _onFocus,
+    onResponderGrant,
     ...pressabilityHandlers
   } = usePressability(pressabilityConfig) ?? {};
+
+  const handleResponderGrant = useCallback(
+    (event: GestureResponderEvent) => {
+      const { pageX, pageY } = event.nativeEvent;
+      pressStart.current = { pageX, pageY };
+      pressDragged.current = false;
+      return onResponderGrant?.(event);
+    },
+    [onResponderGrant]
+  );
 
   const handleRequestMarkdownResult = useCallback(
     (e: NativeSyntheticEvent<OnRequestMarkdownResultEvent>) => {
@@ -713,6 +736,7 @@ export const EnrichedMarkdownTextInput = ({
       hitSlop={hitSlop}
       {...rest}
       {...pressabilityHandlers}
+      onResponderGrant={handleResponderGrant}
     />
   );
 };

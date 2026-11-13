@@ -556,7 +556,7 @@ The input registers with React Native's text-input focus tracking (`TextInput.St
 
 ### `onPress`, `onPressIn`, `onPressOut` {#onpress}
 
-Fire for taps on the input, like the same props on React Native [`TextInput`](https://reactnative.dev/docs/textinput#onpressin). The input claims the JS touch responder, so a tap that focuses it does **not** also fire the `onPress` of an ancestor [`Pressable`](https://reactnative.dev/docs/pressable). After `onPress` runs the input focuses itself - unless [`editable`](#editable) is `false` - without moving the selection.
+Fire for taps on the input, like the same props on React Native [`TextInput`](https://reactnative.dev/docs/textinput#onpressin). The input claims the JS touch responder, so a tap that focuses it does **not** also fire the `onPress` of an ancestor [`Pressable`](https://reactnative.dev/docs/pressable). After `onPress` runs the input focuses itself - unless [`editable`](#editable) is `false` - without moving the selection. A drag is not a tap: if the finger moves more than 10 points, the input does not focus itself, so a scroll that starts on the input leaves the keyboard dismissed.
 
 <PropInfo type="(event: GestureResponderEvent) => unknown" typeHref="https://reactnative.dev/docs/pressevent" />
 
