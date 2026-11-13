@@ -37,10 +37,8 @@ sealed interface RenderedSegment {
   ) : RenderedSegment
 
   data class Table(
-    val node: MarkdownASTNode,
+    val table: RenderedTable,
     override val signature: Long,
-    val imageRequestHeaders: Map<String, String> = emptyMap(),
-    val plugins: PluginSnapshot,
   ) : RenderedSegment
 
   data class CodeBlock(
@@ -109,7 +107,10 @@ object MarkdownSegmentRenderer {
 
         is MarkdownSegment.Table -> {
           val signature = SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.TABLE_KIND_SALT
-          RenderedSegment.Table(segment.node, signature, imageRequestHeaders, plugins)
+          RenderedSegment.Table(
+            RenderedTable.render(segment.node, style, context, imageRequestHeaders, plugins, onPluginEvent),
+            signature,
+          )
         }
 
         is MarkdownSegment.CodeBlock -> {
