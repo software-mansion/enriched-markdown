@@ -1,0 +1,13 @@
+{
+  "description": "Behavior of the reference that the module reproduces and that looks wrong. Pinned so that a change to any of them is a decision: 'chain' cases list the markdown after each round trip until it stops changing, 'model' cases the markdown written for an editor model and what loads back from it.",
+  "cases": [
+    {"kind": "chain", "description": "A code block keeps the trailing whitespace of its lines as text; the paragraph it turns into on the next import loses it, so the document settles one round trip later.", "markdown": "```\na \n```", "trips": ["a ", "a"]},
+    {"kind": "chain", "description": "A dropped empty heading leaves its line break, which the next import drops as a trailing empty line.", "markdown": "- a\n#", "trips": ["- a\n", "- a"]},
+    {"kind": "chain", "description": "A thematic break leaves the empty lines around it, which the next import drops as trailing ones.", "markdown": "a\n\n---", "trips": ["a\n\n", "a"]},
+    {"kind": "chain", "description": "md4c reads the line after an empty first list item as the item's own text, so the empty item is lost on import and the item takes the heading's or the other item's text.", "markdown": "- \n1. x", "trips": ["- x"]},
+    {"kind": "model", "description": "The same, from the editor: an empty first bullet above a paragraph is saved as '- ' and loads as one bullet holding the paragraph.", "text": "\nfoo", "ranges": [], "blocks": [["ul", 0, 0, 0]], "markdown": "- \nfoo", "parsedText": "foo", "parsedBlocks": 1},
+    {"kind": "model", "description": "Leading whitespace is kept as text by swapping it for private-use characters md4c reads as word characters. A '~~' right after them cannot open, while the serializer judges it against the space, so the style is lost and its delimiters become text.", "text": "   7", "ranges": [["strikethrough", 3, 4]], "blocks": [], "markdown": "   ~~7~~", "parsedText": "   ~~7~~"},
+    {"kind": "model", "description": "The same for '**' in front of punctuation, which needs whitespace or punctuation before it.", "text": "   ,x", "ranges": [["strong", 3, 5]], "blocks": [], "markdown": "   **,x**", "parsedText": "   **,x**"},
+    {"kind": "model", "description": "A line ending in a link destination is written percent-encoded, as the destination has no form for it, and loads that way.", "text": "docs", "ranges": [["link", 0, 4, "a\nb"]], "blocks": [], "markdown": "[docs](a%0Ab)", "parsedText": "docs", "parsedLinks": ["a%0Ab"]}
+  ]
+}

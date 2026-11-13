@@ -117,6 +117,14 @@ echo "==> Checking the streaming filter's cost per tick"
   "$CPP_ROOT/parser/BlockKinds.cpp" -o "$WORK/streaming-filter-bench"
 "$WORK/streaming-filter-bench"
 
+echo "==> Checking the input's markdown import and export cost"
+"$CXX_BIN" -O2 -std=c++17 -Wall -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" -I "$CPP_ROOT/input" \
+  "$TESTS_DIR/input_bench.cpp" \
+  "$CPP_ROOT"/input/*.cpp \
+  "$CPP_ROOT/parser/MD4CParser.cpp" \
+  "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/input-bench"
+"$WORK/input-bench"
+
 echo "==> Checking the vendored parser's exported symbols"
 if command -v nm >/dev/null 2>&1; then
   # Some platforms (e.g. MacOS) prefix C symbols with an underscore.

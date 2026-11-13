@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(enriched_markdown_core_tests CXX)
+project(enriched_markdown_core_tests CXX C)
 
 # Host-only unit tests for the shared C++ core. Not part of any app build.
 #
@@ -9,7 +9,7 @@ project(enriched_markdown_core_tests CXX)
 #
 # or simply `yarn core:test` from the repo root.
 #
-# Layout: one subdirectory per area of the core (repair/, latex/, later
+# Layout: one subdirectory per area of the core (repair/, latex/, input/, later
 # parser/, highlight/ ...), each compiled into its own test executable by
 # add_core_test() below, all sharing TestMain.cpp.
 
@@ -73,7 +73,22 @@ add_library(enriched_markdown_latex STATIC ${LATEX_SOURCES})
 target_include_directories(enriched_markdown_latex PUBLIC "${CPP_ROOT}/latex")
 target_compile_options(enriched_markdown_latex PRIVATE -Wall -Wextra -Wpedantic)
 
+# Markdown import/export of the input: the module itself plus what it parses
+# with, the vendored md4c fork and the AST wrapper around it (compiled the way
+# scripts/test-core-parser.sh does).
+file(GLOB INPUT_SOURCES CONFIGURE_DEPENDS "${CPP_ROOT}/input/*.cpp")
+set(ENRMRKD_SOURCES "${CPP_ROOT}/enrmrkd/enrmrkd.c" "${CPP_ROOT}/enrmrkd/enrmrkd-entity.c")
+set_source_files_properties(${ENRMRKD_SOURCES} PROPERTIES COMPILE_DEFINITIONS ENRMRKD_USE_UTF8=1)
+add_library(enriched_markdown_input STATIC ${INPUT_SOURCES} "${CPP_ROOT}/parser/MD4CParser.cpp" ${ENRMRKD_SOURCES})
+target_include_directories(enriched_markdown_input PUBLIC "${CPP_ROOT}/input" "${CPP_ROOT}/parser")
+target_include_directories(enriched_markdown_input PRIVATE "${CPP_ROOT}/enrmrkd")
+# Warnings for our sources only, not the vendored parser's.
+set_source_files_properties(${INPUT_SOURCES} PROPERTIES COMPILE_OPTIONS "-Wall;-Wextra;-Wpedantic")
+set_target_properties(enriched_markdown_input PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)
+
 # --- Test areas --------------------------------------------------------------
 
 add_core_test(repair enriched_markdown_repair)
 add_core_test(latex enriched_markdown_latex)
+add_core_test(input enriched_markdown_input)
+target_compile_definitions(input_tests PRIVATE INPUT_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/input")
