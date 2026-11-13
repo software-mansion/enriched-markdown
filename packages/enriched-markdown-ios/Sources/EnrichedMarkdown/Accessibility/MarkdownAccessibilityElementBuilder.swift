@@ -11,7 +11,7 @@ struct MarkdownAccessibilityElementSpec: Equatable {
         /// `link` is the wrapping link's target for `[![alt](img)](url)`.
         case image(link: URL?)
         /// One fenced block; the label is the code itself.
-        case codeBlock(copyAction: String, language: String?)
+        case codeBlock(copyAction: String?, language: String?)
         case tableRow(offset: CGFloat, height: CGFloat, isHeader: Bool)
     }
 
@@ -97,8 +97,9 @@ struct MarkdownAccessibilityElementBuilder {
     private mutating func appendCodeBlockSpec(for range: NSRange) {
         guard let (visible, code) = visibleText(in: range) else { return }
         let language = attribute(MarkdownAttribute.codeBlockLanguage, at: range.location) as? String
+        let isPending = MarkdownAttributeValue.boolValue(from: attribute(MarkdownAttribute.codeBlockPending, at: range.location))
         specs.append(MarkdownAccessibilityElementSpec(
-            kind: .codeBlock(copyAction: labels.codeBlock.copy, language: language),
+            kind: .codeBlock(copyAction: isPending ? nil : labels.codeBlock.copy, language: language),
             label: code,
             range: visible,
             headingLevel: nil,
@@ -219,7 +220,7 @@ struct MarkdownAccessibilityElementBuilder {
         case .codeBlock(let range, let code):
             guard !code.code.isEmpty else { return }
             specs.append(MarkdownAccessibilityElementSpec(
-                kind: .codeBlock(copyAction: labels.codeBlock.copy, language: code.language),
+                kind: .codeBlock(copyAction: code.isPending ? nil : labels.codeBlock.copy, language: code.language),
                 label: code.code,
                 range: range,
                 headingLevel: nil,

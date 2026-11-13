@@ -263,6 +263,14 @@ extension MarkdownTextViewTests {
         return scrollView
     }
 
+    private func scrollViewInWindow(showing textView: MarkdownTextView) -> UIScrollView {
+        let scrollView = scrollViewInWindow()
+        scrollView.addSubview(textView)
+        scrollView.contentSize = textView.bounds.size
+        textView.layoutIfNeeded()
+        return scrollView
+    }
+
     private func decorationFrames(of textView: MarkdownTextView) -> [CGRect] {
         textView.subviews.compactMap { $0 as? MarkdownDecorationView }.map(\.frame)
     }
@@ -270,7 +278,7 @@ extension MarkdownTextViewTests {
     func testDecorationsCoverTheDocumentOutsideAScrollView() {
         let textView = listTextView(items: 400)
 
-        XCTAssertGreaterThan(textView.bounds.height, MarkdownTextView.decorationTileMargin * 3)
+        XCTAssertGreaterThan(textView.bounds.height, MarkdownViewport.margin * 3)
         XCTAssertEqual(decorationFrames(of: textView), [textView.bounds, textView.bounds])
     }
 
@@ -284,12 +292,9 @@ extension MarkdownTextViewTests {
 
     func testDecorationsTileTheVisibleRegionOfTheScrollView() {
         let textView = listTextView(items: 400)
-        let scrollView = scrollViewInWindow()
-        scrollView.addSubview(textView)
-        scrollView.contentSize = textView.bounds.size
-        textView.layoutIfNeeded()
+        let scrollView = scrollViewInWindow(showing: textView)
 
-        let margin = MarkdownTextView.decorationTileMargin
+        let margin = MarkdownViewport.margin
         let initial = CGRect(x: 0, y: 0, width: 390, height: 844 + margin)
         XCTAssertEqual(decorationFrames(of: textView), [initial, initial])
 
@@ -314,7 +319,7 @@ extension MarkdownTextViewTests {
 
     /// The tile around the visible region of a scroll view at `offset`.
     private func tile(scrolledTo offset: CGFloat) -> CGRect {
-        let margin = MarkdownTextView.decorationTileMargin
+        let margin = MarkdownViewport.margin
         return CGRect(x: 0, y: offset - margin, width: 390, height: 844 + margin * 2)
     }
 
@@ -356,6 +361,58 @@ extension MarkdownTextViewTests {
         plain.addSubview(container)
         window.layoutIfNeeded()
         XCTAssertEqual(decorationFrames(of: textView), [textView.bounds, textView.bounds])
+    }
+
+    func testTextLayoutViewportIsTheTile() throws {
+        let textView = listTextView(items: 400)
+        let controller = try XCTUnwrap(textView.textLayoutManager?.textViewportLayoutController)
+        XCTAssertEqual(controller.viewportBounds, textView.bounds)
+
+        let scrollView = scrollViewInWindow(showing: textView)
+        XCTAssertEqual(controller.viewportBounds, tile(scrolledTo: 0).intersection(textView.bounds))
+
+        scrollView.contentOffset = CGPoint(x: 0, y: 4000)
+        textView.layoutIfNeeded()
+        XCTAssertEqual(controller.viewportBounds, tile(scrolledTo: 4000))
+    }
+
+    func testTextLayoutDelegateIsWrappedAgainWhenReplaced() throws {
+        let textView = listTextView(items: 5)
+        let controller = try XCTUnwrap(textView.textLayoutManager?.textViewportLayoutController)
+        let installed = try XCTUnwrap(controller.delegate as? TextViewportDelegateProxy)
+        let replacement = try XCTUnwrap(MarkdownTextView().textLayoutManager?.textViewportLayoutController.delegate)
+
+        controller.delegate = replacement
+        textView.setNeedsLayout()
+        textView.layoutIfNeeded()
+
+        let rewrapped = try XCTUnwrap(controller.delegate as? TextViewportDelegateProxy)
+        XCTAssertNotIdentical(rewrapped, installed)
+        XCTAssertTrue(rewrapped.responds(to: #selector(UIView.setNeedsLayout)), "the replacement is a view, and the proxy answers for it")
+    }
+
+    func testHostedBlockViewsLeaveTheTileAndComeBack() throws {
+        let filler = (1...60).map { "Paragraph \($0) of filler text that wraps onto two lines on a phone screen." }
+        let markdown = (["```\nlet top = 1\n```"] + filler + ["```\nlet bottom = 2\n```"]).joined(separator: "\n\n")
+        let rendered = MarkdownRenderer.render(markdown, config: .baseline(), codeBlockLayout: .scrollable)
+        let textView = laidOutTextView(showing: rendered)
+        let scrollView = scrollViewInWindow(showing: textView)
+        let blocks = attachments(of: CodeBlockAttachment.self, in: rendered)
+        let top = try XCTUnwrap(blocks.first?.hostedView)
+        let bottom = try XCTUnwrap(blocks.last?.hostedView)
+        XCTAssertNotNil(top.window)
+        XCTAssertNil(bottom.window)
+
+        scrollView.contentOffset = CGPoint(x: 0, y: textView.bounds.height - 844)
+        textView.layoutIfNeeded()
+        XCTAssertNil(top.window)
+        XCTAssertNotNil(bottom.window)
+
+        scrollView.contentOffset = .zero
+        textView.layoutIfNeeded()
+        XCTAssertIdentical(blocks.first?.hostedView, top)
+        XCTAssertNotNil(top.window)
+        XCTAssertNil(bottom.window)
     }
 
     /// The decoration views are subviews of a scroll view, so their frames

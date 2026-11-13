@@ -30,14 +30,6 @@ final class MathBlockViewTests: XCTestCase {
         return view
     }
 
-    private func findBlockView(in view: UIView) -> MathBlockView? {
-        if let block = view as? MathBlockView { return block }
-        for subview in view.subviews {
-            if let found = findBlockView(in: subview) { return found }
-        }
-        return nil
-    }
-
     // MARK: - Attachment
 
     func testOnlyBlockMathDeclaresTheProviderFileType() {
@@ -66,17 +58,15 @@ final class MathBlockViewTests: XCTestCase {
         XCTAssertEqual(view.formulaView.frame.origin, CGPoint(x: 12, y: 12), "starts at the inset")
     }
 
-    func testScrollOffsetSurvivesViewRecreation() {
-        let attachment = blockAttachment()
-        let first = layoutView(attachment, width: 50)
-        first.scrollView.contentOffset = CGPoint(x: 10, y: 0)
-        XCTAssertEqual(attachment.preservedContentOffset.x, 10)
+    func testUpdatedBlockKeepsItsScrollOffset() {
+        let view = layoutView(blockAttachment(), width: 50)
+        view.scrollView.contentOffset = CGPoint(x: 10, y: 0)
 
-        XCTAssertEqual(layoutView(attachment, width: 50).scrollView.contentOffset.x, 10)
-
-        attachment.preservedContentOffset = CGPoint(x: 100, y: 0)
-        XCTAssertEqual(layoutView(attachment, width: 50).scrollView.contentOffset.x, 14, "clamped to the overflow")
-        XCTAssertEqual(layoutView(attachment, width: 300).scrollView.contentOffset.x, 0, "a fitting formula does not scroll")
+        view.update(to: blockAttachment(background: .systemRed))
+        view.layoutIfNeeded()
+        XCTAssertEqual(view.scrollView.contentOffset.x, 10)
+        XCTAssertEqual(view.backgroundColor, .systemRed)
+        XCTAssertEqual(view.formulaView.frame.origin, CGPoint(x: 12, y: 12))
     }
 
     // MARK: - Text view integration
@@ -95,23 +85,13 @@ final class MathBlockViewTests: XCTestCase {
             plugins: [LaTeXRenderPlugin(typeset: { _, _, _, _ in wide })]
         )
 
-        let textView = MarkdownTextView()
-        textView.styleConfig = config
-        textView.frame = CGRect(x: 0, y: 0, width: 380, height: 10)
+        let (window, textView) = hostedTextView(config: config)
+        defer { window.isHidden = true }
         textView.setMarkdownAttributedText(rendered)
+        settle(textView)
 
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 380, height: 1000))
-        window.addSubview(textView)
-        window.makeKeyAndVisible()
-        let fitted = textView.sizeThatFits(CGSize(width: 380, height: CGFloat.greatestFiniteMagnitude))
-        textView.frame.size.height = fitted.height
-        textView.layoutIfNeeded()
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.3))
-        textView.layoutIfNeeded()
-
-        let blockView = findBlockView(in: textView)
+        let blockView = textView.firstSubview(of: MathBlockView.self)
         XCTAssertNotNil(blockView)
         XCTAssertEqual(blockView?.bounds.width, textView.textContainer.size.width - textView.textContainer.lineFragmentPadding * 2)
-        window.isHidden = true
     }
 }

@@ -14,12 +14,6 @@ final class SpoilerOverlayManager {
         let index: Int
     }
 
-    private struct Segment {
-        let frame: CGRect
-        let range: NSRange
-        let baseline: CGFloat
-    }
-
     /// An overlay and the slice of text it was built from, as stored in
     /// the text view. That is the manager's bookkeeping, so it lives here
     /// rather than on the view.
@@ -90,7 +84,7 @@ final class SpoilerOverlayManager {
         var desired = Set<OverlayKey>()
 
         for range in SpoilerInteraction.concealedRanges(in: textView.textStorage) {
-            let segments = lineSegments(of: range, in: textView)
+            let segments = TextLayoutHelpers.lineSegments(of: range, in: textView)
             for (index, segment) in segments.enumerated() {
                 let key = OverlayKey(range: range, index: index)
                 desired.insert(key)
@@ -105,18 +99,9 @@ final class SpoilerOverlayManager {
         textChanged = false
     }
 
-    private func lineSegments(of range: NSRange, in textView: UITextView) -> [Segment] {
-        var segments: [Segment] = []
-        TextLayoutHelpers.enumerateSegmentFrames(of: range, in: textView) { frame, segmentRange, baseline in
-            guard frame.width > 0, frame.height > 0 else { return }
-            segments.append(Segment(frame: frame, range: segmentRange, baseline: baseline))
-        }
-        return segments
-    }
-
     /// Moves the overlay at `key` onto `segment` when it still shows it, and
     /// otherwise replaces it with a new one from the provider.
-    private func place(_ segment: Segment, at key: OverlayKey, segmentCount: Int, in textView: UITextView) {
+    private func place(_ segment: TextLayoutHelpers.LineSegment, at key: OverlayKey, segmentCount: Int, in textView: UITextView) {
         if let placed = overlays[key] {
             // A revealing overlay keeps its slot until its animation completes.
             guard !placed.view.isRevealing else { return }
@@ -148,7 +133,7 @@ final class SpoilerOverlayManager {
     /// view draws, so the check skips building one. Attachments compare by
     /// identity, so a spoiler holding an inline image is replaced whenever
     /// the text is replaced.
-    private func shows(_ placed: PlacedOverlay, _ segment: Segment, in textStorage: NSTextStorage) -> Bool {
+    private func shows(_ placed: PlacedOverlay, _ segment: TextLayoutHelpers.LineSegment, in textStorage: NSTextStorage) -> Bool {
         let view = placed.view
         let tolerance = Self.layoutTolerance
         guard placed.segmentRange == segment.range,

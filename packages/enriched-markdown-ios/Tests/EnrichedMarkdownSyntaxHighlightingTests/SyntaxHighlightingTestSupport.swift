@@ -14,6 +14,16 @@ extension XCTestCase {
         )
     }
 
+    func attachments<Attachment: NSTextAttachment>(of type: Attachment.Type, in text: NSAttributedString) -> [Attachment] {
+        var found: [Attachment] = []
+        text.enumerateAttribute(.attachment, in: NSRange(location: 0, length: text.length)) { value, _, _ in
+            if let attachment = value as? Attachment {
+                found.append(attachment)
+            }
+        }
+        return found
+    }
+
     func hex(_ color: UIColor?) -> UInt32? {
         var red: CGFloat = 0
         var green: CGFloat = 0

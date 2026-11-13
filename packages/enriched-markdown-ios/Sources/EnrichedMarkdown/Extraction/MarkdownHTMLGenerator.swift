@@ -27,6 +27,19 @@ enum MarkdownHTMLGenerator {
     static func generateHTML(
         from attributedText: NSAttributedString,
         in range: NSRange,
+        config: MarkdownStyleConfiguration,
+        traitCollection: UITraitCollection = .current
+    ) -> String {
+        var html = ""
+        traitCollection.performAsCurrent {
+            html = self.html(from: attributedText, in: range, config: config)
+        }
+        return html
+    }
+
+    private static func html(
+        from attributedText: NSAttributedString,
+        in range: NSRange,
         config: MarkdownStyleConfiguration
     ) -> String {
         guard range.location != NSNotFound,

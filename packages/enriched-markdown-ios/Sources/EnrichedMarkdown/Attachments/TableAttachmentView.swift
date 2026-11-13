@@ -1,31 +1,6 @@
 import UIKit
 
-/// TextKit 2 creates and destroys providers with viewport layout, so all
-/// state lives on the attachment.
-final class TableAttachmentViewProvider: NSTextAttachmentViewProvider {
-    override init(
-        textAttachment: NSTextAttachment,
-        parentView: UIView?,
-        textLayoutManager: NSTextLayoutManager?,
-        location: NSTextLocation
-    ) {
-        super.init(
-            textAttachment: textAttachment,
-            parentView: parentView,
-            textLayoutManager: textLayoutManager,
-            location: location
-        )
-        tracksTextAttachmentViewBounds = true
-    }
-
-    override func loadView() {
-        guard let attachment = textAttachment as? TableAttachment else {
-            view = UIView()
-            return
-        }
-        view = TableAttachmentView(attachment: attachment)
-    }
-
+final class TableAttachmentViewProvider: HostedBlockViewProvider {
     override func attachmentBounds(
         for attributes: [NSAttributedString.Key: Any],
         location: NSTextLocation,
@@ -38,30 +13,45 @@ final class TableAttachmentViewProvider: NSTextAttachmentViewProvider {
     }
 }
 
-final class TableAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInteractionDelegate {
+final class TableAttachmentView: UIView, UIContextMenuInteractionDelegate, StreamingBlockView {
+    private struct PendingFade {
+        let rows: [Int]
+        let transition: any ViewTransition
+    }
+
+    private final class FadeOverlay: UIImageView {
+        let row: Int
+
+        init(image: UIImage, row: Int) {
+            self.row = row
+            super.init(image: image)
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+    }
+
+    var owner: ObjectIdentifier?
     private let scrollView = HorizontalBlockScrollView()
     private let gridView: TableGridView
-    private let attachment: TableAttachment
-    private var didRestoreOffset = false
+    private weak var attachment: TableAttachment?
+    private var pendingFades: [PendingFade] = []
+
+    private var overlays: [FadeOverlay] {
+        scrollView.subviews.compactMap { $0 as? FadeOverlay }
+    }
 
     init(attachment: TableAttachment) {
         self.attachment = attachment
-        self.gridView = TableGridView(
-            model: attachment.model,
-            layout: attachment.layout,
-            style: attachment.style
-        )
+        gridView = TableGridView(model: attachment.model, layout: attachment.layout, style: attachment.style)
         super.init(frame: .zero)
 
         scrollView.showsVerticalScrollIndicator = false
         scrollView.showsHorizontalScrollIndicator = true
         scrollView.alwaysBounceVertical = false
-        scrollView.delegate = self
         addSubview(scrollView)
-
-        gridView.backgroundColor = .clear
-        gridView.layer.cornerRadius = attachment.style.cornerRadius
-        gridView.layer.masksToBounds = true
         scrollView.addSubview(gridView)
 
         gridView.addGestureRecognizer(
@@ -75,15 +65,79 @@ final class TableAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInte
         fatalError("init(coder:) has not been implemented")
     }
 
+    func update(to attachment: TableAttachment, transition: (any ViewTransition)?) {
+        let previousRows = gridView.model.rows.count
+        let extends = Self.rows(of: attachment.model, extend: gridView.model)
+        let layoutChanged = attachment.layout != gridView.layout
+        self.attachment = attachment
+        if !extends {
+            discardFades()
+        }
+        gridView.update(model: attachment.model, layout: attachment.layout, style: attachment.style)
+        if layoutChanged {
+            for overlay in overlays {
+                overlay.image = gridView.textImage(ofRow: overlay.row, traits: traitCollection)
+                overlay.bounds.size = gridView.rowRect(overlay.row).size
+            }
+        }
+        if let transition {
+            fadeIn(rows: Array((extends ? previousRows : 0)..<attachment.model.rows.count), with: transition)
+        }
+        setNeedsLayout()
+    }
+
+    func animateContentIn(with transition: any ViewTransition) {
+        guard overlays.isEmpty, pendingFades.isEmpty else { return }
+        fadeIn(rows: Array(gridView.model.rows.indices), with: transition)
+    }
+
+    private static func rows(of new: TableModel, extend old: TableModel) -> Bool {
+        new.rows.count >= old.rows.count && zip(old.rows, new.rows).allSatisfy { old, new in
+            old.count == new.count && zip(old, new).allSatisfy { $0.plainText == $1.plainText }
+        }
+    }
+
+    private func fadeIn(rows: [Int], with transition: any ViewTransition) {
+        guard !rows.isEmpty else { return }
+        gridView.concealedRows.formUnion(rows)
+        gridView.setNeedsDisplay()
+        pendingFades.append(PendingFade(rows: rows, transition: transition))
+        setNeedsLayout()
+    }
+
+    private func discardFades() {
+        overlays.forEach { $0.removeFromSuperview() }
+        pendingFades.removeAll()
+        gridView.concealedRows.removeAll()
+        gridView.setNeedsDisplay()
+    }
+
+    private func placePendingFades() {
+        for fade in pendingFades {
+            for row in fade.rows {
+                let overlay = FadeOverlay(image: gridView.textImage(ofRow: row, traits: traitCollection), row: row)
+                overlay.frame = gridView.convert(gridView.rowRect(row), to: scrollView)
+                scrollView.addSubview(overlay)
+                fade.transition.animate(overlay) { [weak self] in
+                    guard overlay.superview != nil else { return }
+                    overlay.removeFromSuperview()
+                    self?.gridView.concealedRows.remove(row)
+                    self?.gridView.setNeedsDisplay()
+                }
+            }
+        }
+        pendingFades.removeAll()
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
-        let layout = attachment.layout
         scrollView.frame = bounds
 
+        let layout = gridView.layout
         let fits = layout.totalWidth <= bounds.width
         let alignOffset: CGFloat
         if fits {
-            switch attachment.style.alignment {
+            switch gridView.style.alignment {
             case .leading: alignOffset = 0
             case .center: alignOffset = (bounds.width - layout.totalWidth) / 2
             case .trailing: alignOffset = bounds.width - layout.totalWidth
@@ -104,19 +158,11 @@ final class TableAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInte
         )
         scrollView.isScrollEnabled = !fits
 
-        if !didRestoreOffset, bounds.width > 0 {
-            didRestoreOffset = true
-            if !fits {
-                let maxOffset = layout.totalWidth - bounds.width
-                let restored = min(max(attachment.preservedContentOffset.x, 0), maxOffset)
-                scrollView.contentOffset = CGPoint(x: restored, y: 0)
-            }
+        for overlay in overlays {
+            let rect = gridView.convert(gridView.rowRect(overlay.row), to: scrollView)
+            overlay.center = CGPoint(x: rect.midX, y: rect.midY)
         }
-    }
-
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        guard didRestoreOffset else { return }
-        attachment.preservedContentOffset = scrollView.contentOffset
+        placePendingFades()
     }
 
     // MARK: - Link taps
@@ -143,7 +189,7 @@ final class TableAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInte
         _ interaction: UIContextMenuInteraction,
         configurationForMenuAtLocation location: CGPoint
     ) -> UIContextMenuConfiguration? {
-        let attachment = self.attachment
+        guard let attachment else { return nil }
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { _ in
             let copy = UIAction(
                 title: "Copy",
@@ -165,9 +211,10 @@ final class TableAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInte
 /// Draws the whole grid in one pass; cell rects overlap by one border width
 /// so adjacent strokes coincide.
 final class TableGridView: UIView {
-    private let model: TableModel
-    private let layout: TableAttachmentLayout
-    private let style: TableAttachmentStyle
+    private(set) var model: TableModel
+    private(set) var layout: TableAttachmentLayout
+    private(set) var style: TableAttachmentStyle
+    var concealedRows: Set<Int> = []
 
     init(model: TableModel, layout: TableAttachmentLayout, style: TableAttachmentStyle) {
         self.model = model
@@ -175,11 +222,42 @@ final class TableGridView: UIView {
         self.style = style
         super.init(frame: .zero)
         isOpaque = false
+        backgroundColor = .clear
+        layer.cornerRadius = style.cornerRadius
+        layer.masksToBounds = true
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    func update(model: TableModel, layout: TableAttachmentLayout, style: TableAttachmentStyle) {
+        guard model != self.model || layout != self.layout || style != self.style else { return }
+        self.model = model
+        self.layout = layout
+        self.style = style
+        layer.cornerRadius = style.cornerRadius
+        setNeedsDisplay()
+    }
+
+    func rowRect(_ row: Int) -> CGRect {
+        CGRect(
+            x: 0,
+            y: layout.rowHeights[..<row].reduce(0, +),
+            width: layout.totalWidth,
+            height: layout.rowHeights[row]
+        )
+    }
+
+    func textImage(ofRow row: Int, traits: UITraitCollection) -> UIImage {
+        let format = UIGraphicsImageRendererFormat.default()
+        format.preferredRange = .standard
+        return UIGraphicsImageRenderer(size: rowRect(row).size, format: format).image { _ in
+            traits.performAsCurrent {
+                drawText(ofRow: row, yOffset: 0)
+            }
+        }
     }
 
     override func draw(_ rect: CGRect) {
@@ -210,17 +288,26 @@ final class TableGridView: UIView {
                 context.setStrokeColor(style.borderColor.cgColor)
                 context.setLineWidth(style.borderWidth)
                 context.stroke(cellRect)
-
-                if column < row.count {
-                    row[column].attributedText.draw(
-                        with: textRect(column: column, xOffset: xOffset, yOffset: yOffset, rowHeight: rowHeight),
-                        options: [.usesLineFragmentOrigin, .usesFontLeading],
-                        context: nil
-                    )
-                }
                 xOffset += columnWidth
             }
+            if !concealedRows.contains(rowIndex) {
+                drawText(ofRow: rowIndex, yOffset: yOffset)
+            }
             yOffset += rowHeight
+        }
+    }
+
+    private func drawText(ofRow rowIndex: Int, yOffset: CGFloat) {
+        let row = model.rows[rowIndex]
+        let rowHeight = layout.rowHeights[rowIndex]
+        var xOffset: CGFloat = 0
+        for column in 0..<min(row.count, model.columnCount) {
+            row[column].attributedText.draw(
+                with: textRect(column: column, xOffset: xOffset, yOffset: yOffset, rowHeight: rowHeight),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                context: nil
+            )
+            xOffset += layout.columnWidths[column]
         }
     }
 

@@ -9,13 +9,6 @@ public protocol SpoilerOverlayProvider: Equatable, Sendable {
     func makeOverlay(charRange: NSRange, style: SpoilerStyle) -> SpoilerOverlayView
 }
 
-extension SpoilerOverlayProvider {
-    func isEqual(to other: any SpoilerOverlayProvider) -> Bool {
-        guard let other = other as? Self else { return false }
-        return self == other
-    }
-}
-
 /// An animated particle field, the default. Colors come from the `Spoiler()`
 /// theme element; the field's tuning is the provider's own.
 public struct ParticleSpoilerOverlayProvider: SpoilerOverlayProvider {

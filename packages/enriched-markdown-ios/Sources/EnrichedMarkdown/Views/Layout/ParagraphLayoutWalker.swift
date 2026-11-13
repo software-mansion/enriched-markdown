@@ -106,12 +106,10 @@ enum ParagraphLayoutWalker {
         }
 
         /// The fragment with its layout done. That is normally already so: a
-        /// tile lies inside the text view's bounds, which is the TextKit viewport
-        /// of a text view that does not scroll, and Core Animation lays that
-        /// viewport out before it displays the decoration views. A host that
-        /// draws earlier, or a scrolling text view asked about a region outside
-        /// its viewport, gets the fragment laid out here, at the price of a walk
-        /// from the document start; before that its frame and lines are empty.
+        /// tile is the TextKit viewport, laid out before the decoration views
+        /// display, and TextKit keeps the layout of fragments that left it.
+        /// Otherwise it is laid out here, at the price of a walk from the
+        /// document start; before that its frame and lines are empty.
         func laidOut(_ fragment: NSTextLayoutFragment) -> NSTextLayoutFragment {
             guard fragment.state != .layoutAvailable else { return fragment }
             textLayoutManager.ensureLayout(for: fragment.rangeInElement)

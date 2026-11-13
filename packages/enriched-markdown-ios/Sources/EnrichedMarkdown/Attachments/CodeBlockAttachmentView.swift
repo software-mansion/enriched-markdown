@@ -1,31 +1,6 @@
 import UIKit
 
-final class CodeBlockAttachmentViewProvider: NSTextAttachmentViewProvider {
-    override init(
-        textAttachment: NSTextAttachment,
-        parentView: UIView?,
-        textLayoutManager: NSTextLayoutManager?,
-        location: NSTextLocation
-    ) {
-        super.init(
-            textAttachment: textAttachment,
-            parentView: parentView,
-            textLayoutManager: textLayoutManager,
-            location: location
-        )
-        tracksTextAttachmentViewBounds = true
-    }
-
-    override func loadView() {
-        guard let attachment = textAttachment as? CodeBlockAttachment else {
-            view = UIView()
-            return
-        }
-        let hosted = attachment.hostedView ?? CodeBlockAttachmentView(attachment: attachment)
-        attachment.hostedView = hosted
-        view = hosted
-    }
-
+final class CodeBlockAttachmentViewProvider: HostedBlockViewProvider {
     override func attachmentBounds(
         for attributes: [NSAttributedString.Key: Any],
         location: NSTextLocation,
@@ -38,55 +13,74 @@ final class CodeBlockAttachmentViewProvider: NSTextAttachmentViewProvider {
     }
 }
 
-final class CodeBlockAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInteractionDelegate {
+final class CodeBlockAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInteractionDelegate, StreamingBlockView {
+    private struct Content {
+        let style: CodeBlockAttachmentStyle
+        let layout: CodeBlockAttachmentLayout
+        let code: String
+        let language: String?
+        let displayLanguage: String?
+        let isPending: Bool
+        let attributedCode: NSAttributedString
+
+        init(_ attachment: CodeBlockAttachment) {
+            style = attachment.style
+            layout = attachment.layout
+            code = attachment.code
+            language = attachment.language
+            displayLanguage = attachment.displayLanguage
+            isPending = attachment.isPending
+            attributedCode = attachment.attributedCode
+        }
+    }
+
+    private struct PendingFade {
+        let range: NSRange
+        let transition: any ViewTransition
+    }
+
+    private final class FadeOverlay: UIImageView {
+        let range: NSRange
+
+        init(image: UIImage, range: NSRange) {
+            self.range = range
+            super.init(image: image)
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+    }
+
+    var owner: ObjectIdentifier?
     private weak var attachment: CodeBlockAttachment?
-    private let style: CodeBlockAttachmentStyle
-    private let layout: CodeBlockAttachmentLayout
-    private let code: String
-    private let language: String?
-    private let markdown: String
+    private var content: Content
     private let languageLabel = UILabel()
     private let copyButton = CodeBlockCopyButton(type: .system)
     private let divider = UIView()
     private let scrollView = HorizontalBlockScrollView()
-    private let codeView: CodeBlockContentView
-    private var didRestoreOffset = false
+    private let codeView = CodeBlockContentView()
     private var codeRect = CGRect.zero
     private var tile = CGRect.zero
+    private var pendingFades: [PendingFade] = []
     private weak var enclosingScrollView: UIScrollView?
     private var scrollObservation: NSKeyValueObservation?
 
     static let tileMargin: CGFloat = 400
 
+    private var overlays: [FadeOverlay] {
+        scrollView.subviews.compactMap { $0 as? FadeOverlay }
+    }
+
     init(attachment: CodeBlockAttachment) {
         self.attachment = attachment
-        style = attachment.style
-        layout = attachment.layout
-        code = attachment.code
-        language = attachment.language
-        markdown = attachment.markdownText()
-        self.codeView = CodeBlockContentView(attributedCode: attachment.attributedCode)
+        content = Content(attachment)
         super.init(frame: .zero)
 
-        backgroundColor = style.backgroundColor
-        layer.cornerRadius = style.cornerRadius
-        layer.borderWidth = style.borderWidth
         layer.masksToBounds = true
-
-        languageLabel.font = style.headerFont
-        languageLabel.textColor = style.headerTextColor
-        languageLabel.text = attachment.displayLanguage
         addSubview(languageLabel)
-
-        let symbolConfiguration = UIImage.SymbolConfiguration(
-            pointSize: style.font.pointSize * CodeBlockAttachmentStyle.headerIconScale,
-            weight: .regular
-        )
-        copyButton.setImage(UIImage(systemName: "doc.on.doc", withConfiguration: symbolConfiguration), for: .normal)
-        copyButton.tintColor = style.headerTextColor
         copyButton.addTarget(self, action: #selector(copyCode), for: .touchUpInside)
-
-        divider.backgroundColor = style.dividerColor
         addSubview(divider)
 
         scrollView.showsVerticalScrollIndicator = false
@@ -101,6 +95,9 @@ final class CodeBlockAttachmentView: UIView, UIScrollViewDelegate, UIContextMenu
         addInteraction(UIContextMenuInteraction(delegate: self))
         // VoiceOver reads the block through the text view's own element.
         accessibilityElementsHidden = true
+        applyChrome()
+        copyButton.isEnabled = !content.isPending
+        codeView.replaceCode(with: content.attributedCode)
     }
 
     @available(*, unavailable)
@@ -108,8 +105,93 @@ final class CodeBlockAttachmentView: UIView, UIScrollViewDelegate, UIContextMenu
         fatalError("init(coder:) has not been implemented")
     }
 
+    func update(to attachment: CodeBlockAttachment, transition: (any ViewTransition)?) {
+        let previous = content
+        content = Content(attachment)
+        self.attachment = attachment
+        let appended = Self.appendedRange(from: previous.code, to: content.code)
+        if previous.style != content.style || previous.displayLanguage != content.displayLanguage {
+            applyChrome()
+        }
+        copyButton.isEnabled = !content.isPending
+        if let appended, previous.isPending == content.isPending, previous.style == content.style {
+            codeView.appendCode(content.attributedCode.attributedSubstring(from: appended))
+        } else {
+            if appended == nil {
+                discardFades()
+            }
+            codeView.replaceCode(with: content.attributedCode)
+            for overlay in overlays {
+                codeView.conceal(overlay.range)
+            }
+        }
+        if let transition {
+            fadeIn(appended ?? NSRange(location: 0, length: content.attributedCode.length), with: transition)
+        }
+        setNeedsLayout()
+    }
+
+    func animateContentIn(with transition: any ViewTransition) {
+        guard overlays.isEmpty, pendingFades.isEmpty else { return }
+        fadeIn(NSRange(location: 0, length: content.attributedCode.length), with: transition)
+    }
+
+    private static func appendedRange(from old: String, to new: String) -> NSRange? {
+        guard (new as NSString).hasPrefix(old) else { return nil }
+        let oldLength = (old as NSString).length
+        return NSRange(location: oldLength, length: (new as NSString).length - oldLength)
+    }
+
+    private func applyChrome() {
+        backgroundColor = content.style.backgroundColor
+        layer.cornerRadius = content.style.cornerRadius
+        layer.borderWidth = content.style.borderWidth
+        languageLabel.font = content.style.headerFont
+        languageLabel.textColor = content.style.headerTextColor
+        languageLabel.text = content.displayLanguage
+        let symbolConfiguration = UIImage.SymbolConfiguration(
+            pointSize: content.style.font.pointSize * CodeBlockAttachmentStyle.headerIconScale,
+            weight: .regular
+        )
+        copyButton.setImage(UIImage(systemName: "doc.on.doc", withConfiguration: symbolConfiguration), for: .normal)
+        copyButton.tintColor = content.style.headerTextColor
+        divider.backgroundColor = content.style.dividerColor
+    }
+
+    private func fadeIn(_ range: NSRange, with transition: any ViewTransition) {
+        guard range.length > 0 else { return }
+        pendingFades.append(PendingFade(range: range, transition: transition))
+        setNeedsLayout()
+    }
+
+    private func discardFades() {
+        overlays.forEach { $0.removeFromSuperview() }
+        pendingFades.removeAll()
+    }
+
+    private func placePendingFades() {
+        for fade in pendingFades {
+            for segment in codeView.lineSegments(of: fade.range) {
+                codeView.conceal(segment.range)
+                let slice = TextSlice.standalone(content.attributedCode.attributedSubstring(from: segment.range))
+                let image = TextSlice.image(of: slice, size: segment.frame.size, baseline: segment.baseline, traits: traitCollection)
+                let overlay = FadeOverlay(image: image, range: segment.range)
+                overlay.frame = segment.frame.offsetBy(dx: codeRect.minX, dy: codeRect.minY)
+                scrollView.addSubview(overlay)
+                fade.transition.animate(overlay) { [weak self] in
+                    guard overlay.superview != nil else { return }
+                    overlay.removeFromSuperview()
+                    self?.codeView.reveal(segment.range)
+                }
+            }
+        }
+        pendingFades.removeAll()
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
+        let style = content.style
+        let layout = content.layout
         let border = ceil(style.borderWidth)
         let inset = layout.contentInset
         let headerHeight = layout.headerHeight
@@ -147,15 +229,7 @@ final class CodeBlockAttachmentView: UIView, UIScrollViewDelegate, UIContextMenu
         scrollView.contentSize = CGSize(width: contentWidth, height: pane.height)
         scrollView.isScrollEnabled = contentWidth > pane.width
         updateTile()
-
-        if !didRestoreOffset, bounds.width > 0 {
-            didRestoreOffset = true
-            if scrollView.isScrollEnabled {
-                let maxOffset = contentWidth - pane.width
-                let preserved = attachment?.preservedContentOffset.x ?? 0
-                scrollView.contentOffset = CGPoint(x: min(max(preserved, 0), maxOffset), y: 0)
-            }
-        }
+        placePendingFades()
     }
 
     /// The border is a CGColor, which does not follow appearance changes on its own.
@@ -166,8 +240,6 @@ final class CodeBlockAttachmentView: UIView, UIScrollViewDelegate, UIContextMenu
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         updateTile()
-        guard didRestoreOffset else { return }
-        attachment?.preservedContentOffset = scrollView.contentOffset
     }
 
     override func didMoveToWindow() {
@@ -214,13 +286,14 @@ final class CodeBlockAttachmentView: UIView, UIScrollViewDelegate, UIContextMenu
 
     @objc private func copyCode() {
         if let host = enclosingMarkdownTextView() {
-            host.copyCode(code, language: language)
+            host.copyCode(content.code, language: content.language)
         } else {
-            UIPasteboard.general.string = code
+            UIPasteboard.general.string = content.code
         }
     }
 
     private func copyMarkdown() {
+        guard let markdown = attachment?.markdownText() else { return }
         (enclosingMarkdownTextView()?.pasteboard ?? UIPasteboard.general).string = markdown
     }
 
@@ -228,7 +301,8 @@ final class CodeBlockAttachmentView: UIView, UIScrollViewDelegate, UIContextMenu
         _ interaction: UIContextMenuInteraction,
         configurationForMenuAtLocation location: CGPoint
     ) -> UIContextMenuConfiguration? {
-        UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+        guard !content.isPending else { return nil }
+        return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
             let copy = UIAction(
                 title: "Copy",
                 image: UIImage(systemName: "doc.on.doc")
@@ -289,7 +363,7 @@ final class CodeBlockAttachmentView: UIView, UIScrollViewDelegate, UIContextMenu
         let parameters = UIPreviewParameters()
         parameters.backgroundColor = .clear
         if visible == bounds {
-            parameters.visiblePath = UIBezierPath(roundedRect: leaf.bounds, cornerRadius: style.cornerRadius)
+            parameters.visiblePath = UIBezierPath(roundedRect: leaf.bounds, cornerRadius: content.style.cornerRadius)
         }
         let target = UIPreviewTarget(container: self, center: CGPoint(x: visible.midX, y: visible.midY))
         return UITargetedPreview(view: leaf, parameters: parameters, target: target)
@@ -332,10 +406,12 @@ final class CodeBlockLiftView: UIView {
 
 /// Its own TextKit 2 stack: the text view's lazily committed layers snapshot blank on the first lift.
 final class CodeBlockContentView: UIView {
+    private static let stash = MarkdownAttribute.streamingOriginalColors
+    private let storage = NSTextStorage()
     private let contentStorage = NSTextContentStorage()
     private let layoutManager = NSTextLayoutManager()
 
-    init(attributedCode: NSAttributedString) {
+    init() {
         super.init(frame: .zero)
         isOpaque = false
         contentMode = .redraw
@@ -344,13 +420,51 @@ final class CodeBlockContentView: UIView {
         container.lineFragmentPadding = 0
         container.lineBreakMode = .byClipping
         layoutManager.textContainer = container
+        contentStorage.textStorage = storage
         contentStorage.addTextLayoutManager(layoutManager)
-        contentStorage.attributedString = attributedCode
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    var attributedCode: NSAttributedString { storage }
+
+    func replaceCode(with code: NSAttributedString) {
+        edit { $0.setAttributedString(code) }
+    }
+
+    func appendCode(_ code: NSAttributedString) {
+        guard code.length > 0 else { return }
+        edit { $0.append(code) }
+    }
+
+    func conceal(_ range: NSRange) {
+        edit(in: range) { ColorConcealment.conceal($0, in: $1, stash: Self.stash) }
+    }
+
+    func reveal(_ range: NSRange) {
+        edit(in: range) { ColorConcealment.reveal($0, in: $1, stash: Self.stash) }
+    }
+
+    func lineSegments(of range: NSRange) -> [TextLayoutHelpers.LineSegment] {
+        TextLayoutHelpers.lineSegments(of: range, in: layoutManager)
+    }
+
+    private func edit(in range: NSRange, _ body: (NSTextStorage, NSRange) -> Void) {
+        let clamped = NSIntersectionRange(range, NSRange(location: 0, length: storage.length))
+        guard clamped.length > 0 else { return }
+        edit { body($0, clamped) }
+    }
+
+    private func edit(_ body: (NSTextStorage) -> Void) {
+        contentStorage.performEditingTransaction {
+            storage.beginEditing()
+            body(storage)
+            storage.endEditing()
+        }
+        setNeedsDisplay()
     }
 
     override func draw(_ rect: CGRect) {

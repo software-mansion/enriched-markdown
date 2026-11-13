@@ -17,26 +17,8 @@ enum SpoilerInteraction {
 
     static func revealedText(of attributedText: NSAttributedString, in range: NSRange) -> NSAttributedString {
         let text = NSMutableAttributedString(attributedString: attributedText.attributedSubstring(from: range))
-        let all = NSRange(location: 0, length: text.length)
-        SpoilerConcealment.reveal(text, in: all)
-        text.removeAttribute(.link, range: all)
-        text.enumerateAttribute(.paragraphStyle, in: all) { value, run, _ in
-            guard let paragraph = value as? NSParagraphStyle else { return }
-            text.addAttribute(.paragraphStyle, value: lineStyle(of: paragraph), range: run)
-        }
-        return text
-    }
-
-    private static func lineStyle(of paragraph: NSParagraphStyle) -> NSParagraphStyle {
-        let style = NSMutableParagraphStyle()
-        style.minimumLineHeight = paragraph.minimumLineHeight
-        style.maximumLineHeight = paragraph.maximumLineHeight
-        style.lineSpacing = paragraph.lineSpacing
-        style.lineHeightMultiple = paragraph.lineHeightMultiple
-        style.baseWritingDirection = paragraph.baseWritingDirection
-        style.alignment = paragraph.alignment
-        style.lineBreakMode = .byClipping
-        return style
+        SpoilerConcealment.reveal(text, in: NSRange(location: 0, length: text.length))
+        return TextSlice.standalone(text)
     }
 
     /// A copy of `attributedText` with the spoilers at `ordinals` revealed, or

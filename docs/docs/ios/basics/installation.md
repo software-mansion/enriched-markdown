@@ -39,7 +39,7 @@ For the supported versions, see [Compatibility](/misc/compatibility).
 https://github.com/software-mansion-labs/enriched-markdown-ios
 ```
 
-set the dependency rule to **Up to Next Minor Version** starting from `0.4.0`, then add the **`EnrichedMarkdown`** product to your app target. Add **`EnrichedMarkdownSyntaxHighlighting`** only if you want code blocks colored, and **`EnrichedMarkdownLaTeX`** only if you render formulas - see [The products](#products).
+set the dependency rule to **Up to Next Minor Version** starting from `0.4.0`, then add the **`EnrichedMarkdown`** product to your app target. Add **`EnrichedMarkdownSyntaxHighlighting`** only if you want code blocks colored, **`EnrichedMarkdownLaTeX`** only if you render formulas, and **`EnrichedMarkdownStreaming`** only if you show Markdown while it is still arriving - see [The products](#products).
 
   </TabItem>
   <TabItem value="manifest" label="Package.swift">
@@ -59,6 +59,7 @@ targets: [
       // Optional - add only the ones you use:
       // .product(name: "EnrichedMarkdownSyntaxHighlighting", package: "enriched-markdown-ios"),
       // .product(name: "EnrichedMarkdownLaTeX", package: "enriched-markdown-ios"),
+      // .product(name: "EnrichedMarkdownStreaming", package: "enriched-markdown-ios"),
     ]
   ),
 ]
@@ -82,6 +83,7 @@ The package is iOS-only because it renders through UIKit (`UITextView` and TextK
 | `EnrichedMarkdown` | `EnrichedMarkdownText`, the theme DSL, the parser, and `MarkdownRenderer` for rendering into an `NSAttributedString` from UIKit code | **Yes** - this is the package |
 | `EnrichedMarkdownSyntaxHighlighting` | Syntax coloring for fenced code blocks, built on tree-sitter with 14 bundled grammars (about 8 MB of app size) | Only if you want highlighted code - see [Syntax highlighting](/ios/guides/syntax-highlighting) |
 | `EnrichedMarkdownLaTeX` | `$…$` and `$$…$$` typesetting, plus the two math theme elements. Links a prebuilt typesetting engine and the KaTeX font files (about 3-5 MB of app size) | Only if you render math - see [LaTeX math](/ios/guides/latex-math) |
+| `EnrichedMarkdownStreaming` | Shows Markdown while it is still arriving, such as a chat answer: unfinished syntax renders cleanly, half-written blocks wait, and new text fades in. Pure Swift | Only if you stream text into the view - see [Markdown streaming](/ios/guides/markdown-streaming) |
 
 The optional products are not switched on by being linked. Each one needs its `import` and a modifier on the view (or on a container above it):
 

@@ -281,10 +281,11 @@ final class TableThemingTests: XCTestCase {
         XCTAssertEqual(grid.frame.minX, expectedX, accuracy: 0.5)
     }
 
-    func testScrollOffsetPersistsOnAttachment() {
-        guard let table = attachment(
-            for: "| A | B | C | D | E | F | G |\n|---|---|---|---|---|---|---|\n| one | two | three | four | five | six | seven |"
-        ) else { return XCTFail("no table") }
+    func testUpdatedTableKeepsItsScrollOffset() {
+        let wide = "| A | B | C | D | E | F | G |\n|---|---|---|---|---|---|---|\n| one | two | three | four | five | six | seven |"
+        guard let table = attachment(for: wide), let grown = attachment(for: wide + "\n| 1 | 2 | 3 | 4 | 5 | 6 | 7 |") else {
+            return XCTFail("no table")
+        }
         XCTAssertGreaterThan(table.layout.totalWidth, 300)
 
         let view = TableAttachmentView(attachment: table)
@@ -295,14 +296,12 @@ final class TableThemingTests: XCTestCase {
             return XCTFail("no scroll view")
         }
         scrollView.contentOffset = CGPoint(x: 42, y: 0)
-        XCTAssertEqual(table.preservedContentOffset.x, 42)
 
-        // A recreated view (viewport re-entry) restores the offset.
-        let recreated = TableAttachmentView(attachment: table)
-        recreated.frame = CGRect(x: 0, y: 0, width: 300, height: table.layout.totalHeight)
-        recreated.layoutIfNeeded()
-        let recreatedScroll = recreated.subviews.compactMap { $0 as? UIScrollView }.first
-        XCTAssertEqual(recreatedScroll?.contentOffset.x, 42)
+        view.update(to: grown, transition: nil)
+        view.frame.size.height = grown.layout.totalHeight
+        view.layoutIfNeeded()
+        XCTAssertEqual(scrollView.contentOffset.x, 42)
+        XCTAssertEqual(scrollView.contentSize.height, grown.layout.totalHeight)
     }
 
     // MARK: - alignment(_:)

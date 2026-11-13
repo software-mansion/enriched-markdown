@@ -93,14 +93,28 @@ enum TextLayoutHelpers {
         in textView: UITextView,
         _ body: (CGRect, NSRange, CGFloat) -> Void
     ) {
-        guard let textLayoutManager = textView.textLayoutManager,
-              let contentManager = textLayoutManager.textContentManager,
+        guard let textLayoutManager = textView.textLayoutManager else { return }
+        enumerateSegmentFrames(of: range, in: textLayoutManager, inset: textView.textContainerInset, body)
+    }
+
+    static func enumerateSegmentFrames(
+        of range: NSRange,
+        in textLayoutManager: NSTextLayoutManager,
+        inset: UIEdgeInsets = .zero,
+        _ body: (CGRect, NSRange, CGFloat) -> Void
+    ) {
+        guard let contentManager = textLayoutManager.textContentManager,
               let textRange = textRange(range, in: contentManager)
         else { return }
 
-        let inset = textView.textContainerInset
         var previous: NSRange?
-        textLayoutManager.ensureLayout(for: textRange)
+        let fragment = textLayoutManager.textLayoutFragment(for: textRange.location)
+        if fragment?.state != .layoutAvailable {
+            let anchored = NSTextRange(location: contentManager.documentRange.location, end: textRange.endLocation)
+            textLayoutManager.ensureLayout(for: anchored ?? textRange)
+        } else if let fragment, contentManager.offset(from: textRange.endLocation, to: fragment.rangeInElement.endLocation) < 0 {
+            textLayoutManager.ensureLayout(for: textRange)
+        }
         textLayoutManager.enumerateTextSegments(in: textRange, type: .standard, options: []) { segment, frame, baseline, _ in
             guard let segment, let segmentRange = nsRange(segment, in: contentManager), segmentRange != previous
             else { return true }
@@ -108,6 +122,26 @@ enum TextLayoutHelpers {
             body(frame.offsetBy(dx: inset.left, dy: inset.top), segmentRange, baseline)
             return true
         }
+    }
+
+    struct LineSegment {
+        let frame: CGRect
+        let range: NSRange
+        let baseline: CGFloat
+    }
+
+    static func lineSegments(of range: NSRange, in textView: UITextView) -> [LineSegment] {
+        guard let textLayoutManager = textView.textLayoutManager else { return [] }
+        return lineSegments(of: range, in: textLayoutManager, inset: textView.textContainerInset)
+    }
+
+    static func lineSegments(of range: NSRange, in textLayoutManager: NSTextLayoutManager, inset: UIEdgeInsets = .zero) -> [LineSegment] {
+        var segments: [LineSegment] = []
+        enumerateSegmentFrames(of: range, in: textLayoutManager, inset: inset) { frame, segmentRange, baseline in
+            guard frame.width > 0, frame.height > 0 else { return }
+            segments.append(LineSegment(frame: frame, range: segmentRange, baseline: baseline))
+        }
+        return segments
     }
 
     static func rangesIntersect(_ lhs: NSRange, _ rhs: NSRange) -> Bool {
