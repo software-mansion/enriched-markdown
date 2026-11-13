@@ -71,6 +71,8 @@ static NSArray<NSNumber *> *ENRMTaskIndices(NSArray<ENRMRenderedSegment *> *segm
 - (void)testTasksAreNumberedInDocumentOrder
 {
   NSString *markdown =
+      @"١. [ ] not-a-task\n"
+      @"\n"
       @"- [ ] a\n"
       @"- [ ]not-a-task\n"
       @"- [ ] b\n"

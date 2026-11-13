@@ -123,12 +123,11 @@ BOOL handleTaskListTap(ENRMPlatformTextView *textView, ENRMTapRecognizer *recogn
 NSString *toggleTaskListItemAtIndex(NSString *markdown, NSInteger targetIndex, BOOL checked)
 {
   // Must find the same tasks as the renderer, in order, or the toggle rewrites another item.
-  NSRegularExpression *regex =
-      [NSRegularExpression regularExpressionWithPattern:
-                               @"^((?:[ \\t]*>)*[ \\t]*(?:[-*+]|\\d{1,9}[.)])[ \\t]+)\\[[ xX]\\]"
-                               @"(?=[ \\t\\r]|$)"
-                                                options:NSRegularExpressionAnchorsMatchLines
-                                                  error:nil];
+  // [0-9] rather than \d, which also matches other scripts' digits.
+  NSRegularExpression *regex = [NSRegularExpression
+      regularExpressionWithPattern:@"^((?:[ \\t]*>)*[ \\t]*(?:[-*+]|[0-9]{1,9}[.)])[ \\t]+)\\[[ xX]\\](?=[ \\t\\r]|$)"
+                           options:NSRegularExpressionAnchorsMatchLines
+                             error:nil];
 
   NSArray<NSTextCheckingResult *> *matches = [regex matchesInString:markdown
                                                             options:0
