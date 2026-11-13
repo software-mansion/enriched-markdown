@@ -14,6 +14,7 @@ import android.text.Spanned
 import android.text.TextWatcher
 import android.text.style.UpdateLayout
 import android.view.textclassifier.TextClassifier
+import android.widget.TextView
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.view.ViewCompat
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
@@ -78,11 +79,13 @@ private class InsertionOrderedSpannable(
   var repainting = false
 
   /**
-   * Replaces the text from [start] on with [tail] as one change, told only to the layouts: they
-   * reflow once, where the buffer would tell them of every span it copies. TextView's own watcher
-   * hears nothing, as for setText: an edit would scroll to the selection and copy the text for
-   * accessibility. The view invalidates itself ([replaceAdoptedTextTail]). False, with the text
-   * unchanged, when [hasLayout] but no layout watches the text: none would reflow.
+   * Replaces the text from [start] on with [tail] as one change, told to the layouts, which reflow
+   * once where the buffer would tell them of every span it copies, and to TextView's own watcher,
+   * so its Editor's word iterator and touch offsets follow the text: a word selection on a stale
+   * one throws. That watcher hears only onTextChanged; afterTextChanged would copy the text for
+   * autofill and content capture. The view keeps its scroll ([AccessibleMarkdownTextView]) and
+   * invalidates itself. False, with the text unchanged, when [hasLayout] but no layout watches the
+   * text: none would reflow.
    */
   fun replaceTail(
     start: Int,
@@ -91,13 +94,7 @@ private class InsertionOrderedSpannable(
   ): Boolean {
     val before = buffer.length - start
     val proxies = buffer.getSpans(0, buffer.length, WatcherProxy::class.java)
-    val layouts =
-      proxies.mapNotNull { proxy ->
-        (proxy.watcher as? TextWatcher)?.takeIf {
-          it.javaClass.enclosingClass ==
-            DynamicLayout::class.java
-        }
-      }
+    val layouts = watchersOf(proxies, DynamicLayout::class.java)
     if (hasLayout && layouts.isEmpty()) return false
     layouts.forEach { it.beforeTextChanged(this, start, before, tail.length) }
     proxies.forEach { it.muted = true }
@@ -108,8 +105,15 @@ private class InsertionOrderedSpannable(
     }
     layouts.forEach { it.onTextChanged(this, start, before, tail.length) }
     layouts.forEach { it.afterTextChanged(buffer) }
+    watchersOf(proxies, TextView::class.java).forEach { it.onTextChanged(this, start, before, tail.length) }
     return true
   }
+
+  // The text watchers an instance of [owner]'s inner class set: DynamicLayout's, or TextView's.
+  private fun watchersOf(
+    proxies: Array<WatcherProxy>,
+    owner: Class<*>,
+  ) = proxies.mapNotNull { proxy -> (proxy.watcher as? TextWatcher)?.takeIf { it.javaClass.enclosingClass == owner } }
 
   override fun <T : Any?> getSpans(
     start: Int,

@@ -36,6 +36,8 @@ abstract class AccessibleMarkdownTextView
     private var textBackgrounds: TextBackgroundDrawer? = null
 
     override fun onDraw(canvas: Canvas) {
+      // Past the pre-draw where TextView would have scrolled for a patch.
+      keepScroll = false
       val drawer = textBackgrounds ?: TextBackgroundDrawer().also { textBackgrounds = it }
       drawer.draw(canvas, this)
       super.onDraw(canvas)
@@ -84,15 +86,29 @@ abstract class AccessibleMarkdownTextView
       tail: Spannable,
     ): Boolean {
       prepareSpans(tail)
-      if (!replaceAdoptedTextTail(text, start, tail, hasLayout = layout != null)) return false
+      keepScroll = true
+      if (!replaceAdoptedTextTail(text, start, tail, hasLayout = layout != null)) {
+        keepScroll = false
+        return false
+      }
       textBackgrounds?.invalidateFrom(start)
-      // TextView didn't hear of the edit. Without a request, measure() would return the height
-      // cached before it.
+      // Without a request, measure() would return the height cached before the edit.
       requestLayout()
       invalidate()
       accessibilityHelper.invalidateAccessibilityItems()
       return true
     }
+
+    // Set while a tail patch reaches TextView, until the view draws it: TextView scrolls its parent
+    // to the selection on an edit, then and again before the next draw, and a patch is no edit.
+    private var keepScroll = false
+
+    override fun bringPointIntoView(offset: Int): Boolean = !keepScroll && super.bringPointIntoView(offset)
+
+    override fun bringPointIntoView(
+      offset: Int,
+      requestRectWithoutFocus: Boolean,
+    ): Boolean = !keepScroll && super.bringPointIntoView(offset, requestRectWithoutFocus)
 
     override fun onMeasure(
       widthMeasureSpec: Int,

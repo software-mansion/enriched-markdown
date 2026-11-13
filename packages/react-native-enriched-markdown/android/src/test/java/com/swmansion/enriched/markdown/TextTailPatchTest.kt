@@ -1,7 +1,9 @@
 package com.swmansion.enriched.markdown
 
+import android.text.Editable
 import android.text.Selection
 import android.text.Spannable
+import android.text.TextWatcher
 import android.view.View.MeasureSpec
 import android.view.ViewGroup
 import android.widget.ScrollView
@@ -158,6 +160,46 @@ class TextTailPatchTest {
     assertEquals(scrolled, scroll.scrollY)
     assertEquals(2, view.selectionStart)
     assertEquals(6, view.selectionEnd)
+  }
+
+  // TextView's Editor keeps state over the text it last heard of: a word selected past the end of
+  // that text threw while the view kept streaming. A patch must reach TextView's own watcher, which
+  // tells the Editor and the view's text listeners.
+  @Test
+  fun aPatchReachesTextViewsOwnWatcher() {
+    val cache = TextRenderCache()
+    val view = newView()
+    SegmentViewCreators.updateTextView(view, render(states[words.size], cache))
+    layOut(view)
+    val changes = mutableListOf<List<Int>>()
+    view.addTextChangedListener(
+      object : TextWatcher {
+        override fun beforeTextChanged(
+          text: CharSequence?,
+          start: Int,
+          count: Int,
+          after: Int,
+        ) = Unit
+
+        override fun onTextChanged(
+          text: CharSequence?,
+          start: Int,
+          before: Int,
+          count: Int,
+        ) {
+          changes += listOf(start, before, count)
+        }
+
+        override fun afterTextChanged(text: Editable?) = Unit
+      },
+    )
+    val before = view.text.length
+
+    SegmentViewCreators.updateTextView(view, render(states[words.size + 1], cache))
+
+    val (start, removed, added) = changes.single()
+    assertEquals(before, start + removed)
+    assertEquals(view.text.length, start + added)
   }
 
   private fun layOutScroll(scroll: ScrollView) {
