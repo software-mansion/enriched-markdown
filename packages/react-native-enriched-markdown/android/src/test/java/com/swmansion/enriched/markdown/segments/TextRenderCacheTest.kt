@@ -4,6 +4,8 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
+import com.swmansion.enriched.markdown.spans.OrderedListSpan
+import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.styleConfig
 import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
 import com.swmansion.enriched.markdown.test.TestAstFactory.orderedList
@@ -91,12 +93,13 @@ class TextRenderCacheTest {
   private fun render(
     nodes: List<MarkdownASTNode>,
     cache: TextRenderCache?,
+    renderStyle: com.swmansion.enriched.markdown.styles.StyleConfig = style,
   ): RenderedSegment.Text {
-    cache?.begin(style)
+    cache?.begin(renderStyle)
     val rendered =
       MarkdownSegmentRenderer.render(
         listOf(MarkdownSegment.Text(nodes)),
-        style,
+        renderStyle,
         RuntimeEnvironment.getApplication(),
         onLinkPress = null,
         onLinkLongPress = null,
@@ -106,11 +109,19 @@ class TextRenderCacheTest {
     return rendered.single() as RenderedSegment.Text
   }
 
+  // What a span draws besides its range: a list item's number, a task's index.
+  private fun detail(span: Any): String =
+    when (span) {
+      is OrderedListSpan -> " #${span.itemNumber}"
+      is TaskListSpan -> " task ${span.taskIndex}"
+      else -> ""
+    }
+
   private fun describe(text: Spanned): List<String> =
     listOf(text.toString()) +
       text
         .getSpans(0, text.length, Any::class.java)
-        .map { "${it.javaClass.simpleName} ${text.getSpanStart(it)}..${text.getSpanEnd(it)} ${text.getSpanFlags(it)}" }
+        .map { "${it.javaClass.simpleName} ${text.getSpanStart(it)}..${text.getSpanEnd(it)} ${text.getSpanFlags(it)}${detail(it)}" }
         .sorted()
 
   @Test
@@ -202,5 +213,127 @@ class TextRenderCacheTest {
         assertEquals("one two three ", segment.styledText.toString())
       }
     }
+  }
+
+  // Streams [states] through a cache, patching the text a view shows, and checks every state
+  // against a full render. Returns how many states patched.
+  private fun streamThroughCache(
+    states: List<List<MarkdownASTNode>>,
+    renderStyle: com.swmansion.enriched.markdown.styles.StyleConfig = style,
+  ): Int {
+    val cache = TextRenderCache()
+    var shown: SpannableStringBuilder? = null
+    var shownRevision = 0L
+    var patches = 0
+    for (state in states) {
+      val cached = render(state, cache, renderStyle)
+      val full = render(state, null, renderStyle)
+      val fullText = full.styledText!!
+      assertEquals(full.signature, cached.signature)
+      assertEquals(full.lastElementMarginBottom, cached.lastElementMarginBottom)
+      val patch = cached.patch
+      val view = shown
+      if (patch != null && view != null && patch.baseRevision == shownRevision) {
+        view.replaceTail(patch.start, patch.tail)
+        patches++
+      } else {
+        shown = cached.styledText as SpannableStringBuilder
+      }
+      shownRevision = cached.revision
+      assertEquals(describe(fullText), describe(shown!!))
+    }
+    return patches
+  }
+
+  // A list a stream grows item by item, often a segment's only node: each update renders from
+  // its first changed item, numbered on, and the view shows what a full render does.
+  @Test
+  fun aGrowingListRendersFromItsFirstChangedItem() {
+    val items =
+      listOf(
+        listItem(paragraph(text("Alpha"))),
+        listItem(paragraph(text("Beta, with "), strong("bold"))),
+        listItem(paragraph(text("Gamma")), unorderedList(listItem(paragraph(text("nested one"))), listItem(paragraph(text("nested two"))))),
+        listItem(paragraph(text("Delta and a "), link("link", "https://e.com"))),
+        taskListItem(true, paragraph(text("Epsilon done"))),
+        taskListItem(false, paragraph(text("Zeta next"))),
+      )
+
+    fun partial(item: MarkdownASTNode) = item.copy(children = listOf(paragraph(text("Wo"))))
+    val versions = items.indices.flatMap { i -> listOf(items.subList(0, i) + partial(items[i]), items.subList(0, i + 1)) }
+    val makers =
+      listOf<(List<MarkdownASTNode>) -> List<MarkdownASTNode>>(
+        { listOf(orderedList(*it.toTypedArray(), start = 3)) },
+        { listOf(unorderedList(*it.toTypedArray())) },
+        { listOf(heading(2, "Steps"), paragraph(text("Do these:")), orderedList(*it.toTypedArray())) },
+      )
+    for (make in makers) {
+      val patches = streamThroughCache(versions.map(make))
+      // Rendering resumes at the old render's last item at the latest, so only the states while
+      // the list has a single item render it whole.
+      assertTrue("patched $patches of ${versions.size}", patches >= versions.size - 3)
+    }
+  }
+
+  // A change to the list itself, here its first number, renders every item again.
+  @Test
+  fun aChangedListRendersAllItsItemsAgain() {
+    fun list(
+      items: Int,
+      start: Int,
+    ) = orderedList(*(1..items).map { listItem(paragraph(text("Item $it"))) }.toTypedArray(), start = start)
+
+    streamThroughCache(listOf(listOf(list(2, 1)), listOf(list(3, 1)), listOf(list(3, 7)), listOf(list(4, 7))))
+  }
+
+  // Numbers from 100 on widen every item's marker column, so such a list renders whole.
+  @Test
+  fun anOrderedListReachingANumberOf100RendersWhole() {
+    fun list(items: Int) = orderedList(*(1..items).map { listItem(paragraph(text("Item $it"))) }.toTypedArray(), start = 97)
+
+    val patches = streamThroughCache((2..5).map { listOf(list(it)) })
+    // 97 and 98, then 97 to 99 patch; the lists reaching 100 and 101 render whole.
+    assertEquals(1, patches)
+  }
+
+  // A list whose items have real spacing: the continuation skips the gap above the list, and the
+  // spacing above its first item stays in the text before it.
+  @Test
+  fun aSpacedListRendersFromItsFirstChangedItemAsAFullRenderDoes() {
+    val spaced = styleConfig(list = mapOf("marginTop" to 12.0, "marginBottom" to 16.0, "itemSpacing" to 8.0, "lineHeight" to 28.0))
+    val items = (1..5).map { listItem(paragraph(text("Item $it with a few words"))) }
+    val states = items.indices.map { listOf(orderedList(*items.subList(0, it + 1).toTypedArray(), start = 2)) }
+    val patches = streamThroughCache(states, spaced)
+    assertTrue("patched $patches of ${states.size}", patches >= states.size - 2)
+  }
+
+  // The patch starts at the first changed item, not at the list.
+  @Test
+  fun theListPatchStartsAtTheChangedItem() {
+    val cache = TextRenderCache()
+    val first = listItem(paragraph(text("First")))
+    val second = listItem(paragraph(text("Second")))
+    render(listOf(paragraph(text("Intro")), unorderedList(first, second)), cache)
+    val grown = render(listOf(paragraph(text("Intro")), unorderedList(first, second, listItem(paragraph(text("Third"))))), cache)
+    val full = render(listOf(paragraph(text("Intro")), unorderedList(first, second, listItem(paragraph(text("Third"))))), null)
+    assertEquals(full.styledText.toString().indexOf("Second"), grown.patch!!.start)
+  }
+
+  // A chunk ending on an empty marker, and an item that turns blank (a link reference definition
+  // completing): each state still shows what a full render does.
+  @Test
+  fun emptyAndBlankTrailingItemsShowAsAFullRender() {
+    val a = listItem(paragraph(text("Alpha")))
+    val b = listItem(paragraph(text("Beta")))
+    streamThroughCache(
+      listOf(
+        listOf(unorderedList(a, b)),
+        listOf(unorderedList(a, b, listItem())),
+        listOf(unorderedList(a, b, listItem(paragraph(text("Gam"))))),
+        listOf(unorderedList(a, b, listItem(paragraph(text("[ref]:"))))),
+        listOf(unorderedList(a, b, listItem())),
+        listOf(unorderedList(a, b, listItem(), listItem(paragraph(text("Delta"))))),
+      ),
+    )
   }
 }

@@ -116,6 +116,11 @@ class Renderer {
 
   fun getBlockTaskStarts(): IntArray = blockTaskStarts
 
+  /** Where each item of the last top-level list of the last [renderContent] starts, and the task count before it. */
+  fun getTopLevelListItemStarts(): IntArray = cachedFactory?.blockStyleContext?.topLevelListItemStarts?.toIntArray() ?: IntArray(0)
+
+  fun getTopLevelListItemTaskStarts(): IntArray = cachedFactory?.blockStyleContext?.topLevelListItemTaskStarts?.toIntArray() ?: IntArray(0)
+
   /** Removes trailing newlines and captures the margin of the final element. */
   private fun removeTrailingMargin(builder: SpannableStringBuilder) {
     if (builder.isEmpty()) return
