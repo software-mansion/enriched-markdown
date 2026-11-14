@@ -775,6 +775,36 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
                      return [UIMenu menuWithTitle:@"" children:@[ copyPlainText, copyMarkdown ]];
                    }];
 }
+
+// The quote has no background of its own, so a lift of the bare view draws its
+// text straight over the dimmed thread. Back it with what it sits on.
+- (UITargetedPreview *)blockPreview
+{
+  if (self.window == nil)
+    return nil;
+  UIPreviewParameters *parameters = [[UIPreviewParameters alloc] init];
+  parameters.backgroundColor = [UIColor systemBackgroundColor];
+  for (UIView *view = self; view; view = view.superview) {
+    UIColor *color = view.backgroundColor;
+    if (color && CGColorGetAlpha(color.CGColor) > 0) {
+      parameters.backgroundColor = color;
+      break;
+    }
+  }
+  return [[UITargetedPreview alloc] initWithView:self parameters:parameters];
+}
+
+- (UITargetedPreview *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
+    previewForHighlightingMenuWithConfiguration:(UIContextMenuConfiguration *)configuration
+{
+  return [self blockPreview];
+}
+
+- (UITargetedPreview *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
+    previewForDismissingMenuWithConfiguration:(UIContextMenuConfiguration *)configuration
+{
+  return [self blockPreview];
+}
 #endif // !TARGET_OS_OSX
 
 #if TARGET_OS_OSX
