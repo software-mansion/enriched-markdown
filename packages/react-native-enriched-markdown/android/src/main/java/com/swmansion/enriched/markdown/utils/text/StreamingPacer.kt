@@ -98,8 +98,8 @@ class StreamingPacer(
   }
 
   private companion object {
-    // Each reveal renders the text again: about 30 a second keeps words flowing (they fade in at
-    // the display's rate) without rendering more often than a stream's own updates would.
+    // Each reveal renders the words it shows: about 30 a second keeps words flowing (they fade in
+    // at the display's rate) without rendering more often than a stream's own updates would.
     const val REVEAL_INTERVAL_MS = 25L
 
     init {

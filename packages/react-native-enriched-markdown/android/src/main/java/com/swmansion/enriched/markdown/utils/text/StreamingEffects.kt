@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.facebook.react.bridge.ColorPropConverter
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.ReadableType
 
 /**
  * The core's streaming effects (StreamingEffects.hpp) for one text view: how its newest characters
@@ -106,7 +107,14 @@ class StreamingEffects {
         if (config == null) return defaults
         val raw = config.toHashMap()
 
-        fun color(key: String): Int? = raw[key]?.let { ColorPropConverter.getColor(it, context) }
+        // From the map itself: toHashMap turns a PlatformColor's map into a HashMap, which
+        // ColorPropConverter rejects.
+        fun color(key: String): Int? =
+          when {
+            !config.hasKey(key) || config.isNull(key) -> null
+            config.getType(key) == ReadableType.Map -> ColorPropConverter.getColor(config.getMap(key), context)
+            else -> ColorPropConverter.getColor(config.getDouble(key), context)
+          }
         return Config(
           type =
             when (raw["animation"]) {

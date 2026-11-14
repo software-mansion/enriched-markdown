@@ -4,6 +4,7 @@ import type {
   MarkdownImageOccurrence,
   MarkdownImageSource,
 } from './types/markdownBlocks';
+import { isDev } from './utils/isDev';
 
 export type ImageSourceResolver = NonNullable<
   EnrichedMarkdownTextProps['resolveImageSource']
@@ -134,7 +135,7 @@ export function useResolvedImageSources(
       try {
         result = resolve(image);
       } catch (error) {
-        if (__DEV__) {
+        if (isDev) {
           console.error(
             '[EnrichedMarkdownText] resolveImageSource threw:',
             error
@@ -150,7 +151,7 @@ export function useResolvedImageSources(
         result.then(
           (source) => settle(image.id, entry, resolution(source)),
           (error) => {
-            if (__DEV__) {
+            if (isDev) {
               console.error(
                 '[EnrichedMarkdownText] resolveImageSource rejected:',
                 error

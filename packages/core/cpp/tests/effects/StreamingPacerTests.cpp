@@ -182,6 +182,18 @@ TEST_CASE("streaming again cancels the drain") {
   }
 }
 
+// The hosts end the draining stream themselves when a new one starts: the drain must not end it
+// again.
+TEST_CASE("a new stream during the drain cancels it") {
+  StreamingPacer pacer;
+  streamWithWordsWaiting(pacer);
+  pacer.update(kWaiting, false, true, 1.0);
+  CHECK_FALSE(pacer.update(u"next ", true, true, 1.05));
+  for (double t = 1.05; t < 3; t += 0.05) {
+    CHECK_FALSE(pacer.drained(t));
+  }
+}
+
 TEST_CASE("a text replaced during the drain shows at once and ends the stream") {
   StreamingPacer pacer;
   streamWithWordsWaiting(pacer);

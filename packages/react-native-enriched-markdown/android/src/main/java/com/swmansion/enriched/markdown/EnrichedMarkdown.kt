@@ -140,7 +140,9 @@ class EnrichedMarkdown(
     if (streamingProp == value) return
     streamingProp = value
     if (value) {
-      // A new stream: the one before it has ended, whether or not its final render applied.
+      // A new stream: the one before it has ended, whether or not its last words drained or its
+      // final render applied.
+      if (streaming) streamEndPending = true
       emitStreamingEndIfPending()
       streaming = true
       streamEnding = false

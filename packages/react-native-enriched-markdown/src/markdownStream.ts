@@ -1,5 +1,6 @@
 import { useMemo, useSyncExternalStore } from 'react';
 import type { Spec } from './NativeEnrichedMarkdownParser';
+import { isDev } from './utils/isDev';
 
 /**
  * Markdown arriving in pieces (an LLM answer), shown by passing it to
@@ -92,7 +93,7 @@ class Stream implements MarkdownStream {
 
   append(chunk: string): void {
     if (this.ended || this.disposed) {
-      if (__DEV__) {
+      if (isDev) {
         console.warn(
           `[react-native-enriched-markdown] MarkdownStream.append() after ${this.disposed ? 'dispose()' : 'end()'} is ignored.`
         );
@@ -227,7 +228,7 @@ export function useMarkdownStreamSnapshot(
 ): MarkdownStreamSnapshot | null {
   const store = useMemo(() => {
     if (!(stream instanceof Stream)) {
-      if (__DEV__ && stream != null) {
+      if (isDev && stream != null) {
         console.warn(
           '[react-native-enriched-markdown] `stream` takes a stream from createMarkdownStream(); this one is ignored.'
         );

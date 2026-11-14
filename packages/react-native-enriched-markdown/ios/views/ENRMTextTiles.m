@@ -1,4 +1,5 @@
 #import "ENRMTextTiles.h"
+#import "ENRMCapture.h"
 #import "TextViewLayoutManager.h"
 #import <QuartzCore/QuartzCore.h>
 
@@ -24,6 +25,9 @@ static void *kENRMCanvasBoundsContext = &kENRMCanvasBoundsContext;
 @property (nonatomic, weak) ENRMTextTiles *tiles;
 @end
 
+// Draws the text view's text in `rect` of `view`'s space into the current context, as its canvas does.
+static void ENRMDrawText(UITextView *textView, ENRMStreamingEffects *effects, UIView *view, CGRect rect);
+
 @implementation ENRMTextTileView
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -41,46 +45,27 @@ static void *kENRMCanvasBoundsContext = &kENRMCanvasBoundsContext;
 - (void)drawRect:(CGRect)rect
 {
   UITextView *textView = self.textView;
-  if (textView == nil) {
-    return;
+  if (textView != nil) {
+    ENRMDrawText(textView, self.effects, self, rect);
   }
-  NSLayoutManager *layoutManager = textView.layoutManager;
-  CGPoint tileOrigin = [self convertPoint:CGPointZero toView:textView];
-  CGPoint origin =
-      CGPointMake(textView.textContainerInset.left - tileOrigin.x, textView.textContainerInset.top - tileOrigin.y);
-  CGRect lookup = CGRectInset(rect, 0, -kENRMTextTileOverdraw);
-  NSRange glyphs = [layoutManager glyphRangeForBoundingRect:CGRectOffset(lookup, -origin.x, -origin.y)
-                                            inTextContainer:textView.textContainer];
-  if (glyphs.length == 0) {
-    return;
-  }
-  [layoutManager drawBackgroundForGlyphRange:glyphs atPoint:origin];
-  CFTimeInterval now = CACurrentMediaTime();
-  NSRange animated = self.effects != nil ? [self.effects animatedRangeAt:now] : NSMakeRange(NSNotFound, 0);
-  NSRange shown = animated.location == NSNotFound || ![layoutManager isKindOfClass:[TextViewLayoutManager class]]
-                      ? NSMakeRange(NSNotFound, 0)
-                      : NSIntersectionRange(glyphs, [layoutManager glyphRangeForCharacterRange:animated
-                                                                          actualCharacterRange:NULL]);
-  if (shown.location == NSNotFound || shown.length == 0) {
-    [layoutManager drawGlyphsForGlyphRange:glyphs atPoint:origin];
-    return;
-  }
-  if (shown.location > glyphs.location) {
-    [layoutManager drawGlyphsForGlyphRange:NSMakeRange(glyphs.location, shown.location - glyphs.location)
-                                   atPoint:origin];
-  }
-  if (NSMaxRange(glyphs) > NSMaxRange(shown)) {
-    [layoutManager drawGlyphsForGlyphRange:NSMakeRange(NSMaxRange(shown), NSMaxRange(glyphs) - NSMaxRange(shown))
-                                   atPoint:origin];
-  }
-  [self drawAnimatedGlyphs:shown atPoint:origin time:now];
 }
+
+- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection
+{
+  // UIKit redraws its own canvas on a dark mode change, not these.
+  [super traitCollectionDidChange:previousTraitCollection];
+  if ([self.traitCollection hasDifferentColorAppearanceComparedToTraitCollection:previousTraitCollection]) {
+    [self setNeedsDisplay];
+  }
+}
+
+@end
 
 // The animated characters in the effects' colors, consecutive ones of one color in one go. A color is
 // found once for each stretch of one look and one own color (a chunk's words), not for each character.
-- (void)drawAnimatedGlyphs:(NSRange)glyphs atPoint:(CGPoint)origin time:(CFTimeInterval)time
+static void ENRMDrawAnimatedGlyphs(UITextView *textView, ENRMStreamingEffects *effects, NSRange glyphs, CGPoint origin,
+                                   CFTimeInterval time)
 {
-  UITextView *textView = self.textView;
   TextViewLayoutManager *layoutManager = (TextViewLayoutManager *)textView.layoutManager;
   NSTextStorage *storage = textView.textStorage;
   NSString *string = storage.string;
@@ -96,11 +81,11 @@ static void *kENRMCanvasBoundsContext = &kENRMCanvasBoundsContext;
       NSRange ownRange;
       UIColor *own = [storage attribute:NSForegroundColorAttributeName atIndex:index effectiveRange:&ownRange]
                          ?: UIColor.labelColor;
-      NSUInteger end = MIN(NSMaxRange(ownRange), [self.effects lookEndForCharacterAtIndex:index]);
+      NSUInteger end = MIN(NSMaxRange(ownRange), [effects lookEndForCharacterAtIndex:index]);
       // A character sequence stays whole, in the look of its first character.
       end = MAX(end, NSMaxRange([string rangeOfComposedCharacterSequenceAtIndex:MAX(end, index + 1) - 1]));
       stretch = NSMakeRange(index, end - index);
-      color = [self.effects colorForCharacterAtIndex:index ownColor:own time:time];
+      color = [effects colorForCharacterAtIndex:index ownColor:own time:time];
     }
     if (runColor != nil && ![color isEqual:runColor]) {
       CGFloat alpha = 0;
@@ -127,13 +112,80 @@ static void *kENRMCanvasBoundsContext = &kENRMCanvasBoundsContext;
   }
 }
 
-- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection
+static void ENRMDrawText(UITextView *textView, ENRMStreamingEffects *effects, UIView *view, CGRect rect)
 {
-  // UIKit redraws its own canvas on a dark mode change, not these.
-  [super traitCollectionDidChange:previousTraitCollection];
-  if ([self.traitCollection hasDifferentColorAppearanceComparedToTraitCollection:previousTraitCollection]) {
-    [self setNeedsDisplay];
+  NSLayoutManager *layoutManager = textView.layoutManager;
+  CGPoint viewOrigin = [view convertPoint:CGPointZero toView:textView];
+  CGPoint origin =
+      CGPointMake(textView.textContainerInset.left - viewOrigin.x, textView.textContainerInset.top - viewOrigin.y);
+  CGRect lookup = CGRectInset(rect, 0, -kENRMTextTileOverdraw);
+  NSRange glyphs = [layoutManager glyphRangeForBoundingRect:CGRectOffset(lookup, -origin.x, -origin.y)
+                                            inTextContainer:textView.textContainer];
+  if (glyphs.length == 0) {
+    return;
   }
+  [layoutManager drawBackgroundForGlyphRange:glyphs atPoint:origin];
+  CFTimeInterval now = CACurrentMediaTime();
+  NSRange animated = effects != nil ? [effects animatedRangeAt:now] : NSMakeRange(NSNotFound, 0);
+  NSRange shown = animated.location == NSNotFound || ![layoutManager isKindOfClass:[TextViewLayoutManager class]]
+                      ? NSMakeRange(NSNotFound, 0)
+                      : NSIntersectionRange(glyphs, [layoutManager glyphRangeForCharacterRange:animated
+                                                                          actualCharacterRange:NULL]);
+  if (shown.location == NSNotFound || shown.length == 0) {
+    [layoutManager drawGlyphsForGlyphRange:glyphs atPoint:origin];
+    return;
+  }
+  if (shown.location > glyphs.location) {
+    [layoutManager drawGlyphsForGlyphRange:NSMakeRange(glyphs.location, shown.location - glyphs.location)
+                                   atPoint:origin];
+  }
+  if (NSMaxRange(glyphs) > NSMaxRange(shown)) {
+    [layoutManager drawGlyphsForGlyphRange:NSMakeRange(NSMaxRange(shown), NSMaxRange(glyphs) - NSMaxRange(shown))
+                                   atPoint:origin];
+  }
+  ENRMDrawAnimatedGlyphs(textView, effects, shown, origin, now);
+}
+
+/// The view the tiles sit in. A capture that renders the layer tree as it is (renderInContext:) would
+/// find text only near the screen: its layer draws the whole text into the capture instead.
+@interface ENRMTextTileHostView : UIView
+@property (nonatomic, weak) UITextView *textView;
+@property (nonatomic, weak) ENRMStreamingEffects *effects;
+@end
+
+@interface ENRMTextTileHostLayer : CALayer
+@end
+
+@implementation ENRMTextTileHostView
+
++ (Class)layerClass
+{
+  return [ENRMTextTileHostLayer class];
+}
+
+@end
+
+@implementation ENRMTextTileHostLayer
+
+- (void)renderInContext:(CGContextRef)context
+{
+  ENRMTextTileHostView *view = (ENRMTextTileHostView *)self.delegate;
+  UITextView *textView = [view isKindOfClass:[ENRMTextTileHostView class]] ? view.textView : nil;
+  // TextKit is main thread only: elsewhere the capture gets the tiles as they are.
+  if (textView == nil || !NSThread.isMainThread) {
+    [super renderInContext:context];
+    return;
+  }
+  CGRect rect = CGRectIntersection(self.bounds, CGContextGetClipBoundingBox(context));
+  if (self.hidden || CGRectIsNull(rect) || CGRectIsEmpty(rect)) {
+    return;
+  }
+  // In the view's appearance, as drawRect: draws, not the caller's.
+  [view.traitCollection performAsCurrentTraitCollection:^{
+    UIGraphicsPushContext(context);
+    ENRMDrawText(textView, view.effects, view, rect);
+    UIGraphicsPopContext();
+  }];
 }
 
 @end
@@ -145,6 +197,9 @@ static void *kENRMCanvasBoundsContext = &kENRMCanvasBoundsContext;
   [self.tiles streamingEffectsChanged];
 }
 
+@end
+
+@interface ENRMTextTiles () <ENRMCaptureParticipant>
 @end
 
 @implementation ENRMTextTiles {
@@ -166,6 +221,10 @@ static void *kENRMCanvasBoundsContext = &kENRMCanvasBoundsContext;
   // What to redraw from, found once the text storage is done editing (layout).
   NSUInteger _redrawFromCharacter;
   NSUInteger _redrawFromGlyph;
+  // The part of the text a hooked capture shows (ENRMCapture; the text view's space), CGRectNull
+  // when none: the tiles cover it as well while the capture is in progress.
+  CGRect _capturedRect;
+  NSInteger _captures;
 }
 
 - (instancetype)initWithTextView:(UITextView *)textView
@@ -176,6 +235,7 @@ static void *kENRMCanvasBoundsContext = &kENRMCanvasBoundsContext;
     _redrawFromGlyph = NSNotFound;
     _streamingEffects = [[ENRMStreamingEffects alloc] init];
     _animatedFrom = NSNotFound;
+    _capturedRect = CGRectNull;
   }
   return self;
 }
@@ -293,6 +353,7 @@ static BOOL ENRMTextTilesDisabled(void)
     [_observedCanvasLayer addObserver:self forKeyPath:@"bounds" options:0 context:kENRMCanvasBoundsContext];
   }
   if (_tiles == nil) {
+    ENRMCaptureAddParticipant(self);
     _tiles = [NSMutableDictionary dictionary];
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(textStorageDidProcessEditing:)
@@ -314,6 +375,31 @@ static BOOL ENRMTextTilesDisabled(void)
   [self collapseCanvas];
 }
 
+- (ENRMCaptureCoverage)beginCaptureOfView:(UIView *)view
+{
+  UITextView *textView = _textView;
+  // Nil only when the tiles are off: a text past the margin has none, and a capture of it draws some.
+  if (_tiles == nil || textView.window != view.window || ![textView isDescendantOfView:view]) {
+    return ENRMCaptureCoverageNone;
+  }
+  CGRect shown = CGRectIntersection([view convertRect:view.bounds toView:textView], textView.bounds);
+  if (CGRectIsEmpty(shown)) {
+    return ENRMCaptureCoverageNone;
+  }
+  _captures++;
+  _capturedRect = CGRectUnion(_capturedRect, shown);
+  return [self layoutTiles] ? ENRMCaptureCoverageAdded : ENRMCaptureCoverageDrawn;
+}
+
+// A capture inside another one (a view capturing itself as it draws) ends with the outer one.
+- (void)endCapture
+{
+  if (--_captures == 0) {
+    _capturedRect = CGRectNull;
+    [self layoutTiles];
+  }
+}
+
 - (void)setDrawnRect:(CGRect)rect
 {
   _drawnRect = rect;
@@ -332,16 +418,21 @@ static BOOL ENRMTextTilesDisabled(void)
 }
 
 // Tiles for the drawn rect, in tile height steps: kept while it moves, made as it reaches them.
-- (void)layoutTiles
+// Returns whether a tile was made or moved.
+- (BOOL)layoutTiles
 {
   if (![self prepareTiles]) {
-    return;
+    return NO;
   }
+  BOOL changed = NO;
   UITextView *textView = _textView;
   if (_tileHost == nil) {
-    _tileHost = [[UIView alloc] init];
-    _tileHost.userInteractionEnabled = NO;
-    _tileHost.accessibilityElementsHidden = YES;
+    ENRMTextTileHostView *host = [[ENRMTextTileHostView alloc] init];
+    host.textView = textView;
+    host.effects = _streamingEffects;
+    host.userInteractionEnabled = NO;
+    host.accessibilityElementsHidden = YES;
+    _tileHost = host;
   }
   if (_tileHost.superview != _containerView) {
     [_containerView insertSubview:_tileHost aboveSubview:_canvas];
@@ -356,7 +447,9 @@ static BOOL ENRMTextTilesDisabled(void)
     _tileWidth = width;
   }
   CGFloat height = textView.bounds.size.height;
-  CGRect rect = CGRectIntersection(_drawnRect, CGRectMake(0, 0, width, height));
+  // Bounding the drawn and captured rects, the tiles also fill a gap between them.
+  CGRect drawn = CGRectIsEmpty(_drawnRect) ? CGRectNull : _drawnRect;
+  CGRect rect = CGRectIntersection(CGRectUnion(drawn, _capturedRect), CGRectMake(0, 0, width, height));
   NSInteger first = 0;
   NSInteger end = 0;
   if (!CGRectIsNull(rect) && rect.size.height > 0 && width > 0) {
@@ -381,11 +474,14 @@ static BOOL ENRMTextTilesDisabled(void)
       tile.effects = _streamingEffects;
       [_tileHost addSubview:tile];
       _tiles[@(index)] = tile;
+      changed = YES;
     } else if (!CGRectEqualToRect(tile.frame, frame)) {
       tile.frame = frame;
       [tile setNeedsDisplay];
+      changed = YES;
     }
   }
+  return changed;
 }
 
 // Redraws the tiles from `y` (the text view's space) down: an edit moves the text below it.
