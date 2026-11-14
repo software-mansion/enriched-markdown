@@ -6,7 +6,9 @@ import android.graphics.Canvas
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
+import android.view.Choreographer
 import android.view.View
 import androidx.core.view.children
 import com.facebook.react.bridge.Arguments
@@ -84,6 +86,17 @@ class EnrichedMarkdown(
   private val mainHandler = Handler(Looper.getMainLooper())
   private val executor: ExecutorService = Executors.newSingleThreadExecutor()
   private val renderCoordinator = RenderCoordinator(executor, ::postToMain)
+
+  // Streaming renders start on a display frame, one at a time: the next waits until the last has
+  // applied, and [renderStride] frames after it while applying overruns the frame budget. Without
+  // this each publish became its own frame, so the window drew far more often than the text changed.
+  private var pacedRenderInFlightSince = 0L
+  private var pacedRenderRequested = false
+  private var pacedFramePosted = false
+  private var renderStride = 1
+  private var framesUntilRender = 0
+  private var healthyApplies = 0
+  private val pacedFrame = Choreographer.FrameCallback { onPacedFrame() }
 
   // Reused by the next render on the executor (see TextRenderCache). Its key is this epoch,
   // bumped on the main thread whenever the views stop showing what it holds: recreated views,
@@ -744,15 +757,64 @@ class EnrichedMarkdown(
     return renderedSegments to hasPendingCodeBlock
   }
 
-  // With nothing to render, still ends a stream that has ended.
+  // Paced while streaming without smooth pacing or arrival fades, which keep their own timing.
   private fun scheduleRender() {
     if (isDisposed) return
+    if (streaming && !smooth && !fadesArrivals()) {
+      pacedRenderRequested = true
+      postPacedFrame()
+      return
+    }
+    // This render supersedes a paced one still waiting (the stream ended, say).
+    pacedRenderRequested = false
+    scheduleRenderNow(paced = false)
+  }
+
+  private fun pacedRenderInFlight() =
+    pacedRenderInFlightSince != 0L && SystemClock.uptimeMillis() - pacedRenderInFlightSince < PACED_RENDER_TIMEOUT_MS
+
+  private fun postPacedFrame() {
+    if (pacedFramePosted || pacedRenderInFlight()) return
+    pacedFramePosted = true
+    Choreographer.getInstance().postFrameCallback(pacedFrame)
+  }
+
+  private fun onPacedFrame() {
+    pacedFramePosted = false
+    if (isDisposed || !pacedRenderRequested) return
+    if (framesUntilRender > 0) {
+      framesUntilRender--
+      postPacedFrame()
+      return
+    }
+    pacedRenderRequested = false
+    framesUntilRender = renderStride - 1
+    scheduleRenderNow(paced = true)
+  }
+
+  private fun onPacedRenderApplied(applyMs: Long) {
+    pacedRenderInFlightSince = 0L
+    val frameMs = 1000f / (display?.refreshRate?.takeIf { it > 0f } ?: 60f)
+    if (applyMs > frameMs * APPLY_BUDGET_SHARE) {
+      renderStride = (renderStride * 2).coerceAtMost(MAX_RENDER_STRIDE)
+      healthyApplies = 0
+    } else if (renderStride > 1 && ++healthyApplies >= HEALTHY_APPLIES_TO_RELAX) {
+      renderStride /= 2
+      healthyApplies = 0
+    }
+    if (pacedRenderRequested) postPacedFrame()
+  }
+
+  // With nothing to render, still ends a stream that has ended.
+  private fun scheduleRenderNow(paced: Boolean) {
+    pacedRenderInFlightSince = 0L
     val job =
       renderJob() ?: run {
         // Nothing to render: nothing is left to show either.
         if (!streaming) emitStreamingEndIfPending()
         return
       }
+    if (paced) pacedRenderInFlightSince = SystemClock.uptimeMillis()
     // Taken now: an older render can still apply after a newer one is scheduled, and
     // must not claim the newer one's flags.
     val scheduledFlags = EnumSet.copyOf(dirtyFlags)
@@ -771,7 +833,9 @@ class EnrichedMarkdown(
         }
       Runnable {
         val epoch = textRenderEpoch
+        val applyStart = SystemClock.uptimeMillis()
         applyRenderedSegments(segments, pendingCodeBlock, scheduledFlags, job.markdown)
+        if (paced) onPacedRenderApplied(SystemClock.uptimeMillis() - applyStart)
         // A segment that missed a patch renders again in full (a new epoch): that render shows the end.
         if (!job.isStreaming && textRenderEpoch == epoch) emitStreamingEndIfPending()
       }
@@ -785,6 +849,8 @@ class EnrichedMarkdown(
     if (isDisposed) return
     val job = renderJob() ?: return
     renderCoordinator.invalidate()
+    pacedRenderInFlightSince = 0L
+    pacedRenderRequested = false
     textRenderEpoch++
     val (segments, pendingCodeBlock) =
       try {
@@ -1162,6 +1228,7 @@ class EnrichedMarkdown(
   fun cleanup() {
     isDisposed = true
     renderCoordinator.invalidate()
+    Choreographer.getInstance().removeFrameCallback(pacedFrame)
     blockSlotReveal.reset()
     executor.shutdownNow()
     mainHandler.removeCallbacksAndMessages(null)
@@ -1172,6 +1239,15 @@ class EnrichedMarkdown(
   }
 
   companion object {
+    // A paced render whose apply never comes (dropped by invalidate) holds the next one back no longer.
+    private const val PACED_RENDER_TIMEOUT_MS = 250L
+    private const val MAX_RENDER_STRIDE = 4
+
+    // Applying a render beyond this share of a frame raises the stride; this many in a row within
+    // it lower it again.
+    private const val APPLY_BUDGET_SHARE = 0.7f
+    private const val HEALTHY_APPLIES_TO_RELAX = 8
+
     private const val TAG = "EnrichedMarkdown"
     private const val BLOCK_FADE_DURATION_MS = 200L
 
