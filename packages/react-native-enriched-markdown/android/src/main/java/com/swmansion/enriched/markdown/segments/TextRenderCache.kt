@@ -4,6 +4,7 @@ import android.text.NoCopySpan
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.renderer.ListRenderer
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import java.util.concurrent.atomic.AtomicLong
@@ -32,6 +33,9 @@ class TextRenderResult(
   val taskItemCount: Int,
   val blockStarts: IntArray,
   val blockTaskStarts: IntArray,
+  // The items of the last top-level list rendered, as [blockStarts] does for nodes.
+  val listItemStarts: IntArray = IntArray(0),
+  val listItemTaskStarts: IntArray = IntArray(0),
 )
 
 /** [styledText], just rendered by this renderer, with what the renderer collected along. */
@@ -46,6 +50,8 @@ fun Renderer.textRenderResult(
   taskItemCount = getTaskItemCount(),
   blockStarts = getBlockStarts(),
   blockTaskStarts = getBlockTaskStarts(),
+  listItemStarts = getTopLevelListItemStarts(),
+  listItemTaskStarts = getTopLevelListItemTaskStarts(),
 )
 
 /**
@@ -62,6 +68,8 @@ fun Renderer.textRenderResult(
  *   the old last node at the latest, whose trailing margin was trimmed, and at the new last node
  *   at the latest, which still ends in the spacing before the nodes that are gone (a link
  *   reference definition that completes renders nothing).
+ * - When both renders end in the same list after the same nodes, rendering resumes at its first
+ *   changed item the same way, the rest of the list rendering as a continuation of it.
  *
  * Drop it with [clear] whenever views are recreated.
  */
@@ -82,11 +90,27 @@ class TextRenderCache {
     // Whether the text before each of [blockStarts] ends in "\n" (or is empty): rendering can resume
     // only there.
     val resumable: BooleanArray,
+    // The same for the items of the last node when it is a list (ListItems), else empty.
+    val items: ListItems,
     val textLength: Int,
     val imageSpans: List<ImageSpan>,
     // Where each of [imageSpans] starts in the text.
     val imageStarts: IntArray,
   )
+
+  // A stream grows a list item by item, and a long list is often a segment's only node: rendering
+  // resumes at its first changed item too, with the rest of the list as a continuation
+  // (ListRenderer.CONTINUATION_ATTRIBUTE).
+  private class ListItems(
+    val signatures: LongArray,
+    val starts: IntArray,
+    val taskStarts: IntArray,
+    val resumable: BooleanArray,
+  ) {
+    companion object {
+      val NONE = ListItems(LongArray(0), IntArray(0), IntArray(0), BooleanArray(0))
+    }
+  }
 
   private var previous: List<Entry> = emptyList()
   private var growing: Growing? = null
@@ -149,6 +173,7 @@ class TextRenderCache {
           full.blockStarts,
           full.blockTaskStarts,
           resumableStarts(full.styledText, full.blockStarts),
+          listItemsOf(nodes.lastOrNull(), full, 0),
           full.styledText.length,
           full.imageSpans,
           imageStarts,
@@ -171,6 +196,7 @@ class TextRenderCache {
     while (common < nodes.size && common < old.nodeSignatures.size && nodeSignatures[common] == old.nodeSignatures[common]) {
       common++
     }
+    resumeInList(old, nodes, nodeSignatures, common, startingTaskIndex, base, render)?.let { return it }
     // No later than the last node of either render (see the class comment).
     val from = minOf(common, old.nodeSignatures.size - 1, nodes.size - 1)
     if (from <= 0) return null
@@ -178,6 +204,80 @@ class TextRenderCache {
     if (start > old.textLength || !old.resumable[from]) return null
 
     val tail = render(nodes.subList(from, nodes.size), old.blockTaskStarts[from])
+    return patched(
+      old,
+      start,
+      tail,
+      startingTaskIndex,
+      base,
+      nodeSignatures,
+      old.blockStarts.copyOf(from) + tail.blockStarts.map { it + start },
+      old.blockTaskStarts.copyOf(from) + tail.blockTaskStarts,
+      old.resumable.copyOf(from) + resumableStarts(tail.styledText, tail.blockStarts),
+      listItemsOf(nodes.last(), tail, start),
+    )
+  }
+
+  // Both renders end in the same list after the same nodes: the list's items from its first
+  // changed one on render as a continuation of the items before them.
+  private fun resumeInList(
+    old: Growing,
+    nodes: List<MarkdownASTNode>,
+    nodeSignatures: LongArray,
+    common: Int,
+    startingTaskIndex: Int,
+    base: Long,
+    render: (List<MarkdownASTNode>, Int) -> TextRenderResult,
+  ): Entry? {
+    val last = nodes.size - 1
+    if (old.nodeSignatures.size != nodes.size || common < last || old.items.signatures.isEmpty()) return null
+    val list = nodes[last]
+    val signatures = itemSignatures(list) ?: return null
+    var commonItems = 0
+    while (commonItems < signatures.size && commonItems < old.items.signatures.size &&
+      signatures[commonItems] == old.items.signatures[commonItems]
+    ) {
+      commonItems++
+    }
+    // An item that rendered nothing (an empty marker a chunk ended on) starts past the trimmed
+    // text: rendering resumes at the item before it instead.
+    var from = minOf(commonItems, old.items.signatures.size - 1, signatures.size - 1)
+    while (from > 0 && (old.items.starts[from] > old.textLength || !old.items.resumable[from])) from--
+    if (from <= 0) return null
+    val start = old.items.starts[from]
+
+    val tail = render(listOf(continuationOf(list, from)), old.items.taskStarts[from])
+    // Items that now render nothing (a link reference definition completing) would leave the text
+    // before them ending in the item break a full render trims.
+    if (tail.styledText.isEmpty()) return null
+    val tailItems = listItemsOf(signatures.copyOfRange(from, signatures.size), tail, start)
+    val items =
+      if (tailItems === ListItems.NONE) {
+        ListItems.NONE
+      } else {
+        ListItems(
+          signatures,
+          old.items.starts.copyOf(from) + tailItems.starts,
+          old.items.taskStarts.copyOf(from) + tailItems.taskStarts,
+          old.items.resumable.copyOf(from) + tailItems.resumable,
+        )
+      }
+    return patched(old, start, tail, startingTaskIndex, base, nodeSignatures, old.blockStarts, old.blockTaskStarts, old.resumable, items)
+  }
+
+  // The segment patching the old text from [start] with [tail]; the rest describes the text after it.
+  private fun patched(
+    old: Growing,
+    start: Int,
+    tail: TextRenderResult,
+    startingTaskIndex: Int,
+    base: Long,
+    nodeSignatures: LongArray,
+    blockStarts: IntArray,
+    blockTaskStarts: IntArray,
+    resumable: BooleanArray,
+    items: ListItems,
+  ): Entry {
     val tailImageSpans = tail.imageSpans
     val kept = old.imageStarts.indices.filter { old.imageStarts[it] in 0 until start }
     val imageSpans = kept.map { old.imageSpans[it] } + tailImageSpans
@@ -198,9 +298,10 @@ class TextRenderCache {
       Growing(
         entry,
         nodeSignatures,
-        old.blockStarts.copyOf(from) + tail.blockStarts.map { it + start },
-        old.blockTaskStarts.copyOf(from) + tail.blockTaskStarts,
-        old.resumable.copyOf(from) + resumableStarts(tail.styledText, tail.blockStarts),
+        blockStarts,
+        blockTaskStarts,
+        resumable,
+        items,
         start + tail.styledText.length,
         imageSpans,
         imageStarts.toIntArray(),
@@ -210,6 +311,54 @@ class TextRenderCache {
 
   companion object {
     private val revisions = AtomicLong()
+
+    // Ordered lists stop resuming once a number reaches 100: wider numbers widen the marker
+    // column of every item (ListRenderer.markerExtraWidth).
+    private fun itemSignatures(list: MarkdownASTNode?): LongArray? {
+      if (list == null || list.children.isEmpty()) return null
+      val ordered = list.type == MarkdownASTNode.NodeType.OrderedList
+      if (!ordered && list.type != MarkdownASTNode.NodeType.UnorderedList) return null
+      if (ordered && ListRenderer.startNumber(list) + list.children.size > 100) return null
+      // An item renders by its list's attributes too (tight or loose, the numbering).
+      val listSignature = SegmentSignature.signatureForNode(list.copy(children = emptyList()))
+      return LongArray(list.children.size) { listSignature * 31 + SegmentSignature.signatureForNode(list.children[it]) }
+    }
+
+    // The items of [list] from [from] on, numbered on from there and without the gap above the list.
+    private fun continuationOf(
+      list: MarkdownASTNode,
+      from: Int,
+    ): MarkdownASTNode {
+      val attributes = list.attributes + (ListRenderer.CONTINUATION_ATTRIBUTE to "true")
+      val numbered =
+        if (list.type == MarkdownASTNode.NodeType.OrderedList) {
+          attributes + ("start" to (ListRenderer.startNumber(list) + from).toString())
+        } else {
+          attributes
+        }
+      return list.copy(attributes = numbered, children = list.children.subList(from, list.children.size))
+    }
+
+    // Where the items of [last], the last node a render rendered, start in its text (from [offset]).
+    private fun listItemsOf(
+      last: MarkdownASTNode?,
+      rendered: TextRenderResult,
+      offset: Int,
+    ): ListItems = itemSignatures(last)?.let { listItemsOf(it, rendered, offset) } ?: ListItems.NONE
+
+    private fun listItemsOf(
+      signatures: LongArray,
+      rendered: TextRenderResult,
+      offset: Int,
+    ): ListItems {
+      if (rendered.listItemStarts.size != signatures.size) return ListItems.NONE
+      return ListItems(
+        signatures,
+        IntArray(signatures.size) { rendered.listItemStarts[it] + offset },
+        rendered.listItemTaskStarts,
+        resumableStarts(rendered.styledText, rendered.listItemStarts),
+      )
+    }
 
     private fun nextRevision(): Long = revisions.incrementAndGet()
 
