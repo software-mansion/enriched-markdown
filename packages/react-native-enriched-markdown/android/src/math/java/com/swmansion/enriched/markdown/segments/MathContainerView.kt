@@ -11,7 +11,6 @@ import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
-import android.widget.HorizontalScrollView
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.math.mathLabel
@@ -32,7 +31,7 @@ class MathContainerView(
 ) : FrameLayout(context),
   BlockSegmentView {
   private val mathStyle: MathStyle = styleConfig.mathStyle
-  private val scrollView = HorizontalScrollView(context)
+  private val scrollView = OverflowScrollView(context)
   private var cachedLatex: String = ""
 
   var accessibilityLabels: AccessibilityLabels = AccessibilityLabels()
@@ -74,7 +73,6 @@ class MathContainerView(
     mathWrapper.addView(mathView, mathLayoutParams)
 
     scrollView.apply {
-      isHorizontalScrollBarEnabled = true
       overScrollMode = View.OVER_SCROLL_NEVER
       isFillViewport = true
       importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS

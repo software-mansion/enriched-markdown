@@ -72,7 +72,8 @@ class TableContainerView(
 
   private val scrollView =
     HorizontalScrollView(context).apply {
-      isHorizontalScrollBarEnabled = true
+      // Enabled in onLayout only when the table overflows; enabled at attach it fades and redraws.
+      isHorizontalScrollBarEnabled = false
       overScrollMode = View.OVER_SCROLL_NEVER
       importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
       addView(
