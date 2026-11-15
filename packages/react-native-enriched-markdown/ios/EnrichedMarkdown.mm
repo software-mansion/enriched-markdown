@@ -9,6 +9,7 @@
 #import "ENRMLinkRegexProps.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMPreparedRenderStore.h"
+#import "ENRMRenderPacer.h"
 #import "ENRMStreamingEffectsProps.h"
 #import "ENRMStreamingPacer.h"
 #import "ENRMTextInteractionUtils.h"
@@ -157,6 +158,9 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   ENRMBlockSlotRevealController *_blockSlotReveal;
 
   ENRMAsyncRenderCoordinator *_renderCoordinator;
+  ENRMRenderPacer *_renderPacer;
+  // Set while the pacer starts a render: it skips the pacer.
+  BOOL _startingPacedRender;
   // Text laid out while detached is current when the view attaches; one that
   // left a window may hold a stale layout and is refreshed on return (#155).
   BOOL _needsWindowAttachRefresh;
@@ -278,6 +282,17 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
 
     _renderCoordinator =
         [[ENRMAsyncRenderCoordinator alloc] initWithQueueLabel:"com.swmansion.enriched.markdown.container.render"];
+    __weak EnrichedMarkdown *weakRenderSelf = self;
+    _renderPacer = [[ENRMRenderPacer alloc] initWithRender:^BOOL {
+      EnrichedMarkdown *strongSelf = weakRenderSelf;
+      if (strongSelf == nil || strongSelf->_cachedMarkdown == nil || strongSelf->_renderCoordinator.blockAsyncRender) {
+        return NO;
+      }
+      strongSelf->_startingPacedRender = YES;
+      [strongSelf renderMarkdownContent:strongSelf->_cachedMarkdown synchronously:NO];
+      strongSelf->_startingPacedRender = NO;
+      return YES;
+    }];
 
     _maxFontSizeMultiplier = 0;
     _allowTrailingMargin = NO;
@@ -1079,6 +1094,15 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     return;
 
   _cachedMarkdown = [markdownString copy];
+  const BOOL paced = _startingPacedRender;
+  if (!paced) {
+    if (!synchronously && [self pacesRenders]) {
+      [_renderPacer requestRender];
+      return;
+    }
+    // This render supersedes a paced one still waiting (the stream ended, say).
+    [_renderPacer cancel];
+  }
 
   StyleConfig *config = [_config copy];
   ENRMMarkdownParser *parser = _parser;
@@ -1160,10 +1184,14 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     self->_renderedStyleFingerprint = styleFingerprint;
     self->_laidOutMarkdown = ENRMLaidOutMarkdown(markdownString);
     const NSUInteger epoch = self->_textRenderCacheEpoch;
+    const CFTimeInterval applyStart = CACurrentMediaTime();
     [self applyRenderedSegments:renderedSegments
                renderedMarkdown:renderableMarkdown
         endsInsideOpenCodeFence:endsInsideOpenCodeFence
                      dirtyFlags:dirtyFlags];
+    if (paced) {
+      [self->_renderPacer renderAppliedIn:CACurrentMediaTime() - applyStart];
+    }
     // A segment that missed a patch renders again in full (a new epoch): that render shows the end.
     if (!streaming && self->_textRenderCacheEpoch == epoch) {
       [self emitStreamingEndIfPending];
@@ -1188,6 +1216,18 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     }
     apply();
     return;
+  }
+  if (paced) {
+    // A render that produces nothing applies nothing: the next need not wait for it.
+    BOOL (^pacedRender)(void) = render;
+    ENRMRenderPacer *renderPacer = _renderPacer;
+    render = ^BOOL {
+      if (pacedRender()) {
+        return YES;
+      }
+      dispatch_async(dispatch_get_main_queue(), ^{ [renderPacer renderAppliedIn:0]; });
+      return NO;
+    };
   }
   [_renderCoordinator scheduleRender:render apply:apply];
 }
@@ -1517,6 +1557,13 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 - (BOOL)fadesArrivals
 {
   return _streaming && _streamingFade && !ENRMShouldReduceMotion();
+}
+
+// Paced while streaming without smooth pacing or arrival fades, which keep their own timing.
+- (BOOL)pacesRenders
+{
+  return _streaming && !static_cast<const EnrichedMarkdownProps &>(*_props).streamingConfig.smooth &&
+         ![self fadesArrivals];
 }
 
 - (void)animateBlockViewIfNeeded:(RCTUIView *)view
@@ -2179,6 +2226,7 @@ static void ENRMAfterCommit(dispatch_block_t block)
   const auto resetProps = std::make_shared<const EnrichedMarkdownProps>();
   _props = resetProps;
   [_renderCoordinator invalidate];
+  [_renderPacer reset];
   _laidOutSize.clear();
   _laidOutMarkdown = nullptr;
 
