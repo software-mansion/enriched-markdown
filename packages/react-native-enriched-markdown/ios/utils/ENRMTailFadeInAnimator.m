@@ -42,7 +42,12 @@ typedef struct {
 
 - (void)animateFrom:(NSUInteger)tailStart to:(NSUInteger)tailEnd
 {
-  [self cancel];
+  // The caller has just replaced the attributed text, and the new text carries
+  // its own opaque colours. Restoring the previous snapshot here would write the
+  // old colours over the same ranges of the new text, e.g. turn a range that has
+  // just become a link back into body colour, so drop the snapshot instead.
+  [self stopDisplayLink];
+  [self cleanupEntries];
 
   NSTextStorage *storage = _textView.textStorage;
   if (!storage || tailEnd <= tailStart || tailEnd > storage.length)
@@ -135,12 +140,17 @@ typedef struct {
   }
 }
 
-- (void)cancel
+- (void)stopDisplayLink
 {
 #if !TARGET_OS_OSX
   [_displayLink invalidate];
   _displayLink = nil;
 #endif
+}
+
+- (void)cancel
+{
+  [self stopDisplayLink];
 
   if (_entriesCount > 0) {
     [self updateAlpha:1.0];
