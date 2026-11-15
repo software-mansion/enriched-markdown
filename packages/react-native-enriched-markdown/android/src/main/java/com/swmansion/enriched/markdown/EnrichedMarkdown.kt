@@ -96,7 +96,8 @@ class EnrichedMarkdown(
   private var renderStride = 1
   private var framesUntilRender = 0
   private var healthyApplies = 0
-  private val pacedFrame = Choreographer.FrameCallback { onPacedFrame() }
+  private var lastPacedRenderFrameNanos = 0L
+  private val pacedFrame = Choreographer.FrameCallback { onPacedFrame(it) }
 
   // Reused by the next render on the executor (see TextRenderCache). Its key is this epoch,
   // bumped on the main thread whenever the views stop showing what it holds: recreated views,
@@ -779,16 +780,19 @@ class EnrichedMarkdown(
     Choreographer.getInstance().postFrameCallback(pacedFrame)
   }
 
-  private fun onPacedFrame() {
+  private fun onPacedFrame(frameTimeNanos: Long) {
     pacedFramePosted = false
     if (isDisposed || !pacedRenderRequested) return
-    if (framesUntilRender > 0) {
-      framesUntilRender--
+    // At most every PACED_RENDER_INTERVAL_NANOS: each render is a layout pass and a frame, and a
+    // stream's text reads as smoothly at about 30 updates a second.
+    if (framesUntilRender > 0 || frameTimeNanos - lastPacedRenderFrameNanos < PACED_RENDER_INTERVAL_NANOS) {
+      if (framesUntilRender > 0) framesUntilRender--
       postPacedFrame()
       return
     }
     pacedRenderRequested = false
     framesUntilRender = renderStride - 1
+    lastPacedRenderFrameNanos = frameTimeNanos
     scheduleRenderNow(paced = true)
   }
 
@@ -1242,6 +1246,9 @@ class EnrichedMarkdown(
     // A paced render whose apply never comes (dropped by invalidate) holds the next one back no longer.
     private const val PACED_RENDER_TIMEOUT_MS = 250L
     private const val MAX_RENDER_STRIDE = 4
+
+    // Just under two 60 Hz frames, so a render every other one passes despite frame time jitter.
+    private const val PACED_RENDER_INTERVAL_NANOS = 30_000_000L
 
     // Applying a render beyond this share of a frame raises the stride; this many in a row within
     // it lower it again.
