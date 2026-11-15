@@ -1,4 +1,11 @@
-import { useMemo, useCallback, useRef, useEffect } from 'react';
+import {
+  useMemo,
+  useCallback,
+  useRef,
+  useEffect,
+  type ComponentType,
+  type ReactNode,
+} from 'react';
 import EnrichedMarkdownTextNativeComponent from '../EnrichedMarkdownTextNativeComponent';
 import type {
   MarkdownStyleInternal,
@@ -30,7 +37,12 @@ import { hasRenderers } from '../blockRenderers';
 import { useImageSources } from './useImageSources';
 import { useLinksChange } from '../linkOccurrences';
 import { useStreamingAnimation } from '../streamingAnimation';
-import { useMarkdownStreamSnapshot } from '../markdownStream';
+import {
+  useMarkdownStreamEnded,
+  useMarkdownStreamSnapshot,
+  type MarkdownStream,
+  type MarkdownStreamSnapshot,
+} from '../markdownStream';
 import {
   normalizeMenuItem,
   normalizeLegacyBooleanMenuItem,
@@ -472,17 +484,23 @@ export const EnrichedMarkdownText = ({
         'Like `streaming`, it holds back incomplete blocks and repairs half-written syntax while it is on.'
     );
   }
-  const streamSnapshot = useMarkdownStreamSnapshot(stream);
-  // A native stream's text stays in C++: the component descriptor puts it in `markdown`.
-  const nativeStream =
-    streamSnapshot != null && streamSnapshot.streamId !== 0
-      ? streamSnapshot
-      : null;
+  const isGFM = flavor === 'github';
+  const renderersEnabled = hasRenderers(renderers);
+  const collectEnabled =
+    renderersEnabled || resolveImageSource != null || onLinksChange != null;
+  // With nothing here reading the text (only github collects), the stream's frames re-render only
+  // NativeMarkdown.
+  const readsStream = collectEnabled && isGFM;
+  const followedStream = readsStream ? undefined : stream;
+  const streamSnapshot = useMarkdownStreamSnapshot(
+    readsStream ? stream : undefined
+  );
+  const streamEnded = useMarkdownStreamEnded(stream);
   const markdown = streamSnapshot?.text ?? markdownProp;
   const streaming =
     streamingProp ??
     streamingAnimation ??
-    (streamSnapshot != null && !streamSnapshot.ended);
+    (streamEnded != null && !streamEnded);
   const tableMode = streamingConfig?.tableMode ?? 'progressive';
   const codeBlockMode = streamingConfig?.codeBlockMode ?? 'progressive';
   const mediaMode = streamingConfig?.mediaMode ?? 'progressive';
@@ -572,10 +590,7 @@ export const EnrichedMarkdownText = ({
 
   // One parse on the JS thread serves both: the slot children land in the same
   // commit as the markdown they describe, the image sources before it is drawn.
-  const isGFM = flavor === 'github';
-  const renderersEnabled = hasRenderers(renderers);
-  const collectEnabled =
-    renderersEnabled || resolveImageSource != null || onLinksChange != null;
+  const nativeStream = nativeStreamOf(streamSnapshot);
   const collectStreaming = useMemo(
     () => ({
       enabled: streaming,
@@ -606,10 +621,7 @@ export const EnrichedMarkdownText = ({
   useLinksChange(collected.links, onLinksChange, collected !== NOT_COLLECTED);
 
   const sharedProps = {
-    // Never real markdown, so leaving the stream sends `markdown` again.
-    markdown: nativeStream ? `\0stream:${nativeStream.streamId}` : markdown,
-    streamId: nativeStream?.streamId ?? 0,
-    streamLength: nativeStream?.length ?? 0,
+    ...streamProps(nativeStream, markdown),
     linkRecognition: nativeLinkRecognition,
     markdownStyle: normalizedStyle,
     onLinkPress: handleLinkPress,
@@ -656,19 +668,58 @@ export const EnrichedMarkdownText = ({
     ...rest,
   };
 
-  if (isGFM) {
-    return (
-      <EnrichedMarkdownNativeComponent
-        {...sharedProps}
-        enableCodeBlockWrapToggle={enableCodeBlockWrapToggle}
-        imageSources={imageSources}
-      >
-        {slotChildren}
-      </EnrichedMarkdownNativeComponent>
-    );
-  }
-
-  return <EnrichedMarkdownTextNativeComponent {...sharedProps} />;
+  return isGFM ? (
+    <NativeMarkdown
+      stream={followedStream}
+      Component={EnrichedMarkdownNativeComponent}
+      nativeProps={{ ...sharedProps, enableCodeBlockWrapToggle, imageSources }}
+    >
+      {slotChildren}
+    </NativeMarkdown>
+  ) : (
+    <NativeMarkdown
+      stream={followedStream}
+      Component={EnrichedMarkdownTextNativeComponent}
+      nativeProps={sharedProps}
+    />
+  );
 };
+
+// A native stream's text stays in C++: the component descriptor puts it in `markdown`.
+const nativeStreamOf = (snapshot: MarkdownStreamSnapshot | null) =>
+  snapshot != null && snapshot.streamId !== 0 ? snapshot : null;
+
+const streamProps = (
+  nativeStream: MarkdownStreamSnapshot | null,
+  markdown: string
+) => ({
+  // Never real markdown, so leaving the stream sends `markdown` again.
+  markdown: nativeStream ? `\0stream:${nativeStream.streamId}` : markdown,
+  streamId: nativeStream?.streamId ?? 0,
+  streamLength: nativeStream?.length ?? 0,
+});
+
+/** The native view; given `stream`, it follows the stream's frames itself. */
+function NativeMarkdown<Props extends ReturnType<typeof streamProps>>({
+  stream,
+  Component,
+  nativeProps,
+  children,
+}: {
+  stream: MarkdownStream | undefined;
+  Component: ComponentType<Props>;
+  nativeProps: Props;
+  children?: ReactNode;
+}) {
+  const snapshot = useMarkdownStreamSnapshot(stream);
+  const props =
+    snapshot != null
+      ? {
+          ...nativeProps,
+          ...streamProps(nativeStreamOf(snapshot), snapshot.text),
+        }
+      : nativeProps;
+  return <Component {...props}>{children}</Component>;
+}
 
 export default EnrichedMarkdownText;
