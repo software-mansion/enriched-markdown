@@ -63,6 +63,9 @@ jest.mock('../src/EnrichedMarkdownNativeComponent', () => ({
 
 let frames: Array<() => void> = [];
 const realRequestAnimationFrame = global.requestAnimationFrame;
+// The frame clock: nextFrame() moves it a 60 Hz frame on, frameAfter() past the publish interval.
+let clock = 0;
+jest.spyOn(performance, 'now').mockImplementation(() => clock);
 
 beforeEach(() => {
   setNativeMarkdownStreams(NativeEnrichedMarkdownParser);
@@ -79,10 +82,16 @@ afterAll(() => {
   global.requestAnimationFrame = realRequestAnimationFrame;
 });
 
-function nextFrame() {
+function runFrame(ms: number) {
+  clock += ms;
   const pending = frames;
   frames = [];
   act(() => pending.forEach((callback) => callback()));
+}
+
+/** A frame late enough for a stream to publish again. */
+function nextFrame() {
+  runFrame(34);
 }
 
 function render(element: ReactElement): Root {
@@ -197,6 +206,43 @@ it('keeps the view and the stream when collecting turns on and off mid-stream', 
   expect(view(root).props.streamId).toBe(streamId);
   expect(view(root).props.streamLength).toBe(13);
   expect(mockStreams.get(streamId)).toBe('one two three');
+});
+
+it('publishes a reset at once, also without the native module', () => {
+  for (const native of [true, false]) {
+    setNativeMarkdownStreams(native ? NativeEnrichedMarkdownParser : null);
+    const stream = createMarkdownStream('old');
+    const root = render(<EnrichedMarkdownText stream={stream} />);
+    stream.append(' text');
+    nextFrame();
+    stream.reset('new');
+    runFrame(17);
+    const shown = view(root).props;
+    expect(native ? mockStreams.get(shown.streamId) : shown.markdown).toBe(
+      'new'
+    );
+  }
+});
+
+it('publishes about every other frame, and the end at once', () => {
+  const stream = createMarkdownStream('a');
+  const root = render(<EnrichedMarkdownText stream={stream} />);
+  stream.append('b');
+  nextFrame();
+  expect(view(root).props.streamLength).toBe(2);
+
+  // The next 60 Hz frame is too soon; the one after it publishes, even a few ms early.
+  stream.append('c');
+  runFrame(17);
+  expect(view(root).props.streamLength).toBe(2);
+  runFrame(12);
+  expect(view(root).props.streamLength).toBe(3);
+
+  stream.append('d');
+  stream.end();
+  runFrame(17);
+  expect(view(root).props.streamLength).toBe(4);
+  expect(view(root).props.streaming).toBe(false);
 });
 
 it('sends a markdown unique to the stream, so leaving it sends markdown again', () => {
