@@ -52,6 +52,15 @@ export function setNativeMarkdownStreams(
   nativeStreams = module ?? null;
 }
 
+// About every other 60 Hz frame (under two, so a late frame callback still lets the next pass):
+// each publish is a React render and a commit, and streamed text reads as smoothly at this rate.
+const PUBLISH_INTERVAL_MS = 25;
+
+const now: () => number =
+  typeof performance === 'object' && typeof performance.now === 'function'
+    ? () => performance.now()
+    : () => Date.now();
+
 const scheduleFrame: (callback: () => void) => void =
   typeof requestAnimationFrame === 'function'
     ? (callback) => requestAnimationFrame(callback)
@@ -80,6 +89,8 @@ class Stream implements MarkdownStream {
   private ended = false;
   private disposed = false;
   private framePending = false;
+  private publishedAt = -Infinity;
+  private resetPending = false;
   // Native streams a reset replaced, freed once the new one is published.
   private retired: NativeStream[] = [];
   private snapshot: MarkdownStreamSnapshot;
@@ -126,6 +137,7 @@ class Stream implements MarkdownStream {
     this.disposed = false;
     this.ended = false;
     this.start(text);
+    this.resetPending = true;
     this.publishOnNextFrame();
   }
 
@@ -205,13 +217,26 @@ class Stream implements MarkdownStream {
   private publishOnNextFrame() {
     if (this.framePending) return;
     this.framePending = true;
-    scheduleFrame(() => {
-      this.framePending = false;
-      this.snapshot = this.takeSnapshot();
-      this.retired.forEach((stream) => stream.module?.disposeStream(stream.id));
-      this.retired = [];
-      this.listeners.forEach((listener) => listener());
-    });
+    scheduleFrame(() => this.publish());
+  }
+
+  private publish() {
+    // The end and a reset show at once.
+    if (
+      !this.ended &&
+      !this.resetPending &&
+      now() - this.publishedAt < PUBLISH_INTERVAL_MS
+    ) {
+      scheduleFrame(() => this.publish());
+      return;
+    }
+    this.publishedAt = now();
+    this.resetPending = false;
+    this.framePending = false;
+    this.snapshot = this.takeSnapshot();
+    this.retired.forEach((stream) => stream.module?.disposeStream(stream.id));
+    this.retired = [];
+    this.listeners.forEach((listener) => listener());
   }
 }
 
