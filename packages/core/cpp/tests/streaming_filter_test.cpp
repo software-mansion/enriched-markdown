@@ -298,9 +298,29 @@ int main() {
   expect("- ```", "- ", "a bullet that starts with a fence stays");
   expect("1. ```", "1. ", "a numbered item that starts with a fence stays");
   expect("> - ```", "> - ", "a quoted bullet that starts with a fence stays");
-  expect("- a\n  - ```", "- a\n  - ", "a nested bullet that starts with a fence stays");
+  // Under paragraph text a bare `-` bullet is a setext underline, so it waits with its fence.
+  expect("- a\n  - ```", "- a\n  ", "a nested bullet under its parent's text waits with the fence");
   expect("- ```js\n  x", "- ", "a hidden fence in a list item keeps the bullet", P, P, H);
   expect("> ```js\n> x", "> ", "a hidden fence in a quote keeps the bar", P, P, H);
+  // A `-` bullet right under paragraph text, with nothing after it shown yet, is a setext underline to md4c:
+  // `Intro:\n- ` renders `Intro:` as a heading. It is withheld with the fence (or until its content arrives).
+  for (const char *tail : {"-", "- ", "- `", "- ``", "- ```", "- ```js", "- ~~~"})
+    for (StreamingBlockMode mode : {P, H})
+      check(filter(std::string("Intro:\n") + tail, P, P, mode) == "Intro:\n",
+            std::string("bullet [") + tail + "] under a paragraph withheld");
+  expect("Intro:\n- ```js\n", "Intro:\n- ```js\n", "a bullet under a paragraph shows once its fence opens");
+  expect("Intro:\n- ```js\n  x", "Intro:\n", "a hidden fence in a bullet under a paragraph waits whole", P, P, H);
+  expect("Intro:\n- x", "Intro:\n- x", "a bullet with content under a paragraph shows");
+  expect("> Intro:\n> - ```js", "> Intro:\n> ", "a quoted bullet under quoted text waits, the bar kept");
+  expect("Intro:\n--", "Intro:\n--", "a real setext underline shows");
+  // Not an underline: another marker, a sibling item, a blank line or heading above, or a different container.
+  expect("Intro:\n* ```js", "Intro:\n* ", "a `*` bullet under a paragraph stays");
+  expect("Intro:\n1. ```js", "Intro:\n1. ", "a numbered item under a paragraph stays");
+  expect("- a\n- ```js", "- a\n- ", "a sibling bullet stays");
+  expect("Intro:\n\n- ```js", "Intro:\n\n- ", "a bullet after a blank line stays");
+  expect("# Intro\n- ```js", "# Intro\n- ", "a bullet under a heading stays");
+  expect("> Intro:\n- ```js", "> Intro:\n- ", "a bullet after a quote stays");
+  expect("```sh\nx\n```\n- ```js", "```sh\nx\n```\n- ", "a bullet after a closed fence stays");
   // Inside an open fence, a last line of only whitespace or container markers is withheld: md4c would read it as a
   // blank line of code that then disappears when the closing fence arrives.
   for (const char *tail : {"> ", ">", "> `", "> ``"})

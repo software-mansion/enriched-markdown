@@ -252,7 +252,9 @@ struct BlockScan {
   // an open fence, a last line that holds only whitespace or container markers
   // is withheld from its start, since md4c would read it as a blank code line.
   // The filter withholds them until the next character decides, so they never
-  // show as text or as a line of code that then disappears (#1130).
+  // show as text or as a line of code that then disappears (#1130). A last line
+  // that is only a `-` bullet right under paragraph text is withheld too: md4c
+  // reads it as a setext underline and shows the paragraph as a heading.
   size_t pendingDelimiter = npos;
   std::unordered_set<std::string> definitions;
 };
@@ -270,11 +272,18 @@ BlockScan scanBlocks(Lines &lines) {
   } fence;
   bool inFence = false;
   size_t listIndent = 0; // content column of the list item being continued
+  // The quote depth and content column of the previous line when it is
+  // paragraph text, which a line of only `-` would turn into a setext heading.
+  bool afterParagraph = false;
+  size_t paragraphDepth = 0;
+  size_t paragraphColumn = 0;
   for (size_t i = 0; i < lines.size(); i++) {
     Quoted quoted = stripQuotes(lines[i].text);
     std::string_view body = quoted.body;
     bool blank = isBlank(body);
     size_t lead = leadingSpaces(body);
+    bool underParagraph = afterParagraph && quoted.depth == paragraphDepth && lead >= paragraphColumn;
+    afterParagraph = false;
     if (inFence) {
       // A last line of only whitespace and quote markers has not streamed all of
       // its markers in yet, so it cannot end a quoted fence. Until more arrives
@@ -300,6 +309,14 @@ BlockScan scanBlocks(Lines &lines) {
       continue;
     std::string_view content = body;
     size_t indent = 0;
+    // A `-` bullet whose content is not shown yet would be read as a setext
+    // underline of the paragraph above (`Intro:\n- ` is a heading), so it is
+    // withheld with the rest of the line.
+    std::string_view nested = underParagraph ? body.substr(paragraphColumn) : std::string_view();
+    size_t bullet = listMarkerWidth(nested);
+    bool bulletUnderParagraph = bullet != 0 && nested[leadingSpaces(nested)] == '-';
+    size_t bulletOffset =
+        bulletUnderParagraph ? lines[i].offset + offsetIn(lines[i].text, nested) + leadingSpaces(nested) : npos;
     if (size_t marker = listMarkerWidth(body)) {
       listIndent = marker;
       indent = marker;
@@ -315,7 +332,9 @@ BlockScan scanBlocks(Lines &lines) {
       fence = {marker.ch, marker.length, quoted.depth, indent};
       lines[i].code = true;
       scan.openFence = i;
-      scan.openFenceMarker = lines[i].offset + offsetIn(lines[i].text, content) + leadingSpaces(content);
+      scan.openFenceMarker = bulletUnderParagraph
+                                 ? bulletOffset
+                                 : lines[i].offset + offsetIn(lines[i].text, content) + leadingSpaces(content);
       continue;
     }
     if (i + 1 == lines.size()) {
@@ -323,8 +342,15 @@ BlockScan scanBlocks(Lines &lines) {
         scan.pendingDelimiter = lines[i].offset + offsetIn(lines[i].text, content) + leadingSpaces(content);
       else if (trim(body) == "$") // the block math rule reads `$$` lines the same way
         scan.pendingDelimiter = lines[i].offset + offsetIn(lines[i].text, body) + leadingSpaces(body);
+      else if (bulletUnderParagraph && isBlank(nested.substr(bullet)))
+        scan.pendingDelimiter = bulletOffset;
     }
     recordDefinition(content, scan.definitions);
+    if (!isBlank(content) && leadingSpaces(content) < 4 && !isAtxHeading(content) && !isUnderlineOrBreak(body)) {
+      afterParagraph = true;
+      paragraphDepth = quoted.depth;
+      paragraphColumn = indent;
+    }
   }
   if (!inFence)
     scan.openFence = npos;

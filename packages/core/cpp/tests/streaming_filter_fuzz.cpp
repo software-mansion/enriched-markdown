@@ -68,6 +68,11 @@ https://e.com/maps/kyoto
 print("```")
 ~~~~
 
+Then build it:
+- ```sh
+  make
+  ```
+
 $$
 e^{i\pi} + 1 = 0
 $$
@@ -120,6 +125,13 @@ void collectCode(const MarkdownASTNode &node, std::vector<std::string> &out) {
     collectCode(*child, out);
 }
 
+size_t countHeadings(const MarkdownASTNode &node) {
+  size_t count = node.type == NodeType::Heading ? 1 : 0;
+  for (const auto &child : node.children)
+    count += countHeadings(*child);
+  return count;
+}
+
 // A text fragment made only of fence characters, or a lone `$`: the start of a
 // fence or `$$` line shown before the rest of it arrived, unless the finished
 // document holds the same text.
@@ -145,9 +157,11 @@ int checkDocument(const std::string &name, const std::string &document) {
   Markdown::MD4CParser parser;
   std::string wholeText;
   std::vector<std::string> wholeCode;
+  size_t wholeHeadings = 0;
   if (auto root = parser.parse(document)) {
     collectText(*root, wholeText);
     collectCode(*root, wholeCode);
+    wholeHeadings = countHeadings(*root);
   }
   int failures = 0;
   for (StreamingBlockMode mode : {StreamingBlockMode::Progressive, StreamingBlockMode::Hidden}) {
@@ -177,6 +191,13 @@ int checkDocument(const std::string &name, const std::string &document) {
           failures++;
           break;
         }
+      }
+      // A `-` bullet under paragraph text is a setext underline until its
+      // content arrives, so a withheld fence must not leave one behind.
+      if (countHeadings(*root) > wholeHeadings) {
+        std::cerr << "FAIL: " << name << (mode == StreamingBlockMode::Hidden ? " (hidden)" : "")
+                  << " shows a heading the document does not have after " << length << " bytes\n";
+        failures++;
       }
       std::istringstream fragments(text);
       for (std::string fragment; std::getline(fragments, fragment);) {
