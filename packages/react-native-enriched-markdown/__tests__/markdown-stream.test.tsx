@@ -38,6 +38,19 @@ jest.mock('../src/NativeEnrichedMarkdownParser', () => ({
   },
 }));
 
+// Called once per render of EnrichedMarkdownText itself, not of the view it renders.
+const mockParentRenders = jest.fn();
+jest.mock('../src/streamingAnimation', () => {
+  const actual = jest.requireActual('../src/streamingAnimation');
+  return {
+    ...actual,
+    useStreamingAnimation: (...args: unknown[]) => {
+      mockParentRenders();
+      return actual.useStreamingAnimation(...args);
+    },
+  };
+});
+
 jest.mock('../src/EnrichedMarkdownTextNativeComponent', () => ({
   __esModule: true,
   default: 'EnrichedMarkdownTextNativeComponent',
@@ -120,14 +133,83 @@ it('keeps the text in a native stream and sends its id and length once per frame
   expect(mockStreams.get(streamId)).toBe('# Title\n\nOne two');
 });
 
+it("re-renders only the native view on a stream's frames", () => {
+  const stream = createMarkdownStream('# Title');
+  const root = render(<EnrichedMarkdownText stream={stream} />);
+  const renders = mockParentRenders.mock.calls.length;
+  stream.append('\n\nOne');
+  nextFrame();
+  stream.append(' two');
+  nextFrame();
+  expect(view(root).props.streamLength).toBe(16);
+  expect(mockParentRenders.mock.calls.length).toBe(renders);
+
+  // Ending the stream turns `streaming` off (a re-render) with the final length.
+  stream.append(' three');
+  stream.end();
+  nextFrame();
+  expect(view(root).props.streaming).toBe(false);
+  expect(view(root).props.streamLength).toBe(22);
+});
+
+it('passes the github props through while the view follows the stream', () => {
+  const stream = createMarkdownStream('text');
+  const root = render(
+    <EnrichedMarkdownText
+      stream={stream}
+      flavor="github"
+      enableCodeBlockWrapToggle
+    />
+  );
+  expect(view(root).type).toBe('EnrichedMarkdownNativeComponent');
+  expect(view(root).props.enableCodeBlockWrapToggle).toBe(true);
+  stream.append(' more');
+  nextFrame();
+  expect(view(root).props.streamLength).toBe(9);
+  expect(view(root).props.enableCodeBlockWrapToggle).toBe(true);
+});
+
+it('keeps the view and the stream when collecting turns on and off mid-stream', () => {
+  const stream = createMarkdownStream('one');
+  const root = render(<EnrichedMarkdownText stream={stream} flavor="github" />);
+  const shown = view(root);
+  const { streamId } = shown.props;
+  const onLinksChange = jest.fn();
+  act(() =>
+    root.render(
+      <EnrichedMarkdownText
+        stream={stream}
+        flavor="github"
+        onLinksChange={onLinksChange}
+      />
+    )
+  );
+  stream.append(' two');
+  nextFrame();
+  expect(view(root)).toBe(shown);
+  expect(view(root).props.streamLength).toBe(7);
+  act(() =>
+    root.render(<EnrichedMarkdownText stream={stream} flavor="github" />)
+  );
+  stream.append(' three');
+  nextFrame();
+  expect(view(root)).toBe(shown);
+  expect(view(root).props.streamId).toBe(streamId);
+  expect(view(root).props.streamLength).toBe(13);
+  expect(mockStreams.get(streamId)).toBe('one two three');
+});
+
 it('sends a markdown unique to the stream, so leaving it sends markdown again', () => {
   const stream = createMarkdownStream('same');
   const root = render(<EnrichedMarkdownText stream={stream} />);
   const placeholder = view(root).props.markdown;
   expect(placeholder).not.toBe('same');
+  const shown = view(root);
   act(() => root.render(<EnrichedMarkdownText markdown="same" />));
   expect(view(root).props.markdown).toBe('same');
   expect(view(root).props.streamId).toBe(0);
+  // The same view: the final text replaces the stream without a remount.
+  expect(view(root)).toBe(shown);
 });
 
 it('stops streaming at end() and takes an explicit streaming prop over it', () => {

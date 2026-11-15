@@ -222,10 +222,10 @@ export function createMarkdownStream(text = ''): MarkdownStream {
 const NO_SUBSCRIPTION = () => () => {};
 const NO_SNAPSHOT = () => null;
 
-/** The stream as of the last frame, re-rendering on each new frame; null without a stream. */
-export function useMarkdownStreamSnapshot(
+/** Whether `stream` has ended (null without one): re-renders when that changes, not on each frame. */
+export function useMarkdownStreamEnded(
   stream: MarkdownStream | undefined
-): MarkdownStreamSnapshot | null {
+): boolean | null {
   const store = useMemo(() => {
     if (!(stream instanceof Stream)) {
       if (isDev && stream != null) {
@@ -233,6 +233,26 @@ export function useMarkdownStreamSnapshot(
           '[react-native-enriched-markdown] `stream` takes a stream from createMarkdownStream(); this one is ignored.'
         );
       }
+      return { subscribe: NO_SUBSCRIPTION, getSnapshot: NO_SNAPSHOT };
+    }
+    return {
+      subscribe: (listener: () => void) => stream.subscribe(listener),
+      getSnapshot: () => stream.getSnapshot().ended,
+    };
+  }, [stream]);
+  return useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getSnapshot
+  );
+}
+
+/** The stream as of the last frame, re-rendering on each new frame; null without a stream. */
+export function useMarkdownStreamSnapshot(
+  stream: MarkdownStream | undefined
+): MarkdownStreamSnapshot | null {
+  const store = useMemo(() => {
+    if (!(stream instanceof Stream)) {
       return { subscribe: NO_SUBSCRIPTION, getSnapshot: NO_SNAPSHOT };
     }
     return {
