@@ -54,7 +54,22 @@ export function setNativeMarkdownStreams(
 
 // About every other 60 Hz frame (under two, so a late frame callback still lets the next pass):
 // each publish is a React render and a commit, and streamed text reads as smoothly at this rate.
+// A long text, whose updates add up to most of a stream's cost, slows to about 16 a second.
 const PUBLISH_INTERVAL_MS = 25;
+const LONG_PUBLISH_INTERVAL_MS = 60;
+const SHORT_TEXT_BYTES = 4 * 1024;
+const LONG_TEXT_BYTES = 16 * 1024;
+
+const publishInterval = (length: number) =>
+  PUBLISH_INTERVAL_MS +
+  (LONG_PUBLISH_INTERVAL_MS - PUBLISH_INTERVAL_MS) *
+    Math.min(
+      Math.max(
+        (length - SHORT_TEXT_BYTES) / (LONG_TEXT_BYTES - SHORT_TEXT_BYTES),
+        0
+      ),
+      1
+    );
 
 const now: () => number =
   typeof performance === 'object' && typeof performance.now === 'function'
@@ -225,7 +240,8 @@ class Stream implements MarkdownStream {
     if (
       !this.ended &&
       !this.resetPending &&
-      now() - this.publishedAt < PUBLISH_INTERVAL_MS
+      now() - this.publishedAt <
+        publishInterval(this.length || this.text.length)
     ) {
       scheduleFrame(() => this.publish());
       return;

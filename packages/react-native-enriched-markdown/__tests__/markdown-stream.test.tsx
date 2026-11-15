@@ -224,6 +224,39 @@ it('publishes a reset at once, also without the native module', () => {
   }
 });
 
+it('publishes a long text less often, about 16 times a second', () => {
+  const stream = createMarkdownStream('x'.repeat(17 * 1024));
+  const root = render(<EnrichedMarkdownText stream={stream} />);
+  stream.append('a');
+  runFrame(70);
+  const published = view(root).props.streamLength;
+
+  // Three 60 Hz frames are too soon for a text past 16 KiB; the fourth publishes.
+  stream.append('b');
+  runFrame(17);
+  runFrame(17);
+  runFrame(17);
+  expect(view(root).props.streamLength).toBe(published);
+  runFrame(17);
+  expect(view(root).props.streamLength).toBe(published + 1);
+});
+
+it('slows publishing gradually between 4 and 16 KiB', () => {
+  const stream = createMarkdownStream('x'.repeat(10 * 1024));
+  const root = render(<EnrichedMarkdownText stream={stream} />);
+  stream.append('a');
+  runFrame(70);
+  const published = view(root).props.streamLength;
+
+  // Halfway, about 43 ms: the second frame is too soon, the third publishes.
+  stream.append('b');
+  runFrame(17);
+  runFrame(17);
+  expect(view(root).props.streamLength).toBe(published);
+  runFrame(17);
+  expect(view(root).props.streamLength).toBe(published + 1);
+});
+
 it('publishes about every other frame, and the end at once', () => {
   const stream = createMarkdownStream('a');
   const root = render(<EnrichedMarkdownText stream={stream} />);
