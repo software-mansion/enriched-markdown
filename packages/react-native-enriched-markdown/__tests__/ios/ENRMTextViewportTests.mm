@@ -15,7 +15,7 @@ static NSMutableAttributedString *ENRMRenderMarkdown(NSString *markdown, StyleCo
   MarkdownASTNode *ast = [[[ENRMMarkdownParser alloc] init] parseMarkdown:markdown
                                                                     flags:[ENRMMd4cFlags defaultFlags]
                                                                     isGFM:YES];
-  return ENRMRenderASTNodes(ast.children, config, NO, YES, 0, NSLineBreakStrategyStandard).attributedText;
+  return ENRMRenderASTNodes(ast.children, config, NO, YES, 0, NSLineBreakStrategyStandard, 0).attributedText;
 }
 
 static void ENRMCollectTiles(UIView *view, NSMutableArray<UIView *> *tiles)

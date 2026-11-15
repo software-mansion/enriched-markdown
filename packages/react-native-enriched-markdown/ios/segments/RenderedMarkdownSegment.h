@@ -46,6 +46,8 @@ typedef NS_ENUM(NSInteger, ENRMBlockSlotKind) {
 
 @interface ENRMBlockquoteSegment : NSObject
 @property (nonatomic, strong) MarkdownASTNode *blockquoteNode;
+// Document-global index of the quote's first task-list item.
+@property (nonatomic, assign) NSInteger taskIndexOffset;
 + (instancetype)segmentWithBlockquoteNode:(MarkdownASTNode *)node;
 @end
 

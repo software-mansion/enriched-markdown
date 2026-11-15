@@ -212,7 +212,7 @@ static NSUInteger ENRMCaptureTileCount(UIView *view)
   MarkdownASTNode *ast = [[[ENRMMarkdownParser alloc] init] parseMarkdown:ENRMCaptureParagraphs(paragraphs)
                                                                     flags:[ENRMMd4cFlags defaultFlags]
                                                                     isGFM:YES];
-  [segment applyAttributedText:ENRMRenderASTNodes(ast.children, config, NO, YES, 0, NSLineBreakStrategyStandard)
+  [segment applyAttributedText:ENRMRenderASTNodes(ast.children, config, NO, YES, 0, NSLineBreakStrategyStandard, 0)
                                    .attributedText
                        context:nil];
   segment.frame = CGRectMake(0, 0, width, [segment measureHeight:width]);

@@ -42,7 +42,7 @@ static NSString *const kDocument =
   MarkdownASTNode *ast = [_parser parseMarkdown:markdown flags:[ENRMMd4cFlags defaultFlags] isGFM:YES];
   if (!cache) {
     NSArray<ENRMRenderedSegment *> *segments =
-        ENRMRenderSegmentsFromAST(ast, _config, NO, YES, 0, NSLineBreakStrategyStandard, NO);
+        ENRMRenderSegmentsFromAST(ast, _config, NO, YES, 0, NSLineBreakStrategyStandard, NO, 0);
     for (ENRMRenderedSegment *segment in segments) {
       if (segment.kind == ENRMSegmentKindText) {
         ENRMApplyWritingDirectionMode(segment.textResult.attributedText, ENRMWritingDirectionModeFirstStrong,
@@ -175,7 +175,7 @@ static NSArray<ENRMRenderedSegment *> *ENRMTextSegmentsOf(NSArray<ENRMRenderedSe
         ENRMRenderTextCached(ast.children, _config, NO, YES, 0, NSLineBreakStrategyStandard,
                              ENRMWritingDirectionModeFirstStrong, NSWritingDirectionLeftToRight, cache);
     [cache endRender];
-    ENRMRenderResult *full = ENRMRenderASTNodes(ast.children, _config, NO, YES, 0, NSLineBreakStrategyStandard);
+    ENRMRenderResult *full = ENRMRenderASTNodes(ast.children, _config, NO, YES, 0, NSLineBreakStrategyStandard, 0);
     ENRMApplyWritingDirectionMode(full.attributedText, ENRMWritingDirectionModeFirstStrong,
                                   NSWritingDirectionLeftToRight);
     states++;
@@ -284,6 +284,28 @@ static void ENRMShow(EnrichedMarkdownInternalText *view, ENRMRenderedSegment *se
     XCTAssertEqual(first[i].textResult.revision, second[i].textResult.revision);
     XCTAssertNil(second[i].textResult.attributedText);
   }
+}
+
+// A task added before cached segments renumbers the tasks after it, in texts and quotes.
+- (void)testAnEarlierTaskRenumbersTheCachedSegmentsAfterIt
+{
+  NSString *rest = @"| t |\n|---|\n| 1 |\n\nno tasks\n\n> - [ ] b\n\n```\ncode\n```\n\n- [ ] c\n";
+  ENRMTextRenderCache *cache = [[ENRMTextRenderCache alloc] init];
+  [self render:[@"- [ ] a\n\n" stringByAppendingString:rest] cache:cache];
+  NSString *markdown = [@"- [ ] a\n- [ ] new\n\n" stringByAppendingString:rest];
+  NSArray<ENRMRenderedSegment *> *cached = [self render:markdown cache:cache];
+  NSArray<ENRMRenderedSegment *> *full = [self render:markdown cache:nil];
+
+  XCTAssertEqual(cached.count, full.count);
+  for (NSUInteger i = 0; i < MIN(cached.count, full.count); i++) {
+    XCTAssertEqual(cached[i].signature, full[i].signature, @"segment %lu", i);
+    XCTAssertEqual(cached[i].blockquoteSegment.taskIndexOffset, full[i].blockquoteSegment.taskIndexOffset);
+    NSAttributedString *text = cached[i].textResult.attributedText;
+    if (text) {
+      XCTAssertNil(ENRMDifference(text, full[i].textResult.attributedText), @"segment %lu", i);
+    }
+  }
+  XCTAssertEqual(full[3].blockquoteSegment.taskIndexOffset, 2);
 }
 
 - (void)testANewKeyRendersInFull
