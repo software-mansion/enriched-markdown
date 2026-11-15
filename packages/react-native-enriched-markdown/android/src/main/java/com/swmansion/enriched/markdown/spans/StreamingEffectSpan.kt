@@ -5,9 +5,8 @@ import android.text.TextPaint
 import android.text.style.CharacterStyle
 
 /**
- * Draws characters with a streaming effect's look: their own color moved [tintAmount] of the way
- * to [tint], then their opacity multiplied by [opacity]. Applied after the spans that set the
- * characters' own colors.
+ * Moves the characters' own color [tintAmount] of the way to [tint], then multiplies their
+ * opacity by [opacity]. Applied after the spans that set the characters' own colors.
  */
 class StreamingEffectSpan(
   private val tint: Int,

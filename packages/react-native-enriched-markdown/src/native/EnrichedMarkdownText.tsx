@@ -36,7 +36,7 @@ import {
 import { hasRenderers } from '../blockRenderers';
 import { useImageSources } from './useImageSources';
 import { useLinksChange } from '../linkOccurrences';
-import { useStreamingAnimation } from '../streamingAnimation';
+import { useStreamingEffects } from '../streamingEffects';
 import {
   useMarkdownStreamEnded,
   useMarkdownStreamSnapshot,
@@ -510,7 +510,7 @@ export const EnrichedMarkdownText = ({
     animationLength,
     animationStartColor,
     animationEndColor,
-  } = useStreamingAnimation(streamingConfig?.animation);
+  } = useStreamingEffects(streamingConfig?.animation);
   const smooth = streamingConfig?.smooth ?? false;
   const normalizedStreamingConfig = useMemo(
     () => ({

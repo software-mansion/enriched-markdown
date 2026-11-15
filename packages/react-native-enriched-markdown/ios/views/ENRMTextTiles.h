@@ -5,15 +5,10 @@
 #if !TARGET_OS_OSX
 NS_ASSUME_NONNULL_BEGIN
 
-/// Draws a text view's text in tiles that cover only the rect it is asked to draw.
-///
-/// UIKit draws a non-scrolling text view's text into one canvas the size of its frame, so a long
-/// text holds a bitmap for all of it. The canvas is kept 0 high and the tiles draw the text instead.
-/// When UIKit has no such canvas (it is found by class name), or the app sets
-/// EnrichedMarkdownDisableTextTiles in its Info.plist, the text view draws the whole text itself.
-///
-/// A capture still gets the whole text: renderInContext: draws it straight into the capture, and a
-/// hooked capture (ENRMCapture) has the part it shows covered with tiles.
+/// Draws a text view's text in tiles covering only the rect it is asked to draw: UIKit's own canvas
+/// is the size of the frame, so a long text holds a bitmap for all of it. That canvas is found by
+/// class name and kept 0 high; without it, or with EnrichedMarkdownDisableTextTiles in Info.plist,
+/// the text view draws itself. Captures still get the whole text (renderInContext:, ENRMCapture).
 @interface ENRMTextTiles : NSObject
 
 - (instancetype)initWithTextView:(UITextView *)textView NS_DESIGNATED_INITIALIZER;

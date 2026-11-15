@@ -32,7 +32,7 @@ export interface EnrichedMarkdownTextProps extends Omit<
   markdown?: string;
   /**
    * Markdown arriving in pieces, from `createMarkdownStream()`. Shown instead of
-   * `markdown` and updated once per frame without re-rendering your component.
+   * `markdown` and updated about every other frame without re-rendering your component.
    * @platform ios, android, web
    */
   stream?: MarkdownStream;

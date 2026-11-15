@@ -4,10 +4,9 @@ import kotlin.math.abs
 
 /**
  * Whether a stream's update on a document with block slots can take the height the view laid out
- * instead of measuring the whole document again, as iOS's ENRMCanTakeLaidOutSlotLayout decides.
- * Heights and positions are px within the host's content box. The walk adds up fractional px and
- * the view whole ones, so their positions drift apart down a long document: a slot the view shows
- * takes the view's position, and only heights are compared.
+ * (iOS's ENRMCanTakeLaidOutSlotLayout), in px within the host's content box. Only heights are
+ * compared, and a shown slot takes the view's position: the walk adds up fractional px and the
+ * view whole ones, so positions drift apart down a long document.
  */
 internal object SlotLayoutReuse {
   /** A block slot as the last full measurement placed it, with the height its child has now. */
@@ -26,10 +25,9 @@ internal object SlotLayoutReuse {
   )
 
   /**
-   * The view must show every slot the measurement placed at the height the measurement reserved
-   * for it, which its child still has, and no slot the measurement doesn't know. With [smooth], a
-   * slot pacing has not revealed yet is not shown and must lie below [laidOutHeight]; otherwise a
-   * slot the view doesn't show (nested in a quote, or placed but not applied yet) fails.
+   * The view must show exactly the measured slots, each at the height reserved for it, which its
+   * child still has. With [smooth], a slot not revealed yet may be missing if it lies below
+   * [laidOutHeight]; any other missing slot (nested in a quote, placed but not applied yet) fails.
    */
   fun canTake(
     smooth: Boolean,
@@ -54,11 +52,9 @@ internal object SlotLayoutReuse {
   }
 
   /**
-   * A code block still streaming into the last slot (the snapshot ends inside its open fence) is
-   * the document's end, so its child's growth is the document's: the view's height changes by what
-   * the child grew. The view must show every slot as [canTake] checks, the last at the height it
-   * reserved, and end there with what followed it at the last full measurement ([measuredHeight]).
-   * Returns 0 when that doesn't hold.
+   * A code block still streaming into the last slot is the document's end, so the view's height
+   * changes by what its child grew. 0 unless [canTake] holds with the last slot at its reserved
+   * height and the view ends there, plus what followed it at the last full measurement.
    */
   fun growingTailHeight(
     endsInsideOpenFence: Boolean,

@@ -58,11 +58,10 @@
 // - Closers are inserted before trailing whitespace, not only before newlines.
 // - A fence closes only with a run at least as long as its opener, so a ```
 //   line inside a ```` fence is content. The reference toggles on every ```.
-// - A link URL is read as the parser reads it: incomplete while the text ends
-//   inside the destination, nested parentheses, a `<...>` destination or a
-//   title (`[a](u "t )`), and prose when other text follows the destination
-//   (`[a](u then more`). The reference calls any `)` after `](` the end of the
-//   link and drops everything after a `](` with none.
+// - A link URL is read as the parser reads it (nested parentheses, `<...>`,
+//   titles): incomplete while the text ends inside it, prose when other text
+//   follows the destination. The reference ends the link at any `)` after
+//   `](` and drops everything after a `](` with none.
 // - A `[` left open more than 512 bytes before the end is a stray bracket in
 //   prose, not a link label.
 // - An HTML block that may interrupt a paragraph (`<div`, `<pre`, `<!--` and

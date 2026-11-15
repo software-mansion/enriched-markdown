@@ -5,7 +5,7 @@ import { isDev } from './utils/isDev';
 /**
  * Markdown arriving in pieces (an LLM answer), shown by passing it to
  * `EnrichedMarkdownText` as `stream`. Appending re-renders nothing: only the
- * views showing the stream update, once per frame. Create it outside React
+ * views showing the stream update, about every other frame. Create it outside React
  * (for example next to the message in your store), so it outlives the views.
  */
 export interface MarkdownStream {
@@ -53,8 +53,8 @@ export function setNativeMarkdownStreams(
 }
 
 // About every other 60 Hz frame (under two, so a late frame callback still lets the next pass):
-// each publish is a React render and a commit, and streamed text reads as smoothly at this rate.
-// A long text, whose updates add up to most of a stream's cost, slows to about 16 a second.
+// each publish is a React render and a commit. A long text, whose updates cost the most, slows to
+// about 16 a second.
 const PUBLISH_INTERVAL_MS = 25;
 const LONG_PUBLISH_INTERVAL_MS = 60;
 const SHORT_TEXT_BYTES = 4 * 1024;
@@ -81,7 +81,6 @@ const scheduleFrame: (callback: () => void) => void =
     ? (callback) => requestAnimationFrame(callback)
     : (callback) => setTimeout(callback, 16);
 
-// The native stream's id and the module holding it.
 type NativeStream = { id: number; module: NativeStreams | null };
 
 // Frees a stream's native text once JS drops the stream without dispose().

@@ -10,9 +10,8 @@ import com.swmansion.enriched.markdown.spans.ImageSpan
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Replaces the text from [start] on with [tail], dropping the spans of the text it replaces
- * first: `replace` would stretch a span over exactly that text across [tail]. A view's own
- * bookkeeping spans (its watchers and selection, all [NoCopySpan]) stay.
+ * Drops the spans of the replaced text first: `replace` would stretch a span over exactly that
+ * text across [tail]. A view's own bookkeeping spans (watchers, selection: all [NoCopySpan]) stay.
  */
 fun SpannableStringBuilder.replaceTail(
   start: Int,
@@ -55,23 +54,14 @@ fun Renderer.textRenderResult(
 )
 
 /**
- * What a view's previous render produced for its text segments, so the next one reuses it
- * while the document streams. Confined to the thread the view renders on.
+ * A view's previous text render, reused while the document streams. Confined to the thread the
+ * view renders on; [clear] it whenever views are recreated.
  *
- * - A text segment whose nodes and first task index are unchanged is handed over as the same
- *   [RenderedSegment.Text]. The reconciler keeps its view as it is, so its buffer is not read
- *   again.
- * - The last text segment, the one a stream grows, also keeps where each top-level node starts
- *   in its text. When the new segment starts with the same nodes, only the nodes from the first
- *   changed one on render, and the view patches its live buffer from there: the result is only
- *   that patch ([RenderedSegment.Text.patch]), so no update copies the text. Rendering starts at
- *   the old last node at the latest, whose trailing margin was trimmed, and at the new last node
- *   at the latest, which still ends in the spacing before the nodes that are gone (a link
- *   reference definition that completes renders nothing).
- * - When both renders end in the same list after the same nodes, rendering resumes at its first
- *   changed item the same way, the rest of the list rendering as a continuation of it.
- *
- * Drop it with [clear] whenever views are recreated.
+ * An unchanged text segment comes back as the same [RenderedSegment.Text], so the reconciler keeps
+ * its view. The last one re-renders from its first changed top-level node (or list item) as a
+ * patch, starting no later than the old last node, whose trailing margin was trimmed, and the new
+ * last node, which still ends in the spacing before nodes that are gone (a completed link
+ * reference definition renders nothing).
  */
 class TextRenderCache {
   // A segment of the previous render, and what finding it again takes.

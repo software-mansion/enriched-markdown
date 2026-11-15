@@ -5,7 +5,7 @@ import type { StreamingAnimation } from './types/MarkdownTextProps';
 import { isDev } from './utils/isDev';
 
 /** `streamingConfig.animation` as the native views take it. */
-export interface NormalizedStreamingAnimation {
+export interface NormalizedStreamingEffects {
   animation: string;
   animationDuration: number;
   animationLength: number;
@@ -16,9 +16,9 @@ export interface NormalizedStreamingAnimation {
 const PRESETS = new Set(['fade', 'gradient', 'none']);
 const warned = new Set<string>();
 
-export function normalizeStreamingAnimation(
+export function normalizeStreamingEffects(
   animation: StreamingAnimation | undefined
-): NormalizedStreamingAnimation {
+): NormalizedStreamingEffects {
   const options = typeof animation === 'object' ? animation : undefined;
   let type: string =
     options?.type ?? (typeof animation === 'string' ? animation : 'fade');
@@ -64,12 +64,12 @@ export function normalizeStreamingAnimation(
 }
 
 /**
- * normalizeStreamingAnimation, kept while the options are the same: processColor makes a new object
+ * normalizeStreamingEffects, kept while the options are the same: processColor makes a new object
  * for a PlatformColor each call, and the animation object itself is often new each render.
  */
-export function useStreamingAnimation(
+export function useStreamingEffects(
   animation: StreamingAnimation | undefined
-): NormalizedStreamingAnimation {
+): NormalizedStreamingEffects {
   const options = typeof animation === 'object' ? animation : undefined;
   const type = options?.type ?? animation;
   const duration = options?.type === 'fade' ? options.duration : undefined;
@@ -79,7 +79,7 @@ export function useStreamingAnimation(
   const endColor = gradient?.endColor;
   return useMemo(
     () =>
-      normalizeStreamingAnimation(
+      normalizeStreamingEffects(
         type === 'fade'
           ? { type, duration }
           : type === 'gradient'

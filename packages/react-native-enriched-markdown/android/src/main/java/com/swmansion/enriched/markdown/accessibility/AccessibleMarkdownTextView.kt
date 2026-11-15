@@ -76,10 +76,8 @@ abstract class AccessibleMarkdownTextView
     }
 
     /**
-     * Replaces the text from [start] on with [tail]. The layout keeps the lines before the edit
-     * (DynamicLayout reflows from the changed paragraph), where setting the whole text would lay
-     * all of it out again. False when the view holds no buffer to edit, or its layout wouldn't
-     * hear of the edit.
+     * Edits the buffer in place, so DynamicLayout reflows only from the changed paragraph. False
+     * when the view holds no buffer to edit, or its layout wouldn't hear of the edit.
      */
     protected fun replaceTextTail(
       start: Int,

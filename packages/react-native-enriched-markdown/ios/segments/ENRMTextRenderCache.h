@@ -10,19 +10,14 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /**
- * What a view's previous render produced for its text segments, so the next one reuses it while
- * the document streams. Confined to the queue the view renders on. Android's TextRenderCache.
+ * A view's previous text render, reused while the document streams (Android's TextRenderCache).
+ * Confined to the queue the view renders on; clear it whenever views are recreated.
  *
- * - A text segment whose signature is unchanged comes back under the same signature and revision,
- *   without its text: the reconciler keeps its view as it is.
- * - The last text segment, the one a stream grows, also keeps its node signatures. When the new
- *   segment starts with the same nodes, only the nodes from the first changed one on render
- *   (ENRMRenderASTNodesResuming), and the view patches its text from there. Rendering starts at
- *   the old last node at the latest, whose trailing spacing was trimmed, and at the new last node
- *   at the latest, which still ends in the spacing before the nodes that are gone (a link
- *   reference definition that completes renders nothing).
- *
- * Clear it whenever views are recreated.
+ * An unchanged text segment comes back under the same signature and revision, without its text, so
+ * the reconciler keeps its view. The last one re-renders from its first changed node as a patch
+ * (ENRMRenderASTNodesResuming), starting no later than the old last node, whose trailing spacing
+ * was trimmed, and the new last node, which still ends in the spacing before nodes that are gone
+ * (a completed link reference definition renders nothing).
  */
 @interface ENRMTextRenderCache : NSObject
 

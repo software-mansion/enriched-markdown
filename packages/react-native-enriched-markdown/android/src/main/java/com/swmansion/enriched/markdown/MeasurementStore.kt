@@ -314,9 +314,8 @@ object MeasurementStore {
   }
 
   /**
-   * [store] from the view's own [layout], which reflowed the text from [changedFrom] on: only
-   * those lines are measured again. Null when [layout] isn't the one the measurement would build
-   * (another width, or a line limit), and the caller stores in full.
+   * [store] from the view's own [layout], measuring only the lines from [changedFrom] on. Null
+   * when [layout] isn't the one the measurement would build (another width, or a line limit).
    */
   fun storeLaidOut(
     id: Int,
@@ -423,9 +422,8 @@ object MeasurementStore {
       return YogaMeasureOutput.make(emptyWidth, 0f)
     }
 
-    // Take the line clamp and break strategy from the props measured, so the first measurement,
-    // before the view exists, lays out as the view will. The view writes the same values when it
-    // gets these props; only overwrite when the key is present so we never clobber the view's value.
+    // The line clamp and break strategy from the props measured, so the first measurement, before
+    // the view exists, lays out as the view will. Only the keys sent: the view's own values stay.
     if (id != null) {
       input.config.numberOfLines?.let { numberOfLinesByViewId[id] = it }
       input.config.ellipsizeMode?.let { ellipsizeModeByViewId[id] = it }
@@ -635,11 +633,8 @@ object MeasurementStore {
   }
 
   // A stream's update: the markdown only grew and nothing else that sizes the content
-  // changed. The view lays out every render it applies and asks for a new layout when
-  // its height changes, so the size it laid out at is behind by at most the render in
-  // flight; taking it spares rendering and measuring the whole document again on every
-  // update. The same document at the same width gets the previous answer back; new
-  // content, another width or a view that hasn't laid anything out yet measure in full.
+  // changed. The size the view laid out at is behind by at most the render in flight.
+  // Null to measure in full: new content, another width or a view that hasn't laid out.
   internal fun laidOutSizeForStreamUpdate(
     id: Int,
     width: Float,
@@ -711,7 +706,6 @@ object MeasurementStore {
 
   // A stream's update on a document with block slots: the view's height when it shows every slot
   // where the last full measurement placed it (SlotLayoutReuse), else null to measure in full.
-  // Measuring the slots' children again records their frames for the shadow node.
   private fun slotStreamUpdate(
     id: Int,
     width: Float,
@@ -760,11 +754,9 @@ object MeasurementStore {
   internal enum class MeasurementSource { FULL, PREVIOUS, LAID_OUT }
 
   /**
-   * Picks the source of a measurement, as iOS's ENRMChooseMeasurement does. Android's
-   * measurement can't see the view's height counter, so the view having laid out this
-   * document, or with smooth pacing (it renders part of it) a size other than the last
-   * answer, stands in for the view asking again, and a grown document never takes the previous
-   * answer: a view sized to its content would keep it for good.
+   * iOS's ENRMChooseMeasurement, without the view's height counter: [viewLaidOutAgain] stands
+   * in for the view asking again. A grown document never takes the previous answer: a view
+   * sized to its content would keep it for good.
    */
   internal fun chooseMeasurement(
     streamUpdate: Boolean,

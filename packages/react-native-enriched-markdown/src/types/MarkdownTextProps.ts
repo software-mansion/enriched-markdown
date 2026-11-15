@@ -247,7 +247,7 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
   markdown?: string;
   /**
    * Markdown arriving in pieces, from `createMarkdownStream()`. Shown instead of
-   * `markdown` and updated once per frame without re-rendering your component;
+   * `markdown` and updated about every other frame without re-rendering your component;
    * streams until `stream.end()` unless `streaming` says otherwise.
    * @platform ios, android, web
    */

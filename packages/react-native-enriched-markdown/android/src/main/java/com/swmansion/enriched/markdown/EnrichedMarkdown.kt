@@ -88,8 +88,7 @@ class EnrichedMarkdown(
   private val renderCoordinator = RenderCoordinator(executor, ::postToMain)
 
   // Streaming renders start on a display frame, one at a time: the next waits until the last has
-  // applied, and [renderStride] frames after it while applying overruns the frame budget. Without
-  // this each publish became its own frame, so the window drew far more often than the text changed.
+  // applied, and [renderStride] frames after it while applying overruns the frame budget.
   private var pacedRenderInFlightSince = 0L
   private var pacedRenderRequested = false
   private var pacedFramePosted = false
@@ -783,8 +782,7 @@ class EnrichedMarkdown(
   private fun onPacedFrame(frameTimeNanos: Long) {
     pacedFramePosted = false
     if (isDisposed || !pacedRenderRequested) return
-    // At most every PACED_RENDER_INTERVAL_NANOS: each render is a layout pass and a frame, and a
-    // stream's text reads as smoothly at about 30 updates a second.
+    // Each render is a layout pass and a frame: at most one every PACED_RENDER_INTERVAL_NANOS.
     if (framesUntilRender > 0 || frameTimeNanos - lastPacedRenderFrameNanos < PACED_RENDER_INTERVAL_NANOS) {
       if (framesUntilRender > 0) framesUntilRender--
       postPacedFrame()
@@ -809,7 +807,6 @@ class EnrichedMarkdown(
     if (pacedRenderRequested) postPacedFrame()
   }
 
-  // With nothing to render, still ends a stream that has ended.
   private fun scheduleRenderNow(paced: Boolean) {
     pacedRenderInFlightSince = 0L
     val job =

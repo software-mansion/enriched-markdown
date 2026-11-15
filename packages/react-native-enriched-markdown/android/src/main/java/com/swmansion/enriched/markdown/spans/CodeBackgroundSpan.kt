@@ -80,7 +80,6 @@ class CodeBackgroundSpan(
       if (rightToLeft) drawShapes(canvas, isLast, isFirst) else drawShapes(canvas, isFirst, isLast)
     }
 
-    // Only query for pills if the style can produce any.
     val pills = if (styleConfig.hasLinkPills) text.getSpans(spanStart, spanEnd, LinkPillSpan::class.java) else emptyArray()
     if (pills.isEmpty()) {
       drawUncoveredRange(spanStart, spanEnd)

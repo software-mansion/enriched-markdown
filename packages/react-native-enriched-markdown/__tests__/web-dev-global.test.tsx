@@ -24,6 +24,6 @@ it('mounts a view without a stream when __DEV__ is not defined', () => {
 });
 
 it('takes an unknown streaming animation when __DEV__ is not defined', () => {
-  const { normalizeStreamingAnimation } = require('../src/streamingAnimation');
-  expect(normalizeStreamingAnimation('typewriter').animation).toBe('none');
+  const { normalizeStreamingEffects } = require('../src/streamingEffects');
+  expect(normalizeStreamingEffects('typewriter').animation).toBe('none');
 });

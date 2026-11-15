@@ -7,9 +7,8 @@ import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.ReadableType
 
 /**
- * The core's streaming effects (StreamingEffects.hpp) for one text view: how its newest characters
- * look, from their age (fade) or their distance from the end of the text (gradient). Indices are
- * UTF-16 offsets; times are seconds on the [System.nanoTime] clock.
+ * The core's streaming effects (StreamingEffects.hpp) for one text view. Indices are UTF-16
+ * offsets; times are seconds on the [System.nanoTime] clock.
  */
 class StreamingEffects {
   // `code` is the core's StreamingEffectType, as jni-adapter.cpp reads it.
@@ -52,10 +51,6 @@ class StreamingEffects {
 
   fun finish(time: Double) {
     if (handle != 0L) nativeFinish(handle, time)
-  }
-
-  fun reset() {
-    if (handle != 0L) nativeReset(handle)
   }
 
   fun changesOverTime(time: Double): Boolean = handle != 0L && nativeChangesOverTime(handle, time)
@@ -170,8 +165,6 @@ class StreamingEffects {
       handle: Long,
       time: Double,
     )
-
-    @JvmStatic private external fun nativeReset(handle: Long)
 
     @JvmStatic private external fun nativeChangesOverTime(
       handle: Long,

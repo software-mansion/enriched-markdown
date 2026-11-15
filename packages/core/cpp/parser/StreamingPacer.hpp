@@ -7,18 +7,14 @@
 
 namespace Markdown {
 
-// Paces streamed text word by word: how much of it a view shows at each moment, so the text, its
-// layout and its blocks appear as words are revealed instead of in the bursts they arrive in.
-// Each chunk spreads over the time until the next one, at most a second behind; a word the chunk
-// ends inside waits for the rest. When the stream ends, what is waiting drains before the view
-// stops streaming. Lengths are UTF-16 code units; times are seconds on any monotonic clock.
+// Paces streamed text word by word. Each chunk spreads over the time until the next one, at most a
+// second behind; a word the chunk ends inside waits for the rest. When the stream ends, what is
+// waiting drains first. Lengths are UTF-16 code units; times are seconds on any monotonic clock.
 class StreamingPacer {
 public:
-  // The view's text is now `text`, its streaming prop `streaming` and streamingConfig.smooth
-  // `smooth`, at `time`. With smooth, while streaming or draining, text that continues the last
-  // one is paced; any other shows at once. The prop turning off starts the drain (finish), turning
-  // on cancels it. Returns whether the stream ends now: nothing was waiting, the drain was cut short
-  // (smooth turned off, the text replaced) or it finished.
+  // With `smooth`, while streaming or draining, text that continues the last one is paced; any other
+  // shows at once. `streaming` turning off starts the drain (finish), turning on cancels it. Returns
+  // whether the stream ends now: nothing was waiting, or the drain finished or was cut short.
   bool update(std::u16string_view text, bool streaming, bool smooth, double time);
   // Whether the drain finished by `time`: true once, and the stream ends then.
   bool drained(double time);
@@ -35,9 +31,6 @@ public:
   size_t revealed(double time) const;
   // Whether more is revealed after `time`.
   bool waiting(double time) const;
-  size_t length() const {
-    return length_;
-  }
 
 private:
   // Show the text up to `end` from `time` on.

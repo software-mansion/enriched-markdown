@@ -3,9 +3,8 @@ package com.swmansion.enriched.markdown.utils.text
 import android.icu.text.BreakIterator
 
 /**
- * Splits a streaming text's animated characters into runs of equal look, one
- * [com.swmansion.enriched.markdown.spans.StreamingEffectSpan] each. Runs start and end only between
- * characters: a span splitting a character (an emoji) breaks its drawing.
+ * Splits a streaming text's animated characters into runs of equal look, one span each. Runs
+ * start and end only between characters: a span splitting one (an emoji) breaks its drawing.
  */
 class StreamingEffectRuns {
   fun interface Looks {

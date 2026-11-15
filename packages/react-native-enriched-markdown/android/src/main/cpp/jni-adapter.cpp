@@ -160,7 +160,6 @@ public:
     return popNode(NodeType::Document, "", attributes, children);
   }
 
-  // How many children a converted Document has.
   size_t childCount(jobject convertedRoot) {
     if (!ready_)
       return 0;
@@ -751,11 +750,6 @@ JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_Streaming
                                                                                                      jlong handle,
                                                                                                      jdouble time) {
   effectsOf(handle)->finish(time);
-}
-
-JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeReset(JNIEnv *, jclass,
-                                                                                                    jlong handle) {
-  effectsOf(handle)->reset();
 }
 
 JNIEXPORT jboolean JNICALL Java_com_swmansion_enriched_markdown_utils_text_StreamingEffects_nativeChangesOverTime(

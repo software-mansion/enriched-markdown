@@ -4,12 +4,9 @@ import android.util.Log
 import java.util.concurrent.Executor
 
 /**
- * Runs a host's renders on [executor], one at a time, and hands each result to [post]
- * for the main thread (the iOS host's ENRMAsyncRenderCoordinator).
- *
- * A render scheduled while another runs replaces any still waiting, so a burst renders
- * only the newest. A finished render applies even when a newer one is waiting, so while
- * updates arrive faster than a render takes, each finished render shows instead of none.
+ * Runs renders on [executor] one at a time; a newly scheduled one replaces any still waiting.
+ * A finished render applies even when a newer one waits: otherwise nothing would show while
+ * updates arrive faster than a render takes.
  */
 class RenderCoordinator(
   private val executor: Executor,

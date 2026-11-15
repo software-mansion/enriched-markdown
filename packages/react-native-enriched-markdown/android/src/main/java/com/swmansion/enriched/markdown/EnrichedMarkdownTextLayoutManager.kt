@@ -8,9 +8,8 @@ class EnrichedMarkdownTextLayoutManager(
   private var forceHeightRecalculationCounter = 0
 
   /**
-   * Stores the size of the text the view now shows, changed from [changedFrom] on. While a
-   * stream grows, the view's own layout has the size: its DynamicLayout reflowed only the edit,
-   * where measuring the text would lay all of it out again on every update.
+   * [changedFrom] is where the shown text changed. While streaming, the size comes from the
+   * view's own layout, which reflowed only the edit; measuring would lay all the text out again.
    */
   fun invalidateLayout(changedFrom: Int = 0) {
     // Justified lines measure their natural width in the measurement's layout, not the view's.

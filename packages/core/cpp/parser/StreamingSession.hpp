@@ -30,19 +30,9 @@ struct StreamingSnapshot {
   size_t finishedBytes = 0;
 };
 
-// The one preparation every streaming consumer runs on a document that is
-// still arriving (the iOS and Android hosts, their view-free measurement and
-// the JS block collector), so they all see the same snapshot:
-//
-//   1. the bytes before finishedBlocksEnd() stay as they are;
-//   2. the filter withholds the trailing blocks that have not finished
-//      arriving (tables, fences, media, `$$` math);
-//   3. repair, with streamingRepairOptions(), handles inline syntax still
-//      being typed: emphasis and code get their closers, a link shows its
-//      label as text until its URL closes, and an image, unclosed math or a
-//      lone marker line waits.
-//
-// The work after the first step is proportional to the unfinished tail.
+// The one preparation every streaming consumer runs, so the hosts, their
+// measurement and the JS block collector see the same snapshot: the filter,
+// then repair, both only on what follows finishedBlocksEnd().
 StreamingSnapshot streamingSnapshot(const std::string &source, const StreamingOptions &options);
 
 // Repair options for a stream parsed with `flags`.

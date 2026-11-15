@@ -23,15 +23,11 @@ struct ENRMLaidOutLayout {
 };
 
 /**
- * The size a markdown view laid its content out at, the width it laid it out
- * for and the markdown it rendered: published on main, read by the shadow node
- * from the layout thread.
- *
- * `measureContent` may run while React Native holds the ShadowTree revision
- * mutex that a main-thread committer (e.g. Reanimated) can be waiting on, so
- * the measure path must never wait on main (issue #550), and reading the
- * view's `bounds` off main is unsafe. The view publishes instead, and the
- * values are read together under a lock that is only held to copy them.
+ * What a markdown view laid out, published on main for the shadow node to read
+ * on the layout thread: reading `bounds` there is unsafe, and the measure path
+ * must never wait on main (issue #550), since `measureContent` may run under
+ * the ShadowTree revision mutex a main-thread committer (e.g. Reanimated)
+ * waits on. So the lock is only held to copy the values.
  */
 class ENRMLaidOutSize {
 public:

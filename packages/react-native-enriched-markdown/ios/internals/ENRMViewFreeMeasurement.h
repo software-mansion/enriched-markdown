@@ -170,9 +170,7 @@ static inline CGSize ENRMMeasureAttributedTextViewFree(NSAttributedString *text,
 }
 
 /**
- * The props' markdown as the view renders it: while streaming, the core
- * streaming session's snapshot (`ENRMRenderableMarkdownForStreaming`) with the
- * props' streamingConfig modes and parser flags.
+ * The props' markdown as the view renders it: while streaming, the core session's snapshot.
  */
 template <typename PropsT>
 static inline NSString *ENRMRenderableMarkdownFromProps(const PropsT &typedProps, ENRMMd4cFlags *flags)

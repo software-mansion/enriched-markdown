@@ -7,7 +7,6 @@
 using Markdown::StreamingPacer;
 
 namespace {
-// Appends `chunk` to `text` and tells `pacer` of it.
 void append(StreamingPacer &pacer, std::u16string &text, const std::u16string &chunk, double time) {
   size_t start = text.size();
   text += chunk;

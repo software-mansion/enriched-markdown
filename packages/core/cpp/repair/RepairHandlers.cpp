@@ -204,10 +204,7 @@ bool isSpaceOrTabOrNewline(char c) {
 }
 
 // Whether the `(destination "title")` opening at `openParen` is still being
-// typed: the text ends inside the destination, before a title that may still
-// come, inside the title or before the `)`. Escapes, nested parentheses, a
-// `<...>` destination and the three title delimiters count, as in the parser;
-// a destination followed by other text is prose. Agrees with
+// typed; a destination followed by other text is prose. Agrees with
 // InlineSyntax::destinationEnd on what closes a destination.
 bool destinationIsOpen(std::string_view text, size_t openParen) {
   const size_t n = text.size();

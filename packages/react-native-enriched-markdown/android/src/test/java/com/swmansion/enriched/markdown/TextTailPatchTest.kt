@@ -162,9 +162,9 @@ class TextTailPatchTest {
     assertEquals(6, view.selectionEnd)
   }
 
-  // TextView's Editor keeps state over the text it last heard of: a word selected past the end of
-  // that text threw while the view kept streaming. A patch must reach TextView's own watcher, which
-  // tells the Editor and the view's text listeners.
+  // TextView's Editor keeps state over the text it last heard of, and selecting a word past the end
+  // of that text throws: a patch must reach TextView's own watcher, which tells the Editor and the
+  // view's text listeners.
   @Test
   fun aPatchReachesTextViewsOwnWatcher() {
     val cache = TextRenderCache()

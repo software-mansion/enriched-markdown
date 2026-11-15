@@ -56,11 +56,9 @@ ENRMRenderResult *ENRMRenderBlockquoteContentNodes(NSArray<MarkdownASTNode *> *n
                                                    BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
                                                    NSLineBreakStrategy lineBreakStrategy, NSInteger startingTaskIndex);
 
-// Renders nodes[from...] after `previous`, a render of the nodes whose first `from` are the
-// same: its text up to node `from` stays, and the rest is rendered and given the writing
-// direction. The result is only a patch to `previous` (patchStart, patchTail), with no
-// attributedText. Nil when it could differ from rendering all the nodes, and the caller renders
-// them in full.
+// Renders nodes[from...] after `previous`, whose first `from` nodes are the same. The result is
+// only a patch to `previous` (patchStart, patchTail), with no attributedText. Nil when it could
+// differ from rendering all the nodes: the caller renders them in full.
 ENRMRenderResult *_Nullable ENRMRenderASTNodesResuming(NSArray<MarkdownASTNode *> *nodes, NSUInteger from,
                                                        ENRMRenderResult *previous, StyleConfig *config,
                                                        BOOL allowTrailingMargin, BOOL allowFontScaling,

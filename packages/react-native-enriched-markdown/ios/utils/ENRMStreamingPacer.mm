@@ -86,7 +86,6 @@
   _shown = 0;
 }
 
-// Runs the display link while words are waiting.
 - (void)runLinkWhileWaiting:(CFTimeInterval)now
 {
   if (_pacer.waiting(now)) {

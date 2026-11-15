@@ -285,11 +285,7 @@ inline MeasurementCacheKey buildLayoutCacheKey(const PropsType &props, CGFloat f
   return buildMeasurementCacheKey(props, 0, fontScale, flavor, wrappedCodeBlocksFingerprint, false);
 }
 
-/**
- * What the previous measurement of a view saw. The next one compares against it
- * to tell a stream's update (the markdown only grew, nothing else changed) from
- * new content.
- */
+/// What a view's previous measurement saw, to tell a stream's update (only the markdown grew) from new content.
 template <typename PropsT> struct ENRMPreviousMeasurement {
   std::shared_ptr<const PropsT> props;
   /// Everything else that sizes the content (buildLayoutCacheKey).
@@ -336,13 +332,10 @@ struct ENRMMeasurementInputs {
 };
 
 /**
- * Picks the source of a measurement.
- *
- * The view's size answers a stream's update (it trails by at most the render in
- * flight) and a view that asked again. Otherwise the same document measured again
- * gets the previous answer: Yoga measures twice a pass, and a view sized to its
- * content lays out narrower than offered, so it keeps that size until it asks.
- * Without a view nothing would ask, so a grown document measures in full.
+ * The view's size answers a stream's update (it trails by at most the render in flight) and a view
+ * that asked again. Otherwise the same document gets the previous answer: Yoga measures twice a
+ * pass, and a view sized to its content lays out narrower than offered, so it keeps that size until
+ * it asks. Without a view nothing would ask, so a grown document measures in full.
  */
 inline ENRMMeasurementSource ENRMChooseMeasurement(const ENRMMeasurementInputs &inputs)
 {
@@ -375,13 +368,11 @@ struct ENRMShownSlot {
 };
 
 /**
- * Whether a stream's update on a document with block slots can take the height the view laid out
- * and keep the slot frames of the last full measurement, instead of measuring the whole document
- * again. The view must show every slot the measurement placed where it placed it, at the height
- * its child still has, and no slot the measurement doesn't know. With `smooth`, a slot pacing has
- * not revealed yet is not shown and must lie below that height; otherwise a slot the view doesn't
- * show (nested in a quote, or placed but not applied yet) fails. So does anything above a slot that
- * moved it (an image that loaded, a late reference definition): the document measures in full.
+ * Whether a stream's update can take the height the view laid out and keep the slot frames of the
+ * last full measurement: the view shows exactly the measured slots, each where it was placed and at
+ * the height its child still has. With `smooth`, a slot not revealed yet may be missing if it lies
+ * below that height. Any other missing slot (nested in a quote, not applied yet) fails, and so does
+ * one that moved (an image loaded above it, a late reference definition).
  */
 inline bool ENRMCanTakeLaidOutSlotLayout(bool smooth, double laidOutHeight,
                                          const std::vector<ENRMMeasuredSlot> &measured,
@@ -412,11 +403,9 @@ inline bool ENRMCanTakeLaidOutSlotLayout(bool smooth, double laidOutHeight,
 }
 
 /**
- * A code block still streaming into the last slot (the snapshot ends inside its open fence) is the
- * document's end, so its child's new height decides the document's: where the slot starts, plus
- * that height, plus what followed it at the last full measurement (`measuredHeight`). The view must
- * show every slot as ENRMCanTakeLaidOutSlotLayout checks, the last at the height it had, and end
- * there. Returns 0 when that doesn't hold.
+ * A code block still streaming into the last slot is the document's end, so its child's new height
+ * decides the document's. The view must show every slot as ENRMCanTakeLaidOutSlotLayout checks, the
+ * last at the height it had, and end there; 0 otherwise.
  */
 inline double ENRMGrowingTailSlotHeight(bool endsInsideOpenFence, double measuredHeight, double laidOutHeight,
                                         const std::vector<ENRMMeasuredSlot> &measured,

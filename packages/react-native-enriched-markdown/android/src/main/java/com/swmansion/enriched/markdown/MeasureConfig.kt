@@ -13,9 +13,8 @@ import com.swmansion.enriched.markdown.utils.common.parseLinkRecognition
 import com.swmansion.enriched.markdown.utils.common.parseMd4cFlags
 
 /**
- * Everything besides the markdown that lays a document out: the layout props (conversions.h),
- * parsed once. The shadow node interns each config by value and measures with its [key], so the
- * same key is the same config.
+ * The layout props (conversions.h), parsed once. The shadow node interns each config by value
+ * and measures with its [key], so the same key is the same config.
  */
 internal class MeasureConfig(
   val key: Int,

@@ -7,14 +7,10 @@ import android.text.Spanned
 import android.widget.TextView
 
 /**
- * The text's background pass, under its glyphs, as iOS draws it in its layout manager: blockquote
- * fills first, then highlight and inline code backgrounds on top of them. Where a span starts and
- * ends on a line is the layout's own ([Layout.getPrimaryHorizontal]), so margins, alignment,
- * right-to-left text and justification place the background where the glyphs are. Only the lines
- * the canvas shows are drawn, and the positions found on a line are kept until its text changes
- * ([invalidateFrom]), the layout is replaced or resized, or an inline image or link pill changes
- * width ([noteReflow]), so a fade that redraws the text every frame doesn't measure it again.
- * One per text view; main thread only.
+ * The text's background pass, under its glyphs: blockquote fills first, then highlight and inline
+ * code backgrounds on top. Positions come from the layout ([Layout.getPrimaryHorizontal]) and are
+ * cached per line until its text changes ([invalidateFrom]), the layout is replaced or resized, or
+ * an inline image or link pill changes width ([noteReflow]). One per text view; main thread only.
  */
 internal class TextBackgroundDrawer {
   companion object {
@@ -131,9 +127,8 @@ internal class TextBackgroundDrawer {
   }
 
   /**
-   * The x of [offset] on [line], which runs from [lineStart] to [lineEnd]: before the start, the
-   * start's; at or past the end (where a wrapped line's offset belongs to the next one), where the
-   * line's glyphs end.
+   * The x of [offset] clamped to [line]: at or past [lineEnd], where the line's glyphs end (a
+   * wrapped line's end offset belongs to the next line).
    */
   fun x(
     layout: Layout,

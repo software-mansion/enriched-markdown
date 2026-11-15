@@ -143,9 +143,8 @@ object SegmentViewCreators {
   }
 
   /**
-   * After reconciling [segments] into [views]: a view the reconciler kept shows its segment's
-   * text, under whatever revision it was given, so it takes the segment's. Returns the indices of
-   * the views that missed a patch, having no base for it ([updateTextView] left them as they were).
+   * After reconciling [segments] into [views]: a kept view takes its segment's revision. Returns
+   * the indices of the views that missed a patch ([updateTextView] left them as they were).
    */
   fun syncTextRevisions(
     segments: List<RenderedSegment>,

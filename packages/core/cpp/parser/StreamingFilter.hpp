@@ -51,8 +51,7 @@ StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown
 // none. A line still arriving counts once it can no longer become one of
 // those, except a quote line, which can still turn into a code fence inside
 // the quote and move the end back. The filter and repair act only on what
-// follows it, so appending text never changes the bytes before it (their
-// parse may still change: a later `[r]: url` turns `[docs][r]` into a link).
+// follows it; a later `[r]: url` can still change how the bytes before parse.
 size_t finishedBlocksEnd(std::string_view markdown, bool latexMath = true);
 
 // Whether a line that follows a blank line at the top level starts a block of its own, whatever came

@@ -5,14 +5,9 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/// Draws a long text view only around the part of it on screen.
-///
-/// A non-scrolling TextKit 1 text view keeps one bitmap of its whole frame (see ENRMTextTiles). The
-/// text view keeps its whole frame, so UIKit's selection, menus, hit testing and accessibility work
-/// on it as before, but it draws only the part of its text near the visible part of the enclosing
-/// scroll views (plus a margin): see ENRMTextViewportView. A text off screen draws nothing.
-///
-/// On macOS the text view keeps covering the whole text.
+/// Draws a long text view only near the visible part of its enclosing scroll views (see
+/// ENRMTextViewportView). The text view keeps its whole frame, so UIKit's selection, menus, hit
+/// testing and accessibility work on it. On macOS the text view keeps covering the whole text.
 @interface ENRMTextViewport : NSObject
 
 - (instancetype)initWithTextView:(ENRMPlatformTextView *)textView NS_DESIGNATED_INITIALIZER;

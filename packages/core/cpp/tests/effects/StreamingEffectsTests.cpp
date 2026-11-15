@@ -37,7 +37,6 @@ StreamingEffectConfig none() {
   return config;
 }
 
-// Appends `chunk` to `text` and tells `fx` of it.
 void append(StreamingEffects &fx, std::u16string &text, const std::u16string &chunk, double time) {
   size_t start = text.size();
   char16_t previous = start > 0 ? text[start - 1] : u' ';

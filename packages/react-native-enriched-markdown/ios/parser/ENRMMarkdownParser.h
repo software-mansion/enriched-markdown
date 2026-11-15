@@ -19,7 +19,6 @@
 
 #ifdef __cplusplus
 #include "MD4CParser.hpp"
-/// The core parser's flags for `flags`.
 Markdown::Md4cFlags ENRMCoreMd4cFlags(ENRMMd4cFlags *flags);
 #endif
 

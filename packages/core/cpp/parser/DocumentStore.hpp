@@ -44,16 +44,10 @@ size_t sharedLeadingBlocks(const ParsedDocument &a, const ParsedDocument &b,
                            const std::unordered_set<std::string> &aSlots,
                            const std::unordered_set<std::string> &bSlots);
 
-// A streaming snapshot or parse is computed once per input and process: a
-// tick's collect on the JS thread, measurement on the layout thread and the
-// render on the main or a background thread all ask for the same text one
-// after another. Thread-safe; a miss is only slower, never different.
-//
-// A snapshot's text is parsed in two parts: the blocks before its finishedBytes
-// once per stream (FinishedBlocks), the rest on every update. The result is the
-// tree a whole parse gives; the nodes of the finished blocks are the same
-// objects from one update to the next, which the hosts use to convert and
-// render only what is new.
+// Computes a streaming snapshot or parse once per input, whichever thread asks
+// first. Thread-safe; a miss is only slower, never different. A stream's
+// finished blocks keep the same node objects from one update to the next,
+// which the hosts use to convert and render only what is new.
 class DocumentStore {
 public:
   static DocumentStore &shared();
@@ -61,7 +55,7 @@ public:
   StreamingSnapshot snapshot(const std::string &markdown, const StreamingOptions &options);
   std::shared_ptr<const ParsedDocument> parse(const std::string &markdown, const Md4cFlags &flags, bool isGFM);
 
-  // How many snapshots and parses actually ran, for tests and debugging.
+  // How many snapshots and parses ran, for tests and debugging.
   size_t snapshotCount() const {
     return snapshotsRun_;
   }

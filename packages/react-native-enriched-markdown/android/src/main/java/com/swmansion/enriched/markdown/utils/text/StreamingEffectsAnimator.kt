@@ -8,9 +8,8 @@ import com.swmansion.enriched.markdown.utils.common.isReducedMotionEnabled
 import java.lang.ref.WeakReference
 
 /**
- * Draws a streaming text view's newest characters with the core's effects (fade, gradient): one
- * [StreamingEffectSpan] per run of equal looks, replaced each frame while the looks change over
- * time, and when new text arrives. The text itself is not changed otherwise.
+ * Draws a text view's newest characters with the core's effects: one [StreamingEffectSpan] per
+ * run of equal looks, replaced each frame while the looks change. The text is otherwise untouched.
  */
 class StreamingEffectsAnimator(
   textView: TextView,

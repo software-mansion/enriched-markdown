@@ -360,8 +360,7 @@ bool containsIgnoringCase(std::string_view text, std::string_view needle) {
 }
 
 // HTML blocks that may hold blank lines (CommonMark types 1-5) end at a closing text, not at a blank
-// line: the text that closes the one `body` opens, empty when it opens none. Tag names compare as
-// md4c does, ignoring case and ending at a space, `>` or the line's end.
+// line: the text that closes the one `body` opens, empty when it opens none.
 std::string_view htmlBlockCloser(std::string_view body) {
   std::string_view text = body.substr(std::min(leadingSpaces(body), body.size()));
   if (startsWith(text, "<!--"))
@@ -410,11 +409,9 @@ size_t countRun(std::string_view line, size_t from, char ch) {
 bool mayDefineLinkReference(std::string_view markdown) {
   // CommonMark's limit for a label, with room for its brackets and escapes.
   constexpr size_t kMaxLinkLabel = 2048;
-  // A fence at the start of a line, outside any container, runs to its closing fence or the end:
-  // its lines are code, like `[key: string]: number`. A closing fence is indented at most three
-  // spaces. A fence line this scan can't follow (indented, inside a quote or list item), raw HTML,
-  // display math, or a fence right after a table row turns the tracking off: from there on every
-  // line is checked, which is only slower.
+  // The lines of a fence that starts a line, outside any container, are code and skipped. A fence
+  // line this scan can't follow (indented, inside a quote or list item), raw HTML, display math, or a
+  // fence right after a table row turns the tracking off: every later line is checked, only slower.
   char fence = 0;
   size_t fenceLength = 0;
   bool fencesOpen = true;

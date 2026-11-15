@@ -21,11 +21,9 @@ InternedMeasureConfig internMarkdownMeasureConfig(folly::dynamic config);
 int nextMarkdownMeasureTextKey();
 
 /**
- * What a markdown view's measurement crosses over to Kotlin with: two keys in place of its props.
- * Kotlin keeps what it parsed under them and pulls the markdown or the layout config
- * (MeasurementStore.nativeMeasureMarkdown / nativeMeasureConfig) from the session installed around
- * the call only when it doesn't have them. The markdown then crosses once per update instead of on
- * every measure, and the style is parsed once per distinct style.
+ * What a measurement crosses over to Kotlin with: two keys in place of its props. Kotlin pulls the
+ * markdown or the layout config (MeasurementStore.nativeMeasureMarkdown / nativeMeasureConfig) from
+ * the session installed around the call only when it has nothing under a key.
  */
 struct MarkdownMeasureKeys {
   // The props the keys are for. Held, not just compared: a freed props object's address can come

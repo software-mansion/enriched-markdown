@@ -40,13 +40,13 @@ jest.mock('../src/NativeEnrichedMarkdownParser', () => ({
 
 // Called once per render of EnrichedMarkdownText itself, not of the view it renders.
 const mockParentRenders = jest.fn();
-jest.mock('../src/streamingAnimation', () => {
-  const actual = jest.requireActual('../src/streamingAnimation');
+jest.mock('../src/streamingEffects', () => {
+  const actual = jest.requireActual('../src/streamingEffects');
   return {
     ...actual,
-    useStreamingAnimation: (...args: unknown[]) => {
+    useStreamingEffects: (...args: unknown[]) => {
       mockParentRenders();
-      return actual.useStreamingAnimation(...args);
+      return actual.useStreamingEffects(...args);
     },
   };
 });
@@ -63,7 +63,7 @@ jest.mock('../src/EnrichedMarkdownNativeComponent', () => ({
 
 let frames: Array<() => void> = [];
 const realRequestAnimationFrame = global.requestAnimationFrame;
-// The frame clock: nextFrame() moves it a 60 Hz frame on, frameAfter() past the publish interval.
+// The frame clock, moved by runFrame().
 let clock = 0;
 jest.spyOn(performance, 'now').mockImplementation(() => clock);
 
@@ -124,7 +124,7 @@ it('gets the parser module from the package entry, before any view renders', () 
   });
 });
 
-it('keeps the text in a native stream and sends its id and length once per frame', () => {
+it('keeps the text in a native stream and sends its id and length on a frame', () => {
   const stream = createMarkdownStream('# Title');
   const root = render(<EnrichedMarkdownText stream={stream} />);
   const { streamId } = view(root).props;

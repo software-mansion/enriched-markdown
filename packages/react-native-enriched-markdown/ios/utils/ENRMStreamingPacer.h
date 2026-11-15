@@ -4,8 +4,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /// Paces a streaming view's markdown word by word with the core's StreamingPacer: the view renders
-/// what has been revealed, and is handed more every frame while words are waiting, so its text,
-/// layout and blocks grow word by word instead of in the bursts the markdown arrives in.
+/// what has been revealed, and is handed more every frame while words are waiting.
 @interface ENRMStreamingPacer : NSObject
 
 /// `reveal` gets the markdown to render once more of it is revealed; `done` runs once the stream

@@ -3,11 +3,9 @@ package com.swmansion.enriched.markdown.utils.text
 import android.view.Choreographer
 
 /**
- * Paces a streaming view's markdown word by word with the core's StreamingPacer (StreamingPacer.hpp):
- * the view renders what has been revealed, and is handed more every frame while words are waiting,
- * so its text, layout and blocks grow word by word instead of in the bursts the markdown arrives in.
- * [reveal] gets the markdown to render once more of it is revealed; [done] runs once the stream has
- * ended and its last words have appeared. Both on the main thread.
+ * Drives the core's StreamingPacer (StreamingPacer.hpp) from the frame clock. [reveal] gets the
+ * markdown to render as more is revealed; [done] runs once the stream has ended and its last
+ * words have appeared. Both on the main thread.
  */
 class StreamingPacer(
   private val reveal: (String) -> Unit,
@@ -31,9 +29,8 @@ class StreamingPacer(
   private var streamingWithoutPacer = false
 
   /**
-   * Takes the view's [markdown], its streaming prop and streamingConfig.smooth (the core's
-   * StreamingPacer::update). Returns whether the stream ends now; otherwise, once it has ended,
-   * [done] runs when its last words have appeared.
+   * The core's StreamingPacer::update: returns whether the stream ends now. Otherwise [done] runs
+   * once it has ended and its last words have appeared.
    */
   fun update(
     markdown: String,
@@ -84,7 +81,6 @@ class StreamingPacer(
     }
   }
 
-  // Runs frame callbacks while words are waiting.
   private fun runFramesWhileWaiting(now: Double) {
     if (nativeWaiting(handle, now)) {
       if (!frameScheduled) {

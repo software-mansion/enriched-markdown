@@ -79,13 +79,11 @@ private class InsertionOrderedSpannable(
   var repainting = false
 
   /**
-   * Replaces the text from [start] on with [tail] as one change, told to the layouts, which reflow
-   * once where the buffer would tell them of every span it copies, and to TextView's own watcher,
-   * so its Editor's word iterator and touch offsets follow the text: a word selection on a stale
-   * one throws. That watcher hears only onTextChanged; afterTextChanged would copy the text for
-   * autofill and content capture. The view keeps its scroll ([AccessibleMarkdownTextView]) and
-   * invalidates itself. False, with the text unchanged, when [hasLayout] but no layout watches the
-   * text: none would reflow.
+   * Replaces the text from [start] on with [tail] as one change, so the layouts reflow once, not
+   * per copied span. TextView's own watcher must hear it too: a word selection on a stale Editor
+   * word iterator throws. It hears only onTextChanged; afterTextChanged would copy the text for
+   * autofill and content capture. False, with the text unchanged, when [hasLayout] but no layout
+   * watches the text: none would reflow.
    */
   fun replaceTail(
     start: Int,
@@ -192,10 +190,9 @@ fun Spannable.repaintSpan(what: Any) {
 }
 
 /**
- * Stands in the buffer for a watcher set on an [InsertionOrderedSpannable], and reports that
- * text, not the buffer, as the one that changed. DynamicLayout ignores changes to any text but
- * the one it lays out, so a patch to the buffer ([replaceAdoptedTextTail]) reflows the lines
- * only through this.
+ * Stands in the buffer for a watcher set on an [InsertionOrderedSpannable] and reports that text,
+ * not the buffer, as the one that changed: DynamicLayout ignores changes to any text but the one
+ * it lays out.
  */
 private class WatcherProxy(
   val watcher: Any,

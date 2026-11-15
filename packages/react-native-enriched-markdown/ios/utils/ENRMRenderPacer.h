@@ -4,8 +4,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// Starts streaming renders on display frames, one at a time: the next waits until the last has
 /// applied, and while applying overruns the frame budget, renders space out to every 2nd–4th frame.
-/// Without it each update rendered and applied at once, several a frame, each laying text out for
-/// a frame that showed only the last.
 @interface ENRMRenderPacer : NSObject
 
 /// `render` returns whether it started a render, which then reports back through `renderAppliedIn:`.

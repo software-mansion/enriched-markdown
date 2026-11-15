@@ -255,10 +255,9 @@ open class ContainerNodeView(
   }
 
   /**
-   * The content height and the root slot placeholders the shadow node may take for a stream's
-   * update (MeasurementStore.storeLaidOutSize), px within the content box. A slot growing in counts
-   * at the height it reserved, as the shadow node measures it, and so does where each slot after it
-   * starts. Read after [layoutSegments].
+   * The content height and root slot placeholders for MeasurementStore.storeLaidOutSize, px within
+   * the content box. A slot growing in counts at the height it reserved, as the shadow node
+   * measures it, and so does where each slot after it starts. Read after [layoutSegments].
    */
   internal fun reservedSlotLayout(): Pair<Int, List<SlotLayoutReuse.ShownSlot>> {
     var reservedShift = 0

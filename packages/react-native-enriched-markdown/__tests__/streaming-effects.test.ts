@@ -1,8 +1,8 @@
 import { processColor } from 'react-native';
-import { normalizeStreamingAnimation } from '../src/streamingAnimation';
+import { normalizeStreamingEffects } from '../src/streamingEffects';
 
 it('defaults to a 200 ms fade', () => {
-  expect(normalizeStreamingAnimation(undefined)).toEqual({
+  expect(normalizeStreamingEffects(undefined)).toEqual({
     animation: 'fade',
     animationDuration: 200,
     animationLength: 20,
@@ -12,22 +12,22 @@ it('defaults to a 200 ms fade', () => {
 });
 
 it('takes a preset name with its defaults', () => {
-  expect(normalizeStreamingAnimation('gradient')).toMatchObject({
+  expect(normalizeStreamingEffects('gradient')).toMatchObject({
     animation: 'gradient',
     animationLength: 20,
   });
-  expect(normalizeStreamingAnimation('none').animation).toBe('none');
+  expect(normalizeStreamingEffects('none').animation).toBe('none');
 });
 
 it('passes a preset object’s options', () => {
   expect(
-    normalizeStreamingAnimation({ type: 'fade', duration: 300 })
+    normalizeStreamingEffects({ type: 'fade', duration: 300 })
   ).toMatchObject({
     animation: 'fade',
     animationDuration: 300,
   });
   expect(
-    normalizeStreamingAnimation({
+    normalizeStreamingEffects({
       type: 'gradient',
       length: 15,
       startColor: '#107ACA',
@@ -43,7 +43,7 @@ it('passes a preset object’s options', () => {
 
 it('shows new content at once for an effect it does not know', () => {
   const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-  expect(normalizeStreamingAnimation('typewriter' as never).animation).toBe(
+  expect(normalizeStreamingEffects('typewriter' as never).animation).toBe(
     'none'
   );
   expect(warn).toHaveBeenCalledTimes(1);
@@ -52,16 +52,16 @@ it('shows new content at once for an effect it does not know', () => {
 
 it('treats a fade over no time or a gradient over no characters as none', () => {
   expect(
-    normalizeStreamingAnimation({ type: 'fade', duration: 0 }).animation
+    normalizeStreamingEffects({ type: 'fade', duration: 0 }).animation
   ).toBe('none');
   expect(
-    normalizeStreamingAnimation({ type: 'gradient', length: 0 }).animation
+    normalizeStreamingEffects({ type: 'gradient', length: 0 }).animation
   ).toBe('none');
 });
 
 it('sends a whole number of characters, and no animation for less than one', () => {
   const gradient = (length: number) =>
-    normalizeStreamingAnimation({ type: 'gradient', length });
+    normalizeStreamingEffects({ type: 'gradient', length });
   expect(gradient(12.5).animationLength).toBe(13);
   for (const length of [0.4, NaN, Infinity]) {
     expect(gradient(length)).toMatchObject({
@@ -70,6 +70,6 @@ it('sends a whole number of characters, and no animation for less than one', () 
     });
   }
   expect(
-    normalizeStreamingAnimation({ type: 'fade', duration: NaN }).animation
+    normalizeStreamingEffects({ type: 'fade', duration: NaN }).animation
   ).toBe('none');
 });

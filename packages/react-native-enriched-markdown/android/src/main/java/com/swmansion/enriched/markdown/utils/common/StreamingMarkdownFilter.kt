@@ -61,10 +61,7 @@ data class StreamingFilterResult(
 
 /**
  * The markdown to render while a document streams, from the core's streaming
- * session (packages/core/cpp/parser/StreamingSession.hpp) that iOS and the JS
- * block collector share, so every consumer sees the same document: trailing
- * blocks still arriving are withheld and inline syntax still being typed is
- * repaired the way [flags] parse it.
+ * session (StreamingSession.hpp), which iOS and the JS block collector share.
  */
 object StreamingMarkdownFilter {
   init {
