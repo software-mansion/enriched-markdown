@@ -11,10 +11,12 @@ import com.swmansion.enriched.markdown.events.CopyPressEvent
 import com.swmansion.enriched.markdown.events.LatexErrorEvent
 import com.swmansion.enriched.markdown.events.LinkLongPressEvent
 import com.swmansion.enriched.markdown.events.LinkPressEvent
+import com.swmansion.enriched.markdown.events.SelectionCopyEvent
 import com.swmansion.enriched.markdown.events.TaskListItemPressEvent
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.styles.ImageSourceOverride
 import com.swmansion.enriched.markdown.styles.LinkPillContent
+import com.swmansion.enriched.markdown.utils.text.view.SelectionCopyFormat
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 
 fun markdownEventTypeConstants(): MutableMap<String, Any> {
@@ -32,6 +34,8 @@ fun markdownEventTypeConstants(): MutableMap<String, Any> {
     mapOf("registrationName" to ContextMenuItemPressEvent.EVENT_NAME)
   map[LatexErrorEvent.EVENT_NAME] =
     mapOf("registrationName" to LatexErrorEvent.EVENT_NAME)
+  map[SelectionCopyEvent.EVENT_NAME] =
+    mapOf("registrationName" to SelectionCopyEvent.EVENT_NAME)
   return map
 }
 
@@ -131,12 +135,28 @@ fun emitContextMenuItemPress(
   )
 }
 
+fun emitSelectionCopy(
+  view: View,
+  text: String,
+  format: SelectionCopyFormat,
+  selectionStart: Int,
+  selectionEnd: Int,
+) {
+  val context = view.context as com.facebook.react.bridge.ReactContext
+  val surfaceId = UIManagerHelper.getSurfaceId(context)
+  val eventDispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, view.id)
+  eventDispatcher?.dispatchEvent(
+    SelectionCopyEvent(surfaceId, view.id, text, format.value, selectionStart, selectionEnd),
+  )
+}
+
 fun parseMd4cFlags(flags: ReadableMap?): Md4cFlags =
   Md4cFlags(
     underline = flags?.getBoolean("underline") ?: false,
     latexMath = FeatureFlags.IS_MATH_ENABLED && (flags?.getBoolean("latexMath") ?: true),
     superscript = flags?.getBoolean("superscript") ?: false,
     subscript = flags?.getBoolean("subscript") ?: false,
+    strikethrough = flags?.getBoolean("strikethrough") ?: false,
     highlight = flags?.getBoolean("highlight") ?: false,
     hardSoftBreaks = flags?.getBoolean("hardSoftBreaks") ?: false,
     preserveBlankLines = flags?.getBoolean("preserveBlankLines") ?: false,

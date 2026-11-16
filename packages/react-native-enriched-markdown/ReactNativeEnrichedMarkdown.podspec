@@ -28,7 +28,7 @@ Pod::Spec.new do |s|
     s.dependency "EnrichedMarkdownCore"
   else
     s.private_header_files = "ios/**/*.h", "common/**/*.h", "cpp/**/*.{h,hpp}"
-    s.source_files = ["ios/**/*.{h,m,mm,cpp,swift}", "common/**/*.{h,cpp}", "cpp/enrmrkd/*.{c,h}", "cpp/parser/*.{hpp,cpp}", "cpp/highlight/*.{hpp,cpp}"] + code_highlight[:source_files]
+    s.source_files = ["ios/**/*.{h,m,mm,cpp,swift}", "common/**/*.{h,cpp}", "cpp/enrmrkd/*.{c,h}", "cpp/parser/*.{hpp,cpp}", "cpp/highlight/*.{hpp,cpp}", "cpp/latex/*.{hpp,cpp}"] + code_highlight[:source_files]
     s.preserve_paths = "cpp/highlight/vendor/**/*" if code_highlight[:enabled]
   end
 
@@ -98,6 +98,9 @@ Pod::Spec.new do |s|
   # The RaTeX XCFramework bundles its own module.modulemap and headers; never let the
   # broad ios/**/*.h and ios/**/*.swift globs treat its internals as pod sources.
   exclude = ["ios/vendor/RaTeX.xcframework/**/*"]
+  # Codegen output comes from the app's ReactCodegen pod. A checkout that still has
+  # ios/generated from older versions would otherwise compile a second copy here.
+  exclude += ["ios/generated/**/*"]
   # ios/math holds the RaTeX bridge; ios/vendor/*.swift are RaTeX's vendored core Swift
   # sources. Both compile into this pod's module only when math is enabled.
   exclude += ["ios/math/**/*.swift", "ios/vendor/*.swift"] unless enable_math
@@ -131,9 +134,9 @@ Pod::Spec.new do |s|
 
   pod_xcconfig = {
     'HEADER_SEARCH_PATHS' => ([
-      "\"#{cpp_root}/enrmrkd\"", "\"#{cpp_root}/parser\"", "\"#{cpp_root}/highlight\"",
+      "\"#{cpp_root}/enrmrkd\"", "\"#{cpp_root}/parser\"", "\"#{cpp_root}/highlight\"", "\"#{cpp_root}/latex\"",
       "\"$(PODS_TARGET_SRCROOT)/ios/internals\"", "\"$(PODS_TARGET_SRCROOT)/ios/input/internals\"",
-      "\"$(PODS_TARGET_SRCROOT)/common\"", "\"$(PODS_TARGET_SRCROOT)/ios/generated/ReactCodegen\""
+      "\"$(PODS_TARGET_SRCROOT)/common\""
     ] + code_highlight[:header_paths].map { |p| "\"$(PODS_TARGET_SRCROOT)/#{p}\"" }).join(" "),
     'GCC_PREPROCESSOR_DEFINITIONS' => preprocessor_defs,
     'CLANG_CXX_LANGUAGE_STANDARD' => 'c++17',

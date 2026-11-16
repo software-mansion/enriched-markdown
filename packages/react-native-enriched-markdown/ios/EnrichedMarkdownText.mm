@@ -11,6 +11,7 @@
 #import "ENRMLinkRegexProps.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMMarkdownTextView.h"
+#import "ENRMPreparedRenderStore.h"
 #import "ENRMSpoilerOverlayManager.h"
 #import "ENRMSpoilerTapUtils.h"
 #import "ENRMTailFadeInAnimator.h"
@@ -18,6 +19,8 @@
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
 #import "ENRMUIKit.h"
+#import "ENRMUTF8.h"
+#import "ENRMViewFreeMeasurement.h"
 #import "EditMenuUtils.h"
 #import "FontScaleObserver.h"
 #import "FontUtils.h"
@@ -39,9 +42,9 @@
 #import "TaskListTapUtils.h"
 
 #import <ReactNativeEnrichedMarkdown/EnrichedMarkdownTextComponentDescriptor.h>
-#import <ReactNativeEnrichedMarkdown/EventEmitters.h>
-#import <ReactNativeEnrichedMarkdown/Props.h>
-#import <ReactNativeEnrichedMarkdown/RCTComponentViewHelpers.h>
+#import <react/renderer/components/EnrichedMarkdownTextSpec/EventEmitters.h>
+#import <react/renderer/components/EnrichedMarkdownTextSpec/Props.h>
+#import <react/renderer/components/EnrichedMarkdownTextSpec/RCTComponentViewHelpers.h>
 
 #import "RCTFabricComponentsPlugins.h"
 #import <React/RCTConversions.h>
@@ -66,12 +69,14 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 - (void)emitLinkLongPress:(NSString *)url;
 - (void)emitLinkContextMenuItemPress:(NSString *)itemText pattern:(NSString *)pattern url:(NSString *)url;
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText;
+- (void)emitTextPress:(NSInteger)index text:(NSString *)text;
 - (void)emitCodeBlockPress:(NSString *)code language:(NSString *)language;
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text;
 - (void)emitContextMenuItemPress:(NSString *)itemText
                     selectedText:(NSString *)selectedText
                   selectionStart:(NSUInteger)selectionStart
                     selectionEnd:(NSUInteger)selectionEnd;
+- (ENRMSelectionCopyHandler)selectionCopyHandler;
 @end
 
 #if !TARGET_OS_OSX
@@ -84,6 +89,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   ENRMMarkdownParser *_parser;
   NSString *_cachedMarkdown;
   NSString *_renderedMarkdown;
+  NSString *_pendingRenderMarkdown;
   StyleConfig *_config;
   ENRMMd4cFlags *_md4cFlags;
   BOOL _isGFM;
@@ -91,6 +97,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   ENRMLinkRegexConfig *_inlineCodeLinkRegex;
 
   ENRMAsyncRenderCoordinator *_renderCoordinator;
+  // Text laid out while detached is current when the view attaches; one that
+  // left a window may hold a stale layout and is refreshed on return (#155).
+  BOOL _needsWindowAttachRefresh;
 
   EnrichedMarkdownTextShadowNode::ConcreteState::Shared _state;
   int _heightUpdateCounter;
@@ -103,6 +112,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   BOOL _enableLinkPreview;
   BOOL _enableTaskListItemToggle;
   BOOL _enableImagePress;
+  BOOL _enableTextPress;
   BOOL _enableCodeBlockPress;
   BOOL _streamingAnimation;
   BOOL _forceHeightUpdateOnNextRender;
@@ -152,16 +162,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownTextMd4cFlagsStruct &)props
 {
-  ENRMMd4cFlags *flags = [ENRMMd4cFlags defaultFlags];
-  flags.underline = props.underline;
-  flags.superscript = props.superscript;
-  flags.subscript = props.subscript;
-  flags.latexMath = props.latexMath;
-  flags.highlight = props.highlight;
-  flags.hardSoftBreaks = props.hardSoftBreaks;
-  flags.preserveBlankLines = props.preserveBlankLines;
-  flags.admonitions = props.admonitions;
-  return flags;
+  return ENRMMd4cFlagsFromProps(props);
 }
 
 #pragma mark - Measuring and State
@@ -270,9 +271,13 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 // pre-load fallback height, so drop those entries and re-measure.
 - (void)imageAttachmentDidResolveLayout
 {
-  // The text around the attachment moved, and the spoiler overlays with it.
+  // The text around the attachment moved, and the spoiler overlays and VoiceOver's frames with it.
   [_spoilerManager setNeedsUpdate];
   [_spoilerManager updateIfNeeded];
+  _accessibilityNeedsRebuild = YES;
+#if !TARGET_OS_OSX
+  UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+#endif
 
   if (_renderedMarkdown.length > 0) {
     facebook::react::MeasurementCache::shared().removeMatchingMarkdown(std::string(_renderedMarkdown.UTF8String));
@@ -329,6 +334,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _enableLinkPreview = YES;
     _enableTaskListItemToggle = YES;
     _enableImagePress = NO;
+    _enableTextPress = NO;
     _enableCodeBlockPress = NO;
     _forceHeightUpdateOnNextRender = NO;
     _selectionMenuConfig = (ENRMSelectionMenuConfig){.copyAsMarkdown = YES, .copyImageURL = YES};
@@ -363,21 +369,25 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 - (void)setupTextView
 {
-#if !TARGET_OS_OSX
-  ENRMMarkdownTextView *markdownTextView = [[ENRMMarkdownTextView alloc] init];
   __weak EnrichedMarkdownText *weakCopyOwner = self;
-  markdownTextView.copySelectionHandler = ^(NSRange range) {
+  void (^copySelectionHandler)(NSRange) = ^(NSRange range) {
     EnrichedMarkdownText *owner = weakCopyOwner;
     if (!owner)
       return;
     NSAttributedString *text = owner->_textView.textStorage;
-    copyAttributedStringToPasteboard([text attributedSubstringFromRange:range],
-                                     markdownForRange(text, range, owner->_cachedMarkdown), owner -> _config);
+    ENRMCopySelection([text attributedSubstringFromRange:range], range,
+                      markdownForRange(text, range, owner->_cachedMarkdown), owner -> _config,
+                      [owner selectionCopyHandler]);
   };
+#if !TARGET_OS_OSX
+  ENRMMarkdownTextView *markdownTextView = [[ENRMMarkdownTextView alloc] init];
+  markdownTextView.copySelectionHandler = copySelectionHandler;
   _textView = markdownTextView;
   _textView.text = @"";
 #else
-  _textView = [[ENRMContextMenuTextView alloc] init];
+  ENRMContextMenuTextView *contextMenuTextView = [[ENRMContextMenuTextView alloc] init];
+  contextMenuTextView.copySelectionHandler = copySelectionHandler;
+  _textView = contextMenuTextView;
   _textView.string = @"";
 #endif
   ENRMConfigureMarkdownTextView(_textView);
@@ -403,7 +413,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
         });
     return buildEditMenuForSelection(textView.textStorage, textView.selectedRange, strongSelf->_cachedMarkdown,
                                      strongSelf->_config, @[ baseMenu ], customItems,
-                                     strongSelf -> _selectionMenuConfig);
+                                     strongSelf -> _selectionMenuConfig, [strongSelf selectionCopyHandler]);
   };
 #endif
 
@@ -437,6 +447,13 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 - (void)renderMarkdownContent:(NSString *)markdownString
 {
+  [self renderMarkdownContent:markdownString synchronously:NO];
+}
+
+// Parses on the render queue and applies on the main queue, unless
+// `synchronously`: then both run here and any render in flight is dropped.
+- (void)renderMarkdownContent:(NSString *)markdownString synchronously:(BOOL)synchronously
+{
   if (_renderCoordinator.blockAsyncRender)
     return;
 
@@ -458,28 +475,44 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   __block ENRMRenderResult *result = nil;
 
-  [_renderCoordinator
-      scheduleRender:^BOOL {
-        MarkdownASTNode *ast = [parser parseMarkdown:markdownString
-                                               flags:md4cFlags
-                                               isGFM:isGFM
-                                           linkRegex:linkRegex
-                                 inlineCodeLinkRegex:inlineCodeLinkRegex];
-        if (!ast)
-          return NO;
+  BOOL (^render)(void) = ^BOOL {
+    MarkdownASTNode *ast = [parser parseMarkdown:markdownString
+                                           flags:md4cFlags
+                                           isGFM:isGFM
+                                       linkRegex:linkRegex
+                             inlineCodeLinkRegex:inlineCodeLinkRegex];
+    if (!ast)
+      return NO;
 
-        result = ENRMRenderASTNodes(ast.children, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
-                                    lineBreakStrategy);
-        ENRMApplyWritingDirectionMode(result.attributedText, writingDirectionMode, resolvedLayoutDirection);
-        return YES;
-      }
-      apply:^{
-        self->_lastElementMarginBottom = result.lastElementMarginBottom;
-        self->_accessibilityInfo = result.accessibilityInfo;
-        self->_renderedStyleFingerprint = self->_pendingStyleFingerprint;
-        [self->_latexErrorCoordinator wireReporters:result.context.mathReporters];
-        [self applyRenderedText:result.attributedText];
-      }];
+    result = ENRMRenderASTNodes(ast.children, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
+                                lineBreakStrategy, /*startingTaskIndex*/ 0);
+    ENRMApplyWritingDirectionMode(result.attributedText, writingDirectionMode, resolvedLayoutDirection);
+    return YES;
+  };
+  dispatch_block_t apply = ^{
+    self->_lastElementMarginBottom = result.lastElementMarginBottom;
+    self->_accessibilityInfo = result.accessibilityInfo;
+    self->_renderedStyleFingerprint = self->_pendingStyleFingerprint;
+    [self->_latexErrorCoordinator wireReporters:result.context.mathReporters];
+    [self applyRenderedText:result.attributedText];
+  };
+
+  if (synchronously) {
+    [_renderCoordinator invalidate];
+    // A first render reuses what Yoga's measurement rendered, when it matches.
+    ENRMRenderResult *prepared =
+        _renderedMarkdown.length == 0 && !_streamingAnimation
+            ? ENRMTakePreparedText({_props, _fontScaleObserver.effectiveFontScale, resolvedLayoutDirection, nil})
+            : nil;
+    if (prepared) {
+      result = prepared;
+    } else if (!render()) {
+      return;
+    }
+    apply();
+    return;
+  }
+  [_renderCoordinator scheduleRender:render apply:apply];
 }
 
 - (NSMutableAttributedString *)parseAndRenderMarkdown:(NSString *)markdownString
@@ -495,7 +528,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   ENRMRenderResult *result =
       ENRMRenderASTNodes(ast.children, _config, _allowTrailingMargin, _fontScaleObserver.allowFontScaling,
-                         _maxFontSizeMultiplier, _lineBreakStrategy);
+                         _maxFontSizeMultiplier, _lineBreakStrategy, /*startingTaskIndex*/ 0);
   ENRMApplyWritingDirectionMode(result.attributedText, _writingDirectionMode, _resolvedLayoutDirection);
 
   _lastElementMarginBottom = result.lastElementMarginBottom;
@@ -566,6 +599,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   _textView.attributedText = attributedText;
   _renderedMarkdown = [_cachedMarkdown copy];
+  if (!self.window) {
+    _needsWindowAttachRefresh = contentBounds.size.width <= 0;
+  }
 
   [_textView.layoutManager invalidateLayoutForCharacterRange:NSMakeRange(0, attributedText.length)
                                         actualCharacterRange:NULL];
@@ -707,6 +743,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   if (newViewProps.md4cFlags.underline != oldViewProps.md4cFlags.underline ||
       newViewProps.md4cFlags.superscript != oldViewProps.md4cFlags.superscript ||
       newViewProps.md4cFlags.subscript != oldViewProps.md4cFlags.subscript ||
+      newViewProps.md4cFlags.strikethrough != oldViewProps.md4cFlags.strikethrough ||
       newViewProps.md4cFlags.latexMath != oldViewProps.md4cFlags.latexMath ||
       newViewProps.md4cFlags.highlight != oldViewProps.md4cFlags.highlight ||
       newViewProps.md4cFlags.hardSoftBreaks != oldViewProps.md4cFlags.hardSoftBreaks ||
@@ -726,6 +763,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _enableLinkPreview = newViewProps.enableLinkPreview;
   _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
   _enableImagePress = newViewProps.enableImagePress;
+  _enableTextPress = newViewProps.enableTextPress;
   _enableCodeBlockPress = newViewProps.enableCodeBlockPress;
 
   if (ENRMLinkContextMenuItemsChanged(oldViewProps.linkContextMenuItems, newViewProps.linkContextMenuItems)) {
@@ -821,34 +859,56 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   if (_dirtyFlags & ENRMDirtyRender) {
     _pendingStyleFingerprint =
         computeStyleFingerprint(newViewProps.markdownStyle) ^ std::hash<bool>{}(newViewProps.allowTrailingMargin);
-    NSString *markdownString = [[NSString alloc] initWithUTF8String:newViewProps.markdown.c_str()];
-    [self renderMarkdownContent:markdownString];
+    // Rendered in finalizeUpdates, once the view has its layout metrics.
+    _pendingRenderMarkdown = ENRMStringFromUTF8(newViewProps.markdown);
     _dirtyFlags &= ~ENRMDirtyRender;
   }
 
   [super updateProps:props oldProps:oldProps];
 }
 
+- (void)finalizeUpdates:(RNComponentViewUpdateMask)updateMask
+{
+  [super finalizeUpdates:updateMask];
+
+  if (_pendingRenderMarkdown) {
+    NSString *markdown = _pendingRenderMarkdown;
+    _pendingRenderMarkdown = nil;
+    // The first content renders inline: Yoga has already laid the view out at
+    // its measured size, so an async render would show it empty (#1131).
+    [self renderMarkdownContent:markdown synchronously:_renderedMarkdown.length == 0];
+  }
+}
+
 - (void)didMoveToWindow
 {
   [super didMoveToWindow];
 
-  if (self.window && _renderedMarkdown != nil) {
-    _textView.hidden = NO;
+  if (!self.window) {
+    _needsWindowAttachRefresh = YES;
+    return;
+  }
+  if (_renderedMarkdown == nil) {
+    return;
+  }
+  _textView.hidden = NO;
+  BOOL refresh = _needsWindowAttachRefresh;
+  _needsWindowAttachRefresh = NO;
+  if (refresh) {
     // Refresh in place: RCTViewComponentView owns the text view's frame and has
     // already set it to the content frame, so re-assigning self.bounds here would
     // drop the containerStyle insets (see contentBounds).
     ENRMRefreshTextViewLayout(_textView);
+  }
 
-    [_spoilerManager setNeedsUpdate];
-    [_spoilerManager updateIfNeeded];
+  [_spoilerManager setNeedsUpdate];
+  [_spoilerManager updateIfNeeded];
 
-    CGRect contentBounds = [self contentBounds];
-    if (contentBounds.size.width > 0) {
-      CGSize measured = [self measureSize:contentBounds.size.width];
-      if (needsHeightUpdate(measured, contentBounds)) {
-        [self requestHeightUpdate];
-      }
+  CGRect contentBounds = [self contentBounds];
+  if (refresh && contentBounds.size.width > 0) {
+    CGSize measured = [self measureSize:contentBounds.size.width];
+    if (needsHeightUpdate(measured, contentBounds)) {
+      [self requestHeightUpdate];
     }
   }
 }
@@ -866,6 +926,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _forceHeightUpdateOnNextRender = NO;
   _cachedMarkdown = nil;
   _renderedMarkdown = nil;
+  _pendingRenderMarkdown = nil;
   _config = nil;
   _md4cFlags = [EnrichedMarkdownText flagsFromProps:resetProps->md4cFlags];
   _isGFM = resetProps->isGFM;
@@ -908,7 +969,11 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
 {
   if (_textView) {
     CGPoint textViewPoint = [self convertPoint:point toView:_textView];
-    if (isPointOnInteractiveElement(_textView, textViewPoint, _enableImagePress, _enableCodeBlockPress)) {
+    // Only where textTapped would emit, so a parent Pressable still gets the rest, as on Android.
+    BOOL isTextPress = _enableTextPress && _textView.selectedRange.length == 0 &&
+                       textPressIndexAtPoint(_textView, textViewPoint) != NSNotFound;
+    if (isTextPress ||
+        isPointOnInteractiveElement(_textView, textViewPoint, _enableImagePress, _enableCodeBlockPress)) {
       return nil;
     }
   }
@@ -938,6 +1003,13 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
                                          .pattern = std::string(pattern.UTF8String),
                                          .itemText = std::string(itemText.UTF8String)});
   }
+}
+
+- (void)emitTextPress:(NSInteger)index text:(NSString *)text
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter);
+  if (emitter)
+    emitter->onTextPress({.index = (int)index, .text = std::string(text.UTF8String ?: "")});
 }
 
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText
@@ -977,6 +1049,24 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
     });
 }
 
+- (ENRMSelectionCopyHandler)selectionCopyHandler
+{
+  __weak EnrichedMarkdownText *weakSelf = self;
+  return ^(NSString *text, NSString *format, NSRange range) {
+    EnrichedMarkdownText *strongSelf = weakSelf;
+    if (!strongSelf)
+      return;
+    auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(strongSelf->_eventEmitter);
+    if (emitter)
+      emitter->onSelectionCopy({
+          .text = std::string(text.UTF8String ?: ""),
+          .format = std::string(format.UTF8String),
+          .selectionStart = (int)range.location,
+          .selectionEnd = (int)NSMaxRange(range),
+      });
+  };
+}
+
 - (void)updateEventEmitter:(const facebook::react::EventEmitter::Shared &)eventEmitter
 {
   [super updateEventEmitter:eventEmitter];
@@ -986,6 +1076,8 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
 - (void)textTapped:(ENRMTapRecognizer *)recognizer
 {
   ENRMPlatformTextView *textView = (ENRMPlatformTextView *)recognizer.view;
+  // Read before the link check below clears the selection.
+  BOOL hadSelection = textView.selectedRange.length > 0;
 
   if (_enableTaskListItemToggle &&
       handleTaskListTapWithSharedLogic(
@@ -1021,6 +1113,13 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
       [self emitCodeBlockPress:codeBlock[@"code"] language:codeBlock[@"language"]];
       return;
     }
+  }
+
+  // Skip while text is selected so the tap only clears the selection.
+  if (_enableTextPress && !hadSelection) {
+    NSUInteger index = textPressIndexAtTapLocation(textView, recognizer);
+    if (index != NSNotFound)
+      [self emitTextPress:index text:ENRMGetAttributedText(textView).string];
   }
 }
 
@@ -1085,7 +1184,7 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
       ENRMBuildContextMenuActions(_contextMenuItemTexts, _contextMenuItemIcons, textView, range, handler);
 
   return buildEditMenuForSelection(textView.attributedText, range, _cachedMarkdown, _config, suggestedActions,
-                                   customActions, _selectionMenuConfig);
+                                   customActions, _selectionMenuConfig, [self selectionCopyHandler]);
 }
 #endif
 

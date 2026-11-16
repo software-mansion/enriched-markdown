@@ -59,7 +59,7 @@ import StartMentionSrc from '!!raw-loader!@site/src/examples/react-native/api-re
 # EnrichedMarkdownTextInput
 
 export const nativeOnly = (
-<>iOS and Android only for now - the <Link to="/react-native/guides/web-editor">experimental web editor</Link> does not support this yet, so the code is shown for reference.</>
+<>iOS and Android only for now - the <Link to="/react-native/guides/web-editor">web editor</Link> does not support this yet, so the code is shown for reference.</>
 );
 
 export const focusOnLoad = (
@@ -119,7 +119,7 @@ The example above shows the two patterns you will use everywhere:
 `EnrichedMarkdownTextInput` accepts every prop below. It also forwards the standard React Native [`View`](https://reactnative.dev/docs/view#props) props - such as `testID`, `onLayout`, `pointerEvents`, and the `accessibility*` props - to the underlying native view.
 
 :::note
-Props marked with a <IosBadge />, <AndroidBadge /> or <WebBadge /> badge only take effect on that platform - they are flagged with a matching colored dot in the table of contents. The input also runs on web as an <ExperimentalBadge /> editor that supports a subset of this page - see [Web editor](/react-native/guides/web-editor) for which props and methods apply there. Examples for what the web editor supports run live below; the rest show their source.
+Props marked with a <IosBadge />, <AndroidBadge /> or <WebBadge /> badge only take effect on that platform - they are flagged with a matching colored dot in the table of contents. The input also runs on web as an editor that supports a subset of this page - see [Web editor](/react-native/guides/web-editor) for which props and methods apply there. Examples for what the web editor supports run live below; the rest show their source.
 :::
 
 Every shape printed inline below is an exported type you can import from the package root: `MarkdownTextInputStyle`, `StyleState`, `HeadingLevel`, `ContextMenuItem`, `InputSelectionMenuConfig`, `FormatMenuConfig`, `MarkdownShortcutsConfig`, `CaretRect`, and the event payloads. Note that the unprefixed `ContextMenuItem` is **this** component's type; the renderer's equivalent is exported as `TextContextMenuItem`.
@@ -262,7 +262,7 @@ Overrides for how formatted text is painted inside the input. Its type, `Markdow
 
 <PropInfo type="MarkdownTextInputStyle" default="{}" />
 
-On web, the [experimental web editor](/react-native/guides/web-editor#styling) honors every key except `linkVariants`.
+On web, the [web editor](/react-native/guides/web-editor#styling) honors every key except `linkVariants`.
 
 <LivePreview src={MarkdownStyleSrc} />
 
@@ -457,7 +457,7 @@ interface StyleState {
 
 ### `onChangeHistoryState` <WebBadge /> {#onchangehistorystate}
 
-Fires when whether [`undo()`](#undo) or [`redo()`](#redo) has a step to take changes. It fires only when one of the two values flips, not on every edit, so it is cheap to drive toolbar buttons from. Part of the [experimental web editor](/react-native/guides/web-editor#undo-and-redo); iOS and Android never call it.
+Fires when whether [`undo()`](#undo) or [`redo()`](#redo) has a step to take changes. It fires only when one of the two values flips, not on every edit, so it is cheap to drive toolbar buttons from. Part of the [web editor](/react-native/guides/web-editor#undo-and-redo); iOS and Android never call it.
 
 <PropInfo type="(state: { canUndo: boolean; canRedo: boolean }) => void" />
 
@@ -698,11 +698,11 @@ Pressing **Return** inside an item starts a new item at the same depth; pressing
 
 ### `undo()` <WebBadge /> {#undo}
 
-Steps back over the last edit: typing up to a pause or a caret move, a run of Backspaces, a paste, a cut, a newline, an IME composition, or one formatting command. Text, formatting and selection all return to how they were before it. Part of the [experimental web editor](/react-native/guides/web-editor#undo-and-redo), where **Cmd+Z** / **Ctrl+Z** and the browser's Edit menu do the same; a no-op on iOS and Android.
+Steps back over the last edit: typing up to a pause or a caret move, a run of Backspaces, a paste, a cut, a newline, an IME composition, or one formatting command. Text, formatting and selection all return to how they were before it. Part of the [web editor](/react-native/guides/web-editor#undo-and-redo), where **Cmd+Z** / **Ctrl+Z** and the browser's Edit menu do the same; a no-op on iOS and Android.
 
 ### `redo()` <WebBadge /> {#redo}
 
-Re-applies the last step `undo()` took back. Any new edit clears what is left to redo. Part of the [experimental web editor](/react-native/guides/web-editor#undo-and-redo), where **Cmd+Shift+Z** / **Ctrl+Shift+Z** / **Ctrl+Y** and the browser's Edit menu do the same; a no-op on iOS and Android.
+Re-applies the last step `undo()` took back. Any new edit clears what is left to redo. Part of the [web editor](/react-native/guides/web-editor#undo-and-redo), where **Cmd+Shift+Z** / **Ctrl+Shift+Z** / **Ctrl+Y** and the browser's Edit menu do the same; a no-op on iOS and Android.
 
 ### `setLink(url: string)`
 

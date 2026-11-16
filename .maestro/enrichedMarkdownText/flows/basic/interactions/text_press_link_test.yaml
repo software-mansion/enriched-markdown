@@ -1,0 +1,28 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - smoke
+  - text
+  - text-press
+  - link
+---
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        [Read the React Native docs](https://reactnative.dev)
+
+# A tap on a link fires onLinkPress only, never onTextPress. The link fills the line so the tap lands on it.
+- tapOn:
+    id: preview-text
+
+- assertVisible: 'https://reactnative.dev'
+
+- tapOn: 'OK'
+
+- assertNotVisible:
+    id: text-press-result

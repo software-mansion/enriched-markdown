@@ -26,6 +26,7 @@ class TaskListSpan(
    * moves it to the end of that order and shifts where its marker lands.
    */
   var isChecked: Boolean,
+  drawsMarker: Boolean = true,
   ancestorMarkerOffset: Float = 0f,
   override val markerExtraWidth: Float = 0f,
   parentMarkerWidth: Float? = null,
@@ -42,6 +43,7 @@ class TaskListSpan(
       ),
     marginLeft = listStyle.marginLeft,
     gapWidth = listStyle.gapWidth,
+    drawsMarker = drawsMarker,
     ancestorMarkerOffset = ancestorMarkerOffset,
     parentMarkerWidth = parentMarkerWidth,
   ) {

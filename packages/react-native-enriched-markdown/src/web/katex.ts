@@ -10,22 +10,22 @@ export interface KaTeXInstance {
   ): string;
 }
 
-let katexLoadPromise: Promise<KaTeXInstance | null> | null = null;
+// `undefined` until the first lookup; `null` when KaTeX is not installed.
+let katexInstance: KaTeXInstance | null | undefined;
 
-/** Lazily loads KaTeX. Resolves to null if not installed. */
-export function loadKaTeX(): Promise<KaTeXInstance | null> {
-  if (!katexLoadPromise) {
-    let instance: KaTeXInstance | null = null;
+/** Lazily loads KaTeX. Returns null if not installed. */
+export function loadKaTeX(): KaTeXInstance | null {
+  if (katexInstance === undefined) {
+    katexInstance = null;
     try {
       const mod = require('katex');
       const candidate = (mod?.default ?? mod) as KaTeXInstance | null;
       if (typeof candidate?.renderToString === 'function') {
-        instance = candidate;
+        katexInstance = candidate;
       }
     } catch {
       // katex not installed — math rendering will be skipped
     }
-    katexLoadPromise = Promise.resolve(instance);
   }
-  return katexLoadPromise;
+  return katexInstance;
 }

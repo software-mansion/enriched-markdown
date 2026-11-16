@@ -152,7 +152,7 @@ A tap reveals only the spoiler it lands on, and that spoiler stays revealed unti
 The same `![alt](url)` syntax renders two different ways, and which one you get depends on **what else is in the paragraph**:
 
 - **Block image** - the image is the only thing in its paragraph. It is laid out on its own, spanning the container width, with its height set by [`BlockImage()`](/ios/api-reference/style-properties#blockimage): a fixed `height`, a `maxHeight` cap on the image's own proportions, or an `aspectRatio`, with `contentMode` deciding how the image fills that box. The width is always the available width.
-- **Inline image** - anything else shares the line with it. It is drawn in the text flow at `InlineImage().size`, sized to sit on the line like a large glyph.
+- **Inline image** - anything else shares the line with it. It is drawn in the text flow in a square of `InlineImage().size`, centred on the cap height of the text around it, like a large glyph. The image is scaled up or down to fit inside that square, keeping its proportions, so it is never distorted or cropped.
 
 One edge case: an image that **starts** a paragraph is drawn block-sized even when text follows it on the same line. Only an image that comes after some text in its paragraph is drawn inline.
 

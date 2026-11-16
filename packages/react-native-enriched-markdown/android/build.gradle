@@ -210,10 +210,6 @@ android {
 
   sourceSets {
     main {
-      java.srcDirs += [
-        "generated/java",
-        "generated/jni"
-      ]
       if (enableMath) {
         java.srcDirs += ["src/math/java"]
       }

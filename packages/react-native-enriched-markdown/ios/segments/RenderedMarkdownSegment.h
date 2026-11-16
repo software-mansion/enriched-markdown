@@ -21,6 +21,7 @@ typedef NS_ENUM(NSInteger, ENRMBlockSlotKind) {
   ENRMBlockSlotKindImage,
   ENRMBlockSlotKindVideo,
   ENRMBlockSlotKindLink,
+  ENRMBlockSlotKindCode,
 };
 
 @interface ENRMTextSegment : NSObject
@@ -45,6 +46,8 @@ typedef NS_ENUM(NSInteger, ENRMBlockSlotKind) {
 
 @interface ENRMBlockquoteSegment : NSObject
 @property (nonatomic, strong) MarkdownASTNode *blockquoteNode;
+// Document-global index of the quote's first task-list item.
+@property (nonatomic, assign) NSInteger taskIndexOffset;
 + (instancetype)segmentWithBlockquoteNode:(MarkdownASTNode *)node;
 @end
 
@@ -53,9 +56,9 @@ typedef NS_ENUM(NSInteger, ENRMBlockSlotKind) {
 + (instancetype)segmentWithVideoNode:(MarkdownASTNode *)node;
 @end
 
-// A block a React child stands in for (see BlockSlots.hpp): the image paragraph or
-// video node carrying the `blockSlotId` attribute. The host reserves its height and
-// Fabric places the child there.
+// A block a React child stands in for (see BlockSlots.hpp): the image or link
+// paragraph, video or code block carrying the `blockSlotId` attribute. The host
+// reserves its height and Fabric places the child there.
 @interface ENRMBlockSlotSegment : NSObject
 @property (nonatomic, copy) NSString *slotId;
 @property (nonatomic, assign) ENRMBlockSlotKind kind;

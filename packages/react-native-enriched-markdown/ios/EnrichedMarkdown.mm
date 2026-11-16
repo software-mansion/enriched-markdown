@@ -8,6 +8,7 @@
 #import "ENRMLinkContextMenus.h"
 #import "ENRMLinkRegexProps.h"
 #import "ENRMMarkdownParser.h"
+#import "ENRMPreparedRenderStore.h"
 #import "ENRMTailFadeInAnimator.h"
 #import "ENRMTextInteractionUtils.h"
 #import "ENRMTextRenderer.h"
@@ -37,6 +38,7 @@
 #import "ENRMSpoilerOverlayView.h"
 #import "ENRMSpoilerTapUtils.h"
 #import "ENRMUTF8.h"
+#import "ENRMViewFreeMeasurement.h"
 #import "EnrichedMarkdownBlockSlot.h"
 #import "EnrichedMarkdownInternalText.h"
 #import "FontScaleObserver.h"
@@ -66,9 +68,9 @@
 #import <objc/runtime.h>
 
 #import <ReactNativeEnrichedMarkdown/EnrichedMarkdownComponentDescriptor.h>
-#import <ReactNativeEnrichedMarkdown/EventEmitters.h>
-#import <ReactNativeEnrichedMarkdown/Props.h>
-#import <ReactNativeEnrichedMarkdown/RCTComponentViewHelpers.h>
+#import <react/renderer/components/EnrichedMarkdownTextSpec/EventEmitters.h>
+#import <react/renderer/components/EnrichedMarkdownTextSpec/Props.h>
+#import <react/renderer/components/EnrichedMarkdownTextSpec/RCTComponentViewHelpers.h>
 
 #import "RCTFabricComponentsPlugins.h"
 #import <React/RCTConversions.h>
@@ -92,6 +94,7 @@ static char kENRMSegmentFadeAnimatorKey;
 - (void)emitLinkLongPress:(NSString *)url;
 - (void)emitLinkContextMenuItemPress:(NSString *)itemText pattern:(NSString *)pattern url:(NSString *)url;
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText;
+- (void)emitTextPress:(NSInteger)index text:(NSString *)text;
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text;
 - (void)emitCopyPress:(NSString *)code language:(NSString *)language;
 - (void)emitCodeBlockPress:(NSString *)code language:(NSString *)language;
@@ -99,6 +102,7 @@ static char kENRMSegmentFadeAnimatorKey;
                     selectedText:(NSString *)selectedText
                   selectionStart:(NSUInteger)selectionStart
                     selectionEnd:(NSUInteger)selectionEnd;
+- (ENRMSelectionCopyHandler)selectionCopyHandler;
 @end
 
 #if !TARGET_OS_OSX
@@ -130,6 +134,9 @@ static char kENRMSegmentFadeAnimatorKey;
   ENRMBlockSlotRevealController *_blockSlotReveal;
 
   ENRMAsyncRenderCoordinator *_renderCoordinator;
+  // Text laid out while detached is current when the view attaches; one that
+  // left a window may hold a stale layout and is refreshed on return (#155).
+  BOOL _needsWindowAttachRefresh;
 
   EnrichedMarkdownShadowNode::ConcreteState::Shared _state;
   int _heightUpdateCounter;
@@ -142,6 +149,7 @@ static char kENRMSegmentFadeAnimatorKey;
   BOOL _enableLinkPreview;
   BOOL _enableTaskListItemToggle;
   BOOL _enableImagePress;
+  BOOL _enableTextPress;
   BOOL _streamingAnimation;
   ENRMTableStreamingMode _tableStreamingMode;
   ENRMCodeBlockStreamingMode _codeBlockStreamingMode;
@@ -188,16 +196,7 @@ static char kENRMSegmentFadeAnimatorKey;
 
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownMd4cFlagsStruct &)props
 {
-  ENRMMd4cFlags *flags = [ENRMMd4cFlags defaultFlags];
-  flags.underline = props.underline;
-  flags.superscript = props.superscript;
-  flags.subscript = props.subscript;
-  flags.latexMath = props.latexMath;
-  flags.highlight = props.highlight;
-  flags.hardSoftBreaks = props.hardSoftBreaks;
-  flags.preserveBlankLines = props.preserveBlankLines;
-  flags.admonitions = props.admonitions;
-  return flags;
+  return ENRMMd4cFlagsFromProps(props);
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -265,6 +264,7 @@ static char kENRMSegmentFadeAnimatorKey;
           [strongSelf setNeedsLayout];
           [strongSelf requestHeightUpdate];
         }];
+    _enableTextPress = NO;
     _dynamicBlockProps = [[ENRMDynamicBlockProps alloc] init];
     _linkContextMenus = [[ENRMLinkContextMenus alloc] init];
     __weak EnrichedMarkdown *weakMenuSelf = self;
@@ -412,7 +412,8 @@ static char kENRMSegmentFadeAnimatorKey;
                           }
                           updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
                             [(ENRMBlockquoteContainerView *)view
-                                applyBlockquoteNode:segment.blockquoteSegment.blockquoteNode];
+                                applyBlockquoteNode:segment.blockquoteSegment.blockquoteNode
+                                    taskIndexOffset:segment.blockquoteSegment.taskIndexOffset];
                           }]];
 
   [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindBlockSlot
@@ -474,6 +475,7 @@ static char kENRMSegmentFadeAnimatorKey;
   view.lineBreakStrategy = _lineBreakStrategy;
   view.dynamicProps = _dynamicBlockProps;
   view.accessibilityLabels = _accessibilityLabels;
+  view.onSelectionCopy = [self selectionCopyHandler];
 
   __weak EnrichedMarkdown *weakSelf = self;
   view.onCopyPress = ^(NSString *code, NSString *language) {
@@ -502,8 +504,13 @@ static char kENRMSegmentFadeAnimatorKey;
     if (strongSelf && strongSelf->_enableImagePress && url)
       [strongSelf emitImagePress:url altText:altText];
   };
+  view.onTextPress = ^(NSInteger index, NSString *text) {
+    EnrichedMarkdown *strongSelf = weakSelf;
+    if (strongSelf && strongSelf->_enableTextPress)
+      [strongSelf emitTextPress:index text:text];
+  };
 
-  [view applyBlockquoteNode:blockquoteSegment.blockquoteNode];
+  [view applyBlockquoteNode:blockquoteSegment.blockquoteNode taskIndexOffset:blockquoteSegment.taskIndexOffset];
   return view;
 }
 
@@ -766,7 +773,9 @@ static char kENRMSegmentFadeAnimatorKey;
 
   if (_pendingRenderMarkdown) {
     NSString *markdown = _pendingRenderMarkdown;
-    BOOL synchronously = _pendingRenderSynchronously;
+    // The first content renders inline: Yoga has already laid the view out at
+    // its measured size, so an async render would show it empty (#1131).
+    BOOL synchronously = _pendingRenderSynchronously || _renderedMarkdown.length == 0;
     _pendingRenderMarkdown = nil;
     _pendingRenderSynchronously = NO;
     _pendingSlotHeightCheck = NO;
@@ -1031,7 +1040,7 @@ static char kENRMSegmentFadeAnimatorKey;
 
     renderedSegments = ENRMRenderSegmentsFromAST(ast, config, allowTrailingMargin, allowFontScaling,
                                                  maxFontSizeMultiplier, lineBreakStrategy,
-                                                 /*blockquoteContent*/ NO);
+                                                 /*blockquoteContent*/ NO, /*startingTaskIndex*/ 0);
     for (ENRMRenderedSegment *segment in renderedSegments) {
       if (segment.kind == ENRMSegmentKindText && segment.textResult) {
         ENRMApplyWritingDirectionMode(segment.textResult.attributedText, writingDirectionMode, resolvedLayoutDirection);
@@ -1048,9 +1057,19 @@ static char kENRMSegmentFadeAnimatorKey;
 
   if (synchronously) {
     [_renderCoordinator invalidate];
-    if (render()) {
-      apply();
+    // A first render reuses what Yoga's measurement rendered, when it matches.
+    NSArray<ENRMRenderedSegment *> *prepared =
+        _renderedMarkdown.length == 0 && !streamingAnimation
+            ? ENRMTakePreparedSegments(
+                  {_props, _fontScaleObserver.effectiveFontScale, resolvedLayoutDirection, activeBlockSlotIds})
+            : nil;
+    if (prepared) {
+      renderedSegments = prepared;
+      renderableMarkdown = markdownString;
+    } else if (!render()) {
+      return;
     }
+    apply();
     return;
   }
   [_renderCoordinator scheduleRender:render apply:apply];
@@ -1069,9 +1088,9 @@ static char kENRMSegmentFadeAnimatorKey;
     return nil;
   }
 
-  NSArray<ENRMRenderedSegment *> *segments =
-      ENRMRenderSegmentsFromAST(ast, _config, _allowTrailingMargin, _fontScaleObserver.allowFontScaling,
-                                _maxFontSizeMultiplier, _lineBreakStrategy, /*blockquoteContent*/ NO);
+  NSArray<ENRMRenderedSegment *> *segments = ENRMRenderSegmentsFromAST(
+      ast, _config, _allowTrailingMargin, _fontScaleObserver.allowFontScaling, _maxFontSizeMultiplier,
+      _lineBreakStrategy, /*blockquoteContent*/ NO, /*startingTaskIndex*/ 0);
   for (ENRMRenderedSegment *segment in segments) {
     if (segment.kind == ENRMSegmentKindText && segment.textResult) {
       ENRMApplyWritingDirectionMode(segment.textResult.attributedText, _writingDirectionMode, _resolvedLayoutDirection);
@@ -1183,6 +1202,9 @@ static char kENRMSegmentFadeAnimatorKey;
   [_codeBlockWrapState sync];
 
   CGRect contentBounds = [self contentBounds];
+  if (!self.window) {
+    _needsWindowAttachRefresh = contentBounds.size.width <= 0;
+  }
   if (contentBounds.size.width > 0) {
     [self setNeedsLayout];
 
@@ -1218,6 +1240,7 @@ static char kENRMSegmentFadeAnimatorKey;
 {
   EnrichedMarkdownInternalText *view = [[EnrichedMarkdownInternalText alloc] initWithConfig:_config];
   [self configureTextView:view withRenderedSegment:segment];
+  view.onSelectionCopy = [self selectionCopyHandler];
 
   ENRMTapRecognizer *tapRecognizer = [[ENRMTapRecognizer alloc] initWithTarget:self action:@selector(textTapped:)];
   [view.textView addGestureRecognizer:tapRecognizer];
@@ -1241,7 +1264,8 @@ static char kENRMSegmentFadeAnimatorKey;
                                   selectionEnd:selectionEnd];
         });
     return buildEditMenuForSelection(textView.textStorage, textView.selectedRange, segmentMarkdown, strongSelf->_config,
-                                     @[ baseMenu ], customItems, strongSelf -> _selectionMenuConfig);
+                                     @[ baseMenu ], customItems, strongSelf -> _selectionMenuConfig,
+                                     [strongSelf selectionCopyHandler]);
   }];
 #endif
 
@@ -1488,6 +1512,7 @@ static char kENRMSegmentFadeAnimatorKey;
   if (newViewProps.md4cFlags.underline != oldViewProps.md4cFlags.underline ||
       newViewProps.md4cFlags.superscript != oldViewProps.md4cFlags.superscript ||
       newViewProps.md4cFlags.subscript != oldViewProps.md4cFlags.subscript ||
+      newViewProps.md4cFlags.strikethrough != oldViewProps.md4cFlags.strikethrough ||
       newViewProps.md4cFlags.latexMath != oldViewProps.md4cFlags.latexMath ||
       newViewProps.md4cFlags.highlight != oldViewProps.md4cFlags.highlight ||
       newViewProps.md4cFlags.hardSoftBreaks != oldViewProps.md4cFlags.hardSoftBreaks ||
@@ -1505,6 +1530,7 @@ static char kENRMSegmentFadeAnimatorKey;
   _enableLinkPreview = newViewProps.enableLinkPreview;
   _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
   _enableImagePress = newViewProps.enableImagePress;
+  _enableTextPress = newViewProps.enableTextPress;
 
   // Block gates: mutate the shared box in place. Every existing and future block
   // view reads it live at use-time, so no push into segments is needed.
@@ -1655,7 +1681,12 @@ static char kENRMSegmentFadeAnimatorKey;
 {
   [super didMoveToWindow];
 
-  if (self.window && _renderedMarkdown != nil) {
+  if (!self.window) {
+    _needsWindowAttachRefresh = YES;
+    return;
+  }
+  if (_renderedMarkdown != nil && _needsWindowAttachRefresh) {
+    _needsWindowAttachRefresh = NO;
     for (RCTUIView *segment in _segmentViews) {
       if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
         EnrichedMarkdownInternalText *textSegment = (EnrichedMarkdownInternalText *)segment;
@@ -1783,7 +1814,10 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     BOOL isInsideView = CGRectContainsPoint(textSegment.textView.bounds, segmentPoint);
 #endif
     if (isInsideView) {
-      if (isPointOnInteractiveElement(textSegment.textView, segmentPoint, _enableImagePress, NO)) {
+      // Only where textTapped would emit, so a parent Pressable still gets the rest, as on Android.
+      BOOL isTextPress = _enableTextPress && textSegment.textView.selectedRange.length == 0 &&
+                         textPressIndexAtPoint(textSegment.textView, segmentPoint) != NSNotFound;
+      if (isTextPress || isPointOnInteractiveElement(textSegment.textView, segmentPoint, _enableImagePress, NO)) {
         return nil;
       }
       break;
@@ -1814,6 +1848,13 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
   auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
   if (emitter)
     emitter->onLinkPress({.url = std::string(url.UTF8String)});
+}
+
+- (void)emitTextPress:(NSInteger)index text:(NSString *)text
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
+  if (emitter)
+    emitter->onTextPress({.index = (int)index, .text = std::string(text.UTF8String ?: "")});
 }
 
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText
@@ -1878,6 +1919,24 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     });
 }
 
+- (ENRMSelectionCopyHandler)selectionCopyHandler
+{
+  __weak EnrichedMarkdown *weakSelf = self;
+  return ^(NSString *text, NSString *format, NSRange range) {
+    EnrichedMarkdown *strongSelf = weakSelf;
+    if (!strongSelf)
+      return;
+    auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(strongSelf->_eventEmitter);
+    if (emitter)
+      emitter->onSelectionCopy({
+          .text = std::string(text.UTF8String ?: ""),
+          .format = std::string(format.UTF8String),
+          .selectionStart = (int)range.location,
+          .selectionEnd = (int)NSMaxRange(range),
+      });
+  };
+}
+
 - (void)updateEventEmitter:(const facebook::react::EventEmitter::Shared &)eventEmitter
 {
   [super updateEventEmitter:eventEmitter];
@@ -1887,6 +1946,8 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
 - (void)textTapped:(ENRMTapRecognizer *)recognizer
 {
   ENRMPlatformTextView *textView = (ENRMPlatformTextView *)recognizer.view;
+  // Read before the link check below clears the selection.
+  BOOL hadSelection = textView.selectedRange.length > 0;
 
   if (_enableTaskListItemToggle &&
       handleTaskListTapWithSharedLogic(
@@ -1917,7 +1978,15 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     NSDictionary<NSString *, NSString *> *image = imageAtTapLocation(textView, recognizer);
     if (image) {
       [self emitImagePress:image[@"url"] altText:image[@"altText"]];
+      return;
     }
+  }
+
+  // Skip while text is selected so the tap only clears the selection.
+  if (_enableTextPress && !hadSelection) {
+    NSUInteger index = textPressIndexAtTapLocation(textView, recognizer);
+    if (index != NSNotFound)
+      [self emitTextPress:index text:ENRMGetAttributedText(textView).string];
   }
 }
 
@@ -1942,7 +2011,7 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
 
   NSString *segmentMarkdown = extractMarkdownFromAttributedString(textView.attributedText, range);
   return buildEditMenuForSelection(textView.attributedText, range, segmentMarkdown, _config, suggestedActions,
-                                   customActions, _selectionMenuConfig);
+                                   customActions, _selectionMenuConfig, [self selectionCopyHandler]);
 }
 
 - (UITextItemMenuConfiguration *)textView:(UITextView *)textView

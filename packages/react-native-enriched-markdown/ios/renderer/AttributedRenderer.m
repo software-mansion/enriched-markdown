@@ -2,6 +2,7 @@
 #import "BlockquoteBorder.h"
 #import "CodeBlockBackground.h"
 #import "ENRMBlockquoteTextRenderer.h"
+#import "ENRMImageAttachment.h"
 #import "ENRMLinkPillText.h"
 #import "LastElementUtils.h"
 #import "MarkdownASTNode.h"
@@ -66,6 +67,7 @@
   // 4. Let the decorator post-process the finished string (e.g. stamp the quote's line height).
   [block postProcess:output];
   ENRMLinkPillsAdoptPlaceholderFonts(output);
+  ENRMImageAttachmentsAdoptTextFonts(output);
 
   // 5. Cleanup global state to prevent side effects in subsequent renders.
   [context clearBlockStyle];

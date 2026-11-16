@@ -259,12 +259,23 @@ function videoStyle(style: MarkdownStyleInternal): CSSProperties {
   return base;
 }
 
+// Browsers without the `cap` would drop the whole declaration.
+const SUPPORTS_CAP_UNIT =
+  typeof CSS !== 'undefined' &&
+  typeof CSS.supports === 'function' &&
+  CSS.supports('vertical-align', '1cap');
+
 function inlineImageStyle(style: MarkdownStyleInternal): CSSProperties {
   const size = style.inlineImage.size;
   return {
     width: size,
     height: size,
-    verticalAlign: 'middle',
+    objectFit: 'contain',
+    // Centre on the cap height: lift the bottom edge to half the cap height
+    // minus half the image. Without `cap`, the middle.
+    verticalAlign: SUPPORTS_CAP_UNIT
+      ? `calc(0.5cap - ${size / 2}px)`
+      : 'middle',
     display: 'inline',
   };
 }

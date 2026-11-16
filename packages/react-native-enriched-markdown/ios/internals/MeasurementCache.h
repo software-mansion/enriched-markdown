@@ -2,6 +2,7 @@
 
 #include <CoreGraphics/CGBase.h>
 #include <React/RCTUtils.h>
+#include <functional>
 #include <list>
 #include <mutex>
 #include <react/renderer/graphics/Float.h>
@@ -39,6 +40,7 @@ struct MeasurementCacheKey {
   bool md4cFlagsUnderline;
   bool md4cFlagsSuperscript;
   bool md4cFlagsSubscript;
+  bool md4cFlagsStrikethrough;
   bool md4cFlagsHighlight;
   bool md4cFlagsLatexMath;
   bool md4cFlagsHardSoftBreaks;
@@ -62,19 +64,19 @@ struct MeasurementCacheKey {
   bool operator==(const MeasurementCacheKey &other) const
   {
     return std::tie(markdown, maxWidth, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
-                    md4cFlagsUnderline, md4cFlagsSuperscript, md4cFlagsSubscript, md4cFlagsHighlight,
-                    md4cFlagsLatexMath, md4cFlagsHardSoftBreaks, md4cFlagsPreserveBlankLines, md4cFlagsAdmonitions,
-                    styleFingerprint, linkPillContentFingerprint, imageSourcesFingerprint, wrappedCodeBlocksFingerprint,
-                    fontScale, flavor, lineBreakStrategyIOS, writingDirection, numberOfLines, ellipsizeMode,
-                    linkRegexKey, inlineCodeLinkRegexKey) ==
+                    md4cFlagsUnderline, md4cFlagsSuperscript, md4cFlagsSubscript, md4cFlagsStrikethrough,
+                    md4cFlagsHighlight, md4cFlagsLatexMath, md4cFlagsHardSoftBreaks, md4cFlagsPreserveBlankLines,
+                    md4cFlagsAdmonitions, styleFingerprint, linkPillContentFingerprint, imageSourcesFingerprint,
+                    wrappedCodeBlocksFingerprint, fontScale, flavor, lineBreakStrategyIOS, writingDirection,
+                    numberOfLines, ellipsizeMode, linkRegexKey, inlineCodeLinkRegexKey) ==
            std::tie(other.markdown, other.maxWidth, other.allowTrailingMargin, other.allowFontScaling,
                     other.maxFontSizeMultiplier, other.md4cFlagsUnderline, other.md4cFlagsSuperscript,
-                    other.md4cFlagsSubscript, other.md4cFlagsHighlight, other.md4cFlagsLatexMath,
-                    other.md4cFlagsHardSoftBreaks, other.md4cFlagsPreserveBlankLines, other.md4cFlagsAdmonitions,
-                    other.styleFingerprint, other.linkPillContentFingerprint, other.imageSourcesFingerprint,
-                    other.wrappedCodeBlocksFingerprint, other.fontScale, other.flavor, other.lineBreakStrategyIOS,
-                    other.writingDirection, other.numberOfLines, other.ellipsizeMode, other.linkRegexKey,
-                    other.inlineCodeLinkRegexKey);
+                    other.md4cFlagsSubscript, other.md4cFlagsStrikethrough, other.md4cFlagsHighlight,
+                    other.md4cFlagsLatexMath, other.md4cFlagsHardSoftBreaks, other.md4cFlagsPreserveBlankLines,
+                    other.md4cFlagsAdmonitions, other.styleFingerprint, other.linkPillContentFingerprint,
+                    other.imageSourcesFingerprint, other.wrappedCodeBlocksFingerprint, other.fontScale, other.flavor,
+                    other.lineBreakStrategyIOS, other.writingDirection, other.numberOfLines, other.ellipsizeMode,
+                    other.linkRegexKey, other.inlineCodeLinkRegexKey);
   }
 };
 
@@ -90,6 +92,7 @@ struct MeasurementCacheKeyHash {
     HashUtils::hash_one(h, key.md4cFlagsUnderline);
     HashUtils::hash_one(h, key.md4cFlagsSuperscript);
     HashUtils::hash_one(h, key.md4cFlagsSubscript);
+    HashUtils::hash_one(h, key.md4cFlagsStrikethrough);
     HashUtils::hash_one(h, key.md4cFlagsHighlight);
     HashUtils::hash_one(h, key.md4cFlagsLatexMath);
     HashUtils::hash_one(h, key.md4cFlagsHardSoftBreaks);
@@ -245,6 +248,7 @@ inline MeasurementCacheKey buildMeasurementCacheKey(const PropsType &props, CGFl
       .md4cFlagsUnderline = props.md4cFlags.underline,
       .md4cFlagsSuperscript = props.md4cFlags.superscript,
       .md4cFlagsSubscript = props.md4cFlags.subscript,
+      .md4cFlagsStrikethrough = props.md4cFlags.strikethrough,
       .md4cFlagsHighlight = props.md4cFlags.highlight,
       .md4cFlagsLatexMath = props.md4cFlags.latexMath,
       .md4cFlagsHardSoftBreaks = props.md4cFlags.hardSoftBreaks,
@@ -299,6 +303,9 @@ public:
 
   void set(const MeasurementCacheKey &key, CachedSize size)
   {
+    const size_t keyBytes = keyStorageBytes(key);
+    if (keyBytes > kMaxKeyBytes)
+      return;
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto it = map_.find(key);
@@ -308,14 +315,16 @@ public:
       return;
     }
 
-    list_.push_front({key, size});
-    map_[key] = list_.begin();
-
-    if (map_.size() > kMaxEntries) {
+    while (map_.size() >= kMaxEntries || keyBytes_ + keyBytes > kMaxKeyBytes) {
       auto &lastEntry = list_.back();
+      keyBytes_ -= keyStorageBytes(lastEntry.key);
       map_.erase(lastEntry.key);
       list_.pop_back();
     }
+
+    list_.push_front({key, size});
+    map_.emplace(std::cref(list_.front().key), list_.begin());
+    keyBytes_ += keyBytes;
   }
 
   void removeMatchingMarkdown(const std::string &markdown)
@@ -324,6 +333,7 @@ public:
 
     for (auto it = list_.begin(); it != list_.end();) {
       if (it->key.markdown == markdown) {
+        keyBytes_ -= keyStorageBytes(it->key);
         map_.erase(it->key);
         it = list_.erase(it);
       } else {
@@ -336,10 +346,27 @@ private:
   MeasurementCache() = default;
 
   static constexpr size_t kMaxEntries = 512;
+  // Bytes held by keys; allocator/node overhead is additional.
+  static constexpr size_t kMaxKeyBytes = 8 * 1024 * 1024;
+  static size_t keyStorageBytes(const MeasurementCacheKey &key)
+  {
+    return sizeof(CacheEntry) + key.markdown.size() + key.lineBreakStrategyIOS.size() + key.writingDirection.size() +
+           key.ellipsizeMode.size() + key.linkRegexKey.size() + key.inlineCodeLinkRegexKey.size();
+  }
+
+  // The map refers to the key its list node owns, so each key is stored once.
+  using KeyRef = std::reference_wrapper<const MeasurementCacheKey>;
+  struct KeyRefEqual {
+    bool operator()(const MeasurementCacheKey &a, const MeasurementCacheKey &b) const
+    {
+      return a == b;
+    }
+  };
+  size_t keyBytes_ = 0;
   mutable std::mutex mutex_;
 
   std::list<CacheEntry> list_;
-  std::unordered_map<MeasurementCacheKey, std::list<CacheEntry>::iterator, MeasurementCacheKeyHash> map_;
+  std::unordered_map<KeyRef, std::list<CacheEntry>::iterator, MeasurementCacheKeyHash, KeyRefEqual> map_;
 };
 
 } // namespace facebook::react

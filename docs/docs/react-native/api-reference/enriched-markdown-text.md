@@ -12,6 +12,7 @@ import FlavorSrc from '!!raw-loader!@site/src/examples/react-native/api-referenc
 import Md4cUnderlineSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cUnderline';
 import Md4cSuperscriptSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cSuperscript';
 import Md4cSubscriptSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cSubscript';
+import Md4cStrikethroughSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cStrikethrough';
 import Md4cHighlightSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cHighlight';
 import Md4cLatexMathSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cLatexMath';
 import Md4cHardSoftBreaksSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cHardSoftBreaks';
@@ -26,6 +27,7 @@ import OnTaskListItemPressSrc from '!!raw-loader!@site/src/examples/react-native
 import EnableTaskListItemToggleSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/EnableTaskListItemToggle';
 import EnableBlockContextMenuSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/EnableBlockContextMenu';
 import OnCopyPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnCopyPress';
+import OnSelectionCopySrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnSelectionCopy';
 import OnCodeBlockPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnCodeBlockPress';
 import OnLatexErrorSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnLatexError';
 import EnableLinkPreviewSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/EnableLinkPreview';
@@ -131,7 +133,7 @@ Markdown flavor. `'commonmark'` (default) renders the whole document as a single
 
 Toggles for md4c's parser extensions; each opts a piece of extra inline syntax in or out. Pass only the flags you want to change; the rest keep their defaults below. Where a flag enables a new inline element, tune its appearance through the matching [style property](/react-native/api-reference/style-properties).
 
-<PropInfo type="Md4cFlags" default="{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false, admonitions: true }" />
+<PropInfo type="Md4cFlags" default="{ underline: false, superscript: false, subscript: false, strikethrough: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false, admonitions: true }" />
 
 #### `underline`
 
@@ -151,11 +153,23 @@ When `true`, parses `^text^` as superscript.
 
 #### `subscript`
 
-When `true`, parses `~text~` as subscript. When disabled, `~` means nothing on its own; `~~text~~` is strikethrough, but only under [`flavor="github"`](#flavor) - under `commonmark` the tildes render literally.
+When `true`, parses `~text~` as subscript. When disabled, `~text~` and `~~text~~` are both strikethrough under [`flavor="github"`](#flavor) or with [`md4cFlags={{ strikethrough: true }}`](#strikethrough). Otherwise, CommonMark renders the tildes literally. Double tildes stay strikethrough when this flag is on.
 
 <PropInfo type="boolean" default="false" />
 
 <LivePreview src={Md4cSubscriptSrc} />
+
+#### `strikethrough`
+
+When `true`, enables strikethrough under `flavor="commonmark"`, for both `~~text~~` and single-tilde `~text~`. If [`subscript`](#subscript) is also on, `~text~` is subscript instead and only `~~text~~` strikes.
+
+Under `flavor="github"` strikethrough is always on, so this flag has no effect there, and setting it to `false` does not turn strikethrough off. The web build always parses GitHub extensions, so it ignores this flag too.
+
+Use this flag to display strikethrough emitted by `EnrichedMarkdownTextInput` while keeping CommonMark's single text view, cross-block selection, and `numberOfLines` / `ellipsizeMode` support. It does not enable tables or task lists or change the rendering flavor.
+
+<PropInfo type="boolean" default="false" />
+
+<LivePreview src={Md4cStrikethroughSrc} unavailable unavailableReason={<>iOS and Android only - the web build always parses GitHub extensions, so there is no strikethrough switch.</>} />
 
 #### `highlight`
 
@@ -309,7 +323,7 @@ interface StreamingConfig {
   - `'progressive'` **(default)** renders the table row-by-row as content arrives (incomplete trailing rows are trimmed).
   - `'hidden'` withholds the table until it is complete.
 - `codeBlockMode`
-  - `'progressive'` **(default)** streams the code in with a visible but non-interactive header and defers syntax highlighting until the closing fence arrives.
+  - `'progressive'` **(default)** shows the block once the line opening the fence has ended, then streams the code in with a visible but non-interactive header and defers syntax highlighting until the closing fence arrives. A block drawn by [`renderers.code`](#renderers) re-renders as the code grows, with `isComplete: false`.
   - `'hidden'` withholds the block until it is complete.
 - `mediaMode`
   - `'progressive'` **(default)** shows a trailing image paragraph, link paragraph or `<video>` block as soon as its syntax is complete (the closing `)` or `>`); until then the partial line is withheld instead of rendering as text. A bare URL on its own line can always grow, so it is withheld until the next line arrives.
@@ -344,11 +358,12 @@ HTTP headers attached to remote image requests, e.g. a `Referer` required by CDN
 
 Functions that return React elements to stand in for whole blocks, keyed by kind. The guide [Custom block renderers](/react-native/guides/custom-block-renderers) explains layout, streaming and examples.
 
-- **Which blocks:** a paragraph that is only an image (`image`), a paragraph that is only a link, autolink or bare URL (`link`), and a `<video src="...">` block (`video`). The block must sit directly in the document, a blockquote or an admonition, not in a list. A list item that holds only a video is an exception: the parser [moves that video out of the list](/react-native/api-reference/element-structure#videos), so it is replaced in the list's container. Images and links elsewhere stay native.
+- **Which blocks:** a paragraph that is only an image (`image`), a paragraph that is only a link, autolink or bare URL (`link`), a `<video src="...">` block (`video`), and a fenced or indented code block (`code`). The block must sit directly in the document, a blockquote or an admonition, not in a list. A list item that holds only a video is an exception: the parser [moves that video out of the list](/react-native/api-reference/element-structure#videos), so it is replaced in the list's container. Images, links and code blocks elsewhere stay native.
+- **Code blocks:** `code` receives every code block with its fence `language`. Return `undefined` for a language to keep the native code block. See [Code blocks](/react-native/guides/custom-block-renderers#code-blocks).
 - **Return value:** an element replaces the block; `undefined` (or no return) keeps the native block. A renderer that throws, or returns text, keeps the native block and warns in development.
 - **Size:** the element needs an intrinsic height; the host sets the width. See [Sizing your element](/react-native/guides/custom-block-renderers#sizing-your-element).
 - **Calls:** once per block, and again only when that block or a renderer function changes. Keep the functions stable with `useCallback`. A renderer is a plain function, not a component, so keep hooks inside the component it returns.
-- **Presses:** the element handles its own. [`onImagePress`](#onimagepress), [`onLinkPress`](#onlinkpress), [`onLinkLongPress`](#onlinklongpress) and the [link menu](#linkcontextmenuitems) do not fire for a replaced block.
+- **Presses:** the element handles its own. [`onImagePress`](#onimagepress), [`onLinkPress`](#onlinkpress), [`onLinkLongPress`](#onlinklongpress), [`onCodeBlockPress`](#oncodeblockpress) and the [link menu](#linkcontextmenuitems) do not fire for a replaced block.
 - **Flavor:** `flavor="github"` only.
 
 <PropInfo type="MarkdownRenderers" />
@@ -358,6 +373,7 @@ interface MarkdownRenderers {
   image?: (block: MarkdownImageBlock) => ReactElement | undefined;
   video?: (block: MarkdownVideoBlock) => ReactElement | undefined;
   link?: (block: MarkdownLinkBlock) => ReactElement | undefined;
+  code?: (block: MarkdownCodeBlock) => ReactElement | undefined;
 }
 
 // The container the block sits in. Inside a blockquote or an admonition the
@@ -385,13 +401,22 @@ interface MarkdownLinkBlock {
   kind: 'link';
   id: string;
   url: string;
-  label: string; // the link text; "" for a bare URL or autolink
+  label: string; // the link text; for a bare URL or autolink, the URL as written
   title: string; // the Markdown title, e.g. a MIME type or size; "" when there is none
   placement: MarkdownBlockPlacement;
 }
 
-// Any of the three, for code that handles every kind.
-type MarkdownBlock = MarkdownImageBlock | MarkdownVideoBlock | MarkdownLinkBlock;
+interface MarkdownCodeBlock {
+  kind: 'code';
+  id: string; // depends on the language only, so it holds while the code streams in
+  language: string; // the fence language; "" for an indented block or a fence without one
+  code: string; // without trailing newlines
+  isComplete: boolean; // false while the closing fence has not streamed in yet; always true on web
+  placement: MarkdownBlockPlacement;
+}
+
+// Any of the four, for code that handles every kind.
+type MarkdownBlock = MarkdownImageBlock | MarkdownVideoBlock | MarkdownLinkBlock | MarkdownCodeBlock;
 ```
 
 <LivePreview src={RenderersSrc} />
@@ -572,7 +597,7 @@ With `flavor="github"`, `selection.start` / `selection.end` in menu callbacks ar
 
 ### `accessibilityLabels`
 
-Translations for every string spoken by VoiceOver (iOS) and TalkBack (Android): list items, table rows, math, and the iOS rotor. All fields are optional; omitted fields fall back to the English defaults. Placeholders (`{n}`, `{content}`, `{latex}`) are substituted natively at speak time and must be preserved in translations. See the [Accessibility guide](/user-experience/accessibility) for the full defaults table.
+Translations for every string spoken by VoiceOver (iOS) and TalkBack (Android): list items, table rows, math, and the iOS rotor. All fields are optional; omitted fields fall back to the English defaults. Placeholders (`{n}`, `{content}`, `{speech}`, `{latex}`) are substituted natively at speak time and must be preserved in translations; `{speech}` is the formula read in English. See the [Accessibility guide](/user-experience/accessibility) for the full defaults table.
 
 <PropInfo type="AccessibilityLabels" />
 
@@ -592,7 +617,7 @@ interface AccessibilityLabels {
     row?: string; // {n} is the 1-based row index, {content} the joined cell text
   };
   math?: {
-    equation?: string; // {latex} is the equation source
+    equation?: string; // {speech} reads the formula in English, {latex} is its source
   };
   codeBlock?: {
     // the enableCodeBlockWrapToggle header button
@@ -749,6 +774,23 @@ interface ImagePressEvent {
 
 <LivePreview src={OnImagePressSrc} />
 
+### `onTextPress`
+
+Callback fired when plain text is tapped, anywhere a link, image, checkbox or other interactive element doesn't take the tap. `index` is the UTF-16 index of the tapped character within `text`, the rendered text of the tapped block. It points into the rendered text, not the Markdown source, so map it back yourself if you need a source position (for example, to place a caret when switching to an editor).
+
+A tap in the empty space beside a line reports that line's nearest character. Taps that only clear a selection, and taps inside table cells, don't fire it.
+
+Setting this callback makes plain text interactive; leaving it unset keeps the default tap and text-selection behavior unchanged.
+
+<PropInfo type="(event: TextPressEvent) => void" />
+
+```ts
+interface TextPressEvent {
+  index: number; // UTF-16 index of the tapped character within `text`
+  text: string; // the rendered text of the tapped block
+}
+```
+
 ### `onTaskListItemPress`
 
 Callback fired when a task list checkbox is tapped. The checkbox is toggled natively. Only fires when `flavor="github"`.
@@ -757,7 +799,7 @@ Callback fired when a task list checkbox is tapped. The checkbox is toggled nati
 
 ```ts
 interface TaskListItemPressEvent {
-  index: number; // 0-based item index
+  index: number; // 0-based index among all task items in the document, in document order
   checked: boolean; // checked state after toggling
   text: string; // the item's text
 }
@@ -779,6 +821,24 @@ interface CopyPressEvent {
 ```
 
 <LivePreview src={OnCopyPressSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - copying from a code block is a native interaction, and the web build renders code blocks without a copy affordance.</>} />
+
+### `onSelectionCopy`
+
+Callback fired after a text selection is copied - from the selection menu's **Copy**, **Copy as Markdown**, or **Copy Image URL** item, the keyboard shortcut (⌘C / Ctrl+C), or TalkBack's copy action. Keyboard and TalkBack copies report `format: 'plain'`, the same as **Copy**. `text` is what was put on the clipboard as plain text. Code copied from a code block's header button or long-press menu is reported by [`onCopyPress`](#oncopypress) instead.
+
+The `selection` offsets index the rendered text, not the Markdown source. With `flavor="github"` they restart at each block that renders as its own view, such as a table, code block or quote, so consecutive paragraphs count as one run of text.
+
+<PropInfo type="(event: SelectionCopyEvent) => void" />
+
+```ts
+interface SelectionCopyEvent {
+  text: string; // the copied plain text
+  format: 'plain' | 'markdown' | 'imageUrls'; // Copy, Copy as Markdown, Copy Image URL
+  selection: { start: number; end: number }; // the copied range
+}
+```
+
+<LivePreview src={OnSelectionCopySrc} unavailable unavailableReason={<>iOS, Android, and macOS only - the web build leaves copying to the browser.</>} />
 
 ### `onCodeBlockPress`
 
@@ -818,6 +878,25 @@ interface LatexErrorEvent {
 ```
 
 <LivePreview src={OnLatexErrorSrc} unavailable unavailableReason={<>iOS and Android only - the web build renders math with KaTeX and does not report failures through this callback.</>} />
+
+### `onLinksChange`
+
+Callback fired with the document's links: once when they are first known, then whenever they change. Use it to fill `markdownStyle.linkVariants`, [`linkPillContent`](#linkpillcontent) (iOS and Android) or [`linkContextMenuItems`](#linkcontextmenuitems) (iOS) for the links a document actually contains, such as a label and icon per file link.
+
+- **Which links:** every inline link, autolink and bare URL, in document order, including those in headings, lists, tables, blockquotes and link blocks. A URL that appears twice is reported twice. Links that [`linkRecognition`](#linkrecognition) adds are not reported, since recognition runs as the text is drawn.
+- **Calls:** after rendering, in a layout effect, so a state update made in it lands before the frame is drawn. A streaming tick that leaves the links unchanged reports nothing. Passing a new function does not report again.
+- **Streaming:** reports the links the [`streamingConfig`](#streamingconfig) filter lets through. A bare URL still being written counts as a change on every tick that extends it, so the handler sees partial URLs (`https://example.c`, then `https://example.com`).
+- **Flavor:** on iOS and Android, `flavor="github"` only. Other flavors report nothing.
+
+<PropInfo type="(links: MarkdownLinkOccurrence[]) => void" />
+
+```ts
+interface MarkdownLinkOccurrence {
+  url: string;
+  label: string; // the link text; for a bare URL or autolink, the URL as written
+  title: string; // the Markdown title, "" when there is none
+}
+```
 
 ## See also
 

@@ -12,8 +12,8 @@ From the repo root:
 
 ```sh
 # iOS (needs a macOS host with Xcode + a booted iOS Simulator)
-yarn prepare                 # generate codegen the pod needs
-cd apps/react-native-example/ios && pod install && cd -
+yarn prepare
+cd apps/react-native-example/ios && pod install && cd -   # also runs codegen
 yarn turbo run test:ios --filter=react-native-enriched-markdown-example
 # runs apps/react-native-example/scripts/test-ios.sh, which resolves a simulator
 # (IOS_SIMULATOR_UDID -> a booted sim -> first available iPhone) and calls:
@@ -47,8 +47,7 @@ Test files import the code under test by relative path, e.g.
 turn import their siblings unqualified, so the test target's build
 configurations list every `ios/*` subdirectory in `HEADER_SEARCH_PATHS`, on top
 of the C++ core and pod internals that `ReactNativeEnrichedMarkdown.podspec`
-sets. `ios/vendor` and `ios/generated` are deliberately left out: sweeping
-`vendor` in pulls the RaTeX xcframework module maps into scope and clang rejects
+sets. `ios/vendor` is deliberately left out: sweeping it in pulls the RaTeX xcframework module maps into scope and clang rejects
 the duplicate `RaTeXFFI` module definitions.
 
 `scripts/test-ios.sh` counts the `- (void)test` prototypes here and fails if

@@ -1,5 +1,6 @@
 #pragma once
 
+#import "ENRMPreparedRenderStore.h"
 #include "MeasurementCache.h"
 #import <Foundation/Foundation.h>
 #import <React/RCTUtils.h>
@@ -66,12 +67,28 @@ static inline bool ENRMPropsNeedExactStreamingMeasurement(const PropsT &oldProps
          oldProps.md4cFlags.underline != newProps.md4cFlags.underline ||
          oldProps.md4cFlags.superscript != newProps.md4cFlags.superscript ||
          oldProps.md4cFlags.subscript != newProps.md4cFlags.subscript ||
+         oldProps.md4cFlags.strikethrough != newProps.md4cFlags.strikethrough ||
          oldProps.md4cFlags.latexMath != newProps.md4cFlags.latexMath ||
          oldProps.md4cFlags.highlight != newProps.md4cFlags.highlight ||
          oldProps.md4cFlags.hardSoftBreaks != newProps.md4cFlags.hardSoftBreaks ||
          oldProps.md4cFlags.preserveBlankLines != newProps.md4cFlags.preserveBlankLines ||
          oldProps.isGFM != newProps.isGFM || oldProps.md4cFlags.admonitions != newProps.md4cFlags.admonitions ||
          computeStyleFingerprint(oldProps.markdownStyle) != computeStyleFingerprint(newProps.markdownStyle);
+}
+
+/**
+ * Renders the content of a view that has not mounted yet (and is not
+ * streaming) for its first apply to take (ENRMPreparedRenderStore), so a newly
+ * mounted view never parses on main. Returns the new render for the caller to
+ * measure, or nil when the view mounted, streams, or a render is already kept.
+ */
+static inline id ENRMPrepareFirstRender(bool mounted, bool streaming, const ENRMPreparedRenderKey &key,
+                                        id _Nullable (^render)(void))
+{
+  if (mounted || streaming) {
+    return nil;
+  }
+  return [ENRMPreparedRenderStore prepareForKey:key render:render];
 }
 
 /**
@@ -87,16 +104,20 @@ static inline bool ENRMPropsNeedExactStreamingMeasurement(const PropsT &oldProps
  * block is the real multiplier even when streaming skips the cache —
  * rendering must always use it. `wrappedCodeBlocksFingerprint` folds view
  * state outside the props that changes the size (code blocks the user wrapped)
- * into the cache key.
+ * into the cache key. For a view that has not mounted yet, `render` renders
+ * the content once for its first apply (ENRMPrepareFirstRender), even on a
+ * cache hit; a cache miss measures that render instead of rendering again.
  */
 template <typename PropsT, typename ViewT>
-static inline Size
-ENRMMeasureMarkdownContent(const PropsT &typedProps, const std::shared_ptr<void> &componentViewRef, int receivedCounter,
-                           int &lastExactMeasurementCounter, CGSize &lastExactMeasurementSize, MarkdownFlavor flavor,
-                           const LayoutContext &layoutContext, const LayoutConstraints &layoutConstraints,
-                           CGSize (^measureUncached)(ViewT *view, CGFloat maxWidth, CGFloat fontScale),
-                           size_t wrappedCodeBlocksFingerprint = 0)
+static inline Size ENRMMeasureMarkdownContent(
+    const std::shared_ptr<const PropsT> &props, const std::shared_ptr<void> &componentViewRef, int receivedCounter,
+    int &lastExactMeasurementCounter, CGSize &lastExactMeasurementSize, MarkdownFlavor flavor,
+    const LayoutContext &layoutContext, const LayoutConstraints &layoutConstraints,
+    NSWritingDirection resolvedLayoutDirection, id _Nullable (^render)(CGFloat fontScale),
+    CGSize (^measureUncached)(ViewT *view, CGFloat maxWidth, CGFloat fontScale, id _Nullable rendered),
+    size_t wrappedCodeBlocksFingerprint = 0)
 {
+  const PropsT &typedProps = *props;
   CGFloat maxWidth = layoutConstraints.maximumSize.width;
 
   RCTInternalGenericWeakWrapper *weakWrapper = (RCTInternalGenericWeakWrapper *)unwrapManagedObject(componentViewRef);
@@ -119,6 +140,10 @@ ENRMMeasureMarkdownContent(const PropsT &typedProps, const std::shared_ptr<void>
   const bool shouldUseMeasurementCache = !typedProps.streamingAnimation;
   CGFloat fontScale = ENRMFontScaleForMeasurement(typedProps.allowFontScaling, layoutContext);
 
+  id rendered =
+      ENRMPrepareFirstRender(view != nil, typedProps.streamingAnimation,
+                             {props, fontScale, resolvedLayoutDirection, nil}, ^id { return render(fontScale); });
+
   if (shouldUseMeasurementCache && !typedProps.markdown.empty()) {
     auto cacheKey = buildMeasurementCacheKey(typedProps, maxWidth, fontScale, flavor, wrappedCodeBlocksFingerprint);
     CachedSize cached;
@@ -127,7 +152,7 @@ ENRMMeasureMarkdownContent(const PropsT &typedProps, const std::shared_ptr<void>
     }
   }
 
-  CGSize size = measureUncached(view, maxWidth, fontScale);
+  CGSize size = measureUncached(view, maxWidth, fontScale, rendered);
 
   if (shouldUseMeasurementCache && !typedProps.markdown.empty()) {
     auto cacheKey = buildMeasurementCacheKey(typedProps, maxWidth, fontScale, flavor, wrappedCodeBlocksFingerprint);

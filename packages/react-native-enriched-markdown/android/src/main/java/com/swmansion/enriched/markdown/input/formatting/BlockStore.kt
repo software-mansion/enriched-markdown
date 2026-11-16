@@ -150,6 +150,20 @@ class BlockStore {
   }
 
   /**
+   * Clips the block starting at [lineStart] back to that line. Unlike
+   * [normalizeToLineBounds] it leaves other ranges and list depths alone, so it
+   * is safe mid-edit, before every line has its block.
+   */
+  fun clipToLine(
+    lineStart: Int,
+    text: CharSequence,
+  ) {
+    val block = blockStartingAt(lineStart) ?: return
+    val (_, lineEnd) = paragraphBounds(lineStart, lineStart, text)
+    if (block.end > lineEnd) block.end = lineEnd
+  }
+
+  /**
    * Snaps every stored range to the line bounds of its start position.
    * Absorbs edge-typed chars, clips split ranges to first line, drops
    * duplicates. On an empty line an anchored block (heading, list item)

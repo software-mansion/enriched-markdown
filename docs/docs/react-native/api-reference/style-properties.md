@@ -385,7 +385,7 @@ Pills are drawn by the native text stack, so `pill` applies on **iOS and Android
 
 ### Strikethrough-specific
 
-Strikethrough (`~~text~~`) is a GitHub Flavored Markdown extension, so these styles only apply under [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor).
+Strikethrough (`~~text~~`, or `~text~` unless subscript is on) is a GitHub Flavored Markdown extension, enabled by [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) or [`md4cFlags={{ strikethrough: true }}`](/react-native/api-reference/enriched-markdown-text#strikethrough).
 
 | Property | Type     | Default   | Description                                                                       |
 | -------- | -------- | --------- | --------------------------------------------------------------------------------- |
@@ -452,9 +452,9 @@ On native, requires [`flavor="github"`](/react-native/api-reference/enriched-mar
 
 ### Inline image-specific
 
-| Property | Type     | Default | Description         |
-| -------- | -------- | ------- | ------------------- |
-| `size`   | `number` | `20`    | Image size (square) |
+| Property | Type     | Default | Description                                                                                                               |
+| -------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `size`   | `number` | `20`    | Side length of the square the image is drawn in. The image is scaled up or down to fit inside it, keeping its proportions |
 
 <LivePreview src={InlineImageSrc} />
 
@@ -568,7 +568,7 @@ Styles for superscript text (`^text^`). Requires [`md4cFlags={{ superscript: tru
 
 ### Subscript-specific
 
-Styles for subscript text (`~text~`). Requires [`md4cFlags={{ subscript: true }}`](/react-native/api-reference/enriched-markdown-text#subscript) to enable the parser. Note that single tildes mean nothing by default: `~text~` is literal text until this flag turns it into subscript. Double tildes (`~~text~~`) are strikethrough, and only under [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor).
+Styles for subscript text (`~text~`). Requires [`md4cFlags={{ subscript: true }}`](/react-native/api-reference/enriched-markdown-text#subscript) to enable the parser. Note that single tildes mean nothing by default: `~text~` is literal text until this flag turns it into subscript. Single and double tildes are strikethrough under [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) or with [`md4cFlags={{ strikethrough: true }}`](/react-native/api-reference/enriched-markdown-text#strikethrough); this flag then claims the single form, leaving `~~text~~` struck.
 
 | Property              | Type     | Default                                  | Description                                                        |
 | --------------------- | -------- | ---------------------------------------- | ------------------------------------------------------------------ |

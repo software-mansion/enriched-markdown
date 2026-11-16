@@ -138,7 +138,13 @@ function CodeBlockRenderer({
   styles,
   renderChildren,
   callbacks,
+  capabilities,
 }: RendererProps) {
+  const slot = blockSlotFor(node, capabilities);
+  if (slot !== undefined) {
+    return <div style={slotSpacing(styles.codeBlock)}>{slot}</div>;
+  }
+
   const language = node.attributes?.language;
   const label = language ? `Code block: ${language}` : 'Code block';
 

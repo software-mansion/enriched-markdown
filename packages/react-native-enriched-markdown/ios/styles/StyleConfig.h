@@ -278,6 +278,8 @@ NS_ASSUME_NONNULL_BEGIN
 // Inline image properties
 - (CGFloat)inlineImageSize;
 - (void)setInlineImageSize:(CGFloat)newValue;
+/// `inlineImageSize`, scaled with the font like the text around the image.
+- (CGFloat)scaledInlineImageSize;
 // Blockquote properties
 - (CGFloat)blockquoteFontSize;
 - (void)setBlockquoteFontSize:(CGFloat)newValue;

@@ -21,6 +21,10 @@ class HeadingRenderer(
     onLinkLongPress: ((String) -> Unit)?,
     factory: RendererFactory,
   ) {
+    if (builder.isNotEmpty() && builder.last() != '\n') {
+      builder.append("\n")
+    }
+
     val level = node.getAttribute("level")?.toIntOrNull() ?: 1
     val start = builder.length
 

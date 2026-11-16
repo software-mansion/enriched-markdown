@@ -11,6 +11,13 @@ export interface ImagePressEvent {
   altText: string;
 }
 
+export interface TextPressEvent {
+  /** UTF-16 index of the tapped character within `text`. */
+  index: number;
+  /** The rendered text of the tapped block. */
+  text: string;
+}
+
 export interface TaskListItemPressEvent {
   index: number;
   checked: boolean;
@@ -25,6 +32,27 @@ export interface CopyPressEvent {
 export interface CodeBlockPressEvent {
   code: string;
   language: string;
+}
+
+/**
+ * Event payload fired when a text selection is copied from the native
+ * selection menu, with the keyboard shortcut, or through TalkBack.
+ */
+export interface SelectionCopyEvent {
+  /** What was put on the clipboard as plain text. */
+  text: string;
+  /**
+   * How it was copied: `'plain'` for Copy and for keyboard or TalkBack copies,
+   * `'markdown'` for Copy as Markdown, `'imageUrls'` for Copy Image URL(s).
+   */
+  format: 'plain' | 'markdown' | 'imageUrls';
+  /**
+   * The copied range, in UTF-16 offsets of the rendered text. With
+   * `flavor="github"` the offsets restart at each block that renders as its own
+   * view, such as a table, code block or quote, so consecutive paragraphs count
+   * as one run of text.
+   */
+  selection: { start: number; end: number };
 }
 
 /**

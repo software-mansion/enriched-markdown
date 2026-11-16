@@ -8,10 +8,7 @@ import type { ReactElement } from 'react';
  */
 export type MarkdownBlockPlacement = 'root' | 'blockquote' | 'admonition';
 
-/**
- * Shared by every block a `renderers` entry can replace. A future non-media kind
- * extends this, not `MarkdownMediaBlock`.
- */
+/** Shared by every block a `renderers` entry can replace. */
 export interface MarkdownSlotBlock {
   /**
    * An opaque string, the same on every platform. It stays the same while the
@@ -52,17 +49,37 @@ export interface MarkdownVideoBlock extends MarkdownMediaBlock {
  */
 export interface MarkdownLinkBlock extends MarkdownMediaBlock {
   kind: 'link';
-  /** The link text, `""` for a bare URL or autolink. */
+  /** The link text; for a bare URL or autolink, the URL as written. */
   label: string;
   /** The Markdown title, `""` when there is none. */
   title: string;
+}
+
+/**
+ * A fenced or indented code block. Its id depends on the language only, so it
+ * stays the same while the code streams in and when the fence closes; the
+ * element re-renders in place with the new `code`.
+ */
+export interface MarkdownCodeBlock extends MarkdownSlotBlock {
+  kind: 'code';
+  /** The fence's language (` ```ts ` gives `"ts"`), `""` when it has none. */
+  language: string;
+  /** The code, without trailing newlines. */
+  code: string;
+  /**
+   * `false` while the closing fence has not streamed in yet (with
+   * `streamingAnimation` and `codeBlockMode: 'progressive'`), `true` otherwise.
+   * Always `true` on web, where `streamingAnimation` does not apply.
+   */
+  isComplete: boolean;
 }
 
 /** Every block a `renderers` entry can replace, for code that handles any kind. */
 export type MarkdownBlock =
   | MarkdownImageBlock
   | MarkdownVideoBlock
-  | MarkdownLinkBlock;
+  | MarkdownLinkBlock
+  | MarkdownCodeBlock;
 
 /**
  * React replacements for native blocks, keyed by block kind. Return a React
@@ -73,6 +90,7 @@ export interface MarkdownRenderers {
   image?: (block: MarkdownImageBlock) => ReactElement | undefined;
   video?: (block: MarkdownVideoBlock) => ReactElement | undefined;
   link?: (block: MarkdownLinkBlock) => ReactElement | undefined;
+  code?: (block: MarkdownCodeBlock) => ReactElement | undefined;
 }
 
 /**
@@ -100,6 +118,19 @@ export interface MarkdownImageOccurrence {
   altText: string;
   title: string;
   placement: MarkdownImagePlacement;
+}
+
+/**
+ * One link in the document, in document order, wherever it sits: inline links,
+ * autolinks and bare URLs in paragraphs, headings, lists, tables and quotes,
+ * link blocks included. Links that `linkRecognition` adds are not reported.
+ */
+export interface MarkdownLinkOccurrence {
+  url: string;
+  /** The link text; for a bare URL or autolink, the URL as written. */
+  label: string;
+  /** The Markdown title, `""` when there is none. */
+  title: string;
 }
 
 /** The request to make for an image instead of its Markdown URL. */

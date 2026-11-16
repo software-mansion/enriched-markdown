@@ -1,8 +1,8 @@
 #pragma once
 
-// Android exposes generated/jni/react/renderer/components (the spec folder by
-// name, so no other generated header is reachable bare); iOS generates the JSI
-// header flat under ios/generated/ReactCodegen.
+// Android exposes the codegen jni/react/renderer/components folder (the spec
+// folder by name, so no other generated header is reachable bare); iOS has the
+// JSI header flat at the root of the app's ReactCodegen pod.
 #if __has_include("EnrichedMarkdownTextSpec/EnrichedMarkdownTextSpecJSI.h")
 #include "EnrichedMarkdownTextSpec/EnrichedMarkdownTextSpecJSI.h"
 #else
@@ -16,7 +16,7 @@ namespace facebook::react {
 
 using EnrichedMarkdownParserBlockSlot =
     NativeEnrichedMarkdownParserNativeBlockSlot<std::string, std::string, std::string, std::string, std::string,
-                                                std::string, std::string>;
+                                                std::string, std::string, std::string, std::string, bool>;
 template <>
 struct Bridging<EnrichedMarkdownParserBlockSlot>
     : NativeEnrichedMarkdownParserNativeBlockSlotBridging<EnrichedMarkdownParserBlockSlot> {};
@@ -27,8 +27,14 @@ template <>
 struct Bridging<EnrichedMarkdownParserImageOccurrence>
     : NativeEnrichedMarkdownParserNativeImageOccurrenceBridging<EnrichedMarkdownParserImageOccurrence> {};
 
+using EnrichedMarkdownParserLinkOccurrence =
+    NativeEnrichedMarkdownParserNativeLinkOccurrence<std::string, std::string, std::string>;
+template <>
+struct Bridging<EnrichedMarkdownParserLinkOccurrence>
+    : NativeEnrichedMarkdownParserNativeLinkOccurrenceBridging<EnrichedMarkdownParserLinkOccurrence> {};
+
 using EnrichedMarkdownParserMd4cFlags =
-    NativeEnrichedMarkdownParserNativeMd4cFlags<bool, bool, bool, bool, bool, bool, bool, bool>;
+    NativeEnrichedMarkdownParserNativeMd4cFlags<bool, bool, bool, bool, bool, bool, bool, bool, bool>;
 template <>
 struct Bridging<EnrichedMarkdownParserMd4cFlags>
     : NativeEnrichedMarkdownParserNativeMd4cFlagsBridging<EnrichedMarkdownParserMd4cFlags> {};
@@ -41,7 +47,8 @@ struct Bridging<EnrichedMarkdownParserStreamingOptions>
 
 using EnrichedMarkdownParserCollectedBlocks =
     NativeEnrichedMarkdownParserNativeCollectedBlocks<std::vector<EnrichedMarkdownParserBlockSlot>,
-                                                      std::vector<EnrichedMarkdownParserImageOccurrence>>;
+                                                      std::vector<EnrichedMarkdownParserImageOccurrence>,
+                                                      std::vector<EnrichedMarkdownParserLinkOccurrence>>;
 template <>
 struct Bridging<EnrichedMarkdownParserCollectedBlocks>
     : NativeEnrichedMarkdownParserNativeCollectedBlocksBridging<EnrichedMarkdownParserCollectedBlocks> {};

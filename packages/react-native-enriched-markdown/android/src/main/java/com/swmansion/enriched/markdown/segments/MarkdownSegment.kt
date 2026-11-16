@@ -28,7 +28,7 @@ sealed interface MarkdownSegment {
     val node: MarkdownASTNode,
   ) : MarkdownSegment
 
-  /** A block a React slot child stands in for (an image paragraph or a video). */
+  /** A block a React slot child stands in for (an image or link paragraph, a video or a code block). */
   data class BlockSlot(
     val slotId: String,
     val kind: BlockSlotKind,

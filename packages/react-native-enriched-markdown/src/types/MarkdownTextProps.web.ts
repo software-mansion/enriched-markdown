@@ -2,6 +2,7 @@ import type { LinkRecognition } from './linkRecognition';
 import type {
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
   MarkdownRenderers,
 } from './markdownBlocks';
 import type { CSSProperties, HTMLAttributes } from 'react';
@@ -147,9 +148,9 @@ export interface EnrichedMarkdownTextProps extends Omit<
   dir?: 'ltr' | 'rtl' | 'auto';
   /**
    * React replacements for blocks, keyed by kind: a paragraph whose only
-   * content is an image or a link, and `<video>` blocks, directly in the
-   * document, a blockquote or an admonition, outside any list. Return nothing
-   * (`undefined`) to keep the default rendering for a block.
+   * content is an image or a link, `<video>` blocks and code blocks, directly
+   * in the document, a blockquote or an admonition, outside any list. Return
+   * nothing (`undefined`) to keep the default rendering for a block.
    * @platform ios, android, web
    */
   renderers?: MarkdownRenderers;
@@ -166,4 +167,11 @@ export interface EnrichedMarkdownTextProps extends Omit<
     | MarkdownImageSource
     | undefined
     | Promise<MarkdownImageSource | undefined>;
+  /**
+   * Called with the document's links whenever they change, and once with the
+   * first ones: every inline link, autolink and bare URL in document order.
+   * Links that `linkRecognition` adds are not reported.
+   * @platform ios, android, web
+   */
+  onLinksChange?: (links: MarkdownLinkOccurrence[]) => void;
 }
