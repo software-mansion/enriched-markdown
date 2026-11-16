@@ -34,6 +34,8 @@ data class CodeBlockStyle(
         "tag",
         "attribute",
         "embedded",
+        "inserted",
+        "deleted",
       )
 
     fun fromReadableMap(

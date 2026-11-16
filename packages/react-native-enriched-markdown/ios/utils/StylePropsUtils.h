@@ -989,6 +989,8 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
   ENRM_SET_SYNTAX_COLOR(tag, Tag)
   ENRM_SET_SYNTAX_COLOR(attribute, Attribute)
   ENRM_SET_SYNTAX_COLOR(embedded, Embedded)
+  ENRM_SET_SYNTAX_COLOR(inserted, Inserted)
+  ENRM_SET_SYNTAX_COLOR(deleted, Deleted)
 #undef ENRM_SET_SYNTAX_COLOR
 
   // ── Thematic Break ─────────────────────────────────────────────────────────

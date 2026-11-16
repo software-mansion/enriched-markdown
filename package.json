@@ -81,6 +81,9 @@
   },
   "packageManager": "yarn@4.11.0",
   "dependenciesMeta": {
+    "@derekstride/tree-sitter-sql": {
+      "built": false
+    },
     "@tree-sitter-grammars/tree-sitter-markdown": {
       "built": false
     },
@@ -105,6 +108,9 @@
     "tree-sitter-css": {
       "built": false
     },
+    "tree-sitter-dart": {
+      "built": false
+    },
     "tree-sitter-go": {
       "built": false
     },
@@ -118,6 +124,9 @@
       "built": false
     },
     "tree-sitter-json": {
+      "built": false
+    },
+    "tree-sitter-kotlin": {
       "built": false
     },
     "tree-sitter-php": {

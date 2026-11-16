@@ -3347,6 +3347,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@derekstride/tree-sitter-sql@npm:0.3.11":
+  version: 0.3.11
+  resolution: "@derekstride/tree-sitter-sql@npm:0.3.11"
+  dependencies:
+    node-addon-api: "npm:^7.1.0"
+    node-gyp: "npm:latest"
+    node-gyp-build: "npm:^4.8.0"
+  peerDependencies:
+    tree-sitter: ^0.21.0
+  peerDependenciesMeta:
+    tree_sitter:
+      optional: true
+  checksum: 10c0/094757836c4f0dd036c8ce3c986e4fb372e21b5c012d8e7da9580a0b962d6f5f01f3e02d92f4c1d3198783c276c6e94480402aec53f5ebc5995c2bc1fe21ae3f
+  languageName: node
+  linkType: hard
+
 "@egjs/hammerjs@npm:^2.0.17":
   version: 2.0.17
   resolution: "@egjs/hammerjs@npm:2.0.17"
@@ -10572,6 +10588,8 @@ __metadata:
     turbo: "npm:^2.8.21"
     typescript: "npm:^6.0.2"
   dependenciesMeta:
+    "@derekstride/tree-sitter-sql":
+      built: false
     "@tree-sitter-grammars/tree-sitter-markdown":
       built: false
     "@tree-sitter-grammars/tree-sitter-yaml":
@@ -10588,6 +10606,8 @@ __metadata:
       built: false
     tree-sitter-css:
       built: false
+    tree-sitter-dart:
+      built: false
     tree-sitter-go:
       built: false
     tree-sitter-html:
@@ -10597,6 +10617,8 @@ __metadata:
     tree-sitter-javascript:
       built: false
     tree-sitter-json:
+      built: false
+    tree-sitter-kotlin:
       built: false
     tree-sitter-php:
       built: false
@@ -15730,6 +15752,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"nan@npm:^2.15.0":
+  version: 2.30.0
+  resolution: "nan@npm:2.30.0"
+  dependencies:
+    node-gyp: "npm:latest"
+  checksum: 10c0/563bf97c84099feeccae9aeaee1f1e14043e0ab0e8525497058495373e9a53abd46b00a6f5d178931911c2739c8ee94604da13d1245ab9e8b689339e61e98c23
+  languageName: node
+  linkType: hard
+
 "nanoid@npm:^3.3.1":
   version: 3.3.12
   resolution: "nanoid@npm:3.3.12"
@@ -15813,6 +15844,15 @@ __metadata:
   version: 3.0.4
   resolution: "nocache@npm:3.0.4"
   checksum: 10c0/66e5db1206bee44173358c2264ae9742259273e9719535077fe27807441bad58f0deeadf3cec2aa62d4f86ccb8a0e067c9a64b6329684ddc30a57e377ec458ee
+  languageName: node
+  linkType: hard
+
+"node-addon-api@npm:^7.1.0":
+  version: 7.1.1
+  resolution: "node-addon-api@npm:7.1.1"
+  dependencies:
+    node-gyp: "npm:latest"
+  checksum: 10c0/fb32a206276d608037fa1bcd7e9921e177fe992fc610d098aa3128baca3c0050fc1e014fa007e9b3874cf865ddb4f5bd9f43ccb7cbbbe4efaff6a83e920b17e9
   languageName: node
   linkType: hard
 
@@ -17286,6 +17326,7 @@ __metadata:
   resolution: "react-native-enriched-markdown@workspace:packages/react-native-enriched-markdown"
   dependencies:
     "@babel/core": "npm:^7.25.0"
+    "@derekstride/tree-sitter-sql": "npm:0.3.11"
     "@react-native/babel-preset": "npm:0.88.0"
     "@react-native/jest-preset": "npm:0.88.0"
     "@tree-sitter-grammars/tree-sitter-markdown": "npm:0.3.2"
@@ -17309,11 +17350,13 @@ __metadata:
     tree-sitter-c-sharp: "npm:0.23.1"
     tree-sitter-cpp: "npm:0.23.4"
     tree-sitter-css: "npm:0.23.2"
+    tree-sitter-dart: "npm:1.0.0"
     tree-sitter-go: "npm:0.23.4"
     tree-sitter-html: "npm:0.23.2"
     tree-sitter-java: "npm:0.23.5"
     tree-sitter-javascript: "npm:0.23.1"
     tree-sitter-json: "npm:0.24.8"
+    tree-sitter-kotlin: "npm:0.3.8"
     tree-sitter-php: "npm:0.24.2"
     tree-sitter-python: "npm:0.23.6"
     tree-sitter-ruby: "npm:0.23.1"
@@ -19480,6 +19523,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"tree-sitter-dart@npm:1.0.0":
+  version: 1.0.0
+  resolution: "tree-sitter-dart@npm:1.0.0"
+  dependencies:
+    nan: "npm:^2.15.0"
+    node-gyp: "npm:latest"
+  checksum: 10c0/cb339a0be975850d84065c642e27a464dc7fc7a023c547283fefff28b115e3739b04733e9b6bf6a00188e40de4660884d2bbebf6db67fc2e8dee5bdd74802026
+  languageName: node
+  linkType: hard
+
 "tree-sitter-go@npm:0.23.4":
   version: 0.23.4
   resolution: "tree-sitter-go@npm:0.23.4"
@@ -19557,6 +19610,22 @@ __metadata:
     tree-sitter:
       optional: true
   checksum: 10c0/cc528770947d4b24e2a389b8c9f9ac103841a4447278903700cbb893414d21564366a9d9c0fc1c6b7c2d4bbe311b8622e95f3b4df3886ee3c8e2e44c839261c1
+  languageName: node
+  linkType: hard
+
+"tree-sitter-kotlin@npm:0.3.8":
+  version: 0.3.8
+  resolution: "tree-sitter-kotlin@npm:0.3.8"
+  dependencies:
+    node-addon-api: "npm:^7.1.0"
+    node-gyp: "npm:latest"
+    node-gyp-build: "npm:^4.8.0"
+  peerDependencies:
+    tree-sitter: ^0.21.0
+  peerDependenciesMeta:
+    tree_sitter:
+      optional: true
+  checksum: 10c0/2dee5cf5123df38d13ad5d42f78f8910fab4058430f7b510d44d0cba31089eba34a7de3ff36a40363b56723c81396990654f272acc71efd9f652d26966c71ba8
   languageName: node
   linkType: hard
 

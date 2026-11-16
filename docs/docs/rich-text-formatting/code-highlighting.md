@@ -32,7 +32,7 @@ In the React Native package, set token colors through the `syntaxColors` map on 
 
 <LivePreview src={SyntaxColorsSrc} unavailable unavailableReason={<>iOS and Android only - the web build renders code blocks uncolored, so <code>syntaxColors</code> has no visible effect here.</>} />
 
-There are 14 token types, any of which you can color. Most of them ship with a color of their own, from a GitHub-dark palette tuned for the default `#1F2937` code background:
+There are 16 token types, any of which you can color. Most of them ship with a color of their own, from a GitHub-dark palette tuned for the default `#1F2937` code background:
 
 | Token | Default |
 | --- | --- |
@@ -43,9 +43,10 @@ There are 14 token types, any of which you can color. Most of them ship with a c
 | `function` | `#D2A8FF` |
 | `type` | `#FFA657` |
 | `tag` | `#7EE787` |
+| `inserted`, `deleted` | `#3FB950`, `#F85149` |
 | `operator`, `punctuation`, `variable`, `embedded` | inherit `codeBlock.color` |
 
-Only those last four fall back to the normal code color when left unset; the other ten keep their palette default until you override them.
+Only those last four fall back to the normal code color when left unset; the other twelve keep their palette default until you override them.
 
 ## Supported languages
 
@@ -53,11 +54,13 @@ A fence's info string maps to a grammar (for example `js` and `jsx` both select 
 
 | Default (compiled in) | Opt-in (add explicitly) |
 |---|---|
-| json, html, css, markdown, yaml, go, java, javascript, python, c, rust, bash, typescript, tsx | cpp, swift, php, ruby, c-sharp |
+| json, html, css, markdown, yaml, go, java, javascript, python, c, rust, bash, typescript, tsx | cpp, swift, kotlin, dart, sql, php, ruby, c-sharp |
 
 The default set is the smaller-footprint tier; the opt-in grammars are heavier and only compiled when you list them explicitly.
 
-Several fence tags are aliases of the same grammar - `sh`, `shell` and `zsh` all select `bash`; `cc`, `cpp` and `cxx` select `cpp`; `cs` and `csharp` select `c-sharp`; and likewise `golang`, `js`/`jsx`, `md`, `py`, `rb`, `rs`, `ts`, `yml`. A handful of tags are recognized as **labels only** and never highlighted: `dockerfile`, `graphql`, `objc`, `objectivec`, `scss`, `sql`, `toml`, `xml`.
+Several fence tags are aliases of the same grammar - `sh`, `shell` and `zsh` all select `bash`; `cc`, `cpp` and `cxx` select `cpp`; `cs` and `csharp` select `c-sharp`; `kt` and `kts` select `kotlin`; `mysql`, `postgres`, `postgresql`, `pgsql` and `sqlite` select `sql`; and likewise `golang`, `js`/`jsx`, `md`, `py`, `rb`, `rs`, `ts`, `yml`. A handful of tags are recognized as **labels only** and never highlighted: `dockerfile`, `graphql`, `objc`, `objectivec`, `scss`, `toml`, `xml`.
+
+`diff` and `patch` blocks need no grammar: whenever highlighting is compiled in, added and removed lines take the `inserted` and `deleted` colors, hunk ranges (`@@ -1,2 +1,3 @@`) the `function` color, and file headers the `constant` color. Context lines keep the code color.
 
 :::caution
 The alias table and the `codeHighlightLanguages` ids are **not** the same list. `c-sharp` is the grammar id you must write in `codeHighlightLanguages`, but it is not a valid fence tag - in Markdown, write `cs` or `csharp`.

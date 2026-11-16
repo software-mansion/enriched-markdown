@@ -26,6 +26,8 @@ enum class HighlightTokenType {
   Tag,
   Attribute,
   Embedded,
+  Inserted,
+  Deleted,
 }
 
 /**

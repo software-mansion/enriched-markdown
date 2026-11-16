@@ -89,6 +89,7 @@ Each run is classified as one of the `SyntaxTokenType` cases:
 public enum SyntaxTokenType: UInt8, CaseIterable, Sendable {
   case keyword, `operator`, punctuation, string, number, constant, comment
   case function, type, variable, property, tag, attribute, embedded
+  case inserted, deleted
 }
 ```
 

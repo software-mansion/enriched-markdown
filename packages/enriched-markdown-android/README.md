@@ -730,7 +730,7 @@ markdownStyle {
 }
 ```
 
-The properties are `keyword`, `operator`, `punctuation`, `string`, `number`, `constant`, `comment`, `function`, `type`, `variable`, `property`, `tag`, `attribute` and `embedded`; `this[SyntaxTokenType.KEYWORD] = color` sets a type chosen at runtime. Repeating the block merges into the earlier one, exactly like the built-in blocks, so `MarkdownStyle.merge { codeHighlight { … } }` layers over a base style.
+The properties are `keyword`, `operator`, `punctuation`, `string`, `number`, `constant`, `comment`, `function`, `type`, `variable`, `property`, `tag`, `attribute`, `embedded`, `inserted` and `deleted`; `this[SyntaxTokenType.KEYWORD] = color` sets a type chosen at runtime. Repeating the block merges into the earlier one, exactly like the built-in blocks, so `MarkdownStyle.merge { codeHighlight { … } }` layers over a base style.
 
 ### Size and licenses
 

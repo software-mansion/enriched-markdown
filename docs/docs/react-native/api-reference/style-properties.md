@@ -306,6 +306,8 @@ To learn more about how code highlighting works, see the [Code highlighting](/ri
 | `tag`         | `#7EE787`    | Markup tags (e.g. HTML or JSX element names)                                               |
 | `attribute`   | `#79C0FF`    | Markup attributes                                                                          |
 | `embedded`    | Base `color` | Embedded content such as interpolations. Inherits the base `color` when omitted            |
+| `inserted`    | `#3FB950`    | Added lines in a `diff` block                                                              |
+| `deleted`     | `#F85149`    | Removed lines in a `diff` block                                                            |
 
 :::note
 Syntax colors only take visible effect when the optional syntax-highlighting module is compiled in; otherwise code blocks render uncolored. The module is native-only, so `syntaxColors` has no effect on the web build.

@@ -169,6 +169,8 @@ final class SyntaxHighlightingRenderingTests: XCTestCase {
         XCTAssertEqual(hex(dark[.property]), 0x79C0FF)
         XCTAssertEqual(hex(dark[.tag]), 0x7EE787)
         XCTAssertEqual(hex(dark[.attribute]), 0x79C0FF)
+        XCTAssertEqual(hex(dark[.inserted]), 0x3FB950)
+        XCTAssertEqual(hex(dark[.deleted]), 0xF85149)
     }
 
     func testDefaultPaletteLeavesInheritingTypesUnset() {
@@ -190,10 +192,11 @@ final class SyntaxHighlightingRenderingTests: XCTestCase {
     }
 
     func testTokenTypesMatchTheSharedSeam() {
-        XCTAssertEqual(SyntaxTokenType.allCases.map(\.rawValue), Array(0...13))
+        XCTAssertEqual(SyntaxTokenType.allCases.map(\.rawValue), Array(0...15))
         XCTAssertEqual(SyntaxTokenType.keyword.rawValue, 0)
         XCTAssertEqual(SyntaxTokenType.comment.rawValue, 6)
         XCTAssertEqual(SyntaxTokenType.embedded.rawValue, 13)
+        XCTAssertEqual(SyntaxTokenType.deleted.rawValue, 15)
     }
 }
 

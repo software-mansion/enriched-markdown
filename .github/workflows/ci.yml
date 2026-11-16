@@ -39,6 +39,7 @@ jobs:
           filters: |
             core:
               - 'packages/core/**'
+              - 'vendor/grammar-versions.json'
               - 'package.json'
               - '.github/**'
             react-native:
@@ -130,6 +131,10 @@ jobs:
       - name: Lint C++ core formatting
         if: matrix.build_type == 'RelWithDebInfo'
         run: yarn workspace @enriched-markdown/core lint-clang
+
+      # The highlight tests need the gitignored tree-sitter runtime and grammars.
+      - name: Vendor tree-sitter grammars
+        run: yarn workspace react-native-enriched-markdown vendor-grammars
 
       - name: Build and run C++ core tests (${{ matrix.build_type }}${{ matrix.sanitize && ', sanitized' || '' }})
         env:

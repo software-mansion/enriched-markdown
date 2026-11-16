@@ -1,0 +1,2 @@
+# Compiled highlight queries are cached for the life of the process on purpose.
+leak:queryForLanguage

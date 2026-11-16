@@ -27,16 +27,16 @@ def greet(name: str) -> str:
         comment: '#7F848E',
         function: '#61AFEF',
         type: '#E5C07B',
-        // ...any of the 14 token types
+        // ...any of the 16 token types
       },
     },
   }}
 />
 ````
 
-Token colors are set through `codeBlock.syntaxColors`. The 14 token types are: `keyword`,
+Token colors are set through `codeBlock.syntaxColors`. The 16 token types are: `keyword`,
 `operator`, `punctuation`, `string`, `number`, `constant`, `comment`, `function`, `type`,
-`variable`, `property`, `tag`, `attribute`, `embedded`. Any type left unset uses the built-in
+`variable`, `property`, `tag`, `attribute`, `embedded`, `inserted`, `deleted`. Any type left unset uses the built-in
 (GitHub-dark) palette; `operator`, `punctuation`, `variable` and `embedded` default to the code
 block's `color`.
 
@@ -63,11 +63,15 @@ derive from), so the table below tracks that manifest:
 
 | Default (on) | Opt-in (heavier) |
 |---|---|
-| json, html, css, markdown, yaml, go, java, javascript, python, c, rust, bash, typescript, tsx | cpp, swift, php, ruby, c-sharp |
+| json, html, css, markdown, yaml, go, java, javascript, python, c, rust, bash, typescript, tsx | cpp, swift, kotlin, dart, sql, php, ruby, c-sharp |
 
 Grammar sources are large (generated parsers run to several MB each); the opt-in grammars include
 the largest ones and are only compiled when you list them explicitly.
 A block whose language is not compiled in simply renders as plain (uncolored) code.
+
+`diff` and `patch` blocks are highlighted without a grammar whenever highlighting is compiled in:
+added and removed lines take the `inserted` and `deleted` colors, hunk ranges the `function` color
+and file headers the `constant` color.
 
 ## Choosing languages / reducing binary size
 

@@ -20,4 +20,6 @@ enum class SyntaxTokenType {
   TAG,
   ATTRIBUTE,
   EMBEDDED,
+  INSERTED,
+  DELETED,
 }

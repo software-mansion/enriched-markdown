@@ -135,7 +135,7 @@ Tokens are cached in memory, keyed by the language and the code, in one process-
 
 ## Colors {#styling}
 
-Each of the 14 token types takes its color from the first of:
+Each of the 16 token types takes its color from the first of:
 
 1. a color you set;
 2. GitHub's dark palette, made for the default dark code block (`#1F2937`);
@@ -150,6 +150,8 @@ Each of the 14 token types takes its color from the first of:
 | `function`                                        | `#D2A8FF`         |
 | `type`                                            | `#FFA657`         |
 | `tag`                                             | `#7EE787`         |
+| `inserted`                                        | `#3FB950`         |
+| `deleted`                                         | `#F85149`         |
 | `operator`, `punctuation`, `variable`, `embedded` | `codeBlock` color |
 
 :::caution
@@ -176,7 +178,7 @@ val oneDarkStyle = markdownStyle {
 }
 ```
 
-The properties are `keyword`, `operator`, `punctuation`, `string`, `number`, `constant`, `comment`, `function`, `type`, `variable`, `property`, `tag`, `attribute`, and `embedded`, each a `Color?`. A token you leave unset keeps its palette color. To pick the token at runtime, index the scope with a `SyntaxTokenType` (from `com.swmansion.enriched.markdown.codehighlight`): `this[SyntaxTokenType.KEYWORD] = color`.
+The properties are `keyword`, `operator`, `punctuation`, `string`, `number`, `constant`, `comment`, `function`, `type`, `variable`, `property`, `tag`, `attribute`, `embedded`, `inserted`, and `deleted`, each a `Color?`. A token you leave unset keeps its palette color. To pick the token at runtime, index the scope with a `SyntaxTokenType` (from `com.swmansion.enriched.markdown.codehighlight`): `this[SyntaxTokenType.KEYWORD] = color`.
 
 Repeating the block merges into the earlier one, exactly like the built-in blocks, so `MarkdownStyle.merge { codeHighlight { … } }` layers over a base style and changes only what it names.
 

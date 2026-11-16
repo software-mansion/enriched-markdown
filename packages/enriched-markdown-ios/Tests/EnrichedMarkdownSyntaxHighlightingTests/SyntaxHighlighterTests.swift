@@ -89,6 +89,14 @@ final class SyntaxHighlighterTests: XCTestCase {
         XCTAssertEqual(texts(of: .keyword, in: code, language: "python"), ["import"])
     }
 
+    func testDiffLinesNeedNoGrammar() {
+        let code = "@@ -1,2 +1,2 @@\n same\n-old 🎉\n+new"
+
+        XCTAssertEqual(texts(of: .function, in: code, language: "diff"), ["@@ -1,2 +1,2 @@"])
+        XCTAssertEqual(texts(of: .deleted, in: code, language: "diff"), ["-old 🎉"])
+        XCTAssertEqual(texts(of: .inserted, in: code, language: "patch"), ["+new"])
+    }
+
     func testUnknownLanguageHasNoTokens() {
         XCTAssertTrue(SyntaxHighlighter.tokens(in: "let x = 1", language: "klingon").isEmpty)
         XCTAssertTrue(SyntaxHighlighter.tokens(in: "let x = 1", language: "").isEmpty)

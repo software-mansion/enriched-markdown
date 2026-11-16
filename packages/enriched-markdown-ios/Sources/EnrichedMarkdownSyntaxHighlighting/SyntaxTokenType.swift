@@ -13,4 +13,6 @@ public enum SyntaxTokenType: UInt8, CaseIterable, Sendable {
     case tag
     case attribute
     case embedded
+    case inserted
+    case deleted
 }

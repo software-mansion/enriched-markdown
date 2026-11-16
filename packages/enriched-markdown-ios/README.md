@@ -796,7 +796,7 @@ EnrichedMarkdownText(content)
 
 The types are `.keyword`, `.operator`, `.punctuation`, `.string`, `.number`,
 `.constant`, `.comment`, `.function`, `.type`, `.variable`, `.property`,
-`.tag`, `.attribute`, and `.embedded`.
+`.tag`, `.attribute`, `.embedded`, `.inserted`, and `.deleted`.
 
 `.markdownSyntaxHighlighting()` layers `MarkdownTheme.syntaxHighlightingDefault`
 — GitHub's palette, light or dark with the color scheme — directly above

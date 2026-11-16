@@ -56,6 +56,8 @@ const DEFAULT_CODE_BLOCK_SYNTAX_COLORS = {
   tag: normalizeColor('#7EE787')!,
   attribute: normalizeColor('#79C0FF')!,
   embedded: codeBlockTextColor,
+  inserted: normalizeColor('#3FB950')!,
+  deleted: normalizeColor('#F85149')!,
 };
 
 const INHERIT_SYNTAX_TOKENS = new Set([
