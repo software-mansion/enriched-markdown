@@ -63,7 +63,6 @@ warnings.
 | `contextMenuItems` | Not supported - browsers don't allow extending the native context menu. |
 | `selectionMenuConfig` | Not supported - native-only built-in selection menu actions. |
 | `selectionHandleColor` | Android-only - desktop browsers don't render selection handles. |
-| `linkPillContent` | Native-only - link pills are not rendered on web. |
 | `linkContextMenuItems` | Native-only - link long-press menus (iOS 17+). |
 | `imageRequestHeaders` | Not supported - browsers don't allow custom headers on `<img>` requests. |
 | `accessibilityLabels` | VoiceOver / TalkBack announcement strings. The web renderer uses semantic HTML and native `aria-*` instead. |
@@ -83,4 +82,4 @@ exception: it is mapped to `data-testid`.
 - Editor features — see [Web Editor](WEB_INPUT.md#not-supported-on-web) for what `EnrichedMarkdownTextInput` does not support on web.
 - Spoilers (`||text||`) — `EnrichedMarkdownText` does not render them on web yet, and the text inside a spoiler is currently left out.
 - Configurable link `target` — all links open in a new tab (`target="_blank"`). Use `onLinkPress` for custom navigation.
-- Link pills — `linkVariants[pattern].pill` is ignored; such links render as ordinary links with the variant's colors and font.
+- Link pills — plain copy copies the pill's visible label rather than the original link text; a rich-text paste keeps the link to the original URL.

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { extractNodeText } from '../utils';
 import type { RendererProps, RendererMap, ASTNode, NodeType } from '../types';
 import { listItemStyle, checkedTaskTextStyle } from '../styles';
+import { withPillLineHeight } from '../linkPills';
 
 const NESTED_LIST_TYPES: Set<NodeType> = new Set([
   'UnorderedList',
@@ -96,7 +97,14 @@ function ListItemRenderer({
     : null;
 
   return (
-    <li style={listItemStyle(style, isTask, (index ?? 0) === 0)}>
+    <li
+      style={withPillLineHeight(
+        listItemStyle(style, isTask, (index ?? 0) === 0),
+        style,
+        inlineNode,
+        style.list.lineHeight
+      )}
+    >
       <span style={checkedStyle}>
         {isTask && (
           <input

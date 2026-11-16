@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
 import { InputEditor } from './InputEditor';
+import { LinkPillsExample } from './LinkPillsExample';
 import type {
   LinkPressEvent,
   LinkLongPressEvent,
@@ -205,6 +206,11 @@ export default function App() {
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
         >
+          <SectionLabel>LINK PILLS</SectionLabel>
+          <LinkPillsExample onLinkPress={onLinkPress} />
+
+          <View style={styles.divider} />
+
           <SectionLabel>LaTeX</SectionLabel>
           <EnrichedMarkdownText markdown={latexMarkdown} />
 
