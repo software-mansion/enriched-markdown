@@ -11,8 +11,8 @@
 
 <link rel="icon" type="image/png" href="/enriched-markdown/img/favicon.png">
 <script>!function(){try{var e=location.pathname;if([].some(function(t){return e===t||0===e.indexOf(t+"/")}))return;var t=localStorage.getItem("swm.topbarbanner.v1.enriched-topbar-1.ea15c4216158c4097b65fe6504a4b3b7");if(!t)return;var r=JSON.parse(t);if(!r||"number"!=typeof r.height||r.height<5)return;if(Date.now()-r.timestamp>=2592e6)return;var n=document.documentElement;n.style.setProperty("--banner-height-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.height+"px"),"string"==typeof r.bgColor&&n.style.setProperty("--banner-bg-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.bgColor)}catch(e){}}()</script><link rel="stylesheet" href="/enriched-markdown/assets/css/styles.9863f435.css">
-<script src="/enriched-markdown/assets/js/runtime~main.d6ec3c01.js" defer="defer"></script>
-<script src="/enriched-markdown/assets/js/main.5abd06e3.js" defer="defer"></script>
+<script src="/enriched-markdown/assets/js/runtime~main.398eed8d.js" defer="defer"></script>
+<script src="/enriched-markdown/assets/js/main.9911922d.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
 <svg style="display: none;"><defs>
@@ -54,6 +54,21 @@ through <code>StaticLayout</code>, but enabling selection or a link movement met
 promotes the text to <code>DynamicLayout</code>, which has no <code>maxLines</code> support - React
 Native&#x27;s own <code>Text</code> behaves the same way. Both are restored once the clamp is
 removed, and iOS keeps selection and links while clamped.</li>
+<li class=""><strong>[iOS] Captures of very tall content.</strong> Text, code blocks, tables, quotes and
+math draw only near the visible area, and draw the rest when they are
+captured: <code>renderInContext:</code> gets all of it at any size, and so does
+<code>drawViewHierarchyInRect:</code> (<code>react-native-view-shot</code>&#x27;s default) for a view up
+to 8,192 pixels tall and wide (about 2,730 pt on a 3x iPhone). UIKit renders
+nothing for a larger view; <code>react-native-view-shot</code>&#x27;s <code>useRenderInContext</code>
+option captures it. Snapshot views (<code>snapshotViewAfterScreenUpdates:</code>,
+<code>resizableSnapshotViewFromRect:afterScreenUpdates:withCapInsets:</code>) get it
+too. A capture made off the main thread shows the content near the visible
+area only, and so does anything that mirrors the live view instead of
+capturing it (a context menu or drag preview of the view itself, a scaled-down
+ancestor). The drawing relies on
+UIKit internals: if a future iOS version shows blank or doubled text, set
+<code>EnrichedMarkdownDisableTextTiles</code> to <code>YES</code> in your app&#x27;s <code>Info.plist</code> to draw
+text the standard way, and please report it.</li>
 <li class=""><strong>Raw HTML is not rendered.</strong> Inline HTML is disabled and HTML tags in the
 source are ignored. The one allowlisted exception is a block-level
 <a class="" href="/enriched-markdown/react-native/api-reference/element-structure#videos"><code>&lt;video&gt;</code></a> tag, of which
@@ -177,7 +192,7 @@ other native-only props. See
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="macos">macOS<a href="#macos" class="hash-link" aria-label="Direct link to macOS" title="Direct link to macOS" translate="no">​</a></h3>
 <p><strong>Block math is silently dropped</strong> under <code>flavor=&quot;github&quot;</code> - the equation
 produces no segment and no fallback text. Inline math renders. Beyond that: the
-tail fade-in animation falls back to an instant reveal, system font-scale
+streaming animations (<code>&#x27;fade&#x27;</code>, <code>&#x27;gradient&#x27;</code>) fall back to an instant reveal, system font-scale
 changes are not observed, VoiceOver is stubbed, and <code>selectionColor</code> tints only
 the selection background - AppKit&#x27;s <code>NSTextView</code> does not expose caret and
 handle tinting via <code>tintColor</code>. See

@@ -11,8 +11,8 @@
 
 <link rel="icon" type="image/png" href="/enriched-markdown/img/favicon.png">
 <script>!function(){try{var e=location.pathname;if([].some(function(t){return e===t||0===e.indexOf(t+"/")}))return;var t=localStorage.getItem("swm.topbarbanner.v1.enriched-topbar-1.ea15c4216158c4097b65fe6504a4b3b7");if(!t)return;var r=JSON.parse(t);if(!r||"number"!=typeof r.height||r.height<5)return;if(Date.now()-r.timestamp>=2592e6)return;var n=document.documentElement;n.style.setProperty("--banner-height-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.height+"px"),"string"==typeof r.bgColor&&n.style.setProperty("--banner-bg-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.bgColor)}catch(e){}}()</script><link rel="stylesheet" href="/enriched-markdown/assets/css/styles.9863f435.css">
-<script src="/enriched-markdown/assets/js/runtime~main.d6ec3c01.js" defer="defer"></script>
-<script src="/enriched-markdown/assets/js/main.5abd06e3.js" defer="defer"></script>
+<script src="/enriched-markdown/assets/js/runtime~main.398eed8d.js" defer="defer"></script>
+<script src="/enriched-markdown/assets/js/main.9911922d.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
 <svg style="display: none;"><defs>
@@ -112,9 +112,10 @@ spoiler if the same Markdown is rendered on web. See
 <table><thead><tr><th>Feature</th><th style="text-align:center">React Native</th><th style="text-align:center">iOS</th><th style="text-align:center">Android</th><th style="text-align:center">Web</th><th>Learn more</th></tr></thead><tbody><tr><td>LaTeX math</td><td style="text-align:center">Yes</td><td style="text-align:center">Yes</td><td style="text-align:center">Yes</td><td style="text-align:center">Yes</td><td><a class="" href="/enriched-markdown/rich-text-formatting/latex-math">LaTeX math</a></td></tr><tr><td>Mentions</td><td style="text-align:center">Yes</td><td style="text-align:center">Yes</td><td style="text-align:center">No</td><td style="text-align:center">Yes</td><td><a class="" href="/enriched-markdown/rich-text-formatting/mentions">Mentions</a></td></tr><tr><td>Code-block highlighting</td><td style="text-align:center">Yes</td><td style="text-align:center">Yes</td><td style="text-align:center">Yes</td><td style="text-align:center">No</td><td><a class="" href="/enriched-markdown/rich-text-formatting/code-highlighting">Code-block highlighting</a></td></tr><tr><td>Markdown streaming</td><td style="text-align:center">Yes</td><td style="text-align:center">No</td><td style="text-align:center">No</td><td style="text-align:center">No</td><td><a class="" href="/enriched-markdown/rich-text-formatting/markdown-streaming">Markdown streaming</a></td></tr><tr><td>Link pills</td><td style="text-align:center">Yes</td><td style="text-align:center">No</td><td style="text-align:center">No</td><td style="text-align:center">No</td><td><a class="" href="/enriched-markdown/react-native/guides/link-pills">Link pills</a></td></tr><tr><td>Link menus</td><td style="text-align:center">Yes</td><td style="text-align:center">No</td><td style="text-align:center">No</td><td style="text-align:center">No</td><td><a class="" href="/enriched-markdown/react-native/guides/link-menus">Link menus</a></td></tr></tbody></table>
 <p>LaTeX math on web needs the optional <code>katex</code> peer dependency; without it the
 formula falls back to its raw <code>$...$</code> source. Code-block highlighting on web
-renders a plain, uncolored <code>&lt;pre&gt;&lt;code&gt;</code>. The two streaming props are stripped
-on web. Link pills are drawn by the native text stack, so on web those links
-render as ordinary links with the variant&#x27;s colors; custom link menus are an
+renders a plain, uncolored <code>&lt;pre&gt;&lt;code&gt;</code>. <code>streaming</code> and <code>streamingConfig</code> are
+stripped on web; a <code>stream</code> still shows its text as it grows. Link pills are
+drawn by the native text stack, so on web those links render as ordinary links
+with the variant&#x27;s colors; custom link menus are an
 iOS 17+ feature, and a long press on web is the <code>contextmenu</code> event delivered
 to <code>onLinkLongPress</code>.</p>
 <p>On the standalone SDKs, the advanced features that render are optional add-ons:</p>
