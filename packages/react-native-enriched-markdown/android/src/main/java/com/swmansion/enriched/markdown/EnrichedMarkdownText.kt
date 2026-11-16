@@ -621,6 +621,18 @@ class EnrichedMarkdownText
       super.onDetachedFromWindow()
     }
 
+    // Fabric never runs a requested layout, so TextView would defer its scroll forever (#1196).
+    override fun onPreDraw(): Boolean {
+      if (isLayoutRequested && width > 0) {
+        measure(
+          MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
+          MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY),
+        )
+        layout(left, top, right, bottom)
+      }
+      return super.onPreDraw()
+    }
+
     override fun onDraw(canvas: Canvas) {
       super.onDraw(canvas)
       spoilerOverlayDrawer?.draw(canvas)
