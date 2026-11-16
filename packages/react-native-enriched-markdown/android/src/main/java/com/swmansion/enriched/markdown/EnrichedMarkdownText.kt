@@ -13,6 +13,7 @@ import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.View
 import android.view.View.MeasureSpec
+import androidx.annotation.VisibleForTesting
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.uimanager.BackgroundStyleApplicator
 import com.facebook.react.uimanager.PixelUtil
@@ -63,6 +64,7 @@ import com.swmansion.enriched.markdown.utils.text.view.emitLinkLongPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitStreamingEndEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitTextPressEvent
+import com.swmansion.enriched.markdown.utils.text.view.isAdoptedText
 import com.swmansion.enriched.markdown.utils.text.view.setupAsMarkdownTextView
 import java.util.concurrent.Executors
 import kotlin.math.ceil
@@ -176,7 +178,10 @@ class EnrichedMarkdownText
     // Reused by the next render on the executor (see TextRenderCache). Every input but the
     // markdown bumps the key, which drops it.
     private val textRenderCache = TextRenderCache()
-    private var textRenderKey = 0L
+
+    @VisibleForTesting
+    internal var textRenderKey = 0L
+      private set
 
     // The revision of the text shown (see RenderedSegment.Text.revision), and its trailing margin.
     private var renderedRevision = 0L
@@ -432,6 +437,8 @@ class EnrichedMarkdownText
       val codeBlockMode = codeBlockStreamingMode
       val mediaMode = mediaStreamingMode
       val renderKey = textRenderKey
+      // A view that copies its text (a line limit) refuses patches, so it renders in full.
+      val patchable = mdNumberOfLines == 0 && (text.isNullOrEmpty() || isAdoptedText(text))
 
       renderCoordinator.schedule {
         val apply =
@@ -448,12 +455,19 @@ class EnrichedMarkdownText
                   ?: return@render Runnable { if (isAttachedToWindow) clearText() }
 
               renderer.configure(style, context, latexErrorReporter)
-              textRenderCache.begin(renderKey)
-              val (rendered, _) =
-                textRenderCache.render(ast.children, startingTaskIndex = 0, isLast = true) { nodes, taskIndex ->
-                  renderText(nodes, taskIndex, style)
+              val rendered =
+                if (patchable) {
+                  textRenderCache.begin(renderKey)
+                  val (segment, _) =
+                    textRenderCache.render(ast.children, startingTaskIndex = 0, isLast = true) { nodes, taskIndex ->
+                      renderText(nodes, taskIndex, style)
+                    }
+                  textRenderCache.end()
+                  segment
+                } else {
+                  textRenderCache.clear()
+                  TextRenderCache.segmentOf(ast.children, renderText(ast.children, 0, style), startingTaskIndex = 0)
                 }
-              textRenderCache.end()
 
               Runnable {
                 if (isAttachedToWindow) {
