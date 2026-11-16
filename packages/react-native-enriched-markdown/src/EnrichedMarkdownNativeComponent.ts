@@ -48,6 +48,7 @@ interface BlockquoteStyleInternal extends BaseBlockStyleInternal {
 }
 
 interface ListStyleInternal extends BaseBlockStyleInternal {
+  numbering: string;
   bulletColor: ColorValue;
   bulletSize: CodegenTypes.Float;
   markerMinWidth: CodegenTypes.Float;

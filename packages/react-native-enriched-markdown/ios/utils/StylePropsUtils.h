@@ -897,6 +897,11 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
     changed = YES;
   }
 
+  if (newStyle.list.numbering != oldStyle.list.numbering) {
+    [config setListStyleNumbering:[NSString stringWithUTF8String:newStyle.list.numbering.c_str()]];
+    changed = YES;
+  }
+
   if (newStyle.list.itemSpacing != oldStyle.list.itemSpacing) {
     [config setListStyleItemSpacing:newStyle.list.itemSpacing];
     changed = YES;

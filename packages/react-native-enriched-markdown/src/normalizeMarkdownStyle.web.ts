@@ -101,6 +101,7 @@ export const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
     admonitions: resolveAdmonitionColors(undefined),
   },
   list: {
+    numbering: 'flat',
     fontSize: 16,
     fontFamily: SYSTEM_FONT,
     fontWeight: '',

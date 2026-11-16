@@ -16,6 +16,7 @@ extern NSString *const TaskIndexAttribute;
 @property (nonatomic, assign) NSInteger taskIndex;
 @property (nonatomic, assign) ListType listType;
 @property (nonatomic, assign) NSInteger number;
+@property (nonatomic, copy) NSString *numberingPath;
 @property (nonatomic, assign) NSInteger depth;
 @property (nonatomic, assign) CGFloat indent;
 @end

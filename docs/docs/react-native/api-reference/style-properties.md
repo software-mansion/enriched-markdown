@@ -252,6 +252,7 @@ Requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#
 
 | Property           | Type     | Default   | Description                                                                                                                         |
 | ------------------ | -------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `numbering` | `'flat' \| 'hierarchical'` | `'flat'` | Ancestor-qualified ordered markers such as `1.2.`. React Native iOS and Android. |
 | `bulletColor`      | `string` | `#6B7280` | Bullet point color                                                                                                                  |
 | `bulletSize`       | `number` | `6`       | Bullet point size                                                                                                                   |
 | `markerMinWidth`   | `number` | `0`       | Minimum reserved marker column width (floors the natural width of every list type). An ordered list's column also grows to fit its widest number |
@@ -262,7 +263,7 @@ Requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#
 | `itemSpacing`      | `number` | `0`       | Vertical spacing added between consecutive list items (including nested ones). Adds no space above the first item or below the last |
 
 :::note
-On web, lists render with the browser's native bullets and numbers, so the marker styling props - `bulletColor`, `bulletSize`, `markerColor`, `markerFontWeight`, `markerMinWidth`, and `gapWidth` - have no effect there. `marginLeft` and `itemSpacing` still apply on all platforms.
+`numbering` targets native iOS and Android; web/macOS parity is outside this proposal. On web, lists render with the browser's native bullets and numbers, so the marker styling props - `bulletColor`, `bulletSize`, `markerColor`, `markerFontWeight`, `markerMinWidth`, and `gapWidth` - have no effect there. `marginLeft` and `itemSpacing` still apply on all platforms.
 :::
 
 <LivePreview src={ListSrc} />
