@@ -1,4 +1,5 @@
 import { act } from 'react';
+import { Platform } from 'react-native';
 import { createRoot } from 'test-renderer';
 import type { Root, TestInstance } from 'test-renderer';
 import { EnrichedMarkdownTextInput } from '../src/EnrichedMarkdownTextInput';
@@ -15,6 +16,10 @@ type Point = { pageX: number; pageY: number };
 
 const INPUT_FRAME = { width: 320, height: 120, pageX: 0, pageY: 100 };
 const START: Point = { pageX: 160, pageY: 160 };
+const SHORT_DRAG: Point[] = [
+  { pageX: 160, pageY: 147 },
+  { pageX: 160, pageY: 134 },
+];
 
 function responderEvent(nativeEvent: Point) {
   return {
@@ -61,53 +66,32 @@ beforeEach(() => {
 
 afterEach(() => {
   act(() => root.unmount());
-  focusTextInput.mockRestore();
+  jest.restoreAllMocks();
 });
 
-it.each<[string, Point[], number]>([
-  ['focuses on a tap released where it started', [], 1],
-  [
-    'focuses when the finger shifts a few points during a tap',
-    [{ pageX: 163, pageY: 166 }],
-    1,
-  ],
-  [
-    'does not focus after a short drag that stays inside the input',
-    [
-      { pageX: 160, pageY: 147 },
-      { pageX: 160, pageY: 134 },
-    ],
-    0,
-  ],
-  [
-    'does not focus after a drag that returns to where it started',
-    [{ pageX: 160, pageY: 140 }, START],
-    0,
-  ],
-  [
-    'does not focus after a drag that leaves the press area and comes back',
-    [
-      { pageX: 160, pageY: 60 },
-      { pageX: 160, pageY: 85 },
-    ],
-    0,
-  ],
-])('%s', (_name, moves, focusCalls) => {
+it.each<[string, Point[]]>([
+  ['a tap', []],
+  ['a short drag', SHORT_DRAG],
+])('leaves focusing to the native view on iOS after %s', (_name, moves) => {
   const onPress = jest.fn();
 
   press(renderInput({ onPress }), ...moves);
 
   expect(onPress).toHaveBeenCalledTimes(1);
-  expect(focusTextInput).toHaveBeenCalledTimes(focusCalls);
+  expect(focusTextInput).not.toHaveBeenCalled();
 });
 
-it('focuses on a tap that follows a drag', () => {
-  const view = renderInput();
+it.each<[string, boolean | undefined, number]>([
+  ['focuses on a press on Android', undefined, 1],
+  ['does not focus a read-only input on Android', false, 0],
+])('%s', (_name, editable, focusCalls) => {
+  jest.replaceProperty(Platform, 'OS', 'android');
+  const onPress = jest.fn();
 
-  press(view, { pageX: 160, pageY: 134 });
-  press(view);
+  press(renderInput({ editable, onPress }));
 
-  expect(focusTextInput).toHaveBeenCalledTimes(1);
+  expect(onPress).toHaveBeenCalledTimes(1);
+  expect(focusTextInput).toHaveBeenCalledTimes(focusCalls);
 });
 
 it.each<[string, boolean | undefined, boolean]>([
