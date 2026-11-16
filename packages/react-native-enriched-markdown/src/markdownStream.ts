@@ -167,7 +167,11 @@ class Stream implements MarkdownStream {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
-      if (this.disposed && this.listeners.size === 0) this.release();
+      if (!this.disposed) return;
+      // After the commit's other effects: a view taking over the stream in it subscribes first.
+      queueMicrotask(() => {
+        if (this.disposed && this.listeners.size === 0) this.release();
+      });
     };
   }
 

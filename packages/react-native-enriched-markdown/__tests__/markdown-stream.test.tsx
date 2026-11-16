@@ -105,6 +105,11 @@ function render(element: ReactElement): Root {
   return root;
 }
 
+// The text is freed after the commit's effects.
+async function unmount(root: Root) {
+  await act(async () => root.unmount());
+}
+
 function view(root: Root): TestInstance {
   const [found] = root.container.queryAll(
     (instance) =>
@@ -309,7 +314,7 @@ it('stops streaming at end() and takes an explicit streaming prop over it', () =
   expect(view(root).props.streaming).toBe(true);
 });
 
-it('starts a new native stream on reset() and frees it on dispose()', () => {
+it('starts a new native stream on reset() and frees it on dispose()', async () => {
   const stream = createMarkdownStream('first');
   const root = render(<EnrichedMarkdownText stream={stream} />);
   const firstId = view(root).props.streamId;
@@ -327,7 +332,7 @@ it('starts a new native stream on reset() and frees it on dispose()', () => {
   stream.dispose();
   // Freed once the view showing it unmounts.
   expect(mockStreams.has(secondId)).toBe(true);
-  act(() => root.unmount());
+  await unmount(root);
   expect(mockStreams.has(secondId)).toBe(false);
   const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
   stream.append('x');
@@ -372,7 +377,7 @@ it('collects again only when the stream grows', () => {
   expect(mockCollectStream.mock.calls.length).toBe(calls);
 });
 
-it('keeps the native text while a view shows a disposed stream', () => {
+it('keeps the native text while a view shows a disposed stream', async () => {
   const stream = createMarkdownStream('kept');
   const root = render(<EnrichedMarkdownText stream={stream} />);
   const { streamId } = view(root).props;
@@ -381,7 +386,23 @@ it('keeps the native text while a view shows a disposed stream', () => {
   expect(mockStreams.get(streamId)).toBe('kept');
   // Disposing ends it: the view renders it in full and stops streaming.
   expect(view(root).props.streaming).toBe(false);
-  act(() => root.unmount());
+  await unmount(root);
+  expect(mockStreams.has(streamId)).toBe(false);
+});
+
+// A key change, or one of two components showing the stream picked by state.
+it('keeps a disposed stream shown by a view that takes over in the same commit', async () => {
+  const stream = createMarkdownStream('kept');
+  const root = render(<EnrichedMarkdownText key="a" stream={stream} />);
+  const { streamId } = view(root).props;
+  stream.dispose();
+  await act(async () =>
+    root.render(<EnrichedMarkdownText key="b" stream={stream} />)
+  );
+  expect(mockStreams.get(streamId)).toBe('kept');
+  expect(view(root).props.streamId).toBe(streamId);
+
+  await unmount(root);
   expect(mockStreams.has(streamId)).toBe(false);
 });
 
