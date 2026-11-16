@@ -35,8 +35,7 @@ public:
 
 private:
   int localHeightRecalculationCounter_{0};
-  mutable int lastExactMeasurementCounter_{0};
-  mutable CGSize lastExactMeasurementSize_{0, 0};
+  mutable ENRMPreviousMeasurement<EnrichedMarkdownTextProps> previousMeasurement_;
 };
 
 } // namespace facebook::react

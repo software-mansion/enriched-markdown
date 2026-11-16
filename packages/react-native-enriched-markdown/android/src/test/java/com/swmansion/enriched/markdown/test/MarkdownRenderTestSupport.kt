@@ -26,7 +26,7 @@ object MarkdownRenderTestSupport {
   }
 
   /**
-   * The style map the JS side sends, with [list], [taskList], [blockquote], [codeBlock] and [image] entries replacing
+   * The style map the JS side sends, with [list], [taskList], [blockquote], [codeBlock], [image] and [highlight] entries replacing
    * the defaults.
    * Sizes are Double, colors Int, as in a ReadableMap.
    */
@@ -36,12 +36,14 @@ object MarkdownRenderTestSupport {
     blockquote: Map<String, Any> = emptyMap(),
     codeBlock: Map<String, Any> = emptyMap(),
     image: Map<String, Any> = emptyMap(),
+    highlight: Map<String, Any> = emptyMap(),
   ): StyleConfig {
     DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(context)
     val style = JavaOnlyMap()
     // Headings are read by StyleConfig.needsJustify, which every segment render consults.
     (listOf("paragraph", "strong", "em", "strikethrough", "code", "superscript", "subscript", "highlight") + (1..6).map { "h$it" })
       .forEach { style.putMap(it, textElement()) }
+    style.putMap("highlight", textElement().apply { putAll(highlight) })
     style.putMap("link", textElement().apply { putString("fontFamily", "serif") })
     style.putArray(
       "linkVariants",
@@ -69,6 +71,7 @@ object MarkdownRenderTestSupport {
     style.putMap("taskList", JavaOnlyMap().apply { putAll(defaultTaskList + taskList) })
     style.putMap("list", textElement().apply { putAll(defaultList + list) })
     style.putMap("codeBlock", textElement().apply { putAll(defaultCodeBlock + codeBlock) })
+    style.putMap("thematicBreak", JavaOnlyMap.of("color", Color.BLACK, "height", 1.0, "marginTop", 0.0, "marginBottom", 0.0))
     style.putMap("image", JavaOnlyMap().apply { putAll(defaultImage + image) })
     style.putMap("inlineImage", JavaOnlyMap.of("size", 20.0))
     return StyleConfig(style, context, false, 0f)

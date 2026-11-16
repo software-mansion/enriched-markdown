@@ -1,8 +1,11 @@
 #pragma once
 
+#import "ParagraphStyleUtils.h"
 #import <Foundation/Foundation.h>
 
+@class ENRMRenderResult;
 @class ENRMRenderedSegment;
+@class ENRMTextRenderCache;
 @class MarkdownASTNode;
 @class StyleConfig;
 
@@ -22,6 +25,22 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
                                                           CGFloat maxFontSizeMultiplier,
                                                           NSLineBreakStrategy lineBreakStrategy, BOOL blockquoteContent,
                                                           NSInteger startingTaskIndex);
+
+// The host's segments, reusing what `cache` kept from the previous render (ENRMTextRenderCache).
+// Unlike ENRMRenderSegmentsFromAST, the text segments come with their writing direction applied.
+NSArray<ENRMRenderedSegment *> *
+ENRMRenderSegmentsFromASTCached(MarkdownASTNode *ast, StyleConfig *config, BOOL allowTrailingMargin,
+                                BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
+                                NSLineBreakStrategy lineBreakStrategy, ENRMWritingDirectionMode writingDirectionMode,
+                                NSWritingDirection layoutDirection, ENRMTextRenderCache *cache);
+
+// One text of all of `nodes`, the way ENRMRenderSegmentsFromASTCached renders its last text
+// segment: for a view that shows the whole document as one text.
+ENRMRenderResult *ENRMRenderTextCached(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config, BOOL allowTrailingMargin,
+                                       BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
+                                       NSLineBreakStrategy lineBreakStrategy,
+                                       ENRMWritingDirectionMode writingDirectionMode,
+                                       NSWritingDirection layoutDirection, ENRMTextRenderCache *cache);
 
 #ifdef __cplusplus
 }

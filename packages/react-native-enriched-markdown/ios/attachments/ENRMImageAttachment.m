@@ -189,6 +189,12 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
                              glyphPosition:(CGPoint)position
                             characterIndex:(NSUInteger)characterIndex
 {
+  // A text view lays out attachments it never draws (outside the drawn part of a long text):
+  // the container leads a load back to it (refreshDisplay). Not a measurement-only container.
+  if (textContainer != nil && objc_getAssociatedObject(textContainer, kTextViewKey) != nil) {
+    self.textContainer = textContainer;
+  }
+
   CGFloat height = self.cachedHeight;
   CGFloat available = [self availableWidthInLineFragment:lineFragment
                                            textContainer:textContainer
@@ -225,7 +231,7 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
 
   if (self.originalImage && imageBounds.size.width > 0) {
     self.bounds = imageBounds;
-    [self processAndApplyImage:self.originalImage withTargetWidth:imageBounds.size.width];
+    [self processAndApplyImage:self.originalImage withTargetWidth:imageBounds.size.width inDraw:YES];
   }
 
   return self.loadedImage ?: self.placeholderImage;
@@ -273,17 +279,19 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
   self.originalImage = image;
   // UIKit reads the plain image property for save/drag/copy — it must hold the original
   self.image = image;
-  CGFloat targetWidth = self.isInline ? self.cachedHeight : self.bounds.size.width;
-
-  // Defer processing if we don't have valid bounds yet (common for non-inline block images)
-  if (!self.isInline && targetWidth <= 0) {
+  // A block image is scaled for the width its line gives it, known when it is drawn (imageForBounds:),
+  // not for the placeholder's: that would scale every image twice. Draw it again, and lay it out again
+  // when its box takes the image's height.
+  if (!self.isInline) {
+    [self refreshDisplay];
     return;
   }
 
-  [self processAndApplyImage:image withTargetWidth:targetWidth];
+  [self processAndApplyImage:image withTargetWidth:self.cachedHeight inDraw:NO];
 }
 
-- (void)processAndApplyImage:(RCTUIImage *)image withTargetWidth:(CGFloat)targetWidth
+// `inDraw`: called from imageForBounds:, whose draw returns a cached image itself.
+- (void)processAndApplyImage:(RCTUIImage *)image withTargetWidth:(CGFloat)targetWidth inDraw:(BOOL)inDraw
 {
   if (targetWidth <= 0)
     return;
@@ -302,7 +310,9 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
 
   if (cachedProcessed) {
     self.loadedImage = cachedProcessed;
-    [self refreshDisplay];
+    if (!inDraw) {
+      [self refreshDisplay];
+    }
     return;
   }
 
@@ -435,7 +445,7 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
   NSRange range = [self findAttachmentRangeInText:textView.textStorage];
   if (range.location != NSNotFound) {
     [textView.layoutManager invalidateDisplayForCharacterRange:range];
-    if (!self.isInline || inlineSizeChanged) {
+    if (inlineSizeChanged || (!self.isInline && [self boxTakesImageHeight])) {
       [textView.layoutManager invalidateLayoutForCharacterRange:range actualCharacterRange:NULL];
     }
     if (inlineSizeChanged) {
@@ -453,12 +463,17 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
 // re-measuring would re-enter the layout manager.
 - (void)notifyImageLayoutObserver:(ENRMPlatformTextView *)textView
 {
-  // Only maxHeight/aspectRatio boxes can change height after load; a fixed
-  // height box (legacy or explicit resizeMode) never needs a re-measure.
-  if (self.cachedMaxHeight <= 0 && self.cachedAspectRatio <= 0)
+  if (![self boxTakesImageHeight])
     return;
 
   [self postImageLayoutResolved:textView];
+}
+
+// Only maxHeight/aspectRatio boxes can change height after load; a fixed
+// height box (legacy or explicit resizeMode) never lays out again.
+- (BOOL)boxTakesImageHeight
+{
+  return self.cachedMaxHeight > 0 || self.cachedAspectRatio > 0;
 }
 
 - (void)postImageLayoutResolved:(ENRMPlatformTextView *)textView

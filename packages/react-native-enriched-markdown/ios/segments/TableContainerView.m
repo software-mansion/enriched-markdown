@@ -299,8 +299,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   // a single drawRect: pass (no subview / layer compositing issues).
   ENRMTableGridView *gridView = [[ENRMTableGridView alloc] initWithFrame:CGRectZero];
   __weak TableContainerView *weakSelf = self;
-  gridView.menuProvider = ^NSMenu *
-  {
+  gridView.menuProvider = ^NSMenu * {
     TableContainerView *strongSelf = weakSelf;
     if (!strongSelf || !strongSelf.dynamicProps.enableBlockContextMenu)
       return nil;
@@ -352,10 +351,19 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   }
   [(ENRMTableIOSGridView *)_gridContainer fadeInRowsFrom:previousRowCount duration:duration];
 }
+
+- (void)finishRowFade
+{
+  [_gridContainer.layer removeAllAnimations];
+}
 #else
 - (void)animateNewRowsFromPreviousCount:(NSUInteger)previousRowCount duration:(NSTimeInterval)duration
 {
   // No-op on macOS
+}
+
+- (void)finishRowFade
+{
 }
 #endif
 

@@ -57,6 +57,8 @@ typedef void (^TableLinkPressBlock)(NSString *url);
 @property (nonatomic, readonly) NSUInteger rowCount;
 
 - (void)animateNewRowsFromPreviousCount:(NSUInteger)previousRowCount duration:(NSTimeInterval)duration;
+/// Shows rows that are still fading in at once.
+- (void)finishRowFade;
 
 @end
 

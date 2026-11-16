@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { EnrichedMarkdownTextProps } from '../types/MarkdownTextProps.web';
+import { useMarkdownStreamSnapshot } from '../markdownStream';
 import { normalizeMarkdownStyle } from '../normalizeMarkdownStyle.web';
 import {
   zeroTrailingMargins,
@@ -46,7 +47,8 @@ interface ParseResult {
 const isParserReadyOnServer = () => false;
 
 export const EnrichedMarkdownText = ({
-  markdown,
+  markdown: markdownProp = '',
+  stream,
   markdownStyle = {},
   md4cFlags = {},
   linkRecognition,
@@ -67,6 +69,8 @@ export const EnrichedMarkdownText = ({
   testID,
   ...rest
 }: EnrichedMarkdownTextProps) => {
+  const streamSnapshot = useMarkdownStreamSnapshot(stream);
+  const markdown = streamSnapshot?.text ?? markdownProp;
   const normalizedStyle = useMemo(
     () => normalizeMarkdownStyle(markdownStyle),
     [markdownStyle]

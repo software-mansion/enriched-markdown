@@ -7,10 +7,16 @@ class EnrichedMarkdownTextLayoutManager(
 ) {
   private var forceHeightRecalculationCounter = 0
 
-  fun invalidateLayout() {
-    val text = view.text
-    val paint = view.paint
-    val heightChanged = MeasurementStore.store(view.id, text, paint, view.trailingMarginBottomPx())
+  /**
+   * [changedFrom] is where the shown text changed. While streaming, the size comes from the
+   * view's own layout, which reflowed only the edit; measuring would lay all the text out again.
+   */
+  fun invalidateLayout(changedFrom: Int = 0) {
+    // Justified lines measure their natural width in the measurement's layout, not the view's.
+    val layout = view.layout.takeIf { view.isStreaming && !view.isJustified }
+    val heightChanged =
+      layout?.let { MeasurementStore.storeLaidOut(view.id, it, changedFrom, view.trailingMarginBottomPx(), view.renderedMarkdown) }
+        ?: MeasurementStore.store(view.id, view.text, view.paint, view.trailingMarginBottomPx(), view.renderedMarkdown)
     if (!heightChanged) return
     val stateWrapper = view.stateWrapper ?: return
     val state = Arguments.createMap()

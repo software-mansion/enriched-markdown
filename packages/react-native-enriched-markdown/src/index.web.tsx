@@ -1,5 +1,7 @@
 export { EnrichedMarkdownText, default } from './web/EnrichedMarkdownText';
 export { EnrichedMarkdownTextInput } from './EnrichedMarkdownTextInput.web';
+export { createMarkdownStream } from './markdownStream';
+export type { MarkdownStream } from './markdownStream';
 export type {
   CaretRect,
   EnrichedMarkdownTextInputInstance,

@@ -4,10 +4,13 @@
 #import "ENRMImageAttachment.h"
 #import "ENRMMarkdownTextView.h"
 #import "ENRMSpoilerOverlayManager.h"
+#import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
+#import "ENRMTextViewport.h"
 #import "MarkdownAccessibilityElementBuilder.h"
 #import "MarkdownExtractor.h"
 #import "PasteboardUtils.h"
+#import "RenderedMarkdownSegment.h"
 #import "RuntimeKeys.h"
 #include <TargetConditionals.h>
 
@@ -23,6 +26,7 @@
 #endif
   BOOL _accessibilityNeedsRebuild;
   ENRMSpoilerOverlayManager *_spoilerManager;
+  ENRMTextViewport *_viewport;
 }
 
 @synthesize textView = _textView;
@@ -69,6 +73,8 @@
 
   _spoilerManager = [[ENRMSpoilerOverlayManager alloc] initWithTextView:_textView config:_config];
   _spoilerManager.spoilerOverlay = _spoilerOverlay;
+
+  _viewport = [[ENRMTextViewport alloc] initWithTextView:_textView];
 }
 
 - (void)setupLayoutManager
@@ -84,10 +90,7 @@
 
 - (void)applyAttributedText:(NSMutableAttributedString *)text context:(RenderContext *)context
 {
-  NSLayoutManager *layoutManager = _textView.layoutManager;
-  if ([layoutManager isKindOfClass:[TextViewLayoutManager class]]) {
-    [layoutManager setValue:_config forKey:@"config"];
-  }
+  ENRMSetLayoutManagerConfig(_textView.layoutManager, _config);
 
   objc_setAssociatedObject(_textView.textContainer, kTextViewKey, _textView, OBJC_ASSOCIATION_ASSIGN);
 
@@ -107,6 +110,25 @@
   ENRMSetNeedsDisplay(_textView);
 }
 
+- (void)applyAttributedTextPatch:(NSAttributedString *)tail from:(NSUInteger)start
+{
+  _accessibilityElements = nil;
+  _accessibilityNeedsRebuild = YES;
+
+  NSTextStorage *storage = _textView.textStorage;
+  [storage beginEditing];
+  [storage replaceCharactersInRange:NSMakeRange(start, storage.length - start) withAttributedString:tail];
+  [storage endEditing];
+
+  [_spoilerManager setNeedsUpdate];
+  [self setNeedsLayout];
+
+#if !TARGET_OS_OSX
+  [_textView setNeedsLayout];
+#endif
+  ENRMSetNeedsDisplay(_textView);
+}
+
 - (CGFloat)measureHeight:(CGFloat)maxWidth
 {
   return [self measureSize:maxWidth].height;
@@ -114,15 +136,45 @@
 
 - (CGSize)measureSize:(CGFloat)maxWidth
 {
-  return ENRMMeasureMarkdownText(_textView, maxWidth, _config, _allowTrailingMargin, _lastElementMarginBottom);
+  return ENRMMeasureMarkdownText(_viewport, _textView, maxWidth, _config, _allowTrailingMargin,
+                                 _lastElementMarginBottom);
 }
 
 - (void)layoutSubviews
 {
   [super layoutSubviews];
-  _textView.frame = self.bounds;
+  _viewport.contentFrame = self.bounds;
 
   [_spoilerManager updateIfNeeded];
+}
+
+#if !TARGET_OS_OSX
+- (void)didMoveToWindow
+{
+  [super didMoveToWindow];
+  [_viewport update];
+}
+#endif
+
+- (void)setVisibleArea:(ENRMVisibleArea *)visibleArea
+{
+  _viewport.visibleArea = visibleArea;
+}
+
+- (ENRMVisibleArea *)visibleArea
+{
+  return _viewport.visibleArea;
+}
+
+- (void)updateViewport
+{
+  [_viewport update];
+}
+
+- (void)refreshAfterWindowAttach
+{
+  _viewport.contentFrame = self.bounds;
+  [_viewport refreshLayout];
 }
 
 // An attachment that settles after render (an image's box, a link pill giving up its icon
@@ -195,3 +247,22 @@
 #endif
 
 @end
+
+NSIndexSet *ENRMSyncTextRevisions(NSArray<ENRMRenderedSegment *> *segments, NSArray<RCTUIView *> *views)
+{
+  NSMutableIndexSet *missedPatches = [NSMutableIndexSet indexSet];
+  for (NSUInteger i = 0; i < segments.count && i < views.count; i++) {
+    ENRMRenderedSegment *segment = segments[i];
+    EnrichedMarkdownInternalText *view = (EnrichedMarkdownInternalText *)views[i];
+    if (segment.kind != ENRMSegmentKindText || ![view isKindOfClass:[EnrichedMarkdownInternalText class]] ||
+        view.renderedRevision == segment.textResult.revision) {
+      continue;
+    }
+    if (segment.textResult.attributedText) {
+      view.renderedRevision = segment.textResult.revision;
+    } else {
+      [missedPatches addIndex:i];
+    }
+  }
+  return missedPatches;
+}

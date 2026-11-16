@@ -1,12 +1,12 @@
 /*
- * Streams every fixture one byte at a time through the filter and parses each
- * prefix with md4c: image, link and video syntax that the whole document
- * parses as syntax must never reach the screen as literal text while it
- * streams. md4c is the oracle, so the filter cannot drift from the parser.
- * See scripts/test-core-parser.sh.
+ * Streams every fixture one byte at a time through the streaming session and
+ * parses each snapshot with md4c: image, link and video syntax that the whole
+ * document parses as syntax must never reach the screen as literal text while
+ * it streams. md4c is the oracle, so the filter and repair cannot drift from
+ * the parser. See scripts/test-core-parser.sh.
  */
 #include "MD4CParser.hpp"
-#include "StreamingFilter.hpp"
+#include "StreamingSession.hpp"
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -98,15 +98,15 @@ int checkDocument(const std::string &name, const std::string &document) {
     collectText(*root, wholeText);
   int failures = 0;
   for (StreamingBlockMode mode : {StreamingBlockMode::Progressive, StreamingBlockMode::Hidden}) {
-    Markdown::StreamingFilterOptions options;
-    options.mediaMode = mode;
-    options.tableMode = mode;
+    Markdown::StreamingOptions options;
+    options.blocks.mediaMode = mode;
+    options.blocks.tableMode = mode;
     for (size_t length = 1; length <= document.size() && failures < 5; length++) {
       if ((static_cast<unsigned char>(document[length - 1]) & 0xC0) == 0x80)
         continue; // inside a UTF-8 sequence
       std::string prefix = document.substr(0, length);
-      std::string filtered = Markdown::renderableMarkdownForStreaming(prefix, options).markdown;
-      auto root = parser.parse(filtered);
+      std::string snapshot = Markdown::streamingSnapshot(prefix, options).markdown;
+      auto root = parser.parse(snapshot);
       if (!root)
         continue;
       std::string text;

@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.os.Build
 import android.text.Layout
+import android.text.Spannable
 import android.util.AttributeSet
 import android.view.MotionEvent
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
@@ -77,6 +78,9 @@ class EnrichedMarkdownInternalText
         )
     }
 
+    /** The revision of the text this view shows (see RenderedSegment.Text.revision). */
+    var renderedRevision = 0L
+
     fun applyStyledText(styledText: CharSequence) {
       text = styledText
 
@@ -86,6 +90,16 @@ class EnrichedMarkdownInternalText
 
       spoilerOverlayDrawer = SpoilerOverlayDrawer.setupIfNeeded(this, styledText, spoilerOverlayDrawer, spoilerOverlay)
       accessibilityHelper.invalidateAccessibilityItems()
+    }
+
+    /** [applyStyledText] for a patch to the text shown (see [replaceTextTail]). */
+    fun applyStyledTextPatch(
+      start: Int,
+      tail: Spannable,
+    ): Boolean {
+      if (!replaceTextTail(start, tail)) return false
+      spoilerOverlayDrawer = SpoilerOverlayDrawer.setupIfNeeded(this, text, spoilerOverlayDrawer, spoilerOverlay)
+      return true
     }
 
     override fun onDraw(canvas: Canvas) {
