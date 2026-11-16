@@ -27,6 +27,8 @@ import com.swmansion.enriched.markdown.segments.RenderedSegment
 import com.swmansion.enriched.markdown.segments.SegmentHeightMeasurer
 import com.swmansion.enriched.markdown.segments.TableContainerView
 import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
+import com.swmansion.enriched.markdown.spans.ImageSpan
+import com.swmansion.enriched.markdown.spans.LinkPillSpan
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.spans.MathMeasureRequest
 import com.swmansion.enriched.markdown.spans.MathMetrics
@@ -103,7 +105,11 @@ object MeasurementStore {
     val size: Long,
     val markdown: String,
     val slots: List<SlotLayoutReuse.ShownSlot> = emptyList(),
-  )
+    // Laid out as at any wider width (laysOutAtAnyWiderWidth): a view hugging its content.
+    val fitsWiderWidths: Boolean = false,
+  ) {
+    fun isFor(width: Float) = abs(widthPx - width) < 1f || (fitsWiderWidths && width > widthPx)
+  }
 
   // A slot child's frame as the walk placed it, px within the host's content box.
   private data class SlotFrame(
@@ -326,7 +332,10 @@ object MeasurementStore {
   ): Boolean? {
     val cached = data[id] ?: return null
     val width = cached.cachedWidth
-    if (width <= 0f || resolveMaxLines(id) > 0 || layout.width != ceil(width).toInt().coerceAtLeast(1)) return null
+    if (width <= 0f || resolveMaxLines(id) > 0) return null
+    val measuredLayoutWidth = ceil(width).toInt().coerceAtLeast(1)
+    val hugs = layout.width < measuredLayoutWidth && laysOutAtAnyWiderWidth(layout)
+    if (layout.width != measuredLayoutWidth && !hugs) return null
 
     val lineCount = layout.lineCount
     val previousWidths = laidOutLines[id]?.takeIf { it.widthPx == layout.width }?.widths
@@ -352,8 +361,28 @@ object MeasurementStore {
         PixelUtil.toDIPFromPixel(height) + PixelUtil.toDIPFromPixel(trailingMarginBottomPx),
       )
     data[id] = cached.copy(cachedSize = newSize, spannable = null)
-    laidOutSizes[id] = LaidOutSize(width, newSize, renderedMarkdown)
+    laidOutSizes[id] =
+      if (hugs) {
+        LaidOutSize(layout.width.toFloat(), newSize, renderedMarkdown, fitsWiderWidths = true)
+      } else {
+        LaidOutSize(width, newSize, renderedMarkdown)
+      }
     return cached.cachedSize != newSize
+  }
+
+  /**
+   * Whether [layout] lays its text out as any wider layout would: no line wraps for the width and
+   * nothing in it is sized to the width.
+   */
+  internal fun laysOutAtAnyWiderWidth(layout: Layout): Boolean {
+    val text = layout.text
+    for (line in 0 until layout.lineCount - 1) {
+      val end = layout.getLineEnd(line)
+      if (end <= 0 || text[end - 1] != '\n') return false
+    }
+    val spanned = text as? Spanned ?: return true
+    return spanned.getSpans(0, spanned.length, ImageSpan::class.java).isEmpty() &&
+      spanned.getSpans(0, spanned.length, LinkPillSpan::class.java).isEmpty()
   }
 
   /** The content size [id]'s view laid out [markdown] at, laid out for [widthPx]. */
@@ -363,8 +392,9 @@ object MeasurementStore {
     size: Long,
     markdown: String,
     slots: List<SlotLayoutReuse.ShownSlot> = emptyList(),
+    fitsWiderWidths: Boolean = false,
   ) {
-    laidOutSizes[id] = LaidOutSize(widthPx, size, markdown, slots)
+    laidOutSizes[id] = LaidOutSize(widthPx, size, markdown, slots, fitsWiderWidths)
   }
 
   fun clearLaidOutSize(id: Int) {
@@ -589,7 +619,7 @@ object MeasurementStore {
     val markdown = input.markdown
     val laidOut =
       published?.takeIf {
-        abs(it.widthPx - width) < 1f && it.markdown.length < markdown.length && markdownExtends(it.markdown, markdown)
+        it.isFor(width) && it.markdown.length < markdown.length && markdownExtends(it.markdown, markdown)
       } ?: return null
     val height = YogaMeasureOutput.getHeight(laidOut.size)
     return if (height < YogaMeasureOutput.getHeight(full)) YogaMeasureOutput.make(YogaMeasureOutput.getWidth(full), height) else null
@@ -656,7 +686,7 @@ object MeasurementStore {
 
     val previous = previousInputs.put(id, MeasuredInputs(markdown, layoutKey, width)) ?: return null
     // The view's size counts for an earlier state of this stream, not a document it replaced.
-    val laidOut = laidOutSizes[id]?.takeIf { abs(it.widthPx - width) < 1f && markdownExtends(it.markdown, markdown) }
+    val laidOut = laidOutSizes[id]?.takeIf { it.isFor(width) && markdownExtends(it.markdown, markdown) }
     val source =
       chooseMeasurement(
         streamUpdate = previous.layoutKey == layoutKey && markdownExtends(previous.markdown, markdown),
@@ -668,7 +698,8 @@ object MeasurementStore {
           laidOut != null &&
             (laidOut.markdown == markdown || ((input.config.smooth || previous.fromLaidOut) && laidOut.size != previous.size)),
         hasLaidOutSize = laidOut != null,
-        samePreviousWidth = previous.size != null && previous.widthPx == width,
+        // An answer the view's size gave stands only while that size does.
+        samePreviousWidth = previous.size != null && previous.widthPx == width && (laidOut != null || !previous.fromLaidOut),
       )
     val size =
       when (source) {
@@ -723,7 +754,7 @@ object MeasurementStore {
     }
     // Every slot was placed by the last walk.
     if (previous.frames.size != slotIds.size) return null
-    val laidOut = laidOutSizes[id]?.takeIf { abs(it.widthPx - width) < 1f && markdownExtends(it.markdown, markdown) } ?: return null
+    val laidOut = laidOutSizes[id]?.takeIf { it.isFor(width) && markdownExtends(it.markdown, markdown) } ?: return null
     // A shown slot takes the view's position (SlotLayoutReuse). Measuring a child again records its
     // frame there for the shadow node.
     val shownY = previous.frames.map { frame -> laidOut.slots.firstOrNull { it.id == frame.id }?.y ?: frame.y }

@@ -108,6 +108,23 @@ class LaidOutMeasurementTest {
     assertNull(MeasurementStore.storeLaidOut(viewId, layoutOf(text), 0, 0f, ""))
   }
 
+  // Measured with an upper limit, the view hugs its widest line: its own layout is narrower.
+  @Test
+  fun aViewHuggingTextThatNoWidthWrapsStoresItsSize() {
+    val text = SpannableStringBuilder("short\nlines only")
+    measureAt(viewId)
+    measureAt(referenceId)
+    val hugged = (0 until layoutOf(text).lineCount).maxOf { layoutOf(text).getLineWidth(it) }.toInt() + 1
+
+    assertNotNull(MeasurementStore.storeLaidOut(viewId, layoutOf(text, hugged), 0, 0f, text.toString()))
+    MeasurementStore.store(referenceId, SpannableStringBuilder(text), paint)
+    assertEquals(storedSize(referenceId), storedSize(viewId))
+
+    // Grown into a line that wraps at the hugged width, but not at the measured one.
+    text.append(" and then a much longer line")
+    assertNull(MeasurementStore.storeLaidOut(viewId, layoutOf(text, hugged), 0, 0f, text.toString()))
+  }
+
   private companion object {
     const val WIDTH = 300
     const val TRAILING_MARGIN_PX = 12f

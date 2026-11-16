@@ -67,6 +67,7 @@ import java.util.EnumSet
 import java.util.WeakHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.math.ceil
 
 class EnrichedMarkdown(
   context: Context,
@@ -1165,13 +1166,29 @@ class EnrichedMarkdown(
     val contentWidth = (width - paddingLeft - paddingRight).toFloat()
     val (contentHeightPx, slots) = reservedSlotLayout()
     val contentHeight = contentHeightPx.toFloat()
+    val hugged = huggedContentWidthPx(contentWidth)
     MeasurementStore.storeLaidOutSize(
       id,
       contentWidth,
-      YogaMeasureOutput.make(PixelUtil.toDIPFromPixel(contentWidth), PixelUtil.toDIPFromPixel(contentHeight)),
+      YogaMeasureOutput.make(PixelUtil.toDIPFromPixel(hugged ?: contentWidth), PixelUtil.toDIPFromPixel(contentHeight)),
       laidOutMarkdown,
       slots,
+      fitsWiderWidths = hugged != null,
     )
+  }
+
+  // Narrower than it was measured at, with only text that lays out as at any wider width: the
+  // widest line, as a measurement at a wider width returns it.
+  private fun huggedContentWidthPx(contentWidth: Float): Float? {
+    val measuredWidth = MeasurementStore.contentBoxWidthPx(id) ?: return null
+    if (contentWidth + 1f >= measuredWidth) return null
+    var widest = 0f
+    for (view in segmentViews) {
+      val layout = (view as? EnrichedMarkdownInternalText)?.layout ?: return null
+      if (!MeasurementStore.laysOutAtAnyWiderWidth(layout)) return null
+      for (line in 0 until layout.lineCount) widest = maxOf(widest, ceil(layout.getLineWidth(line)))
+    }
+    return widest
   }
 
   /** A root slot getting its first height while streaming grows into place ([BlockSlotRevealController]). */

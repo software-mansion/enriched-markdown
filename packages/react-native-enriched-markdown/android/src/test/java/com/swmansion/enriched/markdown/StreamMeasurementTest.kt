@@ -217,6 +217,33 @@ class StreamMeasurementTest {
     assertNull(streamUpdate("Streaming on"))
   }
 
+  // Measured with an upper limit of 320 px, the view hugs its widest line and lays out at 304.
+  @Test
+  fun aViewHuggingItsContentTakesTheShortcut() {
+    var markdown = "Hi"
+    streamUpdate(markdown, width = 320f)
+    MeasurementStore.storeLaidOutSize(viewId, 304f, laidOut, markdown, fitsWiderWidths = true)
+    repeat(10) {
+      markdown += " there"
+      assertEquals(laidOut, streamUpdate(markdown, width = 320f))
+      MeasurementStore.storeLaidOutSize(viewId, 304f, laidOut, markdown, fitsWiderWidths = true)
+    }
+  }
+
+  // A line that now wraps at the view's width might not at the measured one.
+  @Test
+  fun aHuggingViewWhoseTextWrapsMeasuresInFull() {
+    MeasurementStore.storeLaidOutSize(viewId, 304f, laidOut, "Hi", fitsWiderWidths = true)
+    streamUpdate("Hi", width = 320f)
+    assertEquals(laidOut, streamUpdate("Hi there", width = 320f))
+    MeasurementStore.storeLaidOutSize(viewId, 304f, YogaMeasureOutput.make(304f, 2480f), "Hi there")
+
+    assertNull(streamUpdate("Hi there", width = 320f))
+    // Nor does a size laid out for any wider width serve a narrower one.
+    MeasurementStore.storeLaidOutSize(viewId, 304f, laidOut, "Hi there", fitsWiderWidths = true)
+    assertNull(streamUpdate("Hi there, you", width = 280f))
+  }
+
   @Test
   fun onlyMarkdownThatKeepsAllOfThePreviousExtendsIt() {
     assertTrue(MeasurementStore.markdownExtends("Same", "Same and more"))
