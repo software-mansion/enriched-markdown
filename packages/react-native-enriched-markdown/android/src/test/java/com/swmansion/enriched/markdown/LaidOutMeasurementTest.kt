@@ -1,16 +1,20 @@
 package com.swmansion.enriched.markdown
 
 import android.graphics.Paint
+import android.graphics.Typeface
 import android.text.DynamicLayout
 import android.text.Layout
 import android.text.SpannableStringBuilder
 import android.text.TextPaint
+import com.facebook.react.bridge.JavaOnlyMap
 import com.facebook.react.uimanager.DisplayMetricsHolder
+import com.facebook.yoga.YogaMeasureOutput
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -123,6 +127,60 @@ class LaidOutMeasurementTest {
     // Grown into a line that wraps at the hugged width, but not at the measured one.
     text.append(" and then a much longer line")
     assertNull(MeasurementStore.storeLaidOut(viewId, layoutOf(text, hugged), 0, 0f, text.toString()))
+  }
+
+  // What the shadow node's measurement at [width] does for a stream's update: the shortcut, or a
+  // full measurement (modelled: the JVM has no native parser) of the size [full] gives.
+  private fun measureStream(
+    markdown: String,
+    width: Float,
+    full: () -> Long,
+  ): Long {
+    val props = JavaOnlyMap.of("markdown", markdown, "markdownStyle", JavaOnlyMap(), "streaming", true)
+    MeasurementStore.laidOutSizeForStreamUpdate(viewId, width, measureInputOf(props), false, true, 1f, 0f, 1f, false)?.let {
+      return it
+    }
+    val size = full()
+    MeasurementStore.data[viewId] =
+      MeasurementStore.MeasurementParams(width, size, null, MeasurementStore.PaintParams(Typeface.DEFAULT, 40f), 0)
+    MeasurementStore.recordMeasured(viewId, width, size)
+    return size
+  }
+
+  private fun fullSizeAt(
+    state: String,
+    width: Float,
+  ): Long {
+    measureAt(referenceId, width)
+    MeasurementStore.store(referenceId, SpannableStringBuilder(state), paint)
+    return storedSize(referenceId)
+  }
+
+  // A row's flexShrink text: Yoga measures its flex basis, then the width it shrinks to and lays
+  // it out at. The view's size goes against that width, and the height it holds is never stale.
+  @Test
+  fun aViewMeasuredAtItsBasisAndItsWidthStoresAgainstItsWidth() {
+    for (basis in listOf(Float.POSITIVE_INFINITY, 1080f)) {
+      val text = SpannableStringBuilder()
+      val layout = layoutOf(text)
+      for (state in growing) {
+        fun measurePass(): Long {
+          measureStream(state, basis) { YogaMeasureOutput.make(900f, 40f) }
+          return measureStream(state, WIDTH.toFloat()) { fullSizeAt(state, WIDTH.toFloat()) }
+        }
+        var held = measurePass()
+        text.replace(0, text.length, state)
+
+        val changed = MeasurementStore.storeLaidOut(viewId, layout, 0, 0f, state)
+        assertNotNull("basis $basis: fell back to store() for '$state'", changed)
+        assertEquals(WIDTH.toFloat(), MeasurementStore.contentBoxWidthPx(viewId))
+        // A height update asks Yoga to measure again.
+        if (changed == true) held = measurePass()
+        assertEquals("basis $basis: '$state'", fullSizeAt(state, WIDTH.toFloat()), held)
+      }
+      assertTrue(layout.lineCount > 1)
+      release()
+    }
   }
 
   private companion object {

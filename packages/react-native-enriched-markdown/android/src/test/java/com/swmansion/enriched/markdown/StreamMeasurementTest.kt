@@ -41,7 +41,10 @@ class StreamMeasurementTest {
     return MeasurementStore.laidOutSizeForStreamUpdate(viewId, width, measureInputOf(props), true, true, 1f, 0f, density, rtl)
   }
 
-  private fun recordMeasured(size: Long) = MeasurementStore.recordMeasured(viewId, size)
+  private fun recordMeasured(
+    size: Long,
+    width: Float = widthPx,
+  ) = MeasurementStore.recordMeasured(viewId, width, size)
 
   private fun revealedSize(
     markdown: String,
@@ -242,6 +245,23 @@ class StreamMeasurementTest {
     // Nor does a size laid out for any wider width serve a narrower one.
     MeasurementStore.storeLaidOutSize(viewId, 304f, laidOut, "Hi there", fitsWiderWidths = true)
     assertNull(streamUpdate("Hi there, you", width = 280f))
+  }
+
+  // A row's flexShrink text: Yoga measures its flex basis, then the width it shrinks to.
+  @Test
+  fun aNodeMeasuredAtItsBasisAndItsWidthTakesTheShortcutAtItsWidth() {
+    for (basis in listOf(Float.POSITIVE_INFINITY, 1080f)) {
+      var markdown = "Hi"
+      repeat(10) { update ->
+        markdown += " there"
+        if (streamUpdate(markdown, width = basis) == null) recordMeasured(YogaMeasureOutput.make(900f, 40f), basis)
+        val atWidth = streamUpdate(markdown, width = 320f)
+        if (update > 0) assertEquals("basis $basis, update $update", laidOut, atWidth)
+        if (atWidth == null) recordMeasured(laidOut, 320f)
+        MeasurementStore.storeLaidOutSize(viewId, 320f, laidOut, markdown)
+      }
+      MeasurementStore.release(viewId)
+    }
   }
 
   @Test

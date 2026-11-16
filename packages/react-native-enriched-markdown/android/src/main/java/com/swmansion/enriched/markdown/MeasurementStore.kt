@@ -172,7 +172,19 @@ object MeasurementStore {
   )
 
   private val laidOutLines = ConcurrentHashMap<Int, LaidOutLines>()
-  private val previousInputs = ConcurrentHashMap<Int, MeasuredInputs>()
+
+  // At each view's last two widths, the latest first: Yoga can measure a node twice a pass (its
+  // flex basis, then the width it shrinks to).
+  private val previousInputs = ConcurrentHashMap<Int, List<MeasuredInputs>>()
+
+  // Each view's last measurement, a shortcut's too: the width the view lays out at, and the size
+  // its own layout is compared with.
+  private data class Measured(
+    val widthPx: Float,
+    val size: Long,
+  )
+
+  private val lastMeasured = ConcurrentHashMap<Int, Measured>()
 
   private fun resolveFontScalingSettings(
     viewId: Int?,
@@ -295,8 +307,9 @@ object MeasurementStore {
     renderedMarkdown: String = "",
   ): Boolean {
     val cached = data[id]
-    val width = cached?.cachedWidth ?: 0f
-    val oldSize = cached?.cachedSize ?: 0L
+    val last = lastMeasured[id]
+    val width = last?.widthPx ?: cached?.cachedWidth ?: 0f
+    val oldSize = last?.size ?: cached?.cachedSize ?: 0L
     val existingHash = cached?.markdownHash ?: 0
     val paintParams = PaintParams(paint.typeface ?: Typeface.DEFAULT, paint.textSize)
 
@@ -312,6 +325,8 @@ object MeasurementStore {
         )
     }
     data[id] = MeasurementParams(width, newSize, keptText, paintParams, existingHash)
+    // Only if no measurement at another width landed meanwhile.
+    if (last != null) lastMeasured.replace(id, last, Measured(width, newSize))
     laidOutLines.remove(id)
     // Without the width the last measurement offered, the size isn't laid out for
     // it: the next measurement goes the full way and brings the width back.
@@ -331,7 +346,8 @@ object MeasurementStore {
     renderedMarkdown: String,
   ): Boolean? {
     val cached = data[id] ?: return null
-    val width = cached.cachedWidth
+    val last = lastMeasured[id]
+    val width = last?.widthPx ?: cached.cachedWidth
     if (width <= 0f || resolveMaxLines(id) > 0) return null
     val measuredLayoutWidth = ceil(width).toInt().coerceAtLeast(1)
     val hugs = layout.width < measuredLayoutWidth && laysOutAtAnyWiderWidth(layout)
@@ -360,14 +376,15 @@ object MeasurementStore {
         PixelUtil.toDIPFromPixel(ceil(widths.lastOrNull() ?: 0f)),
         PixelUtil.toDIPFromPixel(height) + PixelUtil.toDIPFromPixel(trailingMarginBottomPx),
       )
-    data[id] = cached.copy(cachedSize = newSize, spannable = null)
+    data[id] = cached.copy(cachedWidth = width, cachedSize = newSize, spannable = null)
+    if (last != null) lastMeasured.replace(id, last, Measured(width, newSize))
     laidOutSizes[id] =
       if (hugs) {
         LaidOutSize(layout.width.toFloat(), newSize, renderedMarkdown, fitsWiderWidths = true)
       } else {
         LaidOutSize(width, newSize, renderedMarkdown)
       }
-    return cached.cachedSize != newSize
+    return (last?.size ?: cached.cachedSize) != newSize
   }
 
   /**
@@ -406,6 +423,7 @@ object MeasurementStore {
     laidOutSizes.remove(id)
     laidOutLines.remove(id)
     previousInputs.remove(id)
+    lastMeasured.remove(id)
     slotMeasurements.remove(id)
     measuredMarkdown.remove(id)
     breakStrategies.remove(id)
@@ -424,10 +442,11 @@ object MeasurementStore {
 
   fun invalidate(id: Int) {
     data.remove(id)
+    lastMeasured.remove(id)
   }
 
   // Content-box width (px) the measure pass last wrapped at; the display view insets to match (#805).
-  fun contentBoxWidthPx(id: Int): Float? = data[id]?.cachedWidth
+  fun contentBoxWidthPx(id: Int): Float? = lastMeasured[id]?.widthPx ?: data[id]?.cachedWidth
 
   /** Main entry point for ShadowNode measurement. */
   fun getMeasureById(
@@ -561,7 +580,7 @@ object MeasurementStore {
           )
         }
       if (id != null && layoutKey != null) {
-        slotStreamUpdate(id, width, input, layoutKey, blockSlotIds)?.let { return it }
+        slotStreamUpdate(id, width, input, layoutKey, blockSlotIds)?.let { return it.also { size -> recordMeasured(id, width, size) } }
       }
       val frames = mutableListOf<SlotFrame>()
       // A slot child can hold a document with slots of its own, measured within this walk.
@@ -580,7 +599,7 @@ object MeasurementStore {
       } else if (id != null) {
         slotMeasurements.remove(id)
       }
-      return revealedSize(id, width, input, full) ?: full
+      return (revealedSize(id, width, input, full) ?: full).also { if (id != null) recordMeasured(id, width, it) }
     }
     slotMeasurements.remove(id)
     laidOutSizeForStreamUpdate(
@@ -595,7 +614,7 @@ object MeasurementStore {
       context.resources.isLayoutRTL(),
     )?.let { return it }
     return measureInFull(context, id, width, input, splitTableSegments, blockSlotIds, allowFontScaling, fontScale, maxFontSizeMultiplier)
-      .also { recordMeasured(id, it) }
+      .also { recordMeasured(id, width, it) }
   }
 
   // With smooth pacing the view shows only a start of the markdown, the slots' blocks arriving with
@@ -684,7 +703,13 @@ object MeasurementStore {
     val markdown = input.markdown
     val layoutKey = streamLayoutKey(id, input, splitTableSegments, allowFontScaling, fontScale, maxFontSizeMultiplier, density, rtl)
 
-    val previous = previousInputs.put(id, MeasuredInputs(markdown, layoutKey, width)) ?: return null
+    val inputs = MeasuredInputs(markdown, layoutKey, width)
+    var earlier: List<MeasuredInputs>? = null
+    previousInputs.compute(id) { _, list ->
+      earlier = list
+      listOf(inputs) + list.orEmpty().filter { it.widthPx != width }.take(1)
+    }
+    val previous = earlier?.let { list -> list.firstOrNull { it.widthPx == width } ?: list.firstOrNull() } ?: return null
     // The view's size counts for an earlier state of this stream, not a document it replaced.
     val laidOut = laidOutSizes[id]?.takeIf { it.isFor(width) && markdownExtends(it.markdown, markdown) }
     val source =
@@ -708,7 +733,7 @@ object MeasurementStore {
         MeasurementSource.FULL -> null
       } ?: return null
     val fromLaidOut = source == MeasurementSource.LAID_OUT || (source == MeasurementSource.PREVIOUS && previous.fromLaidOut)
-    recordMeasured(id, size, fromLaidOut)
+    recordMeasured(id, width, size, fromLaidOut)
     return size
   }
 
@@ -806,10 +831,14 @@ object MeasurementStore {
   // Remembers what the measurement of [id] returned, for the next one to compare with.
   internal fun recordMeasured(
     id: Int,
+    width: Float,
     size: Long,
     fromLaidOut: Boolean = false,
   ) {
-    previousInputs.computeIfPresent(id) { _, inputs -> inputs.copy(size = size, fromLaidOut = fromLaidOut) }
+    lastMeasured[id] = Measured(width, size)
+    previousInputs.computeIfPresent(
+      id,
+    ) { _, inputs -> listOf(inputs.first().copy(size = size, fromLaidOut = fromLaidOut)) + inputs.drop(1) }
   }
 
   /** Whether [current] keeps all of [previous] and only adds to it, as every update of a stream does. */
