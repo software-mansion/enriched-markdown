@@ -63,7 +63,12 @@ struct InlineBackground: Hashable {
         let style = output.attribute(.paragraphStyle, at: paragraph.location, effectiveRange: nil) as? NSParagraphStyle
         var natural: CGFloat = 0
         var needed: CGFloat = 0
+        var inlineImages: [MarkdownImageAttachment] = []
         output.enumerateAttributes(in: paragraph, options: []) { attributes, _, _ in
+            if let image = attributes[.attachment] as? MarkdownImageAttachment, image.isInline {
+                inlineImages.append(image)
+                return
+            }
             guard let font = attributes[.font] as? UIFont else { return }
             let height = ParagraphStyleHelpers.typographicLineHeight(for: font)
             natural = max(natural, height)
@@ -76,6 +81,7 @@ struct InlineBackground: Hashable {
         let target = max(needed, ceil(natural))
         guard target > current else { return }
         output.removeAttribute(.baselineOffset, range: paragraph)
+        inlineImages.forEach { $0.lineHeightOffset = nil }
         ParagraphStyleHelpers.applyBlockLineHeight(to: output, range: paragraph, lineHeight: target)
     }
 

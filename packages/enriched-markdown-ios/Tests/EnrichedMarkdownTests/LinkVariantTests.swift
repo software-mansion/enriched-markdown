@@ -371,6 +371,33 @@ final class LinkVariantTests: XCTestCase {
         XCTAssertEqual(style.maximumLineHeight, 26)
     }
 
+    func testAGrownLineRaisesItsInlineImagesWithTheText() throws {
+        config.paragraph.lineHeight = 26
+        config.linkVariants = [LinkVariantStyle(pattern: "^user:", style: ElementStyle(borderColor: .systemRed, borderWidth: 4))]
+        let markdown = "Ask [![](https://example.invalid/a.png) alice](user://alice) or ![](https://example.invalid/b.png) now."
+        let result = MarkdownRenderer.render(markdown, config: config)
+
+        let style = try XCTUnwrap(attribute(.paragraphStyle, onWord: "alice", in: result) as? NSParagraphStyle)
+        let raise = try XCTUnwrap(attribute(.baselineOffset, onWord: "alice", in: result) as? NSNumber)
+        let expected: [CGFloat?] = [CGFloat(raise.doubleValue), CGFloat(raise.doubleValue)]
+        XCTAssertGreaterThan(style.maximumLineHeight, 26, "the border grows the line")
+        XCTAssertEqual(inlineImages(in: result).map(\.lineHeightOffset), expected, "both images rise as far as the text")
+    }
+
+    func testALinkHoldingOnlyImagesLeavesTheLineHeightAlone() throws {
+        config.paragraph.lineHeight = nil
+        config.linkVariants = [LinkVariantStyle(pattern: "^user:", style: ElementStyle(borderColor: .systemRed, borderWidth: 4))]
+        let markdown = "[![](https://example.invalid/a.png)![](https://example.invalid/b.png)](user://a)"
+        let result = MarkdownRenderer.render(markdown, config: config)
+
+        let lastImage = (result.string as NSString).range(of: "\u{FFFC}", options: .backwards)
+        let image = try XCTUnwrap(result.attribute(.attachment, at: lastImage.location, effectiveRange: nil) as? MarkdownImageAttachment)
+        let style = result.attribute(.paragraphStyle, at: lastImage.location, effectiveRange: nil) as? NSParagraphStyle
+        XCTAssertTrue(image.isInline, "the second image shares the line")
+        XCTAssertEqual(image.padding, 4, "and takes the border")
+        XCTAssertEqual(style?.maximumLineHeight ?? 0, 0, "no text in the paragraph, so no line to fit")
+    }
+
     // MARK: - Copy as HTML
 
     func testCopiedHTMLCarriesTheVariantStyle() {
