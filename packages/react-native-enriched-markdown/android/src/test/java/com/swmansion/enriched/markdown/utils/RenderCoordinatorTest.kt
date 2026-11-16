@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.utils
 
 import com.swmansion.enriched.markdown.utils.common.RenderCoordinator
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -60,6 +61,28 @@ class RenderCoordinatorTest {
 
     assertEquals(listOf("in flight", "next"), renders)
     assertEquals(listOf("next"), applies)
+  }
+
+  @Test
+  fun aRenderThrowingAnErrorLeavesLaterRendersRunning() {
+    coordinator.schedule { throw StackOverflowError() }
+    assertThrows(StackOverflowError::class.java) { queued.removeFirst().run() }
+    coordinator.schedule(revision("next"))
+    runAll()
+
+    assertEquals(listOf("next"), applies)
+  }
+
+  @Test
+  fun aRenderWaitingBehindOneThrowingAnErrorStillRuns() {
+    coordinator.schedule {
+      coordinator.schedule(revision("waiting"))
+      throw StackOverflowError()
+    }
+    assertThrows(StackOverflowError::class.java) { queued.removeFirst().run() }
+    runAll()
+
+    assertEquals(listOf("waiting"), applies)
   }
 
   @Test

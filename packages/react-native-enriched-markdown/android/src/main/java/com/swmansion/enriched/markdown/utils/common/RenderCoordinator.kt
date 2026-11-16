@@ -37,6 +37,17 @@ class RenderCoordinator(
   }
 
   private fun drain() {
+    try {
+      drainPending()
+    } catch (e: Throwable) {
+      // An Error escaping a render must not leave the worker marked active forever.
+      val resume = synchronized(lock) { (pending != null).also { workerActive = it } }
+      if (resume) executor.execute { drain() }
+      throw e
+    }
+  }
+
+  private fun drainPending() {
     while (true) {
       val (renderId, render) =
         synchronized(lock) {
