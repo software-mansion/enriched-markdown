@@ -380,6 +380,44 @@
   XCTAssertEqualObjects([_input currentMarkdown], @"_foobar_");
 }
 
+// A grown underline sharing an edge with another style has to nest it: `_x**foo_**` and
+// `**_foo**bar_` cross, and md4c reads neither back.
+- (void)assertRoundTrips:(NSString *)markdown
+{
+  [_input setValue:markdown];
+  XCTAssertEqualObjects([_input currentMarkdown], markdown);
+}
+
+- (void)testTypingBeforeABoldUnderlinedWordKeepsTheBoldInside
+{
+  [_input setValue:@"**_foo_**"];
+  [self select:NSMakeRange(0, 0)];
+  [self type:@"x"];
+
+  XCTAssertEqualObjects([_input currentMarkdown], @"_x**foo**_");
+  [self assertRoundTrips:@"_x**foo**_"];
+}
+
+- (void)testUnderliningAWordEndingInBoldKeepsTheBoldInside
+{
+  [_input setValue:@"foo**bar**"];
+  [self select:NSMakeRange(0, 6)];
+  [self toggleUnderline];
+
+  XCTAssertEqualObjects([_input currentMarkdown], @"_foo**bar**_");
+  [self assertRoundTrips:@"_foo**bar**_"];
+}
+
+- (void)testUnderliningAWordStartingInBoldKeepsTheBoldInside
+{
+  [_input setValue:@"**foo**bar"];
+  [self select:NSMakeRange(0, 6)];
+  [self toggleUnderline];
+
+  XCTAssertEqualObjects([_input currentMarkdown], @"_**foo**bar_");
+  [self assertRoundTrips:@"_**foo**bar_"];
+}
+
 // A paste, a cut and a link deletion skip the edit pipeline, so they grow the underlines themselves.
 - (void)testPastingAgainstAnUnderlinedWordGrowsTheUnderline
 {

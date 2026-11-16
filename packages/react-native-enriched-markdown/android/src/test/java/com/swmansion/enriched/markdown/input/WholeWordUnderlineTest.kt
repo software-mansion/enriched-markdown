@@ -332,6 +332,38 @@ class WholeWordUnderlineTest {
     assertEquals("_xfoo_**bar**", markdown())
   }
 
+  // A grown underline sharing an edge with another style has to nest it: `_x**foo_**` and
+  // `**_foo**bar_` cross, and md4c reads neither back.
+  @Test
+  fun typingBeforeABoldUnderlinedWordKeepsTheBoldInside() {
+    type("foo")
+    view.setSelection(0, 3)
+    view.toggleInlineStyle(StyleType.BOLD)
+    underline(0, 3)
+    view.setSelection(0)
+    type("x")
+
+    assertEquals("_x**foo**_", markdown())
+  }
+
+  @Test
+  fun underliningAWordEndingInBoldKeepsTheBoldInside() {
+    type("foobar")
+    view.setSelection(3, 6)
+    view.toggleInlineStyle(StyleType.BOLD)
+
+    assertEquals("_foo**bar**_", underline(0, 6))
+  }
+
+  @Test
+  fun underliningAWordStartingInBoldKeepsTheBoldInside() {
+    type("foobar")
+    view.setSelection(0, 3)
+    view.toggleInlineStyle(StyleType.BOLD)
+
+    assertEquals("_**foo**bar_", underline(0, 6))
+  }
+
   @Test
   fun removingTheItalicBetweenGrowsTheUnderlineOverTheWord() {
     italicFooUnderlinedBar()

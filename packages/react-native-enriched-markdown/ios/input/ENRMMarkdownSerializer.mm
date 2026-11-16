@@ -40,7 +40,8 @@ static NSString *closingDelimiterForType(ENRMInputStyleType type, NSString *url)
   }
 }
 
-/// Lower value = outermost wrapper. Font styles wrap around structural styles (link).
+/// Lower value = outermost wrapper of two styles over the same text. Font styles wrap around
+/// structural styles (link).
 static int nestingPriorityForType(ENRMInputStyleType type)
 {
   switch (type) {
@@ -61,13 +62,19 @@ static int nestingPriorityForType(ENRMInputStyleType type)
   }
 }
 
+/// `otherEnd` is where the segment's other delimiter goes: its end for an opening, its start for a
+/// closing.
 typedef struct {
   NSUInteger position;
+  NSUInteger otherEnd;
   BOOL isOpening;
   ENRMInputStyleType type;
   NSString *__unsafe_unretained url;
 } BoundaryEvent;
 
+/// Delimiters at one position nest by the ranges they belong to, so nested ranges read back: with
+/// underline over "xfoo" and bold over "foo", the bold closes first (`_x**foo**_`). Only ranges over
+/// the same text fall back to the fixed nestingPriorityForType.
 static int compareBoundaryEvents(const void *first, const void *second)
 {
   const BoundaryEvent *eventA = (const BoundaryEvent *)first;
@@ -80,8 +87,11 @@ static int compareBoundaryEvents(const void *first, const void *second)
   if (eventA->isOpening != eventB->isOpening) {
     return eventA->isOpening ? 1 : -1;
   }
-  // Among openings: outer first (lower priority emitted first)
-  // Among closings: inner first (higher priority emitted first) — LIFO order
+  // Among openings: outer first — the one ending last, then lower priority.
+  // Among closings: inner first — the one opened last, then higher priority (LIFO order).
+  if (eventA->otherEnd != eventB->otherEnd) {
+    return eventA->otherEnd > eventB->otherEnd ? -1 : 1;
+  }
   int priorityA = nestingPriorityForType(eventA->type);
   int priorityB = nestingPriorityForType(eventB->type);
   if (eventA->isOpening) {
@@ -170,12 +180,14 @@ static NSArray<ENRMFormattingRange *> *splitRangesAtLineBreaks(NSArray<ENRMForma
 
     events[eventIndex++] = (BoundaryEvent){
         .position = start,
+        .otherEnd = end,
         .isOpening = YES,
         .type = formattingRange.type,
         .url = formattingRange.url,
     };
     events[eventIndex++] = (BoundaryEvent){
         .position = end,
+        .otherEnd = start,
         .isOpening = NO,
         .type = formattingRange.type,
         .url = formattingRange.url,

@@ -163,8 +163,8 @@ object MarkdownSerializer {
 
     if (start >= end) return
 
-    events.add(BoundaryEvent(start, true, range.type, range.url))
-    events.add(BoundaryEvent(end, false, range.type, range.url))
+    events.add(BoundaryEvent(start, end, true, range.type, range.url))
+    events.add(BoundaryEvent(end, start, false, range.type, range.url))
   }
 
   private fun isTrimmable(char: Char): Boolean = char.isWhitespace() || char == ZWSP.single()
@@ -192,7 +192,8 @@ object MarkdownSerializer {
       StyleType.SPOILER -> "||"
     }
 
-  // Lower value = outermost wrapper. Font styles wrap around structural styles (link).
+  // Lower value = outermost wrapper of two styles over the same text. Font styles wrap
+  // around structural styles (link).
   private fun nestingPriority(type: StyleType): Int =
     when (type) {
       StyleType.ITALIC -> 0
@@ -203,13 +204,18 @@ object MarkdownSerializer {
       StyleType.LINK -> 5
     }
 
+  /** [otherEnd] is where the segment's other delimiter goes: its end for an opening, its start for a closing. */
   private data class BoundaryEvent(
     val position: Int,
+    val otherEnd: Int,
     val isOpening: Boolean,
     val type: StyleType,
     val url: String?,
   )
 
+  // Delimiters at one position nest by the ranges they belong to, so nested ranges read back:
+  // with underline over "xfoo" and bold over "foo", the bold closes first (`_x**foo**_`). Only
+  // ranges over the same text fall back to the fixed [nestingPriority].
   private val BOUNDARY_COMPARATOR =
     Comparator<BoundaryEvent> { a, b ->
       if (a.position != b.position) {
@@ -219,11 +225,13 @@ object MarkdownSerializer {
       if (a.isOpening != b.isOpening) {
         return@Comparator if (a.isOpening) 1 else -1
       }
-      // Among openings: outer first (lower priority emitted first)
-      // Among closings: inner first (higher priority emitted first) — LIFO order
+      // Among openings: outer first — the one ending last, then lower priority.
+      // Among closings: inner first — the one opened last, then higher priority (LIFO order).
       if (a.isOpening) {
+        if (a.otherEnd != b.otherEnd) return@Comparator b.otherEnd - a.otherEnd
         nestingPriority(a.type) - nestingPriority(b.type)
       } else {
+        if (a.otherEnd != b.otherEnd) return@Comparator b.otherEnd - a.otherEnd
         nestingPriority(b.type) - nestingPriority(a.type)
       }
     }
