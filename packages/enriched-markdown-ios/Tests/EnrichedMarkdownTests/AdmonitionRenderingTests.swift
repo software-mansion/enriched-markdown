@@ -45,6 +45,24 @@ final class AdmonitionRenderingTests: XCTestCase {
         XCTAssertTrue(result.string.hasPrefix("Note\nbody text"), result.string)
     }
 
+    func testAdmonitionTitlesReplaceTheTypeName() {
+        let result = MarkdownRenderer.render(
+            "> [!NOTE]\n> a\n\n> [!TIP]\n> b\n\n> [!CAUTION]\n> c",
+            config: config,
+            options: options,
+            admonitionTitles: MarkdownAdmonitionTitles(note: "Uwaga\n", tip: "")
+        )
+
+        // A line break in a title is dropped, so the header stays one paragraph.
+        XCTAssertTrue(result.string.hasPrefix("Uwaga\na"), result.string)
+        XCTAssertTrue(result.string.hasSuffix("Caution\nc"), result.string)
+        let tipHeader = (result.string as NSString).range(of: "b").location - 1
+        XCTAssertEqual(result.attribute(MarkdownAttribute.admonitionHeader, at: tipHeader, effectiveRange: nil) as? String, "tip")
+        // The header stays one line; a too-wide title ends in an ellipsis.
+        XCTAssertEqual(paragraphStyle(onWord: "Uwaga", in: result)?.lineBreakMode, .byTruncatingTail)
+        XCTAssertNotEqual(paragraphStyle(onWord: "c", in: result)?.lineBreakMode, .byTruncatingTail)
+    }
+
     func testTitleIsBoldTintedAndMarkedAsHeader() {
         let result = render("> [!WARNING]\n> body")
         let title = attributes(onWord: "Warning", in: result)
@@ -262,7 +280,7 @@ final class AdmonitionRenderingTests: XCTestCase {
 
         for type in AdmonitionType.allCases {
             XCTAssertTrue(icons.contains("\(type.rawValue): '\(AdmonitionHeader.iconPathData(for: type))'"), "path for \(type)")
-            XCTAssertTrue(defaults.contains("\(type.rawValue): '\(type.title)'"), "title for \(type)")
+            XCTAssertTrue(defaults.contains("\(type.rawValue): '\(MarkdownAdmonitionTitles.default[type])'"), "title for \(type)")
         }
         XCTAssertTrue(icons.contains("ADMONITION_ICON_VIEWBOX = \(Int(AdmonitionHeader.iconViewBox));"))
     }

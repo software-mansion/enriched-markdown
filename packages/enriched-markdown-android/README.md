@@ -260,6 +260,7 @@ fun EnrichedMarkdownText(
   spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles(),
   includeLastBlockMargin: Boolean = false,
   plugins: List<MarkdownPlugin> = LocalMarkdownPlugins.current,
+  admonitionTitles: AdmonitionTitles = AdmonitionTitles.Default,
   onPluginEvent: (PluginEvent) -> Unit = {},
 )
 ```
@@ -278,6 +279,7 @@ fun EnrichedMarkdownText(
 | `spoilerOverlay` | How `\|\|spoiler\|\|` text is concealed: `SpoilerOverlay.Particles()` (default), `SpoilerOverlay.Solid()`, or a `CustomSpoilerOverlay` (see [Spoiler overlays](#spoiler-overlays)) |
 | `includeLastBlockMargin` | Whether the last block's bottom margin counts toward the view's height (default `false`, so the view ends flush with its last line) |
 | `plugins` | Plugins this instance renders with; defaults to those enabled by the enclosing plugin scopes (see [Optional plugins](#optional-plugins)) |
+| `admonitionTitles` | Renames or translates the GitHub alert titles, e.g. `AdmonitionTitles(note = "Uwaga")`; a type left out keeps its English title, an empty string shows the icon alone, and a title too wide for the callout ends in an ellipsis |
 | `onPluginEvent` | Called when an enabled plugin reports a problem, e.g. a LaTeX expression it could not draw (see below) |
 
 Style defaults come from the nearest `MarkdownTheme`.

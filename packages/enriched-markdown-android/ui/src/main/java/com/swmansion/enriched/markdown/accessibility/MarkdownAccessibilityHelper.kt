@@ -238,7 +238,8 @@ class MarkdownAccessibilityHelper(
 
     for (header in spanned.getSpans(0, spanned.length, AdmonitionHeaderSpan::class.java)) {
       val start = spanned.getSpanStart(header)
-      if (start < 0 || start >= endLimit) continue
+      // An empty title shows the icon only, so there is nothing to read.
+      if (start < 0 || start >= endLimit || header.title.isEmpty()) continue
       val line = layout.getLineForOffset(start)
 
       items.add(

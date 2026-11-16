@@ -129,7 +129,7 @@ Keeps consecutive blank lines instead of collapsing them, so vertical whitespace
 
 #### `admonitions`
 
-Renders a blockquote whose first line is `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, or `> [!CAUTION]` as a themed callout with an icon and a title. Without it the marker stays literal text inside an ordinary quote. Colors come from the [`Admonition()`](/ios/api-reference/style-properties#admonition) element.
+Renders a blockquote whose first line is `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, or `> [!CAUTION]` as a themed callout with an icon and a title. Without it the marker stays literal text inside an ordinary quote. Colors come from the [`Admonition()`](/ios/api-reference/style-properties#admonition) element, and the titles from [`.markdownAdmonitionTitles`](#markdownadmonitiontitles).
 
 <PropInfo type="Bool" default="false" />
 
@@ -560,6 +560,31 @@ VStack(spacing: 0) {
 It takes SwiftUI's own `Visibility`, as `.listRowSeparator(_:)` and `.scrollContentBackground(_:)` do. `.automatic` and `.hidden` both end the view at its last line.
 
 The margin shown is the one the theme gives the block that ends the document - [`Paragraph().marginBottom(_:)`](/ios/api-reference/style-properties#paragraph) for a paragraph, `Heading(1).marginBottom(_:)` for a heading, and so on. For a top-level block that is the same gap the theme puts between blocks inside the document. Where blocks nest, the largest margin ending the document wins: a code block that closes a list item keeps the list's margin if that is the larger. A code block ending the document keeps its bottom padding either way; only the margin below it is in question.
+
+## Admonitions
+
+### `.markdownAdmonitionTitles` {#markdownadmonitiontitles}
+
+Renames or translates the admonition header titles. A type you leave out keeps its English title, and an empty string shows the icon without a title. The header stays one line high, so a title wider than the callout ends in an ellipsis. Copying an admonition still gives its `> [!NOTE]` marker, and VoiceOver reads the title you set.
+
+<PropInfo type="MarkdownAdmonitionTitles" default=".default" />
+
+```swift
+public struct MarkdownAdmonitionTitles: Equatable, Sendable {
+  public var note: String       // "Note"
+  public var tip: String        // "Tip"
+  public var important: String  // "Important"
+  public var warning: String    // "Warning"
+  public var caution: String    // "Caution"
+}
+```
+
+```swift
+EnrichedMarkdownText(content, options: MarkdownParsingOptions(admonitions: true))
+  .markdownAdmonitionTitles(MarkdownAdmonitionTitles(note: "Uwaga", warning: "Ostrzeżenie"))
+```
+
+Like any environment value, it applies to every `EnrichedMarkdownText` below the view you set it on, so one modifier near the root translates the whole app.
 
 ## Accessibility
 

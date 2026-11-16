@@ -11,6 +11,7 @@ import android.graphics.Typeface
 import android.text.Layout
 import android.text.Spanned
 import android.text.TextPaint
+import android.text.TextUtils
 import android.text.style.LeadingMarginSpan
 import android.text.style.LineBackgroundSpan
 import android.text.style.MetricAffectingSpan
@@ -82,6 +83,10 @@ class BlockquoteSpan(
 
   private var boxLeft = 0f
   private var boxRight = 0f
+
+  // The header title fitted to the last width it was drawn at.
+  private var fittedTitle = ""
+  private var fittedTitleWidth = Float.NaN
 
   private val path = Path()
   private val rect = RectF()
@@ -172,7 +177,7 @@ class BlockquoteSpan(
   }
 
   /**
-   * Draws the admonition header — tinted octicon plus bold capitalized title — into the band the
+   * Draws the admonition header — tinted octicon plus bold title — into the band the
    * [AdmonitionHeaderSpan] reserved at the top of the quote.
    *
    * Geometry matches `BlockquoteContainerView.drawAdmonitionHeader` in the React Native package so
@@ -207,7 +212,10 @@ class BlockquoteSpan(
     }
 
     titlePaint.color = tintColor
-    val title = headerSpan.title
+    // A title wider than the box ends in an ellipsis instead of running past its edge.
+    val available = if (dir >= 0) boxRight - titleEdge else titleEdge - boxLeft
+    val title = if (boxRight > boxLeft) fitTitle(headerSpan.title, available) else headerSpan.title
+    if (title.isEmpty()) return
     val fm = titlePaint.fontMetrics
     val baseline = headerTop + headerHeight / 2f - (fm.ascent + fm.descent) / 2f
     canvas.drawText(
@@ -216,6 +224,17 @@ class BlockquoteSpan(
       baseline,
       titlePaint,
     )
+  }
+
+  private fun fitTitle(
+    title: String,
+    width: Float,
+  ): String {
+    if (width != fittedTitleWidth) {
+      fittedTitle = TextUtils.ellipsize(title, titlePaint, width, TextUtils.TruncateAt.END).toString()
+      fittedTitleWidth = width
+    }
+    return fittedTitle
   }
 
   override fun drawBackground(

@@ -114,7 +114,7 @@ A blockquote whose **first line** is one of the five GitHub alert markers render
 > This action cannot be undone.
 ```
 
-The five types are `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, and `[!CAUTION]`. Colors come from the [`Admonition()`](/ios/api-reference/style-properties#admonition) element, and the geometry from [`Blockquote()`](/ios/api-reference/style-properties#blockquote).
+The five types are `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, and `[!CAUTION]`. Colors come from the [`Admonition()`](/ios/api-reference/style-properties#admonition) element, and the geometry from [`Blockquote()`](/ios/api-reference/style-properties#blockquote). The titles default to the type names in English; [`.markdownAdmonitionTitles`](/ios/api-reference/enriched-markdown-text#markdownadmonitiontitles) renames or translates them.
 
 This is an opt-in parser extension. Without `MarkdownParsingOptions(admonitions: true)` the marker stays **literal text** inside an ordinary quote.
 
