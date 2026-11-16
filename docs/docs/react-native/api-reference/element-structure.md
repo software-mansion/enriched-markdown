@@ -178,7 +178,7 @@ An admonition is still a blockquote, so it holds any block content - more paragr
 > - your `enriched-markdown` config block
 ```
 
-Admonitions reuse the blockquote's geometry and override only its colors, so they are styled through [`markdownStyle.blockquote.admonitions`](/react-native/api-reference/style-properties#admonitions) - one color pair per type, on top of the `blockquote` box itself.
+Admonitions reuse the blockquote's geometry and override only its colors, so they are styled through [`markdownStyle.blockquote.admonitions`](/react-native/api-reference/style-properties#admonitions) - one color pair per type, on top of the `blockquote` box itself. The header titles are set with [`admonitionTitles`](/react-native/api-reference/enriched-markdown-text#admonitiontitles).
 
 :::note
 Requires both [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) and the [`md4cFlags.admonitions`](/react-native/api-reference/enriched-markdown-text#admonitions) flag. The flag is on by default, but it is forced off under `flavor="commonmark"`, where `> [!NOTE]` renders as a plain blockquote with the marker as text.

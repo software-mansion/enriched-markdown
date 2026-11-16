@@ -1722,7 +1722,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
   if (applyMarkdownStyleToConfig(_config, newViewProps.markdownStyle, oldViewProps.markdownStyle)) {
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
-    if (!markdownChanged) {
+    if (!markdownChanged || admonitionTitlesChanged(newViewProps.markdownStyle, oldViewProps.markdownStyle)) {
       _dirtyFlags |= ENRMDirtyRecreateSegments;
     }
   }

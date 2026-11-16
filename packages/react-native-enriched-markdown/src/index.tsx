@@ -58,6 +58,11 @@ export {
 } from './accessibilityLabelDefaults';
 export { createMarkdownStream } from './markdownStream';
 export type { MarkdownStream } from './markdownStream';
+export type {
+  AdmonitionTitles,
+  AdmonitionType,
+} from './types/admonitionTitles';
+export { DEFAULT_ADMONITION_TITLES } from './admonitionDefaults';
 
 export { EnrichedMarkdownTextInput } from './EnrichedMarkdownTextInput';
 export type {

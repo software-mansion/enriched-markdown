@@ -256,6 +256,7 @@ object MarkdownRenderTestSupport {
         is Int -> putInt(key, value)
         is Double -> putDouble(key, value)
         is Float -> putDouble(key, value.toDouble())
+        is JavaOnlyMap -> putMap(key, value)
         else -> error("Unsupported style value for $key: $value")
       }
     }

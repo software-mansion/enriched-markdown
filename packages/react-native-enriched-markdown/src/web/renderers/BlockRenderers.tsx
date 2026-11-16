@@ -11,7 +11,6 @@ import { KaTeXRenderer } from './KaTeXRenderer';
 import {
   ADMONITION_ICON_PATHS,
   ADMONITION_ICON_VIEWBOX,
-  ADMONITION_TITLES,
 } from './admonitionIcons';
 import type { AdmonitionType } from '../../admonitionDefaults';
 import { ENRM_ADMONITION_CLASS } from '../globalStyles';
@@ -81,6 +80,16 @@ function BlockquoteRenderer({
   );
 }
 
+// A long title must not squeeze the icon.
+const ADMONITION_ICON_STYLE: CSSProperties = { flexShrink: 0 };
+
+const ADMONITION_TITLE_STYLE: CSSProperties = {
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+
 function AdmonitionRenderer({
   node,
   style,
@@ -121,12 +130,15 @@ function AdmonitionRenderer({
           height={iconSize}
           viewBox={`0 0 ${ADMONITION_ICON_VIEWBOX} ${ADMONITION_ICON_VIEWBOX}`}
           fill={tint}
+          style={ADMONITION_ICON_STYLE}
           aria-hidden="true"
         >
           <path d={ADMONITION_ICON_PATHS[type]} />
         </svg>
-        {/* The English title must not decide the box's direction. */}
-        <span dir="ltr">{ADMONITION_TITLES[type]}</span>
+        {/* <bdi>: own direction, skipped by the box's dir="auto". */}
+        {colors.title ? (
+          <bdi style={ADMONITION_TITLE_STYLE}>{colors.title}</bdi>
+        ) : null}
       </div>
       {renderChildren(node)}
     </div>

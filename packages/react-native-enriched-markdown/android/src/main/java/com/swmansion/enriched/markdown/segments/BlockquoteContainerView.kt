@@ -9,6 +9,8 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.text.TextPaint
+import android.text.TextUtils
 import android.view.View
 import androidx.core.graphics.withSave
 import com.facebook.react.common.ReactConstants
@@ -69,7 +71,7 @@ class BlockquoteContainerView(
   private val iconSizePx: Int = ceil(blockquoteStyle.fontSize).toInt()
 
   private val titlePaint =
-    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
       typeface =
         Typeface.create(
           applyStyles(
@@ -240,7 +242,7 @@ class BlockquoteContainerView(
     }
   }
 
-  // Draws the admonition header (tinted octicon + capitalized title) in the band
+  // Draws the admonition header (tinted octicon + title) in the band
   // reserved at the top of the view by the enlarged top padding.
   private fun drawAdmonitionHeader(
     canvas: Canvas,
@@ -267,7 +269,11 @@ class BlockquoteContainerView(
     titlePaint.color = tint
     val fm = titlePaint.fontMetrics
     val baseline = headerTop + headerHeight / 2f - (fm.ascent + fm.descent) / 2f
-    canvas.drawText(AdmonitionIcons.title(type), titleX, baseline, titlePaint)
+    val title = blockquoteStyle.admonitions[type]?.title.orEmpty()
+    val titleWidth = width - rightInset - titleX
+    if (title.isEmpty() || titleWidth <= 0f) return
+    val fitted = TextUtils.ellipsize(title, titlePaint, titleWidth, TextUtils.TruncateAt.END)
+    canvas.drawText(fitted, 0, fitted.length, titleX, baseline, titlePaint)
   }
 
   /**

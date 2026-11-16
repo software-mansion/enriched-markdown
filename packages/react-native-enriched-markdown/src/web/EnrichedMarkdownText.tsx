@@ -9,6 +9,7 @@ import {
 import type { EnrichedMarkdownTextProps } from '../types/MarkdownTextProps.web';
 import { useMarkdownStreamSnapshot } from '../markdownStream';
 import { normalizeMarkdownStyle } from '../normalizeMarkdownStyle.web';
+import { useAdmonitionTitles } from '../admonitionDefaults';
 import {
   zeroTrailingMargins,
   parseErrorFallbackStyle,
@@ -50,6 +51,7 @@ export const EnrichedMarkdownText = ({
   markdown: markdownProp = '',
   stream,
   markdownStyle = {},
+  admonitionTitles,
   md4cFlags = {},
   linkRecognition,
   onLinkPress,
@@ -71,9 +73,13 @@ export const EnrichedMarkdownText = ({
 }: EnrichedMarkdownTextProps) => {
   const streamSnapshot = useMarkdownStreamSnapshot(stream);
   const markdown = streamSnapshot?.text ?? markdownProp;
-  const normalizedStyle = useMemo(
+  const styleWithoutTitles = useMemo(
     () => normalizeMarkdownStyle(markdownStyle),
     [markdownStyle]
+  );
+  const normalizedStyle = useAdmonitionTitles(
+    styleWithoutTitles,
+    admonitionTitles
   );
 
   const renderersEnabled = hasRenderers(renderers);

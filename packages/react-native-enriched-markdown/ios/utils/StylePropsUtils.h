@@ -16,6 +16,16 @@
 #import <React/RCTConversions.h>
 
 template <typename MarkdownStyle>
+BOOL admonitionTitlesChanged(const MarkdownStyle &newStyle, const MarkdownStyle &oldStyle)
+{
+  const auto &newAdm = newStyle.blockquote.admonitions;
+  const auto &oldAdm = oldStyle.blockquote.admonitions;
+  return newAdm.note.title != oldAdm.note.title || newAdm.tip.title != oldAdm.tip.title ||
+         newAdm.important.title != oldAdm.important.title || newAdm.warning.title != oldAdm.warning.title ||
+         newAdm.caution.title != oldAdm.caution.title;
+}
+
+template <typename MarkdownStyle>
 BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newStyle, const MarkdownStyle &oldStyle)
 {
   BOOL changed = NO;
@@ -518,6 +528,17 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
       @"caution" : RCTUIColorFromSharedColor(newAdm.caution.backgroundColor) ?: clear,
     };
     [config setAdmonitionColors:admonitionColors backgroundColors:admonitionBackgroundColors];
+    changed = YES;
+  }
+
+  if (admonitionTitlesChanged(newStyle, oldStyle)) {
+    [config setAdmonitionTitles:@{
+      @"note" : [[NSString alloc] initWithUTF8String:newAdm.note.title.c_str()] ?: @"",
+      @"tip" : [[NSString alloc] initWithUTF8String:newAdm.tip.title.c_str()] ?: @"",
+      @"important" : [[NSString alloc] initWithUTF8String:newAdm.important.title.c_str()] ?: @"",
+      @"warning" : [[NSString alloc] initWithUTF8String:newAdm.warning.title.c_str()] ?: @"",
+      @"caution" : [[NSString alloc] initWithUTF8String:newAdm.caution.title.c_str()] ?: @"",
+    }];
     changed = YES;
   }
 

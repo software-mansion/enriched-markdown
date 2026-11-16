@@ -1,4 +1,5 @@
 import type { MarkdownStream } from '../markdownStream';
+import type { AdmonitionTitles } from './admonitionTitles';
 import type { LinkRecognition } from './linkRecognition';
 import type {
   MarkdownImageOccurrence,
@@ -153,6 +154,12 @@ export interface EnrichedMarkdownTextProps extends Omit<
    * @platform web
    */
   dir?: 'ltr' | 'rtl' | 'auto';
+  /**
+   * Admonition header titles by type. Omitted types keep the English title;
+   * an empty string shows the icon only.
+   * @platform ios, android, macos, web
+   */
+  admonitionTitles?: AdmonitionTitles;
   /**
    * React replacements for blocks, keyed by kind: a paragraph whose only
    * content is an image or a link, `<video>` blocks and code blocks, directly

@@ -28,6 +28,7 @@ import {
   normalizeLinkContextMenuItems,
 } from '../linkContextMenuUtils';
 import { resolveAccessibilityLabels } from '../accessibilityLabelDefaults';
+import { useAdmonitionTitles } from '../admonitionDefaults';
 import {
   NOT_COLLECTED,
   useBlockSlots,
@@ -238,6 +239,7 @@ export const EnrichedMarkdownText = ({
   selectionMenuConfig,
   onSelectionCopy,
   accessibilityLabels,
+  admonitionTitles,
   selectionColor,
   selectionHandleColor,
   textBreakStrategy,
@@ -260,7 +262,10 @@ export const EnrichedMarkdownText = ({
     return linkRecognitionRef.current!;
   }, [linkRecognition]);
   const normalizedStyleRef = useRef<MarkdownStyleInternal | null>(null);
-  const normalized = normalizeMarkdownStyle(markdownStyle);
+  const normalized = useAdmonitionTitles(
+    normalizeMarkdownStyle(markdownStyle),
+    admonitionTitles
+  );
   // normalizeMarkdownStyle returns cached objects for structurally equal inputs,
   // so this referential check is sufficient to preserve a stable prop reference.
   if (normalizedStyleRef.current !== normalized) {

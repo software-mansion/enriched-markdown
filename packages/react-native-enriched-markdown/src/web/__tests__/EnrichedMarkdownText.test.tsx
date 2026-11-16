@@ -107,4 +107,21 @@ describe('once the WASM has loaded', () => {
 
     expect(commits).toEqual(['Row A', 'Row B', 'Row A']);
   });
+
+  it('draws admonitionTitles, skipping an empty one', () => {
+    act(() =>
+      root.render(
+        <EnrichedMarkdownText
+          markdown={'> [!WARNING]\n> a\n\n> [!TIP]\n> b\n\n> [!NOTE]\n> c'}
+          admonitionTitles={{ warning: 'Uwaga', tip: '' }}
+        />
+      )
+    );
+    const titles = [...container.querySelectorAll('bdi')].map(
+      (el) => el.textContent
+    );
+    expect(titles).toEqual(['Uwaga', 'Note']);
+    // A long title must not squeeze the icon.
+    expect(container.querySelector('svg')!.style.flexShrink).toBe('0');
+  });
 });
