@@ -55,8 +55,8 @@ bool isInlineSpecial(char16_t c) {
   }
 }
 
-// "&name;", "&#123;" or "&#x1F;" from `at` (the "&"): md4c would decode it, or
-// drop it when the name is unknown.
+} // namespace
+
 bool startsEntity(std::u16string_view text, size_t at, size_t end) {
   size_t i = at + 1;
   if (i < end && text[i] == kHash) {
@@ -68,6 +68,8 @@ bool startsEntity(std::u16string_view text, size_t at, size_t end) {
   }
   return i > nameStart && i < end && text[i] == kSemicolon;
 }
+
+namespace {
 
 // Where a line starting at `start` would read as a block marker - a heading,
 // a bullet, a quote, a setext underline or an ordered item's "1." / "1)" - the

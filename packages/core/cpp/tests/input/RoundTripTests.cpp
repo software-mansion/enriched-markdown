@@ -132,6 +132,41 @@ TEST_CASE("leading whitespace goes out as typed and comes back as text") {
   }
 }
 
+TEST_CASE("private-use characters the user typed are not taken for leading whitespace") {
+  // Leading whitespace is swapped for private-use stand-ins while md4c parses;
+  // the stand-ins must not be characters the text already has.
+  for (std::u16string_view text :
+       {u"\uE000x", u"\uE001y\n\uE000z", u"\t\uE000foo", u"  \uE001\uE000 bar", u"\uE000\uE001\uE002\tq"}) {
+    INFO("text: " << show(text));
+    const ParseResult parsed = parse(serialize(text, {}, {}));
+    CHECK(show(parsed.plainText) == show(text));
+  }
+  const std::vector<BlockRange> item = {block(BlockType::UnorderedListItem, 0, 2)};
+  const ParseResult parsed = parse(serialize(u"\uE000x", {}, item));
+  CHECK(show(parsed.plainText) == show(u"\uE000x"));
+}
+
+TEST_CASE("a private-use character written as a numeric reference is not taken for leading whitespace") {
+  CHECK(show(parse(u"&#xE000;x\n&#57345;y").plainText) == show(u"\uE000x\n\uE001y"));
+  CHECK(show(parse(u"  &#xe000;x").plainText) == show(u"  \uE000x"));
+}
+
+TEST_CASE("link urls come back as given") {
+  for (std::u16string_view url : {u"https://x.dev/?q=&copy;", u"https://x.dev/?a=1&amp;b=2", u"https://x.dev/?a=1&b=2",
+                                  u"https://x.dev/&#65;", u"<foo>", u"<foo", u"a<b", u"<a b>"}) {
+    INFO("url: " << show(url));
+    FormattingRange link;
+    link.type = StyleType::Link;
+    link.start = 0;
+    link.end = 4;
+    link.url = std::u16string(url);
+    const ParseResult parsed = parse(serialize(u"docs", {link}, {}));
+    CHECK(show(parsed.plainText) == show(u"docs"));
+    REQUIRE(parsed.formattingRanges.size() == 1);
+    CHECK(show(parsed.formattingRanges[0].url) == show(url));
+  }
+}
+
 TEST_CASE("an indented marker the user typed stays text, at any depth") {
   const std::u16string_view text = u"    - x\n\t# y\n      1. z";
   const std::u16string markdown = serialize(text, {}, {});

@@ -4,6 +4,7 @@
 #include "MarkdownInput.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -13,6 +14,9 @@ namespace Markdown::Input {
 // markdownEscape.ts: the indices in `text` to put a backslash in front of,
 // ascending. A position does not depend on the delimiters written around it.
 std::vector<uint32_t> markdownEscapePositions(std::u16string_view text);
+// Whether `text[at]`, an "&", starts "&name;", "&#123;" or "&#x1F;" before
+// `end`: md4c would decode it, or drop it when the name is unknown.
+bool startsEntity(std::u16string_view text, size_t at, size_t end);
 
 // Start offsets of each line of `text` (always at least one), and a line's end
 // offset (the position of its newline, or the text length).
@@ -42,8 +46,16 @@ bool parseResultFromAst(const Markdown::MarkdownASTNode &ast, ParseResult &resul
 // indented code block: each tab and space of the run is swapped one for one
 // with a private-use stand-in md4c reads as text, and swapped back in the plain
 // text afterwards, so offsets never move.
-std::u16string protectLeadingWhitespace(std::u16string_view markdown);
-void restoreLeadingWhitespace(std::u16string &text);
+struct WhitespaceStandIns {
+  char16_t tab = 0xE000;
+  char16_t space = 0xE001;
+};
+// The first two private-use characters the markdown neither contains nor
+// spells as a numeric reference, so that restoring swaps back only what
+// protecting put in. nullopt when the whole private-use area is taken.
+std::optional<WhitespaceStandIns> chooseWhitespaceStandIns(std::u16string_view markdown);
+std::u16string protectLeadingWhitespace(std::u16string_view markdown, WhitespaceStandIns standIns);
+void restoreLeadingWhitespace(std::u16string &text, WhitespaceStandIns standIns);
 
 // MarkdownSerializer.ts.
 std::u16string serializeInline(std::u16string_view text, const std::vector<FormattingRange> &ranges);
