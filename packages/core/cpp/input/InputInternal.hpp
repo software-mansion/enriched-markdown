@@ -45,7 +45,8 @@ bool parseResultFromAst(const Markdown::MarkdownASTNode &ast, ParseResult &resul
 // Leading whitespace is kept as text instead of being dropped or opening an
 // indented code block: each tab and space of the run is swapped one for one
 // with a private-use stand-in md4c reads as text, and swapped back in the plain
-// text afterwards, so offsets never move.
+// text afterwards, so offsets never move. Back wherever they land, not only at
+// line starts: a code block keeps the marker in front of them.
 struct WhitespaceStandIns {
   char16_t tab = 0xE000;
   char16_t space = 0xE001;

@@ -11,6 +11,8 @@
     ["```js\nconst a = 1;\n```","const a = 1;"],
     ["```\ncode\n```\nafter","code\nafter"],
     ["~~~\nt\n~~~","t"],
-    ["a\n\n```\nx\ny\n```\n\nb","a\n\nx\ny\n\nb"]
+    ["a\n\n```\nx\ny\n```\n\nb","a\n\nx\ny\n\nb"],
+    ["```\n-  x\n```","\\-  x"],
+    ["```\n#  x\n  indented\n```","\\#  x\n  indented"]
   ]
 }
