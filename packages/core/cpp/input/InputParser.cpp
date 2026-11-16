@@ -292,10 +292,6 @@ void walkNode(const MarkdownASTNode &node, WalkState &state, int listDepth, bool
   }
 }
 
-bool isLineTerminator(char16_t c) {
-  return c == u'\n' || c == u'\r' || c == u' ' || c == u' ';
-}
-
 bool isBlank(char16_t c) {
   return c == u' ' || c == u'\t';
 }
@@ -443,12 +439,11 @@ std::u16string protectLeadingWhitespace(std::u16string_view markdown, Whitespace
 }
 
 void restoreLeadingWhitespace(std::u16string &text, WhitespaceStandIns standIns) {
-  for (size_t i = 0; i < text.size(); i++) {
-    if (i > 0 && !isLineTerminator(text[i - 1])) {
-      continue;
-    }
-    for (; i < text.size() && (text[i] == standIns.tab || text[i] == standIns.space); i++) {
-      text[i] = text[i] == standIns.tab ? u'\t' : u' ';
+  for (char16_t &c : text) {
+    if (c == standIns.tab) {
+      c = u'\t';
+    } else if (c == standIns.space) {
+      c = u' ';
     }
   }
 }

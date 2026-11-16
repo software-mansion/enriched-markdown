@@ -146,6 +146,20 @@ TEST_CASE("private-use characters the user typed are not taken for leading white
   CHECK(show(parsed.plainText) == show(u"\uE000x"));
 }
 
+TEST_CASE("whitespace after a marker-like line in a code block comes back as text") {
+  // The code block keeps the "-" or "#" whose following whitespace import
+  // swapped for stand-ins, so they sit mid-line in the plain text.
+  for (std::u16string_view markdown :
+       {u"```\n-  x\n```", u"```\n#  x\n1.\t\ty\n```", u"~~~\n- \t z\n~~~", u"```\n    indented\n\tfoo\n```"}) {
+    INFO("markdown: " << show(markdown));
+    const ParseResult parsed = parse(markdown);
+    const std::u16string_view code = std::u16string_view(markdown).substr(4, markdown.size() - 8);
+    CHECK(show(parsed.plainText) == show(code));
+    CHECK(show(parse(serialize(parsed.plainText, parsed.formattingRanges, parsed.blockRanges)).plainText) ==
+          show(code));
+  }
+}
+
 TEST_CASE("a private-use character written as a numeric reference is not taken for leading whitespace") {
   CHECK(show(parse(u"&#xE000;x\n&#57345;y").plainText) == show(u"\uE000x\n\uE001y"));
   CHECK(show(parse(u"  &#xe000;x").plainText) == show(u"  \uE000x"));

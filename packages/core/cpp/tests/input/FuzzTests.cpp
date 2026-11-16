@@ -509,8 +509,8 @@ std::u16string comparable(const std::u16string &text) {
   return out;
 }
 
-// Round trips until the markdown no longer changes; npos if it does not within
-// `limit` of them.
+// Round trips until the markdown no longer changes, returning how many changed
+// it; npos if more than `limit` do.
 size_t tripsToFixedPoint(std::u16string &markdown, size_t limit) {
   for (size_t trips = 0; trips <= limit; trips++) {
     const std::u16string next = roundTrip(markdown);
@@ -538,7 +538,8 @@ TEST_CASE("fuzz: any markdown settles within three round trips and keeps its tex
     std::u16string settled = roundTrip(markdown);
     const std::u16string once = settled;
     INFO("seed " << seed << ", markdown " << show(markdown) << ", once " << show(once));
-    const size_t trips = tripsToFixedPoint(settled, 3);
+    // The first trip is already in `settled`, so two more may change it.
+    const size_t trips = tripsToFixedPoint(settled, 2);
     REQUIRE(trips != std::u16string::npos);
     notFixedAfterOne += trips > 0 ? 1 : 0;
     REQUIRE(show(comparable(parse(settled).plainText)) == show(comparable(parse(markdown).plainText)));
