@@ -46,22 +46,31 @@ bool hasBalancedParens(std::u16string_view url) {
   return depth == 0;
 }
 
-// A bare destination ends at the first whitespace and at an unbalanced ")", so a
-// url carrying either goes in angle brackets, where "<" and ">" need escaping as
-// well. Backslash escapes are resolved in both forms, so a literal "\" has to be
+// A bare destination ends at the first whitespace and at an unbalanced ")", and
+// one starting with "<" reads as the angle-bracket form, so a url carrying any
+// of these goes in angle brackets, where "<" and ">" need escaping as well.
+// Backslash escapes are resolved in both forms, so a literal "\" has to be
 // doubled before anything else is escaped - left bare, a url ending in one would
-// escape the closing delimiter and swallow the rest of the line. No form admits
-// a line ending at all, and one reaching the output would also break the
-// line-count invariant `serialize` relies on, so line endings are
-// percent-encoded rather than passed through.
+// escape the closing delimiter and swallow the rest of the line. Entity
+// references are decoded in both forms too, so an "&" that starts one is
+// escaped. No form admits a line ending at all, and one reaching the output
+// would also break the line-count invariant `serialize` relies on, so line
+// endings are percent-encoded rather than passed through.
 std::u16string linkDestination(std::u16string_view url) {
   std::u16string escaped;
   escaped.reserve(url.size());
   bool hasWhitespace = false;
-  for (char16_t c : url) {
+  for (size_t i = 0; i < url.size(); i++) {
+    const char16_t c = url[i];
     switch (c) {
       case u'\\':
         escaped += u"\\\\";
+        break;
+      case u'&':
+        if (startsEntity(url, i, url.size())) {
+          escaped.push_back(u'\\');
+        }
+        escaped.push_back(c);
         break;
       case u'\r':
         escaped += u"%0D";
@@ -74,7 +83,7 @@ std::u16string linkDestination(std::u16string_view url) {
         escaped.push_back(c);
     }
   }
-  if (!hasWhitespace && hasBalancedParens(escaped)) {
+  if (!hasWhitespace && hasBalancedParens(escaped) && (escaped.empty() || escaped.front() != u'<')) {
     return escaped;
   }
   std::u16string wrapped = u"<";

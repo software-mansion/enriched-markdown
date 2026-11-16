@@ -2,6 +2,7 @@
 #include "MD4CParser.hpp"
 #include "Utf16.hpp"
 #include <algorithm>
+#include <bitset>
 #include <cstdlib>
 #include <memory>
 #include <optional>
@@ -21,8 +22,13 @@ using Markdown::NodeType;
 // than overflow the stack, and `parse` hands the markdown back as plain text.
 constexpr int kMaxWalkDepth = 512;
 
-constexpr char16_t kTabStandIn = u'';
-constexpr char16_t kSpaceStandIn = u'';
+// The BMP private-use area, where the whitespace stand-ins come from.
+constexpr char16_t kPrivateUseFirst = 0xE000;
+constexpr char16_t kPrivateUseLast = 0xF8FF;
+
+bool isPrivateUse(uint32_t c) {
+  return c >= kPrivateUseFirst && c <= kPrivateUseLast;
+}
 
 std::optional<StyleType> styleTypeOf(NodeType type) {
   switch (type) {
@@ -298,10 +304,41 @@ bool isDigit(char16_t c) {
   return c >= u'0' && c <= u'9';
 }
 
-void swapForStandIns(std::u16string &text, size_t from, size_t to) {
+void swapForStandIns(std::u16string &text, size_t from, size_t to, WhitespaceStandIns standIns) {
   for (size_t i = from; i < to; i++) {
-    text[i] = text[i] == u'\t' ? kTabStandIn : kSpaceStandIn;
+    text[i] = text[i] == u'\t' ? standIns.tab : standIns.space;
   }
+}
+
+bool isHexDigit(char16_t c) {
+  return isDigit(c) || (c >= u'a' && c <= u'f') || (c >= u'A' && c <= u'F');
+}
+
+// The code point of a numeric character reference ("&#57344;", "&#xE000;") at
+// `at`, the "&", which md4c decodes into the text. nullopt for anything else.
+std::optional<uint32_t> numericReferenceAt(std::u16string_view text, size_t at) {
+  size_t i = at + 1;
+  if (i >= text.size() || text[i] != u'#') {
+    return std::nullopt;
+  }
+  i++;
+  const bool hex = i < text.size() && (text[i] == u'x' || text[i] == u'X');
+  if (hex) {
+    i++;
+  }
+  const size_t digitsStart = i;
+  const size_t maxDigits = hex ? 6 : 7;
+  uint32_t value = 0;
+  while (i < text.size() && i - digitsStart < maxDigits && (hex ? isHexDigit(text[i]) : isDigit(text[i]))) {
+    const char16_t c = text[i];
+    const uint32_t digit = isDigit(c) ? c - u'0' : (c | 0x20) - u'a' + 10;
+    value = value * (hex ? 16 : 10) + digit;
+    i++;
+  }
+  if (i == digitsStart || i >= text.size() || text[i] != u';') {
+    return std::nullopt;
+  }
+  return value;
 }
 
 // The end of a list or heading marker at `at` (`[-+*]`, `\d{1,9}[.)]` or
@@ -353,7 +390,7 @@ bool parseResultFromAst(const MarkdownASTNode &ast, ParseResult &result) {
 // heading or quote marker - and so does the one separator after a list or
 // heading marker; whitespace past that is the line's text. A line of only
 // whitespace stays blank.
-std::u16string protectLeadingWhitespace(std::u16string_view markdown) {
+std::u16string protectLeadingWhitespace(std::u16string_view markdown, WhitespaceStandIns standIns) {
   std::u16string text(markdown);
   for (size_t lineStart = 0; lineStart <= text.size();) {
     size_t lineEnd = text.find(u'\n', lineStart);
@@ -393,9 +430,9 @@ std::u16string protectLeadingWhitespace(std::u16string_view markdown) {
         if (textStart < lineEnd) {
           if (contentStart == indentEnd) {
             // No marker: the indent is text too.
-            swapForStandIns(text, lineStart, textStart);
+            swapForStandIns(text, lineStart, textStart, standIns);
           } else {
-            swapForStandIns(text, contentStart, textStart);
+            swapForStandIns(text, contentStart, textStart, standIns);
           }
         }
       }
@@ -405,15 +442,39 @@ std::u16string protectLeadingWhitespace(std::u16string_view markdown) {
   return text;
 }
 
-void restoreLeadingWhitespace(std::u16string &text) {
+void restoreLeadingWhitespace(std::u16string &text, WhitespaceStandIns standIns) {
   for (size_t i = 0; i < text.size(); i++) {
     if (i > 0 && !isLineTerminator(text[i - 1])) {
       continue;
     }
-    for (; i < text.size() && (text[i] == kTabStandIn || text[i] == kSpaceStandIn); i++) {
-      text[i] = text[i] == kTabStandIn ? u'\t' : u' ';
+    for (; i < text.size() && (text[i] == standIns.tab || text[i] == standIns.space); i++) {
+      text[i] = text[i] == standIns.tab ? u'\t' : u' ';
     }
   }
+}
+
+std::optional<WhitespaceStandIns> chooseWhitespaceStandIns(std::u16string_view markdown) {
+  std::bitset<kPrivateUseLast - kPrivateUseFirst + 1> taken;
+  for (size_t i = 0; i < markdown.size(); i++) {
+    uint32_t c = markdown[i];
+    if (c == u'&') {
+      c = numericReferenceAt(markdown, i).value_or(c);
+    }
+    if (isPrivateUse(c)) {
+      taken.set(c - kPrivateUseFirst);
+    }
+  }
+  WhitespaceStandIns standIns;
+  size_t found = 0;
+  for (size_t i = 0; i < taken.size() && found < 2; i++) {
+    if (!taken.test(i)) {
+      (found++ == 0 ? standIns.tab : standIns.space) = static_cast<char16_t>(kPrivateUseFirst + i);
+    }
+  }
+  if (found < 2) {
+    return std::nullopt;
+  }
+  return standIns;
 }
 
 ParseResult parse(std::u16string_view markdown) {
@@ -436,11 +497,16 @@ ParseResult parse(std::u16string_view markdown) {
     flags.admonitions = true;
     flags.permissiveAutolinks = false;
 
+    // With no stand-in to spare the markdown parses as given, and leading
+    // whitespace goes the way md4c takes it.
+    const std::optional<WhitespaceStandIns> standIns = chooseWhitespaceStandIns(markdown);
     Markdown::MD4CParser parser;
-    const std::shared_ptr<MarkdownASTNode> ast =
-        parser.parse(Markdown::toUtf8(protectLeadingWhitespace(markdown)), flags);
+    const std::shared_ptr<MarkdownASTNode> ast = parser.parse(
+        Markdown::toUtf8(standIns ? protectLeadingWhitespace(markdown, *standIns) : std::u16string(markdown)), flags);
     if (ast && parseResultFromAst(*ast, result)) {
-      restoreLeadingWhitespace(result.plainText);
+      if (standIns) {
+        restoreLeadingWhitespace(result.plainText, *standIns);
+      }
       normalizeListMetadata(result.blockRanges);
       return result;
     }

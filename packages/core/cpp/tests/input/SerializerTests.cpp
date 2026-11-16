@@ -140,6 +140,24 @@ TEST_CASE("inline: a backslash in a link destination is doubled in both forms") 
   CHECK(link(u"https://a.example/a\\*b") == u"[docs](https://a.example/a\\\\*b)");
 }
 
+TEST_CASE("inline: a link destination starting with \"<\" is wrapped") {
+  const auto link = [](std::u16string url) { return inlineOf(u"docs", {range(Link, 0, 4, std::move(url))}); };
+  CHECK(link(u"<foo>") == u"[docs](<\\<foo\\>>)");
+  CHECK(link(u"<foo") == u"[docs](<\\<foo>)");
+  // Anywhere else a "<" is fine bare.
+  CHECK(link(u"a<b") == u"[docs](a<b)");
+}
+
+TEST_CASE("inline: an \"&\" that starts an entity in a link destination is escaped") {
+  const auto link = [](std::u16string url) { return inlineOf(u"docs", {range(Link, 0, 4, std::move(url))}); };
+  CHECK(link(u"https://x.dev/?q=&copy;") == u"[docs](https://x.dev/?q=\\&copy;)");
+  CHECK(link(u"https://x.dev/?a=1&amp;b=2") == u"[docs](https://x.dev/?a=1\\&amp;b=2)");
+  CHECK(link(u"https://x.dev/?c=&#65;") == u"[docs](https://x.dev/?c=\\&#65;)");
+  CHECK(link(u"https://x.dev/a b?q=&copy;") == u"[docs](<https://x.dev/a b?q=\\&copy;>)");
+  // An "&" that starts no entity reads back as itself.
+  CHECK(link(u"https://x.dev/?a=1&b=2") == u"[docs](https://x.dev/?a=1&b=2)");
+}
+
 TEST_CASE("inline: a line ending in a link destination is percent-encoded") {
   CHECK(inlineOf(u"docs", {range(Link, 0, 4, u"https://a.example/a\nb")}) == u"[docs](https://a.example/a%0Ab)");
   CHECK(inlineOf(u"docs", {range(Link, 0, 4, u"https://a.example/a\r\nb")}) == u"[docs](https://a.example/a%0D%0Ab)");

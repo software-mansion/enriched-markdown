@@ -256,6 +256,46 @@ TEST_CASE("parse: escapes and entities decode to text") {
   CHECK(textOf("## Use \\#") == "Use #");
 }
 
+TEST_CASE("whitespace stand-ins: the first two private-use characters the markdown leaves free") {
+  auto standIns = chooseWhitespaceStandIns(u"plain text");
+  REQUIRE(standIns);
+  CHECK(standIns->tab == 0xE000);
+  CHECK(standIns->space == 0xE001);
+
+  standIns = chooseWhitespaceStandIns(u"a\uE000 b\uE002");
+  REQUIRE(standIns);
+  CHECK(standIns->tab == 0xE001);
+  CHECK(standIns->space == 0xE003);
+
+  // A numeric reference decodes to its character, so it takes it too; a named
+  // entity or a malformed reference does not.
+  standIns = chooseWhitespaceStandIns(u"&#xE000; &#57345; &#xE002 &#xE003x; &amp;");
+  REQUIRE(standIns);
+  CHECK(standIns->tab == 0xE002);
+  CHECK(standIns->space == 0xE003);
+
+  std::u16string everything;
+  for (char16_t c = 0xE000; c <= 0xF8FF; c++) {
+    everything.push_back(c);
+  }
+  CHECK_FALSE(chooseWhitespaceStandIns(everything));
+  everything.erase(5, 1);
+  CHECK_FALSE(chooseWhitespaceStandIns(everything));
+  everything.erase(7, 1);
+  standIns = chooseWhitespaceStandIns(everything);
+  REQUIRE(standIns);
+  CHECK(standIns->tab == 0xE005);
+  CHECK(standIns->space == 0xE008);
+}
+
+TEST_CASE("parse: with every private-use character taken, the markdown parses as given") {
+  std::u16string markdown = u"x ";
+  for (char16_t c = 0xE000; c <= 0xF8FF; c++) {
+    markdown.push_back(c);
+  }
+  CHECK(parse(markdown).plainText == markdown);
+}
+
 TEST_CASE("parse: offsets count UTF-16 units") {
   // The emoji is two units, so the bold run after it starts at 3.
   ParseResult result = parseUtf8("\xF0\x9F\x98\x80 **\xF0\x9F\x98\x80** end");
