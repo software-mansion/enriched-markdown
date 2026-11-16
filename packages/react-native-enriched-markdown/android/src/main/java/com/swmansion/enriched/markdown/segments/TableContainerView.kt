@@ -19,7 +19,6 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
-import android.widget.HorizontalScrollView
 import androidx.core.view.ViewCompat
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
@@ -71,9 +70,7 @@ class TableContainerView(
   var dynamicProps: DynamicBlockProps = DynamicBlockProps()
 
   private val scrollView =
-    HorizontalScrollView(context).apply {
-      // Enabled in onLayout only when the table overflows; enabled at attach it fades and redraws.
-      isHorizontalScrollBarEnabled = false
+    OverflowScrollView(context, detectsOverflow = false).apply {
       overScrollMode = View.OVER_SCROLL_NEVER
       importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
       addView(
@@ -376,7 +373,7 @@ class TableContainerView(
 
     scrollView.setPadding(overhang, 0, overhang, 0)
     scrollView.clipToPadding = !tableOverflows
-    scrollView.isHorizontalScrollBarEnabled = tableOverflows
+    scrollView.setOverflows(tableOverflows)
 
     scrollView.layout(0, 0, viewWidth, bottom - top)
 

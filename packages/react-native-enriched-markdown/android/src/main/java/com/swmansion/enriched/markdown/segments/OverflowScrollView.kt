@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.segments
 
 import android.content.Context
 import android.widget.HorizontalScrollView
+import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
 
 /**
  * Enables its scrollbar only once laid out with content wider than itself: a scrollbar enabled at
@@ -9,6 +10,8 @@ import android.widget.HorizontalScrollView
  */
 internal class OverflowScrollView(
   context: Context,
+  // Off for an owner that tells it when its content overflows ([setOverflows]).
+  private val detectsOverflow: Boolean = true,
 ) : HorizontalScrollView(context) {
   init {
     isHorizontalScrollBarEnabled = false
@@ -22,6 +25,20 @@ internal class OverflowScrollView(
     b: Int,
   ) {
     super.onLayout(changed, l, t, r, b)
-    isHorizontalScrollBarEnabled = canScrollHorizontally(1) || canScrollHorizontally(-1)
+    if (detectsOverflow) setOverflows(canScrollHorizontally(1) || canScrollHorizontally(-1))
+  }
+
+  /**
+   * Shows the scrollbar briefly once content starts to overflow, as a hint. A stream appends blocks:
+   * their hints wait for its end ([hintOverflow]).
+   */
+  fun setOverflows(overflows: Boolean) {
+    if (overflows == isHorizontalScrollBarEnabled) return
+    isHorizontalScrollBarEnabled = overflows
+    if (overflows && findEnrichedMarkdownAncestor()?.streaming != true) awakenScrollBars()
+  }
+
+  fun hintOverflow() {
+    if (isHorizontalScrollBarEnabled) awakenScrollBars()
   }
 }

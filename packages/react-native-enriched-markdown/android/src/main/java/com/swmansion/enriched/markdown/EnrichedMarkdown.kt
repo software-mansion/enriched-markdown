@@ -10,6 +10,7 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.Choreographer
 import android.view.View
+import android.view.ViewGroup
 import androidx.core.view.children
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReadableMap
@@ -26,6 +27,7 @@ import com.swmansion.enriched.markdown.segments.CodeBlockContainerView
 import com.swmansion.enriched.markdown.segments.ContainerNodeView
 import com.swmansion.enriched.markdown.segments.DynamicBlockProps
 import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
+import com.swmansion.enriched.markdown.segments.OverflowScrollView
 import com.swmansion.enriched.markdown.segments.RenderedSegment
 import com.swmansion.enriched.markdown.segments.SegmentViewConfig
 import com.swmansion.enriched.markdown.segments.SegmentViewCreators
@@ -178,6 +180,19 @@ class EnrichedMarkdown(
     dirtyFlags += DirtyFlag.FORCE_HEIGHT
     finishStreamingAnimations()
     settleTextSegments(except = null)
+    hintOverflowingBlocks(this)
+  }
+
+  // The scrollbar hints held back while streaming (OverflowScrollView.setOverflows). A nested
+  // document hints when its own stream ends.
+  private fun hintOverflowingBlocks(group: ViewGroup) {
+    for (i in 0 until group.childCount) {
+      when (val child = group.getChildAt(i)) {
+        is OverflowScrollView -> child.hintOverflow()
+        is EnrichedMarkdown -> Unit
+        is ViewGroup -> hintOverflowingBlocks(child)
+      }
+    }
   }
 
   // After the first render scheduled once the stream ended: the last words are on screen.

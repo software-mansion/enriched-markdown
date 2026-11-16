@@ -3,6 +3,7 @@ package com.swmansion.enriched.markdown.segments
 import android.view.View
 import android.view.View.MeasureSpec
 import android.widget.FrameLayout
+import com.swmansion.enriched.markdown.EnrichedMarkdown
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -47,5 +48,69 @@ class OverflowScrollViewTest {
     content.minimumWidth = 150
     layOut(scrollView, 200)
     assertFalse(scrollView.isHorizontalScrollBarEnabled)
+  }
+
+  // ScrollabilityCache.state: OFF, ON (shown), FADING.
+  private fun scrollbarShown(view: View): Boolean {
+    val cache =
+      View::class.java
+        .getDeclaredField("mScrollCache")
+        .apply { isAccessible = true }
+        .get(view) ?: return false
+    return cache.javaClass
+      .getDeclaredField("state")
+      .apply { isAccessible = true }
+      .getInt(cache) == 1
+  }
+
+  private fun overflowingBlockIn(host: EnrichedMarkdown): OverflowScrollView {
+    val (scrollView, _) = scrollViewWithContent(500)
+    // Nested, as in a blockquote.
+    host.addView(FrameLayout(context).apply { addView(scrollView) })
+    layOut(scrollView, 200)
+    return scrollView
+  }
+
+  private fun overflowingBlockIn(streaming: Boolean) = overflowingBlockIn(EnrichedMarkdown(context).apply { setStreamingProp(streaming) })
+
+  // The hint that a block scrolls sideways, as a scrollbar enabled at attach gave it.
+  @Test
+  fun anOverflowingBlockOfAStaticDocumentShowsItsScrollbar() {
+    val scrollView = overflowingBlockIn(streaming = false)
+    assertTrue(scrollView.isHorizontalScrollBarEnabled)
+    assertTrue(scrollbarShown(scrollView))
+  }
+
+  @Test
+  fun anOverflowingBlockOfAStreamShowsNoScrollbarUntilScrolled() {
+    val scrollView = overflowingBlockIn(streaming = true)
+    assertTrue(scrollView.isHorizontalScrollBarEnabled)
+    assertFalse(scrollbarShown(scrollView))
+  }
+
+  @Test
+  fun aStreamsOverflowingBlocksShowTheirScrollbarsWhenItEnds() {
+    val host =
+      EnrichedMarkdown(context).apply {
+        setStreamingProp(true)
+        commitProps()
+      }
+    val scrollView = overflowingBlockIn(host)
+    assertFalse(scrollbarShown(scrollView))
+
+    host.setStreamingProp(false)
+    host.commitProps()
+    assertTrue(scrollbarShown(scrollView))
+  }
+
+  @Test
+  fun anOwnerDecidesWhenItsContentOverflows() {
+    val scrollView = OverflowScrollView(context, detectsOverflow = false)
+    scrollView.addView(View(context).apply { minimumWidth = 500 }, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, 50))
+    layOut(scrollView, 200)
+    assertFalse(scrollView.isHorizontalScrollBarEnabled)
+
+    scrollView.setOverflows(true)
+    assertTrue(scrollView.isHorizontalScrollBarEnabled)
   }
 }
