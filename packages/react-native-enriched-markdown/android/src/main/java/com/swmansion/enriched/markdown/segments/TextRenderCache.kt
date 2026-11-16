@@ -74,6 +74,8 @@ class TextRenderCache {
 
   private class Growing(
     val entry: Entry,
+    // The segment's index among the text segments of its render: only that segment resumes.
+    val position: Int,
     val nodeSignatures: LongArray,
     val blockStarts: IntArray,
     val blockTaskStarts: IntArray,
@@ -159,6 +161,7 @@ class TextRenderCache {
       growing =
         Growing(
           entry,
+          current.size,
           nodeSignatures,
           full.blockStarts,
           full.blockTaskStarts,
@@ -181,7 +184,7 @@ class TextRenderCache {
     render: (List<MarkdownASTNode>, Int) -> TextRenderResult,
   ): Entry? {
     val old = growing ?: return null
-    if (old.entry.startingTaskIndex != startingTaskIndex) return null
+    if (old.position != current.size || old.entry.startingTaskIndex != startingTaskIndex) return null
     var common = 0
     while (common < nodes.size && common < old.nodeSignatures.size && nodeSignatures[common] == old.nodeSignatures[common]) {
       common++
@@ -287,6 +290,7 @@ class TextRenderCache {
     growing =
       Growing(
         entry,
+        old.position,
         nodeSignatures,
         blockStarts,
         blockTaskStarts,

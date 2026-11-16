@@ -336,4 +336,32 @@ class TextRenderCacheTest {
       ),
     )
   }
+
+  // A new last text segment starting as the previous one did is another segment: no patch to it.
+  @Test
+  fun aNewLastTextSegmentRendersInFull() {
+    val cache = TextRenderCache()
+    val step = heading(2, "Step")
+    val first = listOf(step, paragraph(text("Run this:")))
+
+    fun renderAll(segments: List<MarkdownSegment>): List<RenderedSegment> {
+      cache.begin(style)
+      val rendered = MarkdownSegmentRenderer.render(segments, style, RuntimeEnvironment.getApplication(), null, null, cache = cache)
+      cache.end()
+      return rendered
+    }
+    renderAll(listOf(MarkdownSegment.Text(first)))
+    renderAll(listOf(MarkdownSegment.Text(first), MarkdownSegment.CodeBlock(codeBlock("make"))))
+    val last =
+      renderAll(
+        listOf(
+          MarkdownSegment.Text(first),
+          MarkdownSegment.CodeBlock(codeBlock("make")),
+          MarkdownSegment.Text(listOf(step, paragraph(text("Then this")))),
+        ),
+      ).last() as RenderedSegment.Text
+
+    assertNull(last.patch)
+    assertNotNull(last.styledText)
+  }
 }
