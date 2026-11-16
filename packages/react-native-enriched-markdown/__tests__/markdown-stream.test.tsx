@@ -8,6 +8,7 @@ import {
   createMarkdownStream,
   setNativeMarkdownStreams,
 } from '../src/markdownStream';
+import type { MarkdownStream } from '../src/markdownStream';
 
 // The C++ streams, by id: the text the component descriptor would fill in.
 const mockStreams = new Map<number, string>();
@@ -418,6 +419,25 @@ it('counts the length in bytes', () => {
   const stream = createMarkdownStream('é');
   const root = render(<EnrichedMarkdownText stream={stream} />);
   expect(view(root).props.streamLength).toBe(2);
+});
+
+it('warns once of a stream not from createMarkdownStream()', () => {
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  for (const flavor of ['commonmark', 'github'] as const) {
+    warn.mockClear();
+    render(
+      <EnrichedMarkdownText
+        flavor={flavor}
+        stream={{} as MarkdownStream}
+        onLinksChange={() => {}}
+      />
+    );
+    const warnings = warn.mock.calls.filter(([message]) =>
+      String(message).includes('takes a stream from createMarkdownStream()')
+    );
+    expect(warnings).toHaveLength(1);
+  }
+  warn.mockRestore();
 });
 
 it('shows nothing in a view that mounts after dispose', () => {

@@ -8,6 +8,7 @@ import {
   createMarkdownStream,
 } from '../src/jest';
 import type { EnrichedMarkdownTextInputInstance } from '../src/EnrichedMarkdownTextInput';
+import type { MarkdownStream } from '../src/markdownStream';
 
 const INSTANCE_METHODS: (keyof EnrichedMarkdownTextInputInstance)[] = [
   'focus',
@@ -369,5 +370,15 @@ describe('EnrichedMarkdownText mock stream', () => {
     nextFrame();
     expect(onStreamingEnd).toHaveBeenCalledTimes(1);
     stream.dispose();
+  });
+
+  it('warns once of a stream not from createMarkdownStream()', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    renderMock(<EnrichedMarkdownText stream={{} as MarkdownStream} />);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('takes a stream from createMarkdownStream()')
+    );
+    warn.mockRestore();
   });
 });

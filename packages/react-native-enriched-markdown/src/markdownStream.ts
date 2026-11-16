@@ -272,11 +272,6 @@ export function useMarkdownStreamEnded(
 ): boolean | null {
   const store = useMemo(() => {
     if (!(stream instanceof Stream)) {
-      if (isDev && stream != null) {
-        console.warn(
-          '[react-native-enriched-markdown] `stream` takes a stream from createMarkdownStream(); this one is ignored.'
-        );
-      }
       return { subscribe: NO_SUBSCRIPTION, getSnapshot: NO_SNAPSHOT };
     }
     return {
@@ -291,12 +286,20 @@ export function useMarkdownStreamEnded(
   );
 }
 
-/** The stream as of the last frame, re-rendering on each new frame; null without a stream. */
+/**
+ * The stream as of the last frame, re-rendering on each new frame; null without a stream.
+ * Every view reads it here, so this warns of an invalid one.
+ */
 export function useMarkdownStreamSnapshot(
   stream: MarkdownStream | undefined
 ): MarkdownStreamSnapshot | null {
   const store = useMemo(() => {
     if (!(stream instanceof Stream)) {
+      if (isDev && stream != null) {
+        console.warn(
+          '[react-native-enriched-markdown] `stream` takes a stream from createMarkdownStream(); this one is ignored.'
+        );
+      }
       return { subscribe: NO_SUBSCRIPTION, getSnapshot: NO_SNAPSHOT };
     }
     return {
