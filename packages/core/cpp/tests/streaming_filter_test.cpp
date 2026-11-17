@@ -159,7 +159,30 @@ int main() {
   expect("a | b\n--|--\n1 ", "a | b\n--|--\n", "short row of a table without pipes trimmed");
   expect("a | b", "a | b", "a lone line with a pipe is prose", P, H);
   expect("> | a | b |\n> |---|---|\n> | 1 | 2 |", "", "quoted table withheld (hidden)", P, H);
-  expect("| a | b |\n|-", "", "delimiter row with too few cells is not a table yet");
+  expect("| a | b |\n| --- | --- | -", "", "delimiter row with too many cells is not a table");
+
+  // A finished header row shows while its delimiter row arrives.
+  expect("A\n\n| a | b |", "A\n\n", "header row still arriving withheld");
+  expect("A\n\n| a | b |\n", "A\n\n| a | b |\n| --- | --- |", "ended header row shown with a delimiter");
+  expect("A\n\n| a | b |\n|:-", "A\n\n| a | b |\n| --- | --- |", "partial delimiter row stands in");
+  expect("A\n\n| a | b |\nc", "A\n\n| a | b |\nc", "row of pipes followed by prose is prose");
+  expect("A\n\n| a | b |\n", "A\n\n", "ended header row withheld (hidden)", P, H);
+  expect("> | a | b |\n> |-", "> | a | b |\n> | --- | --- |", "quoted header row keeps its markers");
+  expect("| a | b |\n```js\nx", "```js\nx", "header row before a fence is not a table");
+  expect("A\n\n| a | b |\n| - |\n", "A\n\n", "ended row that is not a delimiter row withholds the header");
+  expect("A\n\n    | a | b |\n", "A\n\n", "indented code is not a header row");
+  expect("A\n\n||hidden|| text ||\n", "A\n\n", "a row of spoilers is not a header row");
+  expect("A\n\n\t| a | b |\n", "A\n\n", "a tab-indented row is code, not a header row");
+  expect("A\n\n| `a|b` | c |\n", "A\n\n", "a pipe in a code span leaves the cell count to the delimiter row");
+  expect("A\n\n| ||s|| | b |\n", "A\n\n", "a spoiler inside a cell leaves the cell count to the delimiter row");
+  {
+    StreamingFilterOptions noTables;
+    noTables.tables = false;
+    auto got = Markdown::renderableMarkdownForStreaming("A\n\n| a | b |\n", noTables);
+    check(got.markdown == "A\n\n" && got.addedBytes == 0, "without tables no delimiter row is added");
+    auto added = Markdown::renderableMarkdownForStreaming("A\n\n| a | b |\n", {});
+    check(added.addedBytes == std::string("| --- | --- |").size(), "the added delimiter row is reported");
+  }
 
   // Pre-existing rules keep their behaviour.
   expect("A\n\n| a | b |\n|---|---|\n| 1 |", "A\n\n| a | b |\n|---|---|\n", "incomplete table row trimmed");

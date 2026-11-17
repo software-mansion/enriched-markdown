@@ -8,6 +8,19 @@ namespace Markdown {
 
 namespace {
 
+// Whether a line still starts after `text`, from `lineStart` before it: only spaces and quote
+// markers since the last line break.
+bool startsLineAfter(std::u16string_view text, bool lineStart) {
+  for (char16_t c : text) {
+    if (c == u'\n') {
+      lineStart = true;
+    } else if (c != u' ' && c != u'\t' && c != u'>') {
+      lineStart = false;
+    }
+  }
+  return lineStart;
+}
+
 // A chunk spreads over the time until the next one, at most this long; the text falls at most
 // this far behind; a held word, or markdown held for one (`- `, `## `), shows after this long
 // without the rest; what is waiting when the stream ends shows within this long.
@@ -20,11 +33,15 @@ constexpr double kFirstSpread = 0.05;
 constexpr double kNever = std::numeric_limits<double>::infinity();
 
 // Whether a word is only markdown waiting for the word after it: a list marker (`-`, `1.`), a
-// heading's `##`, a quote's `>`, emphasis opening before a space.
+// heading's `##`, a quote's `>`, emphasis opening before a space. Markdown that ends its line (a
+// table row's last `|`, a delimiter row, `---`) waits for nothing.
 bool waitsForNextWord(std::u16string_view word) {
   size_t end = word.size();
   while (end > 0 && isStreamingSpace(word[end - 1])) {
     end--;
+  }
+  if (word.find(u'\n', end) != std::u16string_view::npos) {
+    return false;
   }
   bool hasDigit = false;
   for (size_t i = 0; i < end; i++) {
@@ -105,6 +122,7 @@ void StreamingPacer::append(size_t start, std::u16string_view added, double time
   }
   if (steps_.empty() && !tail_.empty() && tailSince_ && time - *tailSince_ >= kTailHold) {
     shown_ = length_;
+    lineStart_ = startsLineAfter(tail_, lineStart_);
     tail_.clear();
   }
   size_t base = length_ - tail_.size();
@@ -112,8 +130,27 @@ void StreamingPacer::append(size_t start, std::u16string_view added, double time
   length_ = start + added.size();
   double lastWaiting = steps_.empty() ? time : steps_.back().time;
   size_t stepped = 0;
+  bool lineStart = lineStart_;
+  bool tableRow = false;
   for (size_t i = 0; i < text.size();) {
     size_t next = wordEnd(text, i);
+    // The line this word is on, and whether the word ends it.
+    bool endsLine = false;
+    for (size_t j = i; j < next; j++) {
+      char16_t c = text[j];
+      if (c == u'\n') {
+        endsLine = true;
+      } else if (lineStart && c != u' ' && c != u'\t' && c != u'>') {
+        lineStart = false;
+        // `||` opens a spoiler, not a row.
+        tableRow = c == u'|' && !(j + 1 < next && text[j + 1] == u'|');
+      }
+    }
+    bool rowWord = tableRow && !endsLine;
+    if (endsLine) {
+      lineStart = true;
+      tableRow = false;
+    }
     // A character that is a word of its own (CJK) is complete as it arrives, unless the chunk
     // ends halfway through its surrogate pair.
     bool ownWord = isOwnWord(text[i]) && !(next - i == 1 && text[i] >= 0xD800 && text[i] <= 0xDBFF);
@@ -121,9 +158,10 @@ void StreamingPacer::append(size_t start, std::u16string_view added, double time
     if (!complete) {
       break;
     }
-    if (!waitsForNextWord(std::u16string_view(text).substr(i, next - i))) {
+    if (!rowWord && !waitsForNextWord(std::u16string_view(text).substr(i, next - i))) {
       steps_.push_back({base + next, kNever});
       stepped = next;
+      lineStart_ = lineStart;
     }
     i = next;
   }
@@ -148,6 +186,7 @@ void StreamingPacer::schedule(double from, double until) {
 
 void StreamingPacer::reset(size_t length) {
   steps_.clear();
+  lineStart_ = true;
   shown_ = length;
   length_ = length;
   tail_.clear();

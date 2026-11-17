@@ -252,6 +252,57 @@ TEST_CASE("a gradient settles to the characters' own colors after the stream end
   CHECK(fx.animatedRange(3.0));
 }
 
+TEST_CASE("text after a settled gradient fades in on its own, and settled text stays as it is") {
+  auto fx = effects(gradient(4));
+  std::u16string text;
+  append(fx, text, u"0123456789", 1.0);
+  // The paragraph is finished while the next block is still held back.
+  fx.finish(2.0);
+  CHECK_FALSE(fx.animatedRange(2.3));
+  append(fx, text, u"ab", 3.0);
+  // Only the new text animates; the gradient no longer reaches back into the settled text.
+  auto range = fx.animatedRange(3.0);
+  REQUIRE(range);
+  CHECK(range->start == 10);
+  CHECK(fx.lookAt(9, 3.0).opacity == doctest::Approx(1));
+  CHECK(fx.lookAt(9, 3.5).opacity == doctest::Approx(1));
+  CHECK(fx.lookAt(11, 3.5).opacity < 1);
+  // Shrinking into the settled text keeps the rest settled.
+  fx.noteArrival(8, 8, 4.0, u"", u'7');
+  CHECK_FALSE(fx.animatedRange(4.0));
+}
+
+TEST_CASE("text still settling when new text arrives finishes settling without a jump") {
+  auto fx = effects(gradient(8));
+  std::u16string text;
+  append(fx, text, u"0123456789", 1.0);
+  fx.finish(2.0);
+  float before = fx.lookAt(9, 2.049).opacity;
+  append(fx, text, u"ab", 2.05);
+  CHECK(fx.lookAt(9, 2.05).opacity == doctest::Approx(before).epsilon(0.05));
+  CHECK(fx.lookAt(9, 2.05).opacity < 1);
+  CHECK(fx.changesOverTime(2.1));
+  auto range = fx.animatedRange(2.1);
+  REQUIRE(range);
+  CHECK(range->start <= 9);
+  CHECK(fx.lookAt(9, 2.25).opacity == doctest::Approx(1));
+}
+
+TEST_CASE("text that settled before a short block stays settled when the next text arrives") {
+  auto fx = effects(gradient(8));
+  std::u16string text;
+  append(fx, text, u"0123456789abcdefghij", 1.0);
+  fx.finish(1.5);
+  append(fx, text, u"Hi\n", 3.0);
+  fx.finish(3.5);
+  append(fx, text, u"next", 3.55);
+  CHECK(fx.lookAt(19, 3.55).opacity == doctest::Approx(1));
+  CHECK(fx.lookAt(16, 3.55).opacity == doctest::Approx(1));
+  auto range = fx.animatedRange(3.55);
+  REQUIRE(range);
+  CHECK(range->start >= 20);
+}
+
 TEST_CASE("a gradient between two colors replaces the characters' own color") {
   auto config = gradient(4);
   config.startColor = EffectColor{0, 0, 1, 1};

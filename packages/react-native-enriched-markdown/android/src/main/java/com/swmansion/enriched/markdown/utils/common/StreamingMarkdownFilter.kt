@@ -57,6 +57,8 @@ enum class MediaStreamingMode {
 data class StreamingFilterResult(
   val markdown: String,
   val endsInsideOpenCodeFence: Boolean,
+  // Everything shown is finished: the next block is still held back.
+  val showsOnlyFinishedBlocks: Boolean = false,
 )
 
 /**
@@ -74,6 +76,8 @@ object StreamingMarkdownFilter {
     tableMode: TableStreamingMode = TableStreamingMode.PROGRESSIVE,
     codeBlockMode: CodeBlockStreamingMode = CodeBlockStreamingMode.PROGRESSIVE,
     mediaMode: MediaStreamingMode = MediaStreamingMode.PROGRESSIVE,
+    // Whether the parser reads tables (GFM).
+    tables: Boolean = true,
   ): StreamingFilterResult =
     nativeRenderableMarkdownForStreaming(
       markdown,
@@ -81,6 +85,7 @@ object StreamingMarkdownFilter {
       tableMode == TableStreamingMode.HIDDEN,
       codeBlockMode == CodeBlockStreamingMode.HIDDEN,
       mediaMode == MediaStreamingMode.HIDDEN,
+      tables,
     ) ?: StreamingFilterResult(markdown, false)
 
   @JvmStatic
@@ -90,5 +95,6 @@ object StreamingMarkdownFilter {
     hideTables: Boolean,
     hideCodeBlocks: Boolean,
     hideMedia: Boolean,
+    parseTables: Boolean,
   ): StreamingFilterResult?
 }

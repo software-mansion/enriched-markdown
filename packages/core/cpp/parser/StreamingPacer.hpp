@@ -49,6 +49,9 @@ private:
   // before it (`-`, `##`) that waits for a word, held back since `tailSince_`.
   std::u16string tail_;
   std::optional<double> tailSince_;
+  // Whether the tail starts a line: a line that is a table row (`|` first) is hidden until it ends,
+  // so it is one step, not one a word.
+  bool lineStart_ = true;
   std::optional<double> lastArrival_;
   // The usual time between chunks, which each chunk spreads over.
   std::optional<double> arrivalGap_;

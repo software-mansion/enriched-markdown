@@ -10,7 +10,8 @@
 // prepare once.
 NSString *ENRMRenderableMarkdownForStreaming(NSString *markdown, ENRMMd4cFlags *flags, ENRMTableStreamingMode tableMode,
                                              ENRMCodeBlockStreamingMode codeBlockMode, ENRMMediaStreamingMode mediaMode,
-                                             BOOL *outEndsInsideOpenCodeFence)
+                                             BOOL tables, BOOL *outEndsInsideOpenCodeFence,
+                                             BOOL *outShowsOnlyFinishedBlocks)
 {
   Markdown::StreamingOptions options;
   options.blocks.tableMode = tableMode == ENRMTableStreamingModeHidden ? Markdown::StreamingBlockMode::Hidden
@@ -20,11 +21,15 @@ NSString *ENRMRenderableMarkdownForStreaming(NSString *markdown, ENRMMd4cFlags *
                                      : Markdown::StreamingBlockMode::Progressive;
   options.blocks.mediaMode = mediaMode == ENRMMediaStreamingModeHidden ? Markdown::StreamingBlockMode::Hidden
                                                                        : Markdown::StreamingBlockMode::Progressive;
+  options.blocks.tables = tables;
   options.flags = ENRMCoreMd4cFlags(flags);
   std::string utf8 = ENRMUTF8String(markdown);
   Markdown::StreamingSnapshot snapshot = Markdown::DocumentStore::shared().snapshot(utf8, options);
   if (outEndsInsideOpenCodeFence) {
     *outEndsInsideOpenCodeFence = snapshot.endsInsideOpenCodeFence;
+  }
+  if (outShowsOnlyFinishedBlocks) {
+    *outShowsOnlyFinishedBlocks = snapshot.showsOnlyFinishedBlocks;
   }
   return snapshot.markdown == utf8 ? markdown : ENRMStringFromUTF8(snapshot.markdown);
 }

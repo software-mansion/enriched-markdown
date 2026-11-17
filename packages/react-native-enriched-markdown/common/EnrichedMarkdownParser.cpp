@@ -72,6 +72,7 @@ EnrichedMarkdownParser::collect(jsi::Runtime &, std::string markdown, EnrichedMa
     options.blocks.tableMode = Markdown::streamingBlockModeFromName(streaming.tableMode);
     options.blocks.codeBlockMode = Markdown::streamingBlockModeFromName(streaming.codeBlockMode);
     options.blocks.mediaMode = Markdown::streamingBlockModeFromName(streaming.mediaMode);
+    options.blocks.tables = isGFM;
     options.flags = coreFlags;
     auto snapshot = store.snapshot(markdown, options);
     markdown = std::move(snapshot.markdown);

@@ -236,3 +236,20 @@ TEST_CASE("the first text and a text that does not continue the last show at onc
   CHECK_FALSE(stillPacer.update(kWaiting, false, true, 1.0));
   CHECK(stillPacer.revealed(1.0) == kWaiting.size());
 }
+
+TEST_CASE("a table row is one step: hidden until it ends, it takes no time word by word") {
+  StreamingPacer pacer;
+  std::u16string text;
+  append(pacer, text, u"a ", 0.0);
+  append(pacer, text, u"done.\n\n| List | Recycles rows | Best for |\n", 0.5);
+  // `done.` and the row: two steps over the half second, the row at the second.
+  CHECK(pacer.revealed(0.5) == 9);
+  CHECK(pacer.revealed(0.74) == 9);
+  CHECK(pacer.revealed(0.76) == text.size());
+  // A row still arriving waits whole; the text after it is paced again.
+  append(pacer, text, u"| --- | --- ", 1.0);
+  CHECK(pacer.revealed(1.4) == 45);
+  append(pacer, text, u"| --- |\nNext words here ", 1.45);
+  CHECK(pacer.revealed(1.45) == 65);
+  CHECK(pacer.revealed(1.55) < text.size());
+}
