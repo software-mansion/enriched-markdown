@@ -1503,10 +1503,13 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   view.writingDirectionMode = _writingDirectionMode;
   view.resolvedLayoutDirection = _resolvedLayoutDirection;
   NSUInteger previousRowCount = view.rowCount;
+  NSArray<NSNumber *> *previousWidths = view.shownColumnWidths;
   [view applyTableNode:tableSegment.tableNode];
 
   if ([self fadesArrivals]) {
     [view animateNewRowsFromPreviousCount:previousRowCount duration:0.20];
+    // A wider cell widens its column smoothly, not in one jump.
+    [view animateColumnWidthsFrom:previousWidths duration:0.25];
   }
 }
 
