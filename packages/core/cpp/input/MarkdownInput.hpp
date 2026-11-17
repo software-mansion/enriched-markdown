@@ -1,22 +1,18 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
 
-// Markdown import and export for the editable input: one implementation for
-// iOS, Android and web, so a document saved on one platform loads unchanged on
-// another. Both functions work on plain data in UTF-16 offsets (the unit every
-// host string indexes in) and never throw.
-//
-// This is a port of the web input's TypeScript (src/web/input/formatting),
-// which is the reference for every behavior here.
+// Markdown import and export for the editable input, shared by iOS, Android
+// and web. Offsets are in UTF-16 code units. Nothing here throws.
 namespace Markdown::Input {
 
-// The order is the order of the TypeScript `INPUT_STYLE_TYPES`; hosts that
-// pass the type as an integer can rely on these values.
+// Values are stable: hosts pass the type as an integer.
 enum class StyleType : uint8_t { Strong = 0, Em = 1, Underline = 2, Strikethrough = 3, Link = 4, Spoiler = 5 };
+inline constexpr size_t kStyleTypeCount = 6;
 
 // Line-scoped block types. Every line is a paragraph until a block claims it.
 enum class BlockType : uint8_t {
@@ -41,9 +37,8 @@ struct FormattingRange {
   std::u16string url; // links only
 };
 
-// `level` is a heading's level (1-6) or a list item's depth (0-based).
-// `ordinal` is the 1-based position of an ordered item among its adjacent
-// siblings at the same depth.
+// `level`: a heading's level (1-6) or a list item's depth (0-based).
+// `ordinal`: 1-based position among adjacent same-depth ordered items.
 struct BlockRange {
   BlockType type = BlockType::Paragraph;
   uint32_t start = 0;
@@ -58,23 +53,18 @@ struct ParseResult {
   std::vector<BlockRange> blockRanges;           // in line order, one per line, list metadata settled
 };
 
-// Markdown to plain text and ranges. Parsed as given: an unclosed delimiter
-// stays literal text. Syntax the input has no model for (quotes, code, tables,
-// rules) loses its markers and keeps its content. On failure the markdown
-// comes back as plain text with no ranges.
+// Markdown to plain text and ranges. Unclosed delimiters stay literal; syntax
+// the input can't model (quotes, code, tables, rules) keeps only its content.
+// On failure, returns the markdown as plain text.
 ParseResult parse(std::u16string_view markdown);
 
-// The reverse. Blocks must be one per line, sorted by start; a block's marker
-// (`- `, `3. `, `## `) is derived from its type, level and ordinal. Plain text
-// that would read as markup is escaped. On failure the plain text comes back
-// unchanged.
+// Plain text and ranges to markdown. Blocks are one per line, sorted by start.
+// Text that would read as markup is escaped. On failure, returns the plain text.
 std::u16string serialize(std::u16string_view plainText, const std::vector<FormattingRange> &formattingRanges,
                          const std::vector<BlockRange> &blockRanges);
 
-// What a block store does to a list of blocks sorted by start, and `parse` does
-// before returning: an item nests at most one level below the adjacent item
-// above it (CommonMark has no orphan nesting), and ordered items are numbered
-// from 1 among their adjacent same-depth, same-type run.
+// Nests each list item at most one level below the item above it and numbers
+// ordered items from 1 within each run. `parse` already applies it.
 void normalizeListMetadata(std::vector<BlockRange> &blockRanges);
 
 } // namespace Markdown::Input

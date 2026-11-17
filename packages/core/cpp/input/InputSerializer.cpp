@@ -6,10 +6,9 @@
 #include <cstddef>
 #include <string>
 
-// MarkdownSerializer.ts: plain text, formatting ranges and block ranges to
-// markdown. Ranges may overlap any way they like, but delimiters have to nest,
-// so the writer keeps a stack of open segments and drops what md4c would not
-// read back.
+// Plain text and ranges to markdown. Ranges may overlap but delimiters must
+// nest, so the writer keeps a stack of open segments and drops styles md4c
+// would not read back.
 namespace Markdown::Input {
 
 namespace {
@@ -46,16 +45,10 @@ bool hasBalancedParens(std::u16string_view url) {
   return depth == 0;
 }
 
-// A bare destination ends at the first whitespace and at an unbalanced ")", and
-// one starting with "<" reads as the angle-bracket form, so a url carrying any
-// of these goes in angle brackets, where "<" and ">" need escaping as well.
-// Backslash escapes are resolved in both forms, so a literal "\" has to be
-// doubled before anything else is escaped - left bare, a url ending in one would
-// escape the closing delimiter and swallow the rest of the line. Entity
-// references are decoded in both forms too, so an "&" that starts one is
-// escaped. No form admits a line ending at all, and one reaching the output
-// would also break the line-count invariant `serialize` relies on, so line
-// endings are percent-encoded rather than passed through.
+// Bare, unless the url has whitespace, unbalanced parens or a leading "<": then
+// in angle brackets. "\" is doubled and an entity-starting "&" escaped in both
+// forms. Line endings are percent-encoded: no form allows them, and `serialize`
+// relies on the line count.
 std::u16string linkDestination(std::u16string_view url) {
   std::u16string escaped;
   escaped.reserve(url.size());
@@ -97,10 +90,8 @@ std::u16string linkDestination(std::u16string_view url) {
   return wrapped;
 }
 
-// Among styles covering exactly the same text, lower is outermost. A link or
-// spoiler goes outside font styles: "[**docs**](u)s" parses, while
-// "**[docs](u)**s" does not - a closing "**" after ")" and before a letter is
-// not right-flanking.
+// For styles over the same text, lower is outer. Links and spoilers go outside
+// font styles: "[**docs**](u)s" parses, "**[docs](u)**s" does not.
 int nestingPriority(StyleType type) {
   switch (type) {
     case StyleType::Link:
@@ -119,9 +110,8 @@ int nestingPriority(StyleType type) {
   return 6;
 }
 
-// The part of a range on one line, trimmed so its delimiters hug non-whitespace:
-// an opening "**" before a space or a closing one after it is not flanking, and
-// the parser would leave it as text.
+// The part of a range on one line, trimmed of whitespace so its delimiters
+// flank.
 struct Segment {
   StyleType type;
   const std::u16string *url;
@@ -138,8 +128,7 @@ struct Event {
   size_t segment; // index into the segment list
 };
 
-// Of two delimiters opening at one position, the one written first is the outer
-// one, so it has to be the one that closes last.
+// At a shared start, the segment that closes last opens first.
 bool opensOutside(const Segment &a, const Segment &b) {
   if (a.end != b.end) {
     return a.end > b.end;
@@ -168,18 +157,14 @@ size_t lineAt(const std::vector<size_t> &lineStarts, size_t position) {
   return low;
 }
 
-// Every line is its own block, and no inline run may cross a block boundary:
-// "- **a\n- b**" re-parses as two items carrying literal asterisks rather than
-// one bold run. Each range is therefore emitted once per line it covers, which
-// also splits a link spanning lines into one link per line - the only form the
-// block model can express. Sorted by start.
+// Inline runs can't cross lines ("- **a\n- b**" is not one bold run), so each
+// range is split into one segment per line. Sorted by start.
 std::vector<Segment> lineSegments(std::u16string_view text, const std::vector<FormattingRange> &ranges,
                                   const std::vector<size_t> &lineStarts) {
   const auto lineEnd = [&](size_t line) { return lineEndOf(text, lineStarts, line); };
   std::vector<Segment> segments;
   bool sorted = true;
-  // The line of the last range's start. Ranges come sorted by start, so this
-  // walks forward through the lines once; only a range starting behind it is
+  // The line of the last range's start; only a range starting behind it is
   // looked up.
   size_t cursor = 0;
   for (const FormattingRange &range : ranges) {
@@ -212,18 +197,15 @@ std::vector<Segment> lineSegments(std::u16string_view text, const std::vector<Fo
     }
   }
   if (!sorted) {
-    // Only a range spanning lines puts a later line's segment ahead of the next
-    // range's.
+    // Only multi-line ranges break the order.
     std::stable_sort(segments.begin(), segments.end(),
                      [](const Segment &a, const Segment &b) { return a.start < b.start; });
   }
   return segments;
 }
 
-// The delimiters to write, in output order. Where one segment ends, everything
-// opened inside it closes too, and the ones that go on past it reopen right
-// after - at the next non-whitespace character, since a delimiter before a space
-// does not open. Where several open at once, the one closing last opens first.
+// The delimiters in output order. When a segment closes, those opened inside it
+// close too and reopen after it, at the next non-whitespace character.
 std::vector<Event> nestedEvents(std::u16string_view text, const std::vector<Segment> &segments) {
   std::vector<Event> events;
   events.reserve(segments.size() * 2);
@@ -261,8 +243,7 @@ std::vector<Event> nestedEvents(std::u16string_view text, const std::vector<Segm
       continue;
     }
 
-    // A segment opening here starts on non-whitespace, so this only moves
-    // reopened ones, and nothing ends or starts in the whitespace skipped.
+    // Only reopened segments can start on whitespace.
     size_t openAt = position;
     while (isWhitespaceAt(text, openAt)) {
       openAt++;
@@ -279,10 +260,8 @@ std::vector<Event> nestedEvents(std::u16string_view text, const std::vector<Segm
   return events;
 }
 
-// "*" and "**" written side by side are one delimiter run to md4c, and a run's
-// flanking is decided by what is around the whole run, not by the "*" next to
-// each part: "***a***b" is bold italic "a". Any other delimiter in between ends
-// the run and is punctuation.
+// Adjacent "*" and "**" are one delimiter run to md4c, flanking as a whole
+// ("***a***b" is bold italic "a"). Any other delimiter counts as punctuation.
 bool isStarDelimiter(StyleType type) {
   return type == StyleType::Em || type == StyleType::Strong;
 }
@@ -319,15 +298,11 @@ Neighbor neighborAfter(std::u16string_view text, const std::vector<Event> &event
   return classify(text.substr(position, pair ? 2 : 1));
 }
 
-// Whether md4c reads a delimiter between `before` and `after` as the opening (or
-// the closing) it stands for. Measured against the parser rather than taken from
-// the spec, because "_" (underline here) and "~~" are extensions:
-// - "*" / "**": CommonMark flanking. An opener is left-flanking - not before
-//   whitespace, and not before punctuation unless whitespace or punctuation
-//   precedes it - and a closer the mirror image.
-// - "_" / "~~": an opener must not follow a letter or digit, nor a closer
-//   precede one: neither works inside a word.
-// - "||" and links take any neighbors.
+// Whether md4c reads the delimiter as an opener (or closer), as measured
+// against the parser:
+// - "*", "**": CommonMark left/right flanking.
+// - "_", "~~": not inside a word.
+// - "||" and links: always.
 bool isFlanking(StyleType type, bool isOpening, Neighbor before, Neighbor after) {
   const Neighbor inner = isOpening ? after : before;
   const Neighbor outer = isOpening ? before : after;
@@ -361,10 +336,8 @@ std::vector<char> unflankedSegments(std::u16string_view text, const std::vector<
   return unflanked;
 }
 
-// A segment whose delimiters md4c would not read as one - "**Note:**text",
-// underline over half a word - is dropped, and the rest written again without
-// it: losing a style beats writing its delimiters into the text, where every
-// reload would keep them.
+// Drops segments md4c wouldn't read back ("**Note:**text") and retries: losing
+// a style beats leaving literal delimiters in the text.
 std::vector<Event> inlineEvents(std::u16string_view text, const std::vector<FormattingRange> &ranges,
                                 const std::vector<size_t> &lineStarts, std::vector<Segment> &segments) {
   segments = lineSegments(text, ranges, lineStarts);
@@ -386,11 +359,8 @@ std::vector<Event> inlineEvents(std::u16string_view text, const std::vector<Form
   }
 }
 
-// A "!" written right before a link's "[" turns the link into an image, which
-// re-imports as its bare text with the "!" and the url gone. Unlike the other
-// escapes this depends on the delimiters, so it is decided here: the "!" ahead of
-// a link opening is escaped unless another delimiter is written between them
-// ("!**[a](u)**" is no image). Merged into `escapes`, which stays sorted.
+// Escapes a "!" right before a link's "[", which would make it an image, unless
+// another delimiter sits between them. Merged into the sorted `escapes`.
 std::vector<uint32_t> withImageMarkerEscapes(std::vector<uint32_t> escapes, std::u16string_view text,
                                              const std::vector<Event> &events) {
   std::vector<uint32_t> markers;
@@ -419,11 +389,8 @@ std::vector<uint32_t> withImageMarkerEscapes(std::vector<uint32_t> escapes, std:
   return merged;
 }
 
-// `linePrefixes` is indexed like `lineStarts`, and a line with an empty entry
-// gets no marker. A marker lands in front of its line's first character, and so
-// in front of any delimiter opening there; no delimiter closes at a line start,
-// because a range is split into one segment per line and each segment ends on
-// its own line.
+// `linePrefixes` is indexed like `lineStarts`. A marker goes before its line's
+// first character, ahead of any delimiter opening there.
 std::u16string writeMarkdown(std::u16string_view text, const std::vector<Event> &events,
                              const std::vector<size_t> &lineStarts, const std::vector<std::u16string> &linePrefixes) {
   std::u16string markdown;
@@ -485,11 +452,8 @@ bool isListItem(BlockType type) {
 // Width of "- " or "1. ", the narrowest markers a list item can carry.
 constexpr int kSingleDigitMarkerWidth = 3;
 
-// A nested item has to be indented to its parent's content column or it de-nests
-// on re-parse, and that column is the parent's rendered marker width: "1. " and
-// "10. " do not indent their children alike. Depth is clamped the way the block
-// store clamps it, so a stray level cannot indent a line far enough to re-parse
-// as a code block.
+// A nested item is indented to its parent's content column ("1. " and "10. "
+// differ) or it de-nests. Depth is clamped so it can't turn into a code block.
 std::u16string listIndent(uint8_t level, int parentContentColumn) {
   const int depth = std::min<int>(level, kMaxListDepth);
   if (depth == 0) {
@@ -520,8 +484,7 @@ std::u16string markdownLinePrefix(const BlockRange &block, int parentContentColu
     case BlockType::H4:
     case BlockType::H5:
     case BlockType::H6:
-      // A heading's level comes from its type rather than from `level`, so the
-      // two cannot disagree.
+      // The level comes from the type, not from `level`.
       return std::u16string(static_cast<size_t>(block.type) - static_cast<size_t>(BlockType::H1) + 1, u'#') + u" ";
   }
   return {};
@@ -531,9 +494,8 @@ std::u16string serializeInline(std::u16string_view text, const std::vector<Forma
   return serializeEvents(text, ranges, ranges.empty() ? std::vector<size_t>() : lineStartsOf(text), {});
 }
 
-// Markers are written during the same sweep as the delimiters, so the output is
-// never split back into lines. That relies on delimiters never carrying a line
-// ending, which is why link destinations percent-encode theirs.
+// Markers and delimiters are written in one sweep, which relies on no delimiter
+// holding a line ending.
 std::u16string serialize(std::u16string_view plainText, const std::vector<FormattingRange> &formattingRanges,
                          const std::vector<BlockRange> &blockRanges) {
   try {
@@ -546,20 +508,15 @@ std::u16string serialize(std::u16string_view plainText, const std::vector<Format
     const size_t lineCount = lineStarts.size();
     const auto lineEnd = [&](size_t line) { return lineEndOf(text, lineStarts, line); };
     std::vector<std::u16string> linePrefixes(lineCount);
-    // Per line: the depth of its list item, or INT_MAX for a heading; -1 on a
-    // paragraph line. Blocks come in line order, so the previous line's entry is
-    // in place by the time a line reads it.
+    // Per line: its item's depth, INT_MAX for a heading, -1 for a paragraph.
     std::vector<int> lineDepths(lineCount, -1);
-    // md4c reads a marker-only line as an empty item unless the line right above
-    // holds paragraph text it would continue: "a\n-" is a setext underline, "a\n1."
-    // paragraph text, and "- a\n  -" an underline inside the item. An empty line, a
-    // heading, or an item at least as deep ends that text first.
+    // A marker-only line is an empty item unless it continues paragraph text
+    // above it ("a\n-" is a setext underline).
     const auto startsEmptyItem = [&](size_t line, int depth) {
       return line == 0 || lineEnd(line - 1) == lineStarts[line - 1] || lineDepths[line - 1] >= depth;
     };
 
-    // Content column of the last list item seen at each depth, so a nested item
-    // can indent to its parent's marker width. -1 where none has been seen.
+    // Content column of the last item at each depth, or -1.
     std::array<int, kMaxListDepth + 1> listContentColumns;
     listContentColumns.fill(-1);
     // First line of the last block given a marker.
@@ -577,10 +534,7 @@ std::u16string serialize(std::u16string_view plainText, const std::vector<Format
       }
 
       const bool isZeroLength = block.end == block.start;
-      // Line ends rise strictly, so the first line reaching the block's start is
-      // the block's own first line; its remaining lines follow it. A block
-      // starting behind the cursor (callers other than the store need not sort)
-      // is looked up instead.
+      // The block's first line: walk forward, or search when it starts behind.
       if (cursor > 0 && lineEnd(cursor - 1) >= block.start) {
         size_t low = 0;
         size_t high = lineCount;
@@ -604,8 +558,7 @@ std::u16string serialize(std::u16string_view plainText, const std::vector<Format
           break;
         }
         lineDepths[line] = item ? depth : INT_MAX;
-        // An empty item md4c would not read back as one is left bare. An empty
-        // "# " heading is valid ATX and keeps its prefix.
+        // Leave bare an empty item md4c wouldn't read back as one.
         if (item && lineEnd(line) == lineStart && !startsEmptyItem(line, depth)) {
           continue;
         }

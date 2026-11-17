@@ -1,4 +1,4 @@
-// MarkdownSerializer.ts: the TypeScript unit tests, over the same models.
+// Export, over hand-built models.
 #include "InputInternal.hpp"
 #include "doctest/doctest.h"
 
@@ -112,7 +112,7 @@ TEST_CASE("inline: a delimiter of another kind is punctuation, and an unreadable
   CHECK(inlineOf(u"ab cd", {range(Underline, 3, 5)}) == u"ab _cd_");
 }
 
-TEST_CASE("inline: flanking uses the Unicode classes of the reference") {
+TEST_CASE("inline: flanking uses Unicode whitespace and punctuation") {
   // "**" after an ideographic comma: punctuation before, CJK letter after.
   CHECK(inlineOf(u"、日本", {range(Strong, 1, 3)}) == u"、**日本**");
   // A closing "**" after punctuation and before a letter cannot close.

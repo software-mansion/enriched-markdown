@@ -1,5 +1,5 @@
 {
-  "description": "Behavior of the reference that the module reproduces and that looks wrong. Pinned so that a change to any of them is a decision: 'chain' cases list the markdown after each round trip until it stops changing, 'model' cases the markdown written for an editor model and what loads back from it.",
+  "description": "Behavior that looks wrong but is kept for now. Pinned so that a change to any of them is a decision: 'chain' cases list the markdown after each round trip until it stops changing, 'model' cases the markdown written for an editor model and what loads back from it.",
   "cases": [
     {"kind": "chain", "description": "A code block keeps the trailing whitespace of its lines as text; the paragraph it turns into on the next import loses it, so the document settles one round trip later.", "markdown": "```\na \n```", "trips": ["a ", "a"]},
     {"kind": "chain", "description": "A dropped empty heading leaves its line break, which the next import drops as a trailing empty line.", "markdown": "- a\n#", "trips": ["- a\n", "- a"]},

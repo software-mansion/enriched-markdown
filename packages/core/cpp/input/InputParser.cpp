@@ -3,14 +3,13 @@
 #include "Utf16.hpp"
 #include <algorithm>
 #include <bitset>
-#include <cstdlib>
+#include <charconv>
 #include <memory>
 #include <optional>
 #include <string>
 
-// InputParser.ts: markdown to plain text, formatting ranges and block ranges,
-// by walking md4c's AST. The walk builds the UTF-16 text directly, so every
-// offset is already in the unit the hosts index in.
+// Markdown to plain text and ranges by walking md4c's AST, building the UTF-16
+// text directly.
 namespace Markdown::Input {
 
 namespace {
@@ -18,8 +17,7 @@ namespace {
 using Markdown::MarkdownASTNode;
 using Markdown::NodeType;
 
-// Documents nest this deep only on purpose; past it the walk gives up rather
-// than overflow the stack, and `parse` hands the markdown back as plain text.
+// Past this depth the walk gives up rather than overflow the stack.
 constexpr int kMaxWalkDepth = 512;
 
 // The BMP private-use area, where the whitespace stand-ins come from.
@@ -49,8 +47,7 @@ std::optional<StyleType> styleTypeOf(NodeType type) {
   }
 }
 
-// Blocks that start a new line after a sibling. Not Admonition, Video or the
-// table parts, as in the TypeScript.
+// Blocks that start a new line after a sibling.
 bool isBlockNodeType(NodeType type) {
   switch (type) {
     case NodeType::Paragraph:
@@ -73,40 +70,21 @@ bool isListNode(const MarkdownASTNode &node) {
   return node.type == NodeType::UnorderedList || node.type == NodeType::OrderedList;
 }
 
-// parseInt(value, 10): an optional sign and the digits that follow, whatever
-// comes after them.
-std::optional<long> jsParseInt(const std::string *value) {
-  if (value == nullptr) {
-    return std::nullopt;
-  }
-  size_t i = 0;
-  while (i < value->size() && (*value)[i] == ' ') {
-    i++;
-  }
-  bool negative = false;
-  if (i < value->size() && ((*value)[i] == '-' || (*value)[i] == '+')) {
-    negative = (*value)[i] == '-';
-    i++;
-  }
-  const size_t digitsStart = i;
-  long parsed = 0;
-  while (i < value->size() && (*value)[i] >= '0' && (*value)[i] <= '9' && parsed < 100000000) {
-    parsed = parsed * 10 + ((*value)[i] - '0');
-    i++;
-  }
-  if (i == digitsStart) {
-    return std::nullopt;
-  }
-  return negative ? -parsed : parsed;
-}
-
 const std::string *attributeOf(const MarkdownASTNode &node, const char *name) {
   const auto it = node.attributes.find(name);
   return it == node.attributes.end() ? nullptr : &it->second;
 }
 
-// A list item's range covers its first line; the end is set when the walk
-// appends the first newline after the item starts.
+std::optional<int> intAttribute(const MarkdownASTNode &node, const char *name) {
+  const std::string *value = attributeOf(node, name);
+  int parsed = 0;
+  if (value == nullptr || std::from_chars(value->data(), value->data() + value->size(), parsed).ec != std::errc()) {
+    return std::nullopt;
+  }
+  return parsed;
+}
+
+// Where a list item's first line ends, set when the walk appends that newline.
 struct ItemLine {
   int64_t lineEnd = -1;
 };
@@ -122,9 +100,8 @@ struct WalkState {
   std::vector<FormattingRange> formattingRanges;
   std::vector<BlockRange> blockRanges;
   std::vector<ActiveStyle> activeStyles;
-  // Blank source lines seen since the last block, written out as empty lines
-  // when the next block starts. Deferred so trailing ones are dropped, as
-  // leading ones are, rather than leaving empty lines at the end.
+  // Blank source lines since the last block, written when the next block
+  // starts, so trailing ones are dropped.
   size_t pendingBlankLines = 0;
   // Open list items whose first line has not ended yet.
   std::vector<ItemLine *> pendingItemLines;
@@ -145,8 +122,8 @@ void append(WalkState &state, std::u16string_view chunk) {
 }
 
 size_t blankLineCount(const MarkdownASTNode &node) {
-  const std::optional<long> count = jsParseInt(attributeOf(node, "count"));
-  return count.has_value() ? static_cast<size_t>(std::max(0L, *count)) : 1;
+  const std::optional<int> count = intAttribute(node, "count");
+  return count.has_value() ? static_cast<size_t>(std::max(0, *count)) : 1;
 }
 
 void walkNode(const MarkdownASTNode &node, WalkState &state, int listDepth, bool orderedContainer, int depth) {
@@ -180,10 +157,8 @@ void walkNode(const MarkdownASTNode &node, WalkState &state, int listDepth, bool
     state.pendingItemLines.push_back(&itemLine);
   }
 
-  const long blockLevel = jsParseInt(attributeOf(node, "level")).value_or(0);
-  // An out-of-range heading level falls back to paragraph rather than dropping
-  // the line. List items are emitted by the walk with their own per-line bounds
-  // and AST-derived depth.
+  const int blockLevel = intAttribute(node, "level").value_or(0);
+  // An out-of-range heading level falls back to a paragraph.
   const bool isHeadingBlock = node.type == NodeType::Heading && blockLevel >= 1 && blockLevel <= 6;
   const size_t blockStartPosition = state.text.size();
 
@@ -193,9 +168,8 @@ void walkNode(const MarkdownASTNode &node, WalkState &state, int listDepth, bool
     append(state, u"\n");
   }
 
-  // A code block's text ends with the newline that closes its last line. The
-  // input has no code block, so its lines are kept as plain lines, and that
-  // newline would add one more. Block boundaries are written by the walk.
+  // A code block's text ends in a newline; the walk writes block boundaries
+  // itself, so drop it.
   const auto &children = node.children;
   const bool dropClosingNewline = node.type == NodeType::CodeBlock && !children.empty() &&
                                   children.back()->type == NodeType::Text && !children.back()->content.empty() &&
@@ -203,23 +177,18 @@ void walkNode(const MarkdownASTNode &node, WalkState &state, int listDepth, bool
   for (size_t index = 0; index < children.size(); index++) {
     const MarkdownASTNode &child = *children[index];
     if (child.type == NodeType::BlankLine) {
-      // An empty item reports its own line as a blank one, first in the item;
-      // only the lines past it are blank lines between blocks.
+      // An empty item reports its own line as its first blank line.
       const size_t ownLine = isItem && index == 0 ? 1 : 0;
       const size_t count = blankLineCount(child);
       state.pendingBlankLines += count > ownLine ? count - ownLine : 0;
       continue;
     }
-    // md4c emits no separators, so a block that follows a sibling starts a new
-    // line here, after an empty line for each blank source line between them -
-    // top-level or inside a list alike. An empty item's sublist is its first
-    // child but still starts below the item's own (empty) line. Blank lines
-    // before the first block are dropped.
+    // md4c emits no separators: a block after a sibling starts a new line,
+    // after one empty line per blank source line. An empty item's sublist also
+    // starts below the item's line.
     const bool startsLine = index > 0 || (isItem && isListNode(child));
     if (startsLine && isBlockNodeType(child.type)) {
-      // The block store clamps an item to one level below the item right above
-      // it, so an empty line above a nested item would de-nest it: the blank
-      // line is the smaller loss.
+      // An empty line above a nested item would de-nest it, so drop it.
       const bool startsNestedItem =
           (child.type == NodeType::ListItem && childListDepth > 1) || (isItem && isListNode(child));
       if (startsNestedItem) {
@@ -242,19 +211,16 @@ void walkNode(const MarkdownASTNode &node, WalkState &state, int listDepth, bool
     }
   }
 
-  // A list item owns its own first line; a nested sublist lives on later
-  // lines, so the item's range ends at the first newline after its start. An
-  // empty item keeps a zero-length range, the store's empty-line anchor.
+  // An item's range is its first line; sublists are on later lines. An empty
+  // item keeps a zero-length range.
   if (isItem) {
     int64_t lineEnd = itemLine.lineEnd;
     if (lineEnd < 0) {
-      // No newline since the item started: its nested items have already
-      // exited, so it is the last pending entry.
+      // No newline yet, so this item is the last pending one.
       state.pendingItemLines.pop_back();
       lineEnd = static_cast<int64_t>(state.text.size());
     }
-    // The item sees listDepth already incremented by its enclosing list node,
-    // so its 0-based depth is listDepth - 1.
+    // The enclosing list has already incremented listDepth.
     const int itemDepth = std::clamp(listDepth - 1, 0, static_cast<int>(kMaxListDepth));
     BlockRange item;
     item.type = orderedContainer ? BlockType::OrderedListItem : BlockType::UnorderedListItem;
@@ -283,7 +249,7 @@ void walkNode(const MarkdownASTNode &node, WalkState &state, int listDepth, bool
     const size_t end = state.text.size();
     if (end > blockStartPosition) {
       BlockRange heading;
-      heading.type = static_cast<BlockType>(static_cast<int>(BlockType::H1) + static_cast<int>(blockLevel) - 1);
+      heading.type = static_cast<BlockType>(static_cast<int>(BlockType::H1) + blockLevel - 1);
       heading.start = static_cast<uint32_t>(blockStartPosition);
       heading.end = static_cast<uint32_t>(end);
       heading.level = static_cast<uint8_t>(blockLevel);
@@ -310,8 +276,7 @@ bool isHexDigit(char16_t c) {
   return isDigit(c) || (c >= u'a' && c <= u'f') || (c >= u'A' && c <= u'F');
 }
 
-// The code point of a numeric character reference ("&#57344;", "&#xE000;") at
-// `at`, the "&", which md4c decodes into the text. nullopt for anything else.
+// The code point of a numeric reference ("&#57344;", "&#xE000;") at `at`.
 std::optional<uint32_t> numericReferenceAt(std::u16string_view text, size_t at) {
   size_t i = at + 1;
   if (i >= text.size() || text[i] != u'#') {
@@ -337,9 +302,8 @@ std::optional<uint32_t> numericReferenceAt(std::u16string_view text, size_t at) 
   return value;
 }
 
-// The end of a list or heading marker at `at` (`[-+*]`, `\d{1,9}[.)]` or
-// `#{1,6}`) together with the one separator after it, which is a blank or the
-// line end. npos when the line has no marker there.
+// The end of a list or heading marker at `at`, with the one blank after it,
+// or npos.
 size_t markerEnd(const std::u16string &text, size_t at, size_t lineEnd) {
   size_t end = at;
   const char16_t c = text[at];
@@ -380,12 +344,9 @@ bool parseResultFromAst(const MarkdownASTNode &ast, ParseResult &result) {
   return true;
 }
 
-// `[indent][marker][separator][text]`: a bullet, an ordered "1." / "1)" or an
-// ATX "#", each needing a separator or the line end, or a quote's ">".
-// Whitespace that is structure stays as it is - the indent in front of a list,
-// heading or quote marker - and so does the one separator after a list or
-// heading marker; whitespace past that is the line's text. A line of only
-// whitespace stays blank.
+// Swaps the whitespace that is text for stand-ins: all leading whitespace on a
+// line without a marker, or what follows a marker's one separator. Quote lines
+// and whitespace-only lines are left alone.
 std::u16string protectLeadingWhitespace(std::u16string_view markdown, WhitespaceStandIns standIns) {
   std::u16string text(markdown);
   for (size_t lineStart = 0; lineStart <= text.size();) {
@@ -394,11 +355,10 @@ std::u16string protectLeadingWhitespace(std::u16string_view markdown, Whitespace
       lineEnd = text.size();
     }
     const size_t next = lineEnd + 1;
-    // The reference matches a line with a regex whose "." stops at these, so
-    // such a line is left as it is.
+    // Lines holding "\r", U+2028 or U+2029 are left as they are.
     bool matchable = true;
     for (size_t i = lineStart; i < lineEnd && matchable; i++) {
-      matchable = text[i] != u'\r' && text[i] != u' ' && text[i] != u' ';
+      matchable = text[i] != u'\r' && text[i] != u'\u2028' && text[i] != u'\u2029';
     }
     if (matchable) {
       size_t i = lineStart;
@@ -478,9 +438,8 @@ ParseResult parse(std::u16string_view markdown) {
     return result;
   }
   try {
-    // Bare URLs stay plain text until the host's autolink layer claims them.
-    // Blank lines come back as BlankLine nodes where they stood, so each one
-    // replays as an empty line of its own.
+    // Bare URLs stay plain text (hosts autolink them); blank lines come back as
+    // BlankLine nodes.
     Markdown::Md4cFlags flags;
     flags.underline = true;
     flags.latexMath = false;
@@ -492,8 +451,7 @@ ParseResult parse(std::u16string_view markdown) {
     flags.admonitions = true;
     flags.permissiveAutolinks = false;
 
-    // With no stand-in to spare the markdown parses as given, and leading
-    // whitespace goes the way md4c takes it.
+    // With no stand-ins free, leading whitespace goes the way md4c takes it.
     const std::optional<WhitespaceStandIns> standIns = chooseWhitespaceStandIns(markdown);
     Markdown::MD4CParser parser;
     const std::shared_ptr<MarkdownASTNode> ast = parser.parse(

@@ -1,7 +1,5 @@
-// fixtures/input/known-limitations.json: behavior of the TypeScript reference
-// that the port reproduces on purpose and that the fuzz tests work around. A
-// case failing here means a limitation was fixed (update the file) or a
-// regression was introduced.
+// fixtures/input/known-limitations.json. A failure means a limitation was
+// fixed (update the file) or a regression.
 #include "FixtureFile.hpp"
 #include "TestSupport.hpp"
 #include "doctest/doctest.h"
@@ -49,7 +47,7 @@ BlockType blockType(const std::string &name) {
 
 } // namespace
 
-TEST_CASE("known limitations of the reference") {
+TEST_CASE("known limitations") {
   const Json root = FixtureFile::read("known-limitations.json");
   size_t checked = 0;
   for (const Json &fixture : required(root, "cases").items) {

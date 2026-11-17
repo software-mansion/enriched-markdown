@@ -1,5 +1,4 @@
-// The properties of the module over the shared fixtures (fixtures/input), which
-// the web Jest suite reads too:
+// Properties over the shared fixtures in fixtures/input:
 //  1. a canonical document round-trips byte for byte;
 //  2. any markdown reaches a fixed point after one round trip and keeps its text;
 //  3. text a user typed comes back as typed (the fuzz test covers random models).

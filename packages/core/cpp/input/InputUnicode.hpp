@@ -5,12 +5,10 @@
 #include <cstdint>
 #include <string_view>
 
-// Character classes of the TypeScript serializer's flanking checks, which use
-// JavaScript's /\s/ and /[\p{P}\p{S}]/u. The punctuation table is the one the
-// repair module already ships, generated from V8's own classification.
+// Character classes for the serializer's flanking checks. Punctuation uses the
+// repair module's table.
 namespace Markdown::Input {
 
-// ASCII whitespace as the TypeScript `isAsciiWhitespace` counts it.
 inline bool isAsciiWhitespace(uint32_t code) {
   return code == 0x20 || (code >= 0x09 && code <= 0x0D);
 }
@@ -42,13 +40,11 @@ inline bool isLowSurrogate(uint32_t unit) {
   return unit >= 0xDC00 && unit <= 0xDFFF;
 }
 
-// What sits on one side of a delimiter in the output. A line's edge reads as
-// whitespace, another delimiter as punctuation.
+// What sits next to a delimiter. A line edge counts as whitespace, another
+// delimiter as punctuation.
 enum class Neighbor { Whitespace, Punctuation, Word };
 
-// Classifies the character (one code point, or whatever slice the caller cut)
-// the way the TypeScript `classify` does: the first unit decides the ASCII
-// case, and past it the whole slice is tested, as a regex test would.
+// Classifies one character: a code point, or the slice the caller cut.
 inline Neighbor classify(std::u16string_view slice) {
   if (slice.empty()) {
     return Neighbor::Word;
