@@ -854,8 +854,8 @@ While `isStreaming` is true:
   updates stay fast as the answer grows. Inside a scroll view, only the text
   near the visible area is laid out and drawn.
 - Unfinished syntax such as `**bold` renders as if closed, following the
-  rules of [remend](https://www.npmjs.com/package/remend). A link or image
-  still being typed waits until it closes.
+  rules of [remend](https://www.npmjs.com/package/remend). A link still
+  being typed shows its text until it closes; an image waits.
 - Unfinished tables, code blocks and images follow `tables`, `codeBlocks` and
   `media` below. A `$$` block stays hidden until it closes; with LaTeX on, so
   does a formula inside a line.

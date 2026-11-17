@@ -107,6 +107,7 @@ final class StreamingRenderSession: MarkdownStreamingSession {
         guard update.finishedBytes > 0 else { return }
         let stableLength = stableOutput.length
         stableOutput.append(rendered.text.attributedSubstring(from: NSRange(location: stableLength, length: rendered.finishedEnd - stableLength)))
+        InlineBackground.carryBorderRoom(from: rendered.text, to: stableOutput)
         boundary = rendered.state
         let snapshot = Snapshot(bytes: update.frozenBytes + update.finishedBytes, outputLength: stableOutput.length, boundary: boundary)
         if update.finishedContinuedByTail {

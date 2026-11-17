@@ -65,6 +65,19 @@ final class StreamingRenderSessionTests: XCTestCase {
         assertEveryPrefixRendersWhole(StreamingFixtures.extendedAnswer, options: StreamingFixtures.extendedOptions)
     }
 
+    func testBorderedLinksRenderInEveryPrefixAsInTheWholeDocument() {
+        var config = MarkdownStyleConfiguration.baseline()
+        config.linkVariants = [LinkVariantStyle(pattern: "^user:", style: ElementStyle(borderColor: .systemRed, borderWidth: 2))]
+        let markdown = "Intro paragraph.\n\nAsk [alice](user://alice) about it.\n\nA closing paragraph that arrives after the link."
+        let session = StreamingFixtures.session(config: config)
+        for prefix in StreamingFixtures.chunks(of: markdown) {
+            let result = session.render(prefix, options: streaming)
+            assertEquivalent(result.text, MarkdownRenderer.render(result.source, config: config), "prefix of \(prefix.count) characters")
+        }
+        let whole = session.render(markdown, options: streaming).text
+        XCTAssertEqual(InlineBackground.borderRoom(in: whole), 2, "the border keeps its room once its paragraph is frozen")
+    }
+
     func testStreamEndsIdenticalToANonStreamedRender() throws {
         let session = StreamingFixtures.session()
         let markdown = StreamingFixtures.answer
