@@ -556,7 +556,7 @@ The input registers with React Native's text-input focus tracking (`TextInput.St
 
 ### `onPress`, `onPressIn`, `onPressOut` {#onpress}
 
-Fire for taps on the input, like the same props on React Native [`TextInput`](https://reactnative.dev/docs/textinput#onpressin). The input claims the JS touch responder, so a tap that focuses it does **not** also fire the `onPress` of an ancestor [`Pressable`](https://reactnative.dev/docs/pressable). After `onPress` runs the input focuses itself - unless [`editable`](#editable) is `false` - without moving the selection.
+Fire for taps on the input, like the same props on React Native [`TextInput`](https://reactnative.dev/docs/textinput#onpressin). The input claims the JS touch responder, so a tap that focuses it does **not** also fire the `onPress` of an ancestor [`Pressable`](https://reactnative.dev/docs/pressable). A tap focuses the input, unless [`editable`](#editable) is `false`. On Android the input focuses after `onPress` runs, without moving the selection. On iOS a tap on the padding or the [`hitSlop`](#hitslop) area also moves the caret, and a drag does not focus the input, so a scroll that starts on it leaves the keyboard dismissed.
 
 <PropInfo type="(event: GestureResponderEvent) => unknown" typeHref="https://reactnative.dev/docs/pressevent" />
 
