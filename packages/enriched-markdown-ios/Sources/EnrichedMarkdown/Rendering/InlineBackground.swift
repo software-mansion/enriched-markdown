@@ -1,6 +1,6 @@
 import UIKit
 
-struct InlineBackground: Hashable {
+package struct InlineBackground: Hashable {
     struct Border: Hashable {
         let color: UIColor
         let width: CGFloat
@@ -52,6 +52,12 @@ struct InlineBackground: Hashable {
         if widestBorder > 0 {
             output.addAttribute(MarkdownAttribute.inlineBorderWidth, value: widestBorder, range: NSRange(location: 0, length: 1))
         }
+    }
+
+    package static func carryBorderRoom(from text: NSAttributedString, to output: NSMutableAttributedString) {
+        let room = borderRoom(in: text)
+        guard room > 0, output.length > 0 else { return }
+        output.addAttribute(MarkdownAttribute.inlineBorderWidth, value: room, range: NSRange(location: 0, length: 1))
     }
 
     static func borderRoom(in text: NSAttributedString) -> CGFloat {

@@ -535,6 +535,22 @@ final class StreamingTextViewTests: XCTestCase {
         XCTAssertTrue(textView.firstSubview(of: TableAttachmentView.self) === panel)
     }
 
+    func testBorderedLinkArrivingInAStreamingEditGetsItsRoomAndBackground() {
+        var config = MarkdownStyleConfiguration.baseline()
+        config.linkVariants = [LinkVariantStyle(pattern: "^user:", style: ElementStyle(borderColor: .systemRed, borderWidth: 2))]
+        let textView = makeTextView()
+        let session = StreamingFixtures.session(config: config)
+        let first = session.render("Intro paragraph.\n\nAsk", options: streaming)
+        textView.setMarkdownAttributedText(first.text, lineage: first.lineage)
+        XCTAssertFalse(textView.hasInlineBackgrounds, "no link yet")
+        XCTAssertEqual(textView.textContainer.lineFragmentPadding, 0, "no link yet")
+
+        let second = session.render("Intro paragraph.\n\nAsk [alice](user://alice) about it.\n\nA closing paragraph.", options: streaming)
+        textView.setMarkdownAttributedText(second.text, lineage: second.lineage)
+        XCTAssertTrue(textView.hasInlineBackgrounds, "the link arrived in a streaming edit")
+        XCTAssertEqual(textView.textContainer.lineFragmentPadding, 2, "the link arrived in a streaming edit")
+    }
+
     func testTintedLinksDrawAndFadeInTheViewsTint() throws {
         try XCTSkipIf(UIAccessibility.isReduceMotionEnabled)
         let textView = makeTextView(width: 380)
