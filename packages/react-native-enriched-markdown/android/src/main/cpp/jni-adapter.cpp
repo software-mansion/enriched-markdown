@@ -554,7 +554,7 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
 JNIEXPORT jobject JNICALL
 Java_com_swmansion_enriched_markdown_utils_common_StreamingMarkdownFilter_nativeRenderableMarkdownForStreaming(
     JNIEnv *env, jclass /* clazz */, jstring markdown, jobject flags, jboolean hideTables, jboolean hideCodeBlocks,
-    jboolean hideMedia) {
+    jboolean hideMedia, jboolean parseTables) {
   if (!markdown) {
     return nullptr;
   }
@@ -565,6 +565,7 @@ Java_com_swmansion_enriched_markdown_utils_common_StreamingMarkdownFilter_native
       hideCodeBlocks == JNI_TRUE ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
   options.blocks.mediaMode =
       hideMedia == JNI_TRUE ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
+  options.blocks.tables = parseTables == JNI_TRUE;
   options.flags = md4cFlagsFromJava(env, flags);
   // Through the shared store: the tick's collect, measurement and render prepare once.
   Markdown::StreamingSnapshot result = DocumentStore::shared().snapshot(utf8String(env, markdown), options);
@@ -576,7 +577,7 @@ Java_com_swmansion_enriched_markdown_utils_common_StreamingMarkdownFilter_native
     env->ExceptionClear();
     return nullptr;
   }
-  jmethodID constructor = env->GetMethodID(resultClass, "<init>", "(Ljava/lang/String;Z)V");
+  jmethodID constructor = env->GetMethodID(resultClass, "<init>", "(Ljava/lang/String;ZZ)V");
   if (!constructor) {
     env->ExceptionClear();
     env->DeleteLocalRef(resultClass);
@@ -584,7 +585,8 @@ Java_com_swmansion_enriched_markdown_utils_common_StreamingMarkdownFilter_native
   }
   jstring filtered = javaString(env, result.markdown);
   jobject object =
-      env->NewObject(resultClass, constructor, filtered, result.endsInsideOpenCodeFence ? JNI_TRUE : JNI_FALSE);
+      env->NewObject(resultClass, constructor, filtered, result.endsInsideOpenCodeFence ? JNI_TRUE : JNI_FALSE,
+                     result.showsOnlyFinishedBlocks ? JNI_TRUE : JNI_FALSE);
   env->DeleteLocalRef(filtered);
   env->DeleteLocalRef(resultClass);
   return object;

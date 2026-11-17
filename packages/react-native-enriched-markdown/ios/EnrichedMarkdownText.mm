@@ -524,12 +524,14 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
                         writingDirectionMode, resolvedLayoutDirection, _textRenderCacheEpoch);
 
   __block ENRMRenderResult *result = nil;
+  __block BOOL showsOnlyFinishedBlocks = NO;
 
   BOOL (^render)(void) = ^BOOL {
     NSString *renderableMarkdown =
-        streaming ? ENRMRenderableMarkdownForStreaming(markdownString, md4cFlags, tableStreamingMode,
-                                                       codeBlockStreamingMode, mediaStreamingMode, NULL)
-                  : markdownString;
+        streaming
+            ? ENRMRenderableMarkdownForStreaming(markdownString, md4cFlags, tableStreamingMode, codeBlockStreamingMode,
+                                                 mediaStreamingMode, isGFM, NULL, &showsOnlyFinishedBlocks)
+            : markdownString;
     MarkdownASTNode *ast = [parser parseMarkdown:renderableMarkdown
                                            flags:md4cFlags
                                            isGFM:isGFM
@@ -567,6 +569,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     [self->_latexErrorCoordinator wireReporters:result.context.mathReporters];
     self->_laidOutMarkdown = ENRMLaidOutMarkdown(markdownString);
     [self applyRenderedText:result markdown:markdownString forceHeightUpdate:forceHeightUpdate];
+    if (streaming && showsOnlyFinishedBlocks) {
+      [self settleStreamingEffects];
+    }
     if (!streaming) {
       [self emitStreamingEndIfPending];
     }
@@ -626,7 +631,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   NSString *renderableMarkdown =
       _streaming ? ENRMRenderableMarkdownForStreaming(markdownString, _md4cFlags, _tableStreamingMode,
-                                                      _codeBlockStreamingMode, _mediaStreamingMode, NULL)
+                                                      _codeBlockStreamingMode, _mediaStreamingMode, _isGFM, NULL, NULL)
                  : markdownString;
   NSMutableAttributedString *attributedText = [self parseAndRenderMarkdown:renderableMarkdown];
   if (!attributedText) {
@@ -776,6 +781,19 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   if (auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter)) {
     emitter->onStreamingEnd({});
   }
+}
+
+// Everything shown is finished, the next block still held back: the gradient's tail settles
+// instead of waiting for it.
+- (void)settleStreamingEffects
+{
+#if !TARGET_OS_OSX
+  ENRMMarkdownTextView *markdownTextView = (ENRMMarkdownTextView *)_textView;
+  if (markdownTextView.streamingEffects.type == ENRMStreamingEffectGradient) {
+    [markdownTextView.streamingEffects finishAt:CACurrentMediaTime()];
+    [markdownTextView streamingEffectsChanged];
+  }
+#endif
 }
 
 // The stream ended: the next render shows the whole text, and what still animates settles.

@@ -198,7 +198,7 @@ bool EnrichedMarkdownShadowNode::takeLaidOutSlotLayout(const std::vector<SlotChi
                                          ENRMStreamingModeFromString<ENRMTableStreamingMode>(config.tableMode),
                                          ENRMStreamingModeFromString<ENRMCodeBlockStreamingMode>(config.codeBlockMode),
                                          ENRMStreamingModeFromString<ENRMMediaStreamingMode>(config.mediaMode),
-                                         &endsInsideOpenFence);
+                                         props->isGFM, &endsInsideOpenFence, NULL);
     }
     height =
         ENRMGrowingTailSlotHeight(endsInsideOpenFence, m.size.height, laidOut.size.height, measured, shown, tolerance);

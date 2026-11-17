@@ -26,6 +26,8 @@ using Lines = std::vector<Line>;
 struct Document {
   std::string_view text;
   Lines lines;
+  // Shown after `text`: a table's delimiter row while its own is still arriving.
+  std::string appended;
 
   void cutAtLine(size_t index) {
     size_t offset = lines[index].offset;
@@ -299,7 +301,13 @@ size_t pipeCount(std::string_view row) {
   return count;
 }
 
-void cutPendingTable(Document &doc, StreamingBlockMode mode) {
+// What a delimiter row may hold before its last cell arrives.
+bool isPartialDelimiterRow(std::string_view row, size_t headerCells) {
+  return row.find_first_not_of("|-: \t") == npos && tableCells(row).size() <= headerCells;
+}
+
+void cutPendingTable(Document &doc, const StreamingFilterOptions &options, bool terminated) {
+  StreamingBlockMode mode = options.tableMode;
   const Lines &lines = doc.lines;
   size_t last = lastNonBlankLine(lines);
   if (!trailingBlockIsOpen(lines, last))
@@ -320,6 +328,30 @@ void cutPendingTable(Document &doc, StreamingBlockMode mode) {
   if (!piped && (!hasDelimiter || header.find('|') == npos))
     return;
 
+  // A finished row of pipes shows as a table header while its delimiter row arrives: while the
+  // delimiter row is still arriving too, not once it has ended without being one. Not without
+  // tables, in indented code, or for a row of spoilers (`||text||`).
+  std::string_view headerLine = lines[start].text;
+  std::string_view indent = headerLine.substr(0, headerLine.find('|'));
+  size_t lastQuote = indent.rfind('>');
+  std::string_view lineIndent = indent.substr(lastQuote == npos ? 0 : lastQuote + 1);
+  bool indentedCode = lineIndent.size() >= 4 || lineIndent.find('\t') != npos;
+  size_t headerCells = tableCells(header).size();
+  bool headerEnded = lineCount == 1 ? last + 1 < lines.size()
+                                    : lineCount == 2 && last + 1 == lines.size() &&
+                                          isPartialDelimiterRow(tableRow(lines[last]), headerCells);
+  // Pipes inside code spans or spoilers (`||text||`) make the cell count uncertain until the
+  // delimiter row says it.
+  bool uncertainCells = header.find('`') != npos || header.find("||") != npos;
+  if (mode == StreamingBlockMode::Progressive && options.tables && !hasDelimiter && piped && !terminated &&
+      headerEnded && !indentedCode && !uncertainCells && header.size() > 1 && header.back() == '|' &&
+      !InlineSyntax::isEscaped(header, header.size() - 1)) {
+    doc.cutAtLine(start + 1);
+    doc.appended.assign(headerLine.substr(0, headerLine.find('|'))).append("|");
+    for (size_t i = 0; i < headerCells; i++)
+      doc.appended.append(" --- |");
+    return;
+  }
   if (mode == StreamingBlockMode::Hidden || !hasDelimiter) {
     doc.cutAtLine(start);
     return;
@@ -524,13 +556,13 @@ void cutPendingMedia(Document &doc, StreamingBlockMode mode, bool terminated) {
   doc.text = doc.text.substr(0, cutOffset);
 }
 
-std::string_view removePendingBlocks(Document doc, const StreamingFilterOptions &options, bool terminated,
-                                     bool latexMath) {
+StreamingFilterResult removePendingBlocks(Document doc, const StreamingFilterOptions &options, bool terminated,
+                                          bool latexMath) {
   if (latexMath)
     cutPendingMath(doc);
-  cutPendingTable(doc, options.tableMode);
+  cutPendingTable(doc, options, terminated);
   cutPendingMedia(doc, options.mediaMode, terminated);
-  return doc.text;
+  return {std::string(doc.text).append(doc.appended), false, doc.appended.size()};
 }
 
 } // namespace
@@ -541,7 +573,7 @@ StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown
   Lines lines = splitLines(text);
   size_t openFence = scanFences(lines);
   if (openFence == npos)
-    return {std::string(removePendingBlocks({text, std::move(lines)}, options, false, latexMath)), false};
+    return removePendingBlocks({text, std::move(lines)}, options, false, latexMath);
 
   // The fence terminates whatever paragraph precedes it, shown or not. Until its
   // opening line ends the info string may still grow, so the fence waits for it
@@ -550,13 +582,14 @@ StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown
   Document head{text, std::move(lines)};
   size_t fenceOffset = head.lines[openFence].offset;
   head.cutAtLine(openFence);
-  std::string_view kept = removePendingBlocks(std::move(head), options, true, latexMath);
+  // Before a fence the table is terminated, so nothing was added.
+  std::string kept = removePendingBlocks(std::move(head), options, true, latexMath).markdown;
   if (options.codeBlockMode == StreamingBlockMode::Hidden || !openerEnded)
-    return {std::string(kept), false};
+    return {std::move(kept), false, 0};
   std::string result;
   result.reserve(kept.size() + text.size() - fenceOffset);
   result.append(kept).append(text.substr(fenceOffset));
-  return {std::move(result), true};
+  return {std::move(result), true, 0};
 }
 
 size_t finishedBlocksEnd(std::string_view markdown, bool latexMath) {

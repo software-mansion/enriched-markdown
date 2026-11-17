@@ -50,7 +50,7 @@ static NSString *ENRMDescription(MarkdownASTNode *node)
 {
   return ENRMRenderableMarkdownForStreaming(markdown, [ENRMMd4cFlags defaultFlags], ENRMTableStreamingModeProgressive,
                                             ENRMCodeBlockStreamingModeProgressive, ENRMMediaStreamingModeProgressive,
-                                            NULL);
+                                            YES, NULL, NULL);
 }
 
 // A link pattern that matches what `linkRegex` matches (or nothing), written differently each time:

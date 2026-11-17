@@ -873,6 +873,7 @@ object MeasurementStore {
       TableStreamingMode.fromString(input.config.tableMode),
       CodeBlockStreamingMode.fromString(input.config.codeBlockMode),
       MediaStreamingMode.fromString(input.config.mediaMode),
+      tables = input.config.isGFM,
     )
 
   private fun computePropsHashForMarkdown(

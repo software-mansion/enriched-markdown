@@ -444,12 +444,21 @@ class EnrichedMarkdownText
         val apply =
           run render@{
             try {
-              val renderableMarkdown =
+              val filtered =
                 if (streaming) {
-                  StreamingMarkdownFilter.renderableMarkdownForStreaming(markdown, flags, tableMode, codeBlockMode, mediaMode).markdown
+                  StreamingMarkdownFilter.renderableMarkdownForStreaming(
+                    markdown,
+                    flags,
+                    tableMode,
+                    codeBlockMode,
+                    mediaMode,
+                    tables = isGFM,
+                  )
                 } else {
-                  markdown
+                  null
                 }
+              val renderableMarkdown = filtered?.markdown ?: markdown
+              val showsOnlyFinishedBlocks = filtered?.showsOnlyFinishedBlocks ?: false
               val ast =
                 parser.parseMarkdown(renderableMarkdown, flags, isGFM, textLinkRegex, codeLinkRegex)
                   ?: return@render Runnable { if (isAttachedToWindow) clearText() }
@@ -472,6 +481,9 @@ class EnrichedMarkdownText
               Runnable {
                 if (isAttachedToWindow) {
                   applyRenderedText(rendered, markdown)
+                  // Everything shown is finished, the next block still held back: the gradient's tail
+                  // settles instead of waiting for it.
+                  if (showsOnlyFinishedBlocks) effectsAnimator?.takeIf { it.type == StreamingEffects.Type.GRADIENT }?.finish()
                 } else {
                   pendingText = rendered
                   pendingRenderedMarkdown = markdown

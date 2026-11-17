@@ -734,17 +734,25 @@ class EnrichedMarkdown(
     job: RenderJob,
     cache: TextRenderCache? = null,
     cacheKey: Long = 0L,
-  ): Pair<List<RenderedSegment>, Boolean> {
+  ): RenderOutcome {
     val flags = md4cFlags
     val filtered =
       if (job.isStreaming) {
-        StreamingMarkdownFilter.renderableMarkdownForStreaming(job.markdown, flags, job.tableMode, job.codeBlockMode, job.mediaMode)
+        StreamingMarkdownFilter.renderableMarkdownForStreaming(
+          job.markdown,
+          flags,
+          job.tableMode,
+          job.codeBlockMode,
+          job.mediaMode,
+          tables = isGFM,
+        )
       } else {
         null
       }
     val renderableMarkdown = filtered?.markdown ?: job.markdown
     val hasPendingCodeBlock = filtered?.endsInsideOpenCodeFence ?: false
-    if (renderableMarkdown.isEmpty()) return emptyList<RenderedSegment>() to false
+    val showsOnlyFinishedBlocks = filtered?.showsOnlyFinishedBlocks ?: false
+    if (renderableMarkdown.isEmpty()) return RenderOutcome(emptyList(), false, showsOnlyFinishedBlocks)
 
     val ast =
       parser.parseMarkdown(
@@ -755,7 +763,7 @@ class EnrichedMarkdown(
         job.codeLinkRegex,
         job.slotIds,
         job.annotateImages,
-      ) ?: return emptyList<RenderedSegment>() to false
+      ) ?: return RenderOutcome(emptyList(), false, false)
 
     val segments = splitASTIntoSegments(ast)
     cache?.begin(cacheKey)
@@ -770,8 +778,15 @@ class EnrichedMarkdown(
         cache = cache,
       )
     cache?.end()
-    return renderedSegments to hasPendingCodeBlock
+    return RenderOutcome(renderedSegments, hasPendingCodeBlock, showsOnlyFinishedBlocks)
   }
+
+  private class RenderOutcome(
+    val segments: List<RenderedSegment>,
+    val hasPendingCodeBlock: Boolean,
+    // Everything shown is finished: the next block is still held back.
+    val showsOnlyFinishedBlocks: Boolean,
+  )
 
   // Paced while streaming without smooth pacing or arrival fades, which keep their own timing.
   private fun scheduleRender() {
@@ -840,18 +855,24 @@ class EnrichedMarkdown(
     if (DirtyFlag.RECREATE_SEGMENTS in scheduledFlags) textRenderEpoch++
     val cacheKey = textRenderEpoch
     renderCoordinator.schedule {
-      val (segments, pendingCodeBlock) =
+      val outcome =
         try {
           runRenderJob(job, textRenderCache, cacheKey)
         } catch (e: Exception) {
           textRenderCache.clear()
           Log.e(TAG, "Render failed", e)
-          emptyList<RenderedSegment>() to false
+          RenderOutcome(emptyList(), false, false)
         }
       Runnable {
         val epoch = textRenderEpoch
         val applyStart = SystemClock.uptimeMillis()
-        applyRenderedSegments(segments, pendingCodeBlock, scheduledFlags, job.markdown)
+        applyRenderedSegments(
+          outcome.segments,
+          outcome.hasPendingCodeBlock,
+          scheduledFlags,
+          job.markdown,
+          outcome.showsOnlyFinishedBlocks,
+        )
         if (paced) onPacedRenderApplied(SystemClock.uptimeMillis() - applyStart)
         // A segment that missed a patch renders again in full (a new epoch): that render shows the end.
         if (!job.isStreaming && textRenderEpoch == epoch) emitStreamingEndIfPending()
@@ -869,15 +890,15 @@ class EnrichedMarkdown(
     pacedRenderInFlightSince = 0L
     pacedRenderRequested = false
     textRenderEpoch++
-    val (segments, pendingCodeBlock) =
+    val outcome =
       try {
         runRenderJob(job)
       } catch (e: Exception) {
         Log.e(TAG, "Render failed", e)
-        emptyList<RenderedSegment>() to false
+        RenderOutcome(emptyList(), false, false)
       }
     val epoch = textRenderEpoch
-    applyRenderedSegments(segments, pendingCodeBlock, EnumSet.copyOf(dirtyFlags), job.markdown)
+    applyRenderedSegments(outcome.segments, outcome.hasPendingCodeBlock, EnumSet.copyOf(dirtyFlags), job.markdown)
     if (!job.isStreaming && textRenderEpoch == epoch) emitStreamingEndIfPending()
   }
 
@@ -892,6 +913,7 @@ class EnrichedMarkdown(
     hasPendingCodeBlock: Boolean,
     scheduledFlags: Set<DirtyFlag>,
     renderedMarkdown: String,
+    showsOnlyFinishedBlocks: Boolean = false,
   ) {
     laidOutMarkdown = renderedMarkdown
     pendingCodeBlockSegment =
@@ -905,7 +927,8 @@ class EnrichedMarkdown(
 
     val topologyChanged = applySegments(renderedSegments, reset)
     streamEnding = false
-    if (streaming) settleTextSegments(except = segmentViews.lastOrNull())
+    // The last text settles too once everything shown is finished: the next block is held back.
+    if (streaming) settleTextSegments(except = if (showsOnlyFinishedBlocks) null else segmentViews.lastOrNull())
     // A view that missed a patch gets the whole text from a full render: forgetting its signature
     // makes the reconciler update it then, where it would keep a view whose segment it matches.
     val missedPatches = SegmentViewCreators.syncTextRevisions(renderedSegments, segmentViews)

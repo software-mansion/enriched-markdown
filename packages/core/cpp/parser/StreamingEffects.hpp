@@ -52,8 +52,8 @@ public:
   // The text grew from `start` to `end` at `time`; `text` holds those characters and `previous`
   // the one before them (a word they continue keeps its own time).
   void noteArrival(size_t start, size_t end, double time, std::u16string_view text, char16_t previous = u' ');
-  // The stream ended at `time`: what still animates settles. Later calls keep the first time; new
-  // text streams again.
+  // The stream ended at `time`, or the text it animates is finished: what still animates settles.
+  // Later calls keep the first time; new text streams again, after what settled.
   void finish(double time);
   void reset();
 
@@ -92,6 +92,15 @@ private:
   double growthGap_ = 0;
   std::optional<double> lastGrowth_;
   std::optional<double> finishedAt_;
+  // The characters before it settled when the text stopped streaming and stay as they are: text
+  // arriving later fades in on its own.
+  size_t settledEnd_ = 0;
+  // When those characters began settling, and where their gradient ended then: they finish it
+  // while new text streams after them. Characters before `settledFloor_` settled earlier.
+  std::optional<double> settledAt_;
+  double settledGradientEnd_ = 0;
+  size_t settledFloor_ = 0;
+  bool settling(double time) const;
 };
 
 } // namespace Markdown

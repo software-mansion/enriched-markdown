@@ -183,7 +183,7 @@ static inline NSString *ENRMRenderableMarkdownFromProps(const PropsT &typedProps
   return ENRMRenderableMarkdownForStreaming(
       markdown, flags, ENRMStreamingModeFromString<ENRMTableStreamingMode>(config.tableMode),
       ENRMStreamingModeFromString<ENRMCodeBlockStreamingMode>(config.codeBlockMode),
-      ENRMStreamingModeFromString<ENRMMediaStreamingMode>(config.mediaMode), NULL);
+      ENRMStreamingModeFromString<ENRMMediaStreamingMode>(config.mediaMode), typedProps.isGFM, NULL, NULL);
 }
 
 /**

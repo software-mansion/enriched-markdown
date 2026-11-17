@@ -34,10 +34,13 @@ extern "C" {
 // The markdown to render for the current streaming tick, from the core's
 // streaming session (StreamingSession.hpp). When non-NULL,
 // outEndsInsideOpenCodeFence reports whether the result ends inside a
-// still-open fenced code block.
+// still-open fenced code block, and outShowsOnlyFinishedBlocks whether everything shown is
+// finished (the next block is still held back).
+// `tables`: whether the parser reads tables (GFM).
 NSString *ENRMRenderableMarkdownForStreaming(NSString *markdown, ENRMMd4cFlags *flags, ENRMTableStreamingMode tableMode,
                                              ENRMCodeBlockStreamingMode codeBlockMode, ENRMMediaStreamingMode mediaMode,
-                                             BOOL *_Nullable outEndsInsideOpenCodeFence);
+                                             BOOL tables, BOOL *_Nullable outEndsInsideOpenCodeFence,
+                                             BOOL *_Nullable outShowsOnlyFinishedBlocks);
 
 #ifdef __cplusplus
 }

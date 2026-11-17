@@ -11,9 +11,13 @@ struct StreamingFilterOptions {
   StreamingBlockMode tableMode = StreamingBlockMode::Progressive;
   StreamingBlockMode codeBlockMode = StreamingBlockMode::Progressive;
   StreamingBlockMode mediaMode = StreamingBlockMode::Progressive;
+  // Whether the parser reads tables (GFM): only then may a header row show before its delimiter
+  // row arrives.
+  bool tables = true;
 
   bool operator==(const StreamingFilterOptions &other) const {
-    return tableMode == other.tableMode && codeBlockMode == other.codeBlockMode && mediaMode == other.mediaMode;
+    return tableMode == other.tableMode && codeBlockMode == other.codeBlockMode && mediaMode == other.mediaMode &&
+           tables == other.tables;
   }
 };
 
@@ -23,6 +27,9 @@ struct StreamingFilterResult {
   // arrived (the trailing block whose highlighting and copy chrome the
   // renderer defers). Only possible with codeBlockMode Progressive.
   bool endsInsideOpenCodeFence = false;
+  // How many bytes at the end of `markdown` the filter added: the delimiter row of a table whose own
+  // is still arriving. Inline repair leaves them out.
+  size_t addedBytes = 0;
 };
 
 // The pre-parse filter the streaming session runs on the unfinished tail

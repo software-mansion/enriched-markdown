@@ -42,8 +42,17 @@ void StreamingEffects::configure(const StreamingEffectConfig &config) {
 }
 
 void StreamingEffects::noteArrival(size_t start, size_t end, double time, std::u16string_view text, char16_t previous) {
+  // Text arriving after it settled streams on its own, and settled text stays as it is.
+  if (end > textLength_ && finishedAt_) {
+    settledFloor_ = settledEnd_;
+    settledGradientEnd_ = std::max(gradientEnd(time), static_cast<double>(settledEnd_));
+    settledEnd_ = textLength_;
+    settledAt_ = finishedAt_;
+  }
+  settledEnd_ = std::min(settledEnd_, end);
+  settledFloor_ = std::min(settledFloor_, end);
   if (end != textLength_) {
-    double now = gradientEnd(time);
+    double now = std::max(gradientEnd(time), static_cast<double>(settledEnd_));
     if (end > textLength_) {
       if (lastGrowth_ && time > *lastGrowth_) {
         double gap = std::clamp(time - *lastGrowth_, kMinGlide, kMaxGlide);
@@ -117,6 +126,14 @@ void StreamingEffects::reset() {
   growthGap_ = 0;
   lastGrowth_.reset();
   finishedAt_.reset();
+  settledEnd_ = 0;
+  settledAt_.reset();
+  settledGradientEnd_ = 0;
+  settledFloor_ = 0;
+}
+
+bool StreamingEffects::settling(double time) const {
+  return settledAt_ && time - *settledAt_ < kSettleDuration;
 }
 
 void StreamingEffects::prune(double time) {
@@ -165,7 +182,7 @@ bool StreamingEffects::changesOverTime(double time) {
     if (finishedAt_) {
       return time - *finishedAt_ < kSettleDuration;
     }
-    return textLength_ > 0 && gradientEnd(time) < static_cast<double>(textLength_);
+    return settling(time) || (textLength_ > 0 && gradientEnd(time) < static_cast<double>(textLength_));
   }
   return animatedRange(time).has_value();
 }
@@ -180,7 +197,16 @@ std::optional<CharacterRange> StreamingEffects::animatedRange(double time) {
         return std::nullopt;
       }
       auto end = static_cast<size_t>(gradientEnd(time));
-      size_t start = end > config_.length ? end - config_.length : 0;
+      size_t start = std::max(end > config_.length ? end - config_.length : 0, settledEnd_);
+      // What settled before the new text still finishes settling, from where its gradient ended.
+      if (settling(time)) {
+        auto settledFrom = static_cast<size_t>(settledGradientEnd_);
+        start =
+            std::min(start, std::max(settledFloor_, settledFrom > config_.length ? settledFrom - config_.length : 0));
+      }
+      if (start >= textLength_) {
+        return std::nullopt;
+      }
       return CharacterRange{start, textLength_ - start};
     }
     case StreamingEffectType::Fade: {
@@ -208,9 +234,16 @@ CharacterLook StreamingEffects::lookAt(size_t index, double time) const {
   if (config_.type != StreamingEffectType::Gradient) {
     return look;
   }
+  // Text that settled before new text arrived finishes settling where its gradient ended.
+  bool settled = index < settledEnd_;
+  if (index < settledFloor_ || (settled && !settling(time))) {
+    return look;
+  }
+  double gradientEnds = settled ? settledGradientEnd_ : gradientEnd(time);
+  std::optional<double> settleStart = settled ? settledAt_ : finishedAt_;
   // 0 for the newest character (and any the glide hasn't reached), 1 for the first one past the
   // gradient; fractional while it glides.
-  double fromEnd = std::max(0.0, gradientEnd(time) - 1.0 - static_cast<double>(index));
+  double fromEnd = std::max(0.0, gradientEnds - 1.0 - static_cast<double>(index));
   float position = std::min(1.0f, static_cast<float>(fromEnd / static_cast<double>(config_.length)));
   const auto &start = config_.startColor;
   const auto &end = config_.endColor;
@@ -225,8 +258,8 @@ CharacterLook StreamingEffects::lookAt(size_t index, double time) const {
   } else {
     look.opacity = position;
   }
-  if (finishedAt_) {
-    float settle = easeOut((time - *finishedAt_) / kSettleDuration);
+  if (settleStart) {
+    float settle = easeOut((time - *settleStart) / kSettleDuration);
     look.tintAmount *= 1 - settle;
     look.opacity += (1 - look.opacity) * settle;
   }

@@ -25,6 +25,9 @@ struct StreamingSnapshot {
   std::string markdown;
   // See StreamingFilterResult.
   bool endsInsideOpenCodeFence = false;
+  // Everything shown is finished: the next block has begun but is still held back (a table's
+  // header row, a fence's opening line). Hosts settle what animates at the end of the text then.
+  bool showsOnlyFinishedBlocks = false;
   // The source and `markdown` both start with these bytes, which later text
   // can no longer change (finishedBlocksEnd).
   size_t finishedBytes = 0;

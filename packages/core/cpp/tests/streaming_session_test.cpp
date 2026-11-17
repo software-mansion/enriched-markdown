@@ -165,6 +165,21 @@ int main(int argc, char **argv) {
   expect("Intro\n\n| a | b |\n|---|---|\n| 1", "Intro\n\n| a | b |\n|---|---|\n", "an incomplete table row");
   expect("Intro\n\n$$\nE = mc^2", "Intro\n\n", "an open display math block");
   check(Markdown::streamingSnapshot("Intro\n\n```js\nlet a", {}).endsInsideOpenCodeFence, "an open fence is flagged");
+  check(Markdown::streamingSnapshot("Intro\n\n| a | b |\n", {}).markdown == "Intro\n\n| a | b |\n| --- | --- |",
+        "an ended header row shows with an added delimiter row");
+  check(Markdown::streamingSnapshot("Intro\n\n| **a | b |\n", {}).markdown.find("| ") == std::string::npos,
+        "repair closing syntax in the header holds the header back");
+  check(Markdown::streamingSnapshot("Intro\n\n| a | b", {}).showsOnlyFinishedBlocks,
+        "a held-back table leaves only finished blocks shown");
+  check(!Markdown::streamingSnapshot("Intro\n\nMore te", {}).showsOnlyFinishedBlocks, "an open paragraph is shown");
+  check(Markdown::streamingSnapshot("Intro\n\nMore text.\n\n", {}).showsOnlyFinishedBlocks,
+        "a paragraph ended by a blank line is finished");
+  check(!Markdown::streamingSnapshot("Intro\n\n```js\nlet a\n\n", {}).showsOnlyFinishedBlocks,
+        "a blank line inside an open fence finishes nothing");
+  check(!Markdown::streamingSnapshot("Intro\nmore\n", {}).showsOnlyFinishedBlocks,
+        "a line break alone finishes nothing");
+  check(!Markdown::streamingSnapshot("Intro text", {}).showsOnlyFinishedBlocks,
+        "a first block still arriving is shown");
 
   // Finished blocks: only after a blank line, at a complete line that starts a
   // block of its own, outside fences, `$$` and HTML that may hold blank lines.

@@ -1134,12 +1134,14 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   __block NSArray<ENRMRenderedSegment *> *renderedSegments = nil;
   __block NSString *renderableMarkdown = nil;
   __block BOOL endsInsideOpenCodeFence = NO;
+  __block BOOL showsOnlyFinishedBlocks = NO;
 
   BOOL (^render)(void) = ^BOOL {
-    renderableMarkdown = streaming ? ENRMRenderableMarkdownForStreaming(markdownString, md4cFlags, tableStreamingMode,
-                                                                        codeBlockStreamingMode, mediaStreamingMode,
-                                                                        &endsInsideOpenCodeFence)
-                                   : markdownString;
+    renderableMarkdown = streaming
+                             ? ENRMRenderableMarkdownForStreaming(markdownString, md4cFlags, tableStreamingMode,
+                                                                  codeBlockStreamingMode, mediaStreamingMode, isGFM,
+                                                                  &endsInsideOpenCodeFence, &showsOnlyFinishedBlocks)
+                             : markdownString;
 
     if (renderableMarkdown.length == 0) {
       renderedSegments = @[];
@@ -1189,6 +1191,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     [self applyRenderedSegments:renderedSegments
                renderedMarkdown:renderableMarkdown
         endsInsideOpenCodeFence:endsInsideOpenCodeFence
+        showsOnlyFinishedBlocks:showsOnlyFinishedBlocks
                      dirtyFlags:dirtyFlags];
     if (paced) {
       [self->_renderPacer renderAppliedIn:CACurrentMediaTime() - applyStart];
@@ -1277,7 +1280,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   NSString *renderableMarkdown =
       _streaming
           ? ENRMRenderableMarkdownForStreaming(markdownString, _md4cFlags, _tableStreamingMode, _codeBlockStreamingMode,
-                                               _mediaStreamingMode, &endsInsideOpenCodeFence)
+                                               _mediaStreamingMode, _isGFM, &endsInsideOpenCodeFence, NULL)
           : markdownString;
   _renderedMarkdown = [renderableMarkdown copy];
   _renderedStyleFingerprint = _pendingStyleFingerprint;
@@ -1322,6 +1325,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 - (void)applyRenderedSegments:(NSArray *)renderedSegments
              renderedMarkdown:(NSString *)renderedMarkdown
       endsInsideOpenCodeFence:(BOOL)endsInsideOpenCodeFence
+      showsOnlyFinishedBlocks:(BOOL)showsOnlyFinishedBlocks
                    dirtyFlags:(ENRMDirtyFlags)scheduledFlags
 {
   const ENRMDirtyFlags dirtyFlags = scheduledFlags;
@@ -1351,7 +1355,8 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   _segmentSignatures = result.signatures;
   _streamEnding = NO;
   if (_streaming) {
-    [self settleTextSegmentsBefore:_segmentViews.lastObject];
+    // The last text settles too once everything shown is finished: the next block is held back.
+    [self settleTextSegmentsBefore:showsOnlyFinishedBlocks ? nil : _segmentViews.lastObject];
   }
   // A view that missed a patch gets the whole text from a full render: forgetting its signature
   // makes the reconciler update it then, where it would keep a view whose segment it matches.
