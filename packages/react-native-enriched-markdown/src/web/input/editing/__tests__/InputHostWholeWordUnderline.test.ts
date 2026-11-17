@@ -296,6 +296,37 @@ describe('growing next to other styles', () => {
     expect(markdowns.at(-1)).toBe('foo[_bar_](https://e.com)');
   });
 
+  // Text typed after the link is outside it, so an underline carried on
+  // there would grow back over "foo": "_foo[bar](https://e.com)x_".
+  it('does not carry an underline out of a link closing with it', async () => {
+    const { root, markdowns, states } = await mountWith(
+      'foo[_bar_](https://e.com)'
+    );
+    expect(lastState(states).underline.isActive).toBe(false);
+    typeText(root, 'x');
+
+    expect(markdowns.at(-1)).toBe('foo[_bar_](https://e.com)x');
+    expect(lastState(states).underline.isActive).toBe(false);
+  });
+
+  it('does not carry it out of the link after a caret move', async () => {
+    const { root, markdowns } = await mountWith('foo[_bar_](https://e.com)');
+    selectRangeFocused(root, 0, 0);
+    selectRangeFocused(root, 6, 6);
+    typeText(root, 'x');
+
+    expect(markdowns.at(-1)).toBe('foo[_bar_](https://e.com)x');
+  });
+
+  // Typing at a spoiler's end continues the spoiler, so the letter is inside
+  // it with the underline.
+  it('carries an underline on with a spoiler closing with it', async () => {
+    const { root, markdowns } = await mountWith('foo||_bar_||');
+    typeText(root, 'x');
+
+    expect(markdowns.at(-1)).toBe('foo||_barx_||');
+  });
+
   it('grows over the word once the italic between is gone', async () => {
     const { root, host, markdowns, states } = await mountWith('*foo*_bar_');
     selectRangeFocused(root, 0, 3);

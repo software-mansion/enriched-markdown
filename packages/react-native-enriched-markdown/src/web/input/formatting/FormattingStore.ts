@@ -283,12 +283,24 @@ export class FormattingStore {
     ) {
       return false;
     }
+    return (
+      this.ranges.some(
+        (range) => range.type === 'underline' && range.end === position
+      ) && !this.isUnderlineClosedOutside(position)
+    );
+  }
+
+  // Whether an underline ending at `position` ends inside a link or spoiler
+  // that closes there too, so its "_" is written before that delimiter:
+  // "foo[_bar_](u)". Text typed at `position` lands outside both, so the
+  // underline doesn't reach it.
+  isUnderlineClosedOutside(position: number): boolean {
     const word = this.ranges.find(
       (range) => range.type === 'underline' && range.end === position
     );
     return (
       word !== undefined &&
-      !this.underlineSeparators().closesOutside(position, word.start)
+      this.underlineSeparators().closesOutside(position, word.start)
     );
   }
 

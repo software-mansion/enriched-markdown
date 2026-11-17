@@ -102,9 +102,22 @@ export class TypingAttributesController {
       return;
     }
     for (const type of TYPING_ATTRIBUTE_STYLES) {
-      if (this.formattingStore.isStyleAdjacentBefore(type, selection.start)) {
+      if (this.isInheritedAtCaret(type, selection.start)) {
         this.pendingStyles.add(type);
       }
     }
+  }
+
+  // A caret inherits a style touching the character before it, except an
+  // underline closed off by a link or spoiler ending with it: carried on past
+  // "foo[_bar_](u)", it would grow back over "foo".
+  private isInheritedAtCaret(type: PendingStyleType, caret: number): boolean {
+    if (!this.formattingStore.isStyleAdjacentBefore(type, caret)) {
+      return false;
+    }
+    if (type === 'underline') {
+      return !this.formattingStore.isUnderlineClosedOutside(caret);
+    }
+    return true;
   }
 }
