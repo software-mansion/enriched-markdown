@@ -170,8 +170,8 @@ Carries the full set of block properties, with its own defaults, plus the quote 
 | `lineHeight`      | `TextUnit`   | `26.sp`                | Line height                             |
 | `marginTop`       | `Dp`         | `0.dp`                 | Space above                             |
 | `marginBottom`    | `Dp`         | `16.dp`                | Space below                             |
-| `borderColor`     | `Color`      | `#D1D5DB`              | Left accent bar color                   |
-| `borderWidth`     | `Dp`         | `3.dp`                 | Left accent bar width                   |
+| `borderColor`     | `Color`      | `#D1D5DB`              | Accent bar color                        |
+| `borderWidth`     | `Dp`         | `3.dp`                 | Accent bar width                        |
 | `gapWidth`        | `Dp`         | `16.dp`                | Gap between the bar and the text        |
 | `backgroundColor` | `Color`      | `#F9FAFB`              | Background fill                         |
 | `cornerRadius`    | `Dp`         | `0.dp`                 | Rounds the quote box                    |

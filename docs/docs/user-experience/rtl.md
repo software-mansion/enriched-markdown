@@ -115,7 +115,7 @@ Under every case other than `.natural`, each element follows the **paragraph it 
 | **Unordered / ordered lists** | Bullet or number drawn on the side that matches the item's paragraph direction. |
 | **Task lists** | Checkbox drawn on the matching side. |
 | **Blockquotes** | Accent bar drawn on the side that matches the quoted paragraph. |
-| **Admonitions** | The title takes the direction of the body it introduces. |
+| **Admonitions** | The title takes the direction of the first strong character in the body below it. A table does not count, so a callout holding only a table follows the layout direction. |
 | **Code blocks** | Always left-to-right. |
 
 See [Writing direction](/ios/api-reference/element-structure#writing-direction).
@@ -138,7 +138,7 @@ See [Writing direction](/ios/api-reference/element-structure#writing-direction).
 
 ## Neutral content
 
-In the React Native package, for paragraphs with no strong directional character (digits, punctuation), the direction falls back to the view's resolved layout direction. So `"123 456."` inside a `<View style={{ direction: 'rtl' }}>` right-aligns, and left-aligns otherwise - letting you place an LTR document in an RTL screen (or vice versa) without surprises. On web, such a block gets no `dir` and inherits the container's direction. In the standalone iOS SDK, the fallback is the SwiftUI `layoutDirection` environment value.
+In the React Native package, for paragraphs with no strong directional character (digits, punctuation), the direction falls back to the view's resolved layout direction. So `"123 456."` inside a `<View style={{ direction: 'rtl' }}>` right-aligns, and left-aligns otherwise - letting you place an LTR document in an RTL screen (or vice versa) without surprises. The exception is a `flavor="github"` quote with no strong character on Android: its bar follows the app's locale layout direction (its resource configuration, not the view), so in an English-locale app the bar of `> 2024` stays on the left even inside an RTL view. On web, such a block gets no `dir` and inherits the container's direction. In the standalone iOS SDK, the fallback is the SwiftUI `layoutDirection` environment value.
 
 ## Copy-as-HTML caveat
 
