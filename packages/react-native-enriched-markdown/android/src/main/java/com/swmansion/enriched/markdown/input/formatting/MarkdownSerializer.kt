@@ -55,7 +55,7 @@ object MarkdownSerializer {
     ranges: List<FormattingRange>,
     blockRanges: List<BlockRange> = emptyList(),
   ): String {
-    if (text.isEmpty()) return ""
+    if (text.isEmpty() && blockRanges.isEmpty()) return ""
 
     // Positions of the anchors in [text]; offsets shift left by the anchors before them.
     var anchors = IntArray(0)
