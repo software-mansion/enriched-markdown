@@ -246,6 +246,7 @@ class ImageSpan(
 
   private fun requestReflow(inlineSizeChanged: Boolean = false) {
     val view = viewRef?.get() ?: return
+    TextBackgroundDrawer.noteReflow()
     val text = view.text
     if (text is Spannable) {
       val start = text.getSpanStart(this)

@@ -121,8 +121,10 @@ object SegmentHeightMeasurer {
 
       when (segment) {
         is RenderedSegment.Text -> {
-          segment.styledText.replaceMathSpansWithPlaceholders(context)
-          val layout = createStaticLayout(segment.styledText, fontSizePx, widthPx, breakStrategy)
+          // Measured segments come from a full render, never a patch.
+          val styledText = requireNotNull(segment.styledText)
+          styledText.replaceMathSpansWithPlaceholders(context)
+          val layout = createStaticLayout(styledText, fontSizePx, widthPx, breakStrategy)
           totalHeightPx += layout.height
           val widestLine = (0 until layout.lineCount).maxOfOrNull { layout.getLineWidth(it) } ?: 0f
           maxContentWidthPx = maxOf(maxContentWidthPx, ceil(widestLine))

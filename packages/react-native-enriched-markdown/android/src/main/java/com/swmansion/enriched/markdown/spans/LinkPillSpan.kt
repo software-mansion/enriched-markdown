@@ -203,6 +203,7 @@ class LinkPillSpan(
    * longer shows this span.
    */
   private fun reflowIn(view: View): Boolean {
+    TextBackgroundDrawer.noteReflow()
     val text = (view as? TextView)?.text as? Spannable
     val start = text?.getSpanStart(this) ?: -1
     if (text != null && start >= 0) {

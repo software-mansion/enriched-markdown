@@ -41,6 +41,7 @@ endif()
 
 file(GLOB ENRMRKD_SOURCES "${CPP_ROOT}/enrmrkd/*.c")
 file(GLOB PARSER_SOURCES "${CPP_ROOT}/parser/*.cpp")
+file(GLOB REPAIR_SOURCES "${CPP_ROOT}/repair/*.cpp")
 file(GLOB HIGHLIGHT_SOURCES "${CPP_ROOT}/highlight/*.cpp")
 file(GLOB LATEX_SOURCES "${CPP_ROOT}/latex/*.cpp")
 
@@ -62,10 +63,12 @@ add_library(
   ${LIB_CODEGEN_SRCS}
   ${LIB_CUSTOM_JNI_SRCS}
   ${PARSER_SOURCES}
+  ${REPAIR_SOURCES}
   ${HIGHLIGHT_SOURCES}
   ${LATEX_SOURCES}
   ${ANDROID_CPP_DIR}/jni-adapter.cpp
   ${COMMON_CPP_DIR}/EnrichedMarkdownParser.cpp
+  ${COMMON_CPP_DIR}/ENRMMarkdownStreams.cpp
 )
 
 target_include_directories(
@@ -79,6 +82,7 @@ target_include_directories(
   ${COMMON_CPP_DIR}
   ${CPP_ROOT}/enrmrkd
   ${CPP_ROOT}/parser
+  ${CPP_ROOT}/repair
   ${CPP_ROOT}/highlight
   ${CPP_ROOT}/latex
 )

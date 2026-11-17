@@ -352,10 +352,19 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   }
   [(ENRMTableIOSGridView *)_gridContainer fadeInRowsFrom:previousRowCount duration:duration];
 }
+
+- (void)finishRowFade
+{
+  [_gridContainer.layer removeAllAnimations];
+}
 #else
 - (void)animateNewRowsFromPreviousCount:(NSUInteger)previousRowCount duration:(NSTimeInterval)duration
 {
   // No-op on macOS
+}
+
+- (void)finishRowFade
+{
 }
 #endif
 

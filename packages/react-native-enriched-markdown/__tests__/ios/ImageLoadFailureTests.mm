@@ -191,7 +191,9 @@ static const CGFloat kBlockHeight = 100;
   view.textView.textContainer.size = CGSizeMake(320, CGFLOAT_MAX);
   CGFloat before = CGRectGetHeight([view.accessibilityElements.firstObject accessibilityFrameInContainerSpace]);
 
-  view.textView.textContainer.size = CGSizeMake(80, CGFLOAT_MAX);
+  // The text reflows as it does around a settled image; its container's size belongs to the viewport.
+  NSTextStorage *storage = view.textView.textStorage;
+  [storage addAttribute:NSFontAttributeName value:[UIFont systemFontOfSize:48] range:NSMakeRange(0, storage.length)];
   if (notify) {
     [view imageAttachmentDidResolveLayout];
   }
@@ -217,7 +219,6 @@ static const CGFloat kBlockHeight = 100;
   ENRMRecordingLayoutObserver *host = [[ENRMRecordingLayoutObserver alloc] init];
   UITextView *textView = [[UITextView alloc] initWithFrame:CGRectMake(0, 0, 320, 200)];
   [host addSubview:textView];
-  objc_setAssociatedObject(textView.textContainer, kTextViewKey, textView, OBJC_ASSOCIATION_ASSIGN);
   NSMutableAttributedString *text = [[NSAttributedString attributedStringWithAttachment:attachment] mutableCopy];
   [text appendAttributedString:[[NSAttributedString alloc] initWithString:@" after"]];
   textView.attributedText = text;
@@ -225,12 +226,16 @@ static const CGFloat kBlockHeight = 100;
   XCTAssertEqual([textView.layoutManager attachmentSizeForGlyphAtIndex:0].width, kInlineSize);
 
   [attachment handleLoadFailure];
+  // Only the draw leads the attachment to its text view: the layout above happened before the
+  // container knew it (a container that knows its view on layout is reached on the failure itself).
+  objc_setAssociatedObject(textView.textContainer, kTextViewKey, textView, OBJC_ASSOCIATION_ASSIGN);
   XCTestExpectation *resolved = [self expectationWithDescription:@"host re-measures"];
   host.onResolve = ^{ [resolved fulfill]; };
   (void)[attachment imageForBounds:CGRectMake(0, 0, kInlineSize, kInlineSize)
                      textContainer:textView.textContainer
                     characterIndex:0];
   [self waitForExpectations:@[ resolved ] timeout:1];
+  host.onResolve = ^{}; // a late report must not reach a later test's run loop
 
   [textView.layoutManager ensureLayoutForTextContainer:textView.textContainer];
   XCTAssertGreaterThan([textView.layoutManager attachmentSizeForGlyphAtIndex:0].width, kInlineSize);

@@ -55,7 +55,7 @@
               flags:[ENRMMd4cFlags defaultFlags]
               isGFM:YES];
   NSAttributedString *text =
-      ENRMRenderASTNodes(ast.children, config, NO, YES, 0, NSLineBreakStrategyStandard).attributedText;
+      ENRMRenderASTNodes(ast.children, config, NO, YES, 0, NSLineBreakStrategyStandard, 0).attributedText;
 
   [text enumerateAttribute:NSAttachmentAttributeName
                    inRange:NSMakeRange(0, text.length)

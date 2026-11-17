@@ -10,6 +10,17 @@ import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 
+/**
+ * Replaces the text from [start] on with [tail]: the text of [baseRevision] up to [start] is
+ * unchanged. [tailImageSpans] are the image spans in [tail].
+ */
+class TextPatch(
+  val baseRevision: Long,
+  val start: Int,
+  val tail: Spannable,
+  val tailImageSpans: List<ImageSpan>,
+)
+
 sealed interface RenderedSegment {
   val signature: Long
 
@@ -25,12 +36,19 @@ sealed interface RenderedSegment {
      * here must read them before the segment is applied, or filter the view's spans
      * out; reading afterwards yields the view's bookkeeping mixed in with the markdown
      * spans, and a result that changes as the user merely selects text.
+     *
+     * Null when the segment is only a [patch]: a view that shows its base gets there by the
+     * patch, and any other one needs a full render.
      */
-    val styledText: Spannable,
+    val styledText: Spannable?,
     val imageSpans: List<ImageSpan>,
     val needsJustify: Boolean,
     val lastElementMarginBottom: Float,
     override val signature: Long,
+    /** Identifies this text, for a later [patch] to build on. */
+    val revision: Long = 0,
+    /** How to get from the text of [TextPatch.baseRevision] to this one, if a view shows it. */
+    val patch: TextPatch? = null,
   ) : RenderedSegment
 
   data class Table(
@@ -77,23 +95,23 @@ object MarkdownSegmentRenderer {
     blockquoteStyle: BlockquoteStyle? = null,
     onLatexError: LatexErrorReporter? = null,
     startingTaskIndex: Int = 0,
+    cache: TextRenderCache? = null,
   ): List<RenderedSegment> {
     var taskIndexOffset = startingTaskIndex
+    val lastText = segments.indexOfLast { it is MarkdownSegment.Text }
 
-    return segments.map { segment ->
+    return segments.mapIndexed { index, segment ->
       when (segment) {
         is MarkdownSegment.Text -> {
+          val renderNodes = { nodes: List<MarkdownASTNode>, taskIndex: Int ->
+            renderText(nodes, style, context, onLinkPress, onLinkLongPress, blockquoteStyle, onLatexError, taskIndex)
+          }
           val (rendered, taskItemCount) =
-            renderTextSegment(
-              segment.nodes,
-              style,
-              context,
-              onLinkPress,
-              onLinkLongPress,
-              blockquoteStyle,
-              onLatexError,
-              taskIndexOffset,
-            )
+            if (cache != null) {
+              cache.render(segment.nodes, taskIndexOffset, index == lastText, renderNodes)
+            } else {
+              renderTextSegment(segment.nodes, renderNodes(segment.nodes, taskIndexOffset), taskIndexOffset)
+            }
           taskIndexOffset = taskItemCount
           rendered
         }
@@ -151,7 +169,7 @@ object MarkdownSegmentRenderer {
     return own + node.children.sumOf { countTaskItems(it) }
   }
 
-  private fun renderTextSegment(
+  private fun renderText(
     nodes: List<MarkdownASTNode>,
     style: StyleConfig,
     context: Context,
@@ -160,7 +178,7 @@ object MarkdownSegmentRenderer {
     blockquoteStyle: BlockquoteStyle?,
     onLatexError: LatexErrorReporter?,
     startingTaskIndex: Int,
-  ): Pair<RenderedSegment.Text, Int> {
+  ): TextRenderResult {
     val renderer = Renderer().apply { configure(style, context, onLatexError) }
 
     val styledText =
@@ -170,23 +188,12 @@ object MarkdownSegmentRenderer {
         renderer.renderContent(nodes, onLinkPress, onLinkLongPress, startingTaskIndex = startingTaskIndex)
       }
 
-    val taskItemCount = renderer.getTaskItemCount()
-    val signature =
-      SegmentSignature.withTaskIndexOffset(
-        SegmentSignature.signatureForNodes(nodes) xor SegmentSignature.TEXT_KIND_SALT,
-        startingTaskIndex,
-        hasTasks = taskItemCount > startingTaskIndex,
-      )
-
-    val rendered =
-      RenderedSegment.Text(
-        styledText = styledText,
-        imageSpans = renderer.getCollectedImageSpans().toList(),
-        needsJustify = style.needsJustify,
-        lastElementMarginBottom = renderer.getLastElementMarginBottom(),
-        signature = signature,
-      )
-
-    return rendered to taskItemCount
+    return renderer.textRenderResult(styledText, style.needsJustify)
   }
+
+  private fun renderTextSegment(
+    nodes: List<MarkdownASTNode>,
+    text: TextRenderResult,
+    startingTaskIndex: Int,
+  ): Pair<RenderedSegment.Text, Int> = TextRenderCache.segmentOf(nodes, text, startingTaskIndex) to text.taskItemCount
 }

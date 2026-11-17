@@ -598,7 +598,7 @@ function RenderersStory({
         markdownStyle={customMarkdownStyle}
         renderers={renderers}
         resolveImageSource={resolveImageSource}
-        streamingAnimation={streaming}
+        streaming={streaming}
         streamingConfig={{ mediaMode, codeBlockMode }}
         allowTrailingMargin={allowTrailingMargin}
         onImagePress={({ url, altText }) =>

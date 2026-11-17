@@ -14,6 +14,7 @@ import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.ImageSourceOverride
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.styleConfig
 import com.swmansion.enriched.markdown.utils.text.ImageCache
+import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -75,6 +76,26 @@ class ImageSpanLoadFailureTest {
     assertEquals(NARROW_WIDTH - MARGIN, width(span))
     // The layout the view draws ends the chip at the view's edge, not past it.
     assertEquals(NARROW_WIDTH.toFloat(), view.layout.getLineRight(0), 0f)
+  }
+
+  // A table measures its columns at the widest a column can be, then lays the cells out at the
+  // chosen width. A chip that failed after the table was laid out kept the narrow column's
+  // width in the first pass, so its column never grew to fit the alt text.
+  @Test
+  fun columnPassWidensAChipButLeavesBlockImagesForTheRowPass() {
+    val chip = inlineSpan("test://table-chip", "a very long description ".repeat(20))
+    val block = ImageSpan(context, "test://table-block", styleConfig(), isInline = false, altText = "a diagram")
+    val text =
+      SpannableStringBuilder("￼ ￼").apply {
+        setSpan(chip, 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        setSpan(block, 2, 3, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+      }
+    prepareWidthAwareSpans(text, NARROW_WIDTH)
+
+    prepareWidthAwareSpans(text, WIDTH, includeBlockImages = false)
+
+    assertEquals(CHIP_CAP, width(chip))
+    assertEquals(NARROW_WIDTH, block.drawable.bounds.width())
   }
 
   @Test

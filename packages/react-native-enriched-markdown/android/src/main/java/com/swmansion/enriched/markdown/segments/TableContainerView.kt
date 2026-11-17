@@ -19,7 +19,6 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
-import android.widget.HorizontalScrollView
 import androidx.core.view.ViewCompat
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
@@ -27,6 +26,7 @@ import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkPillSpan
+import com.swmansion.enriched.markdown.spans.TextBackgroundDrawer
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableStyle
 import com.swmansion.enriched.markdown.utils.common.BoundsForWidthUtils
@@ -70,8 +70,7 @@ class TableContainerView(
   var dynamicProps: DynamicBlockProps = DynamicBlockProps()
 
   private val scrollView =
-    HorizontalScrollView(context).apply {
-      isHorizontalScrollBarEnabled = true
+    OverflowScrollView(context, detectsOverflow = false).apply {
       overScrollMode = View.OVER_SCROLL_NEVER
       importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
       addView(
@@ -105,6 +104,15 @@ class TableContainerView(
         .alpha(1f)
         .setDuration(durationMs)
         .start()
+    }
+  }
+
+  fun finishRowFade() {
+    val grid = gridContainer
+    for (i in 0 until grid.childCount) {
+      val cell = grid.getChildAt(i) ?: continue
+      cell.animate().cancel()
+      cell.alpha = 1f
     }
   }
 
@@ -365,7 +373,7 @@ class TableContainerView(
 
     scrollView.setPadding(overhang, 0, overhang, 0)
     scrollView.clipToPadding = !tableOverflows
-    scrollView.isHorizontalScrollBarEnabled = tableOverflows
+    scrollView.setOverflows(tableOverflows)
 
     scrollView.layout(0, 0, viewWidth, bottom - top)
 
@@ -468,8 +476,9 @@ class TableContainerView(
       val columnWidths = FloatArray(texts.maxOfOrNull { it.size } ?: 0)
       texts.forEach { row ->
         row.forEachIndexed { colIndex, cellText ->
-          // Images are sized in the row pass below, once the column width is known.
-          prepareWidthAwareSpans(cellText, maxColumnWidth.toInt(), includeImages = false)
+          // Block images are sized in the row pass below, once the column width is known. A
+          // failure chip is sized now, or it keeps the width of the column it failed in.
+          prepareWidthAwareSpans(cellText, maxColumnWidth.toInt(), includeBlockImages = false)
           val layout =
             StaticLayout.Builder
               .obtain(cellText, 0, cellText.length, paint, maxColumnWidth.toInt())
@@ -626,6 +635,23 @@ class TableContainerView(
       val result = super.onTouchEvent(event)
       if (event.action == MotionEvent.ACTION_DOWN) cancelJSTouchForLinkTap(event)
       return result
+    }
+
+    // Made on first draw: setText runs from the TextView constructor, before fields are set.
+    private var textBackgrounds: TextBackgroundDrawer? = null
+
+    override fun setText(
+      text: CharSequence?,
+      type: BufferType?,
+    ) {
+      textBackgrounds?.invalidateFrom(0)
+      super.setText(text, type)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+      val drawer = textBackgrounds ?: TextBackgroundDrawer().also { textBackgrounds = it }
+      drawer.draw(canvas, this)
+      super.onDraw(canvas)
     }
   }
 

@@ -46,6 +46,8 @@ typedef NS_ENUM(NSInteger, ENRMBlockSlotKind) {
 
 @interface ENRMBlockquoteSegment : NSObject
 @property (nonatomic, strong) MarkdownASTNode *blockquoteNode;
+// Document-global index of the quote's first task-list item.
+@property (nonatomic, assign) NSInteger taskIndexOffset;
 + (instancetype)segmentWithBlockquoteNode:(MarkdownASTNode *)node;
 @end
 
@@ -88,6 +90,8 @@ extern "C" {
 
 uint64_t ENRMSignatureForNode(MarkdownASTNode *_Nullable node);
 uint64_t ENRMSignatureForNodes(NSArray<MarkdownASTNode *> *nodes);
+// ENRMSignatureForNodes from each node's ENRMSignatureForNode.
+uint64_t ENRMSignatureForNodeSignatures(NSArray<NSNumber *> *nodeSignatures);
 
 #ifdef __cplusplus
 }

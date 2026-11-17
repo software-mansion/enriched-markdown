@@ -21,7 +21,6 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
-import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
@@ -137,8 +136,7 @@ class CodeBlockContainerView(
     }
 
   private val scrollView =
-    HorizontalScrollView(context).apply {
-      isHorizontalScrollBarEnabled = true
+    OverflowScrollView(context).apply {
       overScrollMode = View.OVER_SCROLL_NEVER
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         horizontalScrollbarThumbDrawable =

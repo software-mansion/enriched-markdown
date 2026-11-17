@@ -18,5 +18,11 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
-  return <EnrichedMarkdownText markdown={markdown} streamingAnimation />;
+  // Streaming ends once the whole text has arrived.
+  return (
+    <EnrichedMarkdownText
+      markdown={markdown}
+      streaming={markdown.length < full.length}
+    />
+  );
 }

@@ -30,14 +30,7 @@ class EnrichedMarkdownLifecycleTest {
     view: EnrichedMarkdown,
     action: () -> Unit,
   ) {
-    val postToMain =
-      EnrichedMarkdown::class.java.getDeclaredMethod(
-        "postToMain",
-        Long::class.javaPrimitiveType,
-        Function0::class.java,
-      )
-    postToMain.isAccessible = true
-    postToMain.invoke(view, 0L, action)
+    view.postToMain { action() }
   }
 
   private fun idleMainLooper() = shadowOf(Looper.getMainLooper()).idle()
@@ -99,6 +92,20 @@ class EnrichedMarkdownLifecycleTest {
     assertNull(view.stateWrapper)
     view.onImageLayoutChanged()
     assertFalse(view.isLayoutRequested)
+  }
+
+  // An older render can apply after a newer one was scheduled: it takes only the
+  // flags set when it was scheduled, so the newer render still recreates its segments.
+  @Test
+  fun aRenderTakesOnlyTheFlagsSetWhenItWasScheduled() {
+    val view = newView()
+    view.dirtyFlags += EnrichedMarkdown.DirtyFlag.FORCE_HEIGHT
+    val scheduled = HashSet(view.dirtyFlags)
+    view.dirtyFlags += EnrichedMarkdown.DirtyFlag.RECREATE_SEGMENTS
+
+    view.applyRenderedSegments(emptyList(), false, scheduled, "")
+
+    assertEquals(setOf(EnrichedMarkdown.DirtyFlag.RECREATE_SEGMENTS), view.dirtyFlags.toSet())
   }
 
   @Test

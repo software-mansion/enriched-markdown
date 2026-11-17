@@ -66,6 +66,10 @@ The disk cache is managed by the HTTP stack (OkHttp / `NSURLCache`) and keys res
 
 When multiple components request the same image URL simultaneously (e.g. during a re-render), only one network request is made. All pending callbacks are coalesced and dispatched together once the download completes.
 
+## Failed images
+
+An image that fails to load is replaced by a tinted placeholder with a picture icon and the image's alt text. A block image keeps its box, and an inline image becomes a chip as wide as its alt text needs, no wider than its line. The failure is remembered, so the next render starts with the placeholder, and an image that loads later replaces it.
+
 ## Instance reuse
 
 A fresh `ImageSpan` (Android) or `ENRMImageAttachment` (iOS) is created per render **on purpose**, never pooled or shared per URL. The same URL can be drawn at different widths - inside a table and outside it - and a shared attachment would thrash its single last-processed width into a redraw loop. The two memory tiers are what make a fresh instance cheap: no re-fetch and no re-scale.
