@@ -41,13 +41,16 @@ final class MarkdownViewportDecorator {
             containerWidth: textView.textContainer.size.width,
             origin: CGPoint(x: inset.left - tile.minX, y: inset.top - tile.minY),
             decorationConfig: config,
-            trailingPadding: textView.trailingSpacing.padding
+            trailingPadding: textView.trailingSpacing.padding + textView.borderOverhang
         )
 
         switch pass {
         case .background:
             CodeBlockBackgroundDrawer.draw(in: drawContext)
             BlockquoteBorderDrawer.drawBackgrounds(in: drawContext)
+            if textView.hasInlineBackgrounds {
+                InlineBackgroundDrawer.draw(in: drawContext)
+            }
         case .foreground:
             BlockquoteBorderDrawer.drawBorders(in: drawContext)
             ParagraphMarkerDrawer.draw(in: drawContext)

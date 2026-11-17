@@ -127,7 +127,7 @@ enum ParagraphStyleHelpers {
     private static func baselineOffset(centring font: UIFont, in maximumLineHeight: CGFloat) -> CGFloat? {
         let naturalHeight = typographicLineHeight(for: font)
         guard naturalHeight > 0, maximumLineHeight >= naturalHeight else { return nil }
-        return ceil((maximumLineHeight - naturalHeight) / 2)
+        return baselineRaise(lineHeight: maximumLineHeight, naturalHeight: naturalHeight)
     }
 
     static func applyBlockLineHeight(
@@ -212,7 +212,11 @@ enum ParagraphStyleHelpers {
     }
 
     /// Natural line height: `(-ascent) + descent`, consistent across platforms.
-    private static func typographicLineHeight(for font: UIFont) -> CGFloat {
+    static func baselineRaise(lineHeight: CGFloat, naturalHeight: CGFloat) -> CGFloat {
+        ceil((lineHeight - naturalHeight) / 2)
+    }
+
+    static func typographicLineHeight(for font: UIFont) -> CGFloat {
         let ctFont = font as CTFont
         return CTFontGetAscent(ctFont) + CTFontGetDescent(ctFont)
     }
