@@ -134,11 +134,16 @@ static NSWritingDirection ENRMFirstStrongDirectionInNode(MarkdownASTNode *node)
   return direction;
 }
 
-// The first strong character in the quote, unless the mode forces a side;
-// without one, the layout and then the app decide.
+// A nested quote takes the side of the quote around it, as web's dir="auto"
+// resolves only the outermost block. Otherwise the first strong character in
+// the quote, unless the mode forces a side; without one, the layout and then
+// the app decide.
 static BOOL ENRMBlockquoteIsRTL(MarkdownASTNode *node, ENRMWritingDirectionMode mode,
-                                NSWritingDirection layoutDirection)
+                                NSWritingDirection layoutDirection, NSWritingDirection outerDirection)
 {
+  if (outerDirection != NSWritingDirectionNatural) {
+    return outerDirection == NSWritingDirectionRightToLeft;
+  }
   NSWritingDirection direction = NSWritingDirectionNatural;
   if (mode == ENRMWritingDirectionModeLTR) {
     direction = NSWritingDirectionLeftToRight;
@@ -154,6 +159,16 @@ static BOOL ENRMBlockquoteIsRTL(MarkdownASTNode *node, ENRMWritingDirectionMode 
     return [[RCTI18nUtil sharedInstance] isRTL];
   }
   return direction == NSWritingDirectionRightToLeft;
+}
+
+static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *segments, ENRMWritingDirectionMode mode,
+                                                NSWritingDirection layoutDirection)
+{
+  for (ENRMRenderedSegment *segment in segments) {
+    if (segment.kind == ENRMSegmentKindText) {
+      ENRMApplyWritingDirectionMode(segment.textResult.attributedText, mode, layoutDirection);
+    }
+  }
 }
 
 @interface ENRMBlockquoteContainerView ()
@@ -183,6 +198,7 @@ static BOOL ENRMBlockquoteIsRTL(MarkdownASTNode *node, ENRMWritingDirectionMode 
     self.allowTrailingMargin = NO;
     _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
     _resolvedLayoutDirection = NSWritingDirectionNatural;
+    _outerDirection = NSWritingDirectionNatural;
     // Preserved prior defaults until the host overrides them at creation.
     _allowFontScaling = YES;
     _lineBreakStrategy = NSLineBreakStrategyNone;
@@ -206,20 +222,50 @@ static BOOL ENRMBlockquoteIsRTL(MarkdownASTNode *node, ENRMWritingDirectionMode 
   self.cachedPlainText = plainTextFromASTNode(node);
   NSArray<ENRMRenderedSegment *> *rendered =
       ENRMRenderBlockquoteChildren(node, self.config, self.allowFontScaling, self.lineBreakStrategy, taskIndexOffset);
-  for (ENRMRenderedSegment *segment in rendered) {
-    if (segment.kind == ENRMSegmentKindText) {
-      ENRMApplyWritingDirectionMode(segment.textResult.attributedText, self.writingDirectionMode,
-                                    self.resolvedLayoutDirection);
-    }
-  }
-  self.rightToLeft = ENRMBlockquoteIsRTL(node, self.writingDirectionMode, self.resolvedLayoutDirection);
+  ENRMApplyWritingDirectionToSegments(rendered, self.writingDirectionMode, self.resolvedLayoutDirection);
+  self.rightToLeft =
+      ENRMBlockquoteIsRTL(node, self.writingDirectionMode, self.resolvedLayoutDirection, self.outerDirection);
   self.contentInsets = ENRMBlockquoteContentInsetsForNode(self.config, self.admonitionType != nil, self.rightToLeft);
   [self applySegments:rendered reset:NO];
+  [self applySide:self.rightToLeft];
 #if !TARGET_OS_OSX
   [self setNeedsDisplay];
 #else
   self.needsDisplay = YES;
 #endif
+}
+
+- (void)setOuterDirection:(NSWritingDirection)outerDirection
+{
+  if (_outerDirection == outerDirection) {
+    return;
+  }
+  _outerDirection = outerDirection;
+  if (outerDirection != NSWritingDirectionNatural) {
+    [self applySide:outerDirection == NSWritingDirectionRightToLeft];
+  }
+}
+
+// Moves the bar, insets and header to one side, and hands the side to nested
+// quotes, which a parent's update can leave untouched.
+- (void)applySide:(BOOL)rightToLeft
+{
+  if (self.rightToLeft != rightToLeft) {
+    self.rightToLeft = rightToLeft;
+    self.contentInsets = ENRMBlockquoteContentInsetsForNode(self.config, self.admonitionType != nil, rightToLeft);
+    [self setNeedsLayout];
+#if !TARGET_OS_OSX
+    [self setNeedsDisplay];
+#else
+    self.needsDisplay = YES;
+#endif
+  }
+  NSWritingDirection side = rightToLeft ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight;
+  for (RCTUIView *view in self.segmentViews) {
+    if ([view isKindOfClass:[ENRMBlockquoteContainerView class]]) {
+      ((ENRMBlockquoteContainerView *)view).outerDirection = side;
+    }
+  }
 }
 
 - (void)setAccessibilityLabels:(ENRMAccessibilityLabels *)accessibilityLabels
@@ -518,19 +564,21 @@ static BOOL ENRMBlockquoteIsRTL(MarkdownASTNode *node, ENRMWritingDirectionMode 
                         lineBreakStrategy:(NSLineBreakStrategy)lineBreakStrategy
                      writingDirectionMode:(ENRMWritingDirectionMode)writingDirectionMode
                   resolvedLayoutDirection:(NSWritingDirection)resolvedLayoutDirection
+                           outerDirection:(NSWritingDirection)outerDirection
                                wrapCursor:(ENRMCodeBlockWrapCursor *)wrapCursor
                              slotMeasurer:(ENRMBlockSlotMeasurer *)slotMeasurer
                                    origin:(CGPoint)origin
 {
   NSArray<ENRMRenderedSegment *> *rendered =
       ENRMRenderBlockquoteChildren(node, config, allowFontScaling, lineBreakStrategy, /*taskIndexOffset*/ 0);
-  BOOL isRTL = ENRMBlockquoteIsRTL(node, writingDirectionMode, resolvedLayoutDirection);
+  ENRMApplyWritingDirectionToSegments(rendered, writingDirectionMode, resolvedLayoutDirection);
+  BOOL isRTL = ENRMBlockquoteIsRTL(node, writingDirectionMode, resolvedLayoutDirection, outerDirection);
   UIEdgeInsets insets = ENRMBlockquoteContentInsetsForNode(config, ENRMAdmonitionTypeForNode(node) != nil, isRTL);
   CGFloat innerWidth = MAX(maxWidth - insets.left - insets.right, 1);
   CGFloat childrenHeight = ENRMMeasureSegmentsHeightViewFree(
       rendered, config, innerWidth, /*allowTrailingMargin*/ NO, pointScaleFactor, writingDirectionMode,
-      resolvedLayoutDirection, allowFontScaling, lineBreakStrategy, wrapCursor, slotMeasurer,
-      CGPointMake(origin.x + insets.left, origin.y + insets.top));
+      resolvedLayoutDirection, isRTL ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight, allowFontScaling,
+      lineBreakStrategy, wrapCursor, slotMeasurer, CGPointMake(origin.x + insets.left, origin.y + insets.top));
 
   return childrenHeight + insets.top + insets.bottom;
 }

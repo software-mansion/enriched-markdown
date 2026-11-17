@@ -68,6 +68,7 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
                         lineBreakStrategy:(NSLineBreakStrategy)lineBreakStrategy
                      writingDirectionMode:(ENRMWritingDirectionMode)writingDirectionMode
                   resolvedLayoutDirection:(NSWritingDirection)resolvedLayoutDirection
+                           outerDirection:(NSWritingDirection)outerDirection
                                wrapCursor:(nullable ENRMCodeBlockWrapCursor *)wrapCursor
                              slotMeasurer:(nullable ENRMBlockSlotMeasurer *)slotMeasurer
                                    origin:(CGPoint)origin;
@@ -110,6 +111,7 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 
 @property (nonatomic, assign) ENRMWritingDirectionMode writingDirectionMode;
 @property (nonatomic, assign) NSWritingDirection resolvedLayoutDirection;
+@property (nonatomic, assign) NSWritingDirection outerDirection;
 
 @end
 

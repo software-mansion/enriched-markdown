@@ -408,6 +408,7 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
                                                              lineBreakStrategy:lineBreakStrategy
                                                           writingDirectionMode:writingDirectionMode
                                                        resolvedLayoutDirection:resolvedLayoutDirection
+                                                                outerDirection:NSWritingDirectionNatural
                                                                     wrapCursor:wrapCursor
                                                                   slotMeasurer:slotMeasurer
                                                                         origin:CGPointMake(0, yOffset)];

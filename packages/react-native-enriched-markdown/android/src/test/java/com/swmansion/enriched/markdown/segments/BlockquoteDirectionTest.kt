@@ -67,6 +67,15 @@ class BlockquoteDirectionTest {
   }
 
   @Test
+  fun `a nested quote takes the side of the quote around it, as on web`() {
+    val outer = admonition(paragraph(text("نصيحة")), quote(paragraph(text("English"))))
+    val nested = (0 until outer.childCount).map(outer::getChildAt).filterIsInstance<BlockquoteContainerView>().single()
+
+    assertEquals(barInset, outer.paddingRight)
+    assertEquals(barInset, nested.paddingRight)
+  }
+
+  @Test
   fun `nested quotes count and code blocks do not, as on web`() {
     assertEquals(barInset, admonition(quote(paragraph(text("نصيحة")))).paddingRight)
     assertEquals(barInset, admonition(codeBlock("npm i"), paragraph(text("نصيحة"))).paddingRight)

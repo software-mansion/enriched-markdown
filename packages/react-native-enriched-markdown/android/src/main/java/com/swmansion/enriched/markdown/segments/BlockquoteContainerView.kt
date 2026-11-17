@@ -63,6 +63,13 @@ class BlockquoteContainerView(
 
   private var rightToLeft = false
 
+  var outerRightToLeft: Boolean? = null
+    set(value) {
+      if (field == value) return
+      field = value
+      if (value != null) applySide(value)
+    }
+
   // Set from the applied node: null for a plain quote, the admonition type
   // ("note"/"tip"/…) otherwise. Drives the header + per-type theming.
   private var admonitionType: String? = null
@@ -149,10 +156,22 @@ class BlockquoteContainerView(
         onLatexError = parentConfig.onLatexError,
         startingTaskIndex = taskIndexOffset,
       )
-    rightToLeft = isRightToLeft(node, resources.isLayoutRTL())
+    rightToLeft = outerRightToLeft ?: isRightToLeft(node, resources.isLayoutRTL())
     applyInsets()
     applySegments(rendered, reset = false)
+    applySide(rightToLeft)
     requestLayout()
+  }
+
+  // Moves the bar, padding and header to one side, and hands the side to nested
+  // quotes, which a parent's update can leave untouched.
+  private fun applySide(rightToLeft: Boolean) {
+    if (this.rightToLeft != rightToLeft) {
+      this.rightToLeft = rightToLeft
+      applyInsets()
+      invalidate()
+    }
+    segmentViews.forEach { (it as? BlockquoteContainerView)?.outerRightToLeft = rightToLeft }
   }
 
   private fun applyInsets() {
@@ -427,6 +446,8 @@ class BlockquoteContainerView(
       slotMeasurer: BlockSlotMeasurer? = null,
       originXPx: Float = 0f,
       originYPx: Float = 0f,
+      // The side of the quote around this one, for a nested quote (outerRightToLeft).
+      outerRightToLeft: Boolean? = null,
     ): Float {
       val style = config.blockquoteStyle
       val leadingInset = ceil(style.borderWidth + style.gapWidth + style.padding).toInt()
@@ -445,7 +466,8 @@ class BlockquoteContainerView(
 
       val segments = splitASTIntoSegments(node)
       val rendered = MarkdownSegmentRenderer.render(segments, config, context, null, null, style)
-      val leftInset = if (isRightToLeft(node, context.resources.isLayoutRTL())) trailingInset else leadingInset
+      val rightToLeft = outerRightToLeft ?: isRightToLeft(node, context.resources.isLayoutRTL())
+      val leftInset = if (rightToLeft) trailingInset else leadingInset
 
       val fontSize = style.fontSize
       val breakStrategy = BreakStrategyUtils.resolveBreakStrategy(null)
@@ -464,6 +486,7 @@ class BlockquoteContainerView(
           slotMeasurer = slotMeasurer,
           originXPx = originXPx + leftInset,
           originYPx = originYPx + verticalInset + headerReserved,
+          quoteRightToLeft = rightToLeft,
         )
 
       return childrenHeight + verticalInset * 2f + headerReserved
