@@ -143,42 +143,51 @@ final class StreamingRenderSessionTests: XCTestCase {
         XCTAssertFalse(attachments(of: MarkdownImageAttachment.self, in: complete).isEmpty)
     }
 
-    func testLongListsFreezeTheirFinishedItems() {
-        let items = (1...30).map { "- Item \($0) of a long bullet list" }.joined(separator: "\n")
-        let markdown = "Intro\n\n" + items + "\n\nAfter the list."
-        assertEveryPrefixRendersWhole(markdown)
+    func testAListStaysUnfinishedUntilAnotherBlockFollowsIt() {
         let session = StreamingFixtures.session()
-        var stableLengths: [Int] = []
-        for prefix in StreamingFixtures.chunks(of: markdown, sizes: [17, 9, 23]) {
-            stableLengths.append(session.render(prefix, options: streaming).lineage.stableLength)
-        }
-        XCTAssertEqual(stableLengths, stableLengths.sorted())
-        XCTAssertGreaterThan(Set(stableLengths).count, 10, "the frozen part grows item by item")
+        let list = "Intro\n\n- First item\n- Second item"
+        XCTAssertEqual(session.render(list, options: streaming).lineage.stableLength, 0, "a list can still grow")
+        let followed = session.render(list + "\n\nAfter the list.", options: streaming)
+        let stable = (followed.text.string as NSString).substring(to: followed.lineage.stableLength)
+        XCTAssertTrue(stable.contains("Second item"), "the paragraph after the list finishes it")
+        XCTAssertFalse(stable.contains("After"))
     }
 
-    func testNumberedListsRealignWhenAWiderNumberArrives() {
-        let items = (1...12).map { "\($0). Step \($0) of the recipe" }.joined(separator: "\n")
-        let markdown = "Intro\n\n" + items + "\n\nDone."
-        assertEveryPrefixRendersWhole(markdown)
+    func testAQuotedFenceRendersInEveryPrefixAsInTheWholeDocument() {
+        let markdown = "First.\n\nSecond.\n\n> ```js\n> let a = 1\n> ```\n\nAfter the quote."
         let session = StreamingFixtures.session()
-        var stableLengths: [Int] = []
-        for prefix in StreamingFixtures.chunks(of: markdown, sizes: [17, 9, 23]) {
-            stableLengths.append(session.render(prefix, options: streaming).lineage.stableLength)
+        let options = MarkdownStreamingOptions(codeBlocks: .hidden)
+        for prefix in StreamingFixtures.chunks(of: markdown, sizes: [1]) {
+            let result = session.render(prefix, options: options)
+            assertEquivalent(result.text, fullRender(result.source), "prefix of \(prefix.count) characters")
         }
-        XCTAssertNotEqual(stableLengths, stableLengths.sorted(), "the list is rendered again once its marker column widens")
-        XCTAssertGreaterThan(Set(stableLengths).count, 5)
     }
 
-    func testOpenFenceBodyIsNotReparsed() {
+    func testABlockTheParserKeepsOpenRendersTheDocumentWhole() {
+        let markdown = "<scriptx\n\nFirst paragraph.\n\nSecond paragraph."
         let session = StreamingFixtures.session()
-        let body = (1...40).map { "let value\($0) = \($0)" }.joined(separator: "\n")
-        let result = session.render(openFence + body + "\n``", options: streaming)
-        XCTAssertEqual(result.source, openFence + body + "\n")
-        XCTAssertEqual(attachments(of: CodeBlockAttachment.self, in: result.text).count, 0)
-        XCTAssertTrue(result.text.string.contains("let x = 1\n" + body))
-        XCTAssertFalse(result.text.string.contains("``"))
-        let closed = session.render(openFence + body + "\n```\n", options: streaming)
-        assertEquivalent(closed.text, fullRender(openFence + body + "\n```\n"), "closed block")
+        for prefix in StreamingFixtures.chunks(of: markdown) {
+            let result = session.render(prefix, options: streaming)
+            assertEquivalent(result.text, fullRender(result.source), "prefix of \(prefix.count) characters")
+            XCTAssertEqual(result.lineage.stableLength, 0, "prefix of \(prefix.count) characters")
+        }
+    }
+
+    func testRepairFollowsTheParsingOptions() {
+        func repaired(_ markdown: String, _ options: MarkdownParsingOptions = .commonMark) -> String {
+            StreamingFixtures.session(options: options).render(markdown, options: streaming).source
+        }
+        XCTAssertEqual(repaired("x^2 and **b"), "x^2 and **b**")
+        XCTAssertEqual(repaired("x^2 and **b", MarkdownParsingOptions(superscript: true)), "x^2 and **b**^")
+        XCTAssertEqual(repaired("H~2 and **b", MarkdownParsingOptions(subscript: true)), "H~2 and **b**~")
+        XCTAssertEqual(repaired("==mark and more"), "==mark and more")
+        XCTAssertEqual(repaired("==mark and more", MarkdownParsingOptions(highlight: true)), "==mark and more==")
+    }
+
+    func testMathDelimitersStreamAsTextWithoutLaTeX() {
+        let session = StreamingFixtures.session()
+        XCTAssertEqual(session.render("Intro\n\n$$\nx = 1\n", options: streaming).source, "Intro\n\n$$\nx = 1\n")
+        XCTAssertEqual(session.render("Intro\n\nPrice $5 and $x", options: streaming).source, "Intro\n\nPrice $5 and $x")
     }
 
     func testTrailingBlockMarginSurvivesAWithheldTail() {

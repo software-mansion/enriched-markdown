@@ -59,13 +59,9 @@ package final class AttributedRenderer {
                 let paragraph = MarkdownASTNode(type: .paragraph, children: [child])
                 factory.renderer(for: .paragraph).render(node: paragraph, into: output, context: context)
                 context.pluginBlockMargins = nil
-            } else {
-                factory.renderer(for: child.type).render(node: child, into: output, context: context)
+                continue
             }
-            context.listContinuation = nil
-            if child.type != .orderedList, child.type != .unorderedList {
-                context.openList = nil
-            }
+            factory.renderer(for: child.type).render(node: child, into: output, context: context)
         }
     }
 
