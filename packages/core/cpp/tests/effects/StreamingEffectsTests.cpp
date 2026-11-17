@@ -303,6 +303,23 @@ TEST_CASE("text that settled before a short block stays settled when the next te
   CHECK(range->start >= 20);
 }
 
+TEST_CASE("text that settles mid-glide stays inside the animated range while it finishes") {
+  auto fx = effects(gradient(5));
+  std::u16string text;
+  append(fx, text, u"0123456789", 1.0);
+  append(fx, text, u"abcdefghij", 1.1);
+  // Finished and continued while the glide is still behind the end.
+  fx.finish(1.15);
+  append(fx, text, u"xy", 1.17);
+  auto range = fx.animatedRange(1.17);
+  REQUIRE(range);
+  for (size_t i = 0; i < text.size(); i++) {
+    if (fx.lookAt(i, 1.17).opacity < 1) {
+      CHECK(i >= range->start);
+    }
+  }
+}
+
 TEST_CASE("a gradient between two colors replaces the characters' own color") {
   auto config = gradient(4);
   config.startColor = EffectColor{0, 0, 1, 1};

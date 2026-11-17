@@ -198,10 +198,11 @@ std::optional<CharacterRange> StreamingEffects::animatedRange(double time) {
       }
       auto end = static_cast<size_t>(gradientEnd(time));
       size_t start = std::max(end > config_.length ? end - config_.length : 0, settledEnd_);
-      // What settled before the new text still finishes settling.
+      // What settled before the new text still finishes settling, from where its gradient ended.
       if (settling(time)) {
+        auto settledFrom = static_cast<size_t>(settledGradientEnd_);
         start =
-            std::min(start, std::max(settledFloor_, settledEnd_ > config_.length ? settledEnd_ - config_.length : 0));
+            std::min(start, std::max(settledFloor_, settledFrom > config_.length ? settledFrom - config_.length : 0));
       }
       if (start >= textLength_) {
         return std::nullopt;
