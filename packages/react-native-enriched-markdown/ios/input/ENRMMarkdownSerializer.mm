@@ -12,7 +12,7 @@
                           ranges:(NSArray<ENRMFormattingRange *> *)ranges
                      blockRanges:(NSArray<ENRMBlockRange *> *)blockRanges
 {
-  if (text.length == 0) {
+  if (text.length == 0 && blockRanges.count == 0) {
     return @"";
   }
   std::u16string markdown = Markdown::Input::serialize(
