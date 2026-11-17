@@ -1048,8 +1048,8 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
                                                    inText:text];
 
   if (alreadyActive) {
-    // Strip the stored block paragraph style directly: an empty item's line has no
-    // stamped block-marker attribute (zero-length ranges are never stamped), so the
+    // Strip the stored block paragraph style directly: an empty item on the last
+    // line has no terminator to carry the block-marker attribute, so the
     // applyFormatting reset below — which is keyed off that marker — cannot reach it.
     NSRange paragraphRange = [text paragraphRangeForRange:_textView.selectedRange];
     NSTextStorage *storage = _textView.textStorage;
