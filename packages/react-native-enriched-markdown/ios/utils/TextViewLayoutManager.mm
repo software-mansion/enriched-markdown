@@ -72,10 +72,30 @@ static char kGlyphColorKey;
 }
 #endif
 
+// Set only while a streaming text draws its backgrounds: associated, since the class has no ivars.
+static char kDrawingEffectsKey;
+static char kDrawingTimeKey;
+
+- (void)drawBackgroundForGlyphRange:(NSRange)glyphsToShow
+                            atPoint:(CGPoint)origin
+                            effects:(ENRMStreamingEffects *)effects
+                               time:(CFTimeInterval)time
+{
+  objc_setAssociatedObject(self, &kDrawingEffectsKey, effects, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  objc_setAssociatedObject(self, &kDrawingTimeKey, @(time), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  [self drawBackgroundForGlyphRange:glyphsToShow atPoint:origin];
+  objc_setAssociatedObject(self, &kDrawingEffectsKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  objc_setAssociatedObject(self, &kDrawingTimeKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
 - (CGFloat)visibilityOfCharactersInRange:(NSRange)range
 {
-  ENRMStreamingEffects *effects = self.drawingEffects;
-  return effects ? [effects visibilityOfCharactersInRange:range time:self.drawingTime] : 1;
+  ENRMStreamingEffects *effects = objc_getAssociatedObject(self, &kDrawingEffectsKey);
+  if (!effects) {
+    return 1;
+  }
+  return [effects visibilityOfCharactersInRange:range
+                                           time:[objc_getAssociatedObject(self, &kDrawingTimeKey) doubleValue]];
 }
 
 - (void)drawBackgroundForGlyphRange:(NSRange)glyphsToShow atPoint:(CGPoint)origin
