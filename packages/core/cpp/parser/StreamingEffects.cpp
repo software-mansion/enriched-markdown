@@ -9,6 +9,10 @@ namespace {
 
 // The gradient settles to the characters' own colors this long after the stream ends.
 constexpr double kSettleDuration = 0.2;
+// The gradient reaches new text by the time more usually arrives: the usual gap between growths,
+// kept between these, so it neither jumps nor stops between words.
+constexpr double kMinGlide = 0.05;
+constexpr double kMaxGlide = 0.25;
 
 float easeOut(double progress) {
   double clamped = std::clamp(progress, 0.0, 1.0);
@@ -38,6 +42,22 @@ void StreamingEffects::configure(const StreamingEffectConfig &config) {
 }
 
 void StreamingEffects::noteArrival(size_t start, size_t end, double time, std::u16string_view text, char16_t previous) {
+  if (end != textLength_) {
+    double now = gradientEnd(time);
+    if (end > textLength_) {
+      if (lastGrowth_ && time > *lastGrowth_) {
+        double gap = std::clamp(time - *lastGrowth_, kMinGlide, kMaxGlide);
+        growthGap_ = growthGap_ > 0 ? growthGap_ * 0.7 + gap * 0.3 : gap;
+      }
+      lastGrowth_ = time;
+    }
+    // From where it is now, at most its own length behind: a whole document arriving at once doesn't sweep.
+    glideFrom_ = std::max(std::min(now, static_cast<double>(end)),
+                          end > config_.length ? static_cast<double>(end - config_.length) : 0.0);
+    glideStart_ = time;
+    double glide = growthGap_ > 0 ? growthGap_ : kMaxGlide;
+    glideSpeed_ = (static_cast<double>(end) - glideFrom_) / glide;
+  }
   if (end < textLength_) {
     units_.erase(std::remove_if(units_.begin(), units_.end(), [&](const Unit &unit) { return unit.start >= end; }),
                  units_.end());
@@ -91,6 +111,11 @@ void StreamingEffects::finish(double time) {
 void StreamingEffects::reset() {
   units_.clear();
   textLength_ = 0;
+  glideFrom_ = 0;
+  glideStart_ = 0;
+  glideSpeed_ = 0;
+  growthGap_ = 0;
+  lastGrowth_.reset();
   finishedAt_.reset();
 }
 
@@ -127,9 +152,20 @@ size_t StreamingEffects::lookEnd(size_t index) const {
   return after != units_.end() ? after->start : std::max(textLength_, index + 1);
 }
 
+double StreamingEffects::gradientEnd(double time) const {
+  double end = static_cast<double>(textLength_);
+  if (glideFrom_ >= end) {
+    return end;
+  }
+  return std::min(end, glideFrom_ + glideSpeed_ * std::max(0.0, time - glideStart_));
+}
+
 bool StreamingEffects::changesOverTime(double time) {
   if (config_.type == StreamingEffectType::Gradient) {
-    return finishedAt_ && time - *finishedAt_ < kSettleDuration;
+    if (finishedAt_) {
+      return time - *finishedAt_ < kSettleDuration;
+    }
+    return textLength_ > 0 && gradientEnd(time) < static_cast<double>(textLength_);
   }
   return animatedRange(time).has_value();
 }
@@ -143,7 +179,8 @@ std::optional<CharacterRange> StreamingEffects::animatedRange(double time) {
       if (finishedAt_ && time - *finishedAt_ >= kSettleDuration) {
         return std::nullopt;
       }
-      size_t start = textLength_ > config_.length ? textLength_ - config_.length : 0;
+      auto end = static_cast<size_t>(gradientEnd(time));
+      size_t start = end > config_.length ? end - config_.length : 0;
       return CharacterRange{start, textLength_ - start};
     }
     case StreamingEffectType::Fade: {
@@ -171,9 +208,10 @@ CharacterLook StreamingEffects::lookAt(size_t index, double time) const {
   if (config_.type != StreamingEffectType::Gradient) {
     return look;
   }
-  // 0 for the newest character, 1 for the first one past the gradient.
-  size_t fromEnd = textLength_ > index ? textLength_ - 1 - index : 0;
-  float position = std::min(1.0f, static_cast<float>(fromEnd) / static_cast<float>(config_.length));
+  // 0 for the newest character (and any the glide hasn't reached), 1 for the first one past the
+  // gradient; fractional while it glides.
+  double fromEnd = std::max(0.0, gradientEnd(time) - 1.0 - static_cast<double>(index));
+  float position = std::min(1.0f, static_cast<float>(fromEnd / static_cast<double>(config_.length)));
   const auto &start = config_.startColor;
   const auto &end = config_.endColor;
   if (start) {

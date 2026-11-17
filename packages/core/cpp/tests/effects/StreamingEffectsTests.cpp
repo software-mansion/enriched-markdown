@@ -137,8 +137,101 @@ TEST_CASE("a gradient fades the last characters by their distance from the end")
   CHECK(fx.lookAt(8, 5.0).opacity == doctest::Approx(0.25));
   CHECK(fx.lookAt(6, 5.0).opacity == doctest::Approx(0.75));
   CHECK(fx.lookAt(5, 5.0).opacity == doctest::Approx(1));
-  // It follows the text, not the clock.
+  // Once it has caught up with the text, it doesn't change until the text does.
   CHECK_FALSE(fx.changesOverTime(5.0));
+}
+
+TEST_CASE("a gradient glides to new text instead of jumping") {
+  auto fx = effects(gradient(4));
+  std::u16string text;
+  append(fx, text, u"0123456789", 1.0);
+  append(fx, text, u"ab", 5.0);
+  // Where it was when the text grew: the new characters haven't been reached yet.
+  CHECK(fx.changesOverTime(5.0));
+  CHECK(fx.lookAt(9, 5.0).opacity == doctest::Approx(0));
+  CHECK(fx.lookAt(10, 5.0).opacity == doctest::Approx(0));
+  // Halfway there: one character further, between two characters.
+  CHECK(fx.lookAt(8, 5.125).opacity == doctest::Approx(0.5));
+  CHECK(fx.lookAt(9, 5.125).opacity == doctest::Approx(0.25));
+  // Arrived: as if the text had always ended there.
+  CHECK(fx.lookAt(11, 5.26).opacity == doctest::Approx(0));
+  CHECK(fx.lookAt(8, 5.26).opacity == doctest::Approx(0.75));
+  CHECK_FALSE(fx.changesOverTime(5.26));
+  auto range = fx.animatedRange(5.26);
+  REQUIRE(range);
+  CHECK(range->start == 8);
+  CHECK(range->length == 4);
+}
+
+TEST_CASE("a gradient glides on from where it is when text arrives mid-glide") {
+  auto fx = effects(gradient(4));
+  std::u16string text;
+  append(fx, text, u"0123456789", 1.0);
+  append(fx, text, u"ab", 5.0);
+  double before = fx.lookAt(8, 5.09).opacity;
+  append(fx, text, u"cd", 5.09);
+  // No jump: the same look the moment the next chunk lands.
+  CHECK(fx.lookAt(8, 5.09).opacity == doctest::Approx(before));
+  CHECK(fx.changesOverTime(5.2));
+  CHECK_FALSE(fx.changesOverTime(5.3));
+}
+
+TEST_CASE("a stream that ends mid-glide settles to the characters' own colors") {
+  auto fx = effects(gradient(4));
+  std::u16string text;
+  append(fx, text, u"0123456789", 1.0);
+  append(fx, text, u"ab", 5.0);
+  fx.finish(5.05);
+  CHECK(fx.changesOverTime(5.1));
+  CHECK(fx.lookAt(11, 5.25).opacity == doctest::Approx(1));
+  CHECK_FALSE(fx.changesOverTime(5.26));
+  CHECK_FALSE(fx.animatedRange(5.26));
+}
+
+TEST_CASE("in a steady stream the gradient keeps moving between growths") {
+  auto fx = effects(gradient(8));
+  std::u16string text;
+  double time = 1.0;
+  for (int i = 0; i < 8; i++) {
+    append(fx, text, u"word ", time);
+    time += 0.1;
+  }
+  // Halfway to the next growth it is still on its way, neither stopped nor jumped ahead.
+  double half = time - 0.05;
+  CHECK(fx.changesOverTime(half));
+  float before = fx.lookAt(text.size() - 6, half - 0.02).opacity;
+  float after = fx.lookAt(text.size() - 6, half + 0.02).opacity;
+  CHECK(after > before);
+}
+
+TEST_CASE("a gradient glides over at most its own length") {
+  auto fx = effects(gradient(4));
+  std::u16string text;
+  append(fx, text, u"01", 1.0);
+  append(fx, text, u"23456789abcdefghij", 5.0);
+  // Text far behind the end shows at once; only the last characters glide in.
+  CHECK(fx.lookAt(5, 5.0).opacity == doctest::Approx(1));
+  auto range = fx.animatedRange(5.0);
+  REQUIRE(range);
+  CHECK(range->start == 12);
+}
+
+TEST_CASE("a gradient follows shrinking text at once") {
+  auto fx = effects(gradient(4));
+  fx.noteArrival(0, 10, 1.0, u"0123456789");
+  fx.noteArrival(6, 6, 5.0, u"", u'5');
+  CHECK_FALSE(fx.changesOverTime(5.0));
+  CHECK(fx.lookAt(5, 5.0).opacity == doctest::Approx(0));
+  CHECK(fx.lookAt(2, 5.0).opacity == doctest::Approx(0.75));
+}
+
+TEST_CASE("a render that adds nothing doesn't restart the glide") {
+  auto fx = effects(gradient(4));
+  std::u16string text;
+  append(fx, text, u"0123456789", 1.0);
+  append(fx, text, u"ab", 5.0);
+  fx.noteArrival(12, 12, 5.1, u"", u'b');
+  CHECK_FALSE(fx.changesOverTime(5.26));
 }
 
 TEST_CASE("a gradient settles to the characters' own colors after the stream ends") {
@@ -223,7 +316,7 @@ TEST_CASE("configuring starts over") {
   // Nothing arrived since: no text to follow.
   CHECK_FALSE(fx.animatedRange(1.0));
   fx.noteArrival(10, 12, 1.1, u"kl");
-  auto range = fx.animatedRange(1.1);
+  auto range = fx.animatedRange(1.4);
   REQUIRE(range);
   CHECK(range->start == 8);
   CHECK(range->length == 4);
