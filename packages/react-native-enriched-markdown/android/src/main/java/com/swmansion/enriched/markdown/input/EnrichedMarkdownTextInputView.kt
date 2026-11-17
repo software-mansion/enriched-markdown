@@ -929,6 +929,10 @@ class EnrichedMarkdownTextInputView(
       setSelection(selStart + plainText.length)
       detectorPipeline.processTextChange(editable, editable.toString(), selStart, plainText.length)
     }
+    // An empty item pasted into a line with text brings an anchor that line must not
+    // keep. The paste ran with the text watcher and the anchor pass suppressed, so
+    // strip it here, after the detectors saw the pasted lengths.
+    syncEmptyListAnchor()
   }
 
   /** Toggles a heading (H1-H6) on the cursor's paragraph(s); the active level toggles back to a paragraph. */
