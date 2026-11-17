@@ -57,8 +57,8 @@ public:
   void finish(double time);
   void reset();
 
-  // Whether the looks change from frame to frame (a fade, or the gradient settling); a gradient
-  // that follows the text changes only when the text does.
+  // Whether the looks change from frame to frame: a fade, a gradient gliding to new text, or a
+  // gradient settling.
   bool changesOverTime(double time);
   // The characters drawn differently at `time`; empty when none.
   std::optional<CharacterRange> animatedRange(double time);
@@ -77,10 +77,20 @@ private:
 
   void prune(double time);
   const Unit *unitAt(size_t index) const;
+  // Where the gradient ends at `time`: it follows the end of the text at a steady speed instead of
+  // jumping to it.
+  double gradientEnd(double time) const;
 
   StreamingEffectConfig config_;
   std::vector<Unit> units_;
   size_t textLength_ = 0;
+  // The gradient's end: at `glideFrom_` at `glideStart_`, moving at `glideSpeed_` characters a second
+  // toward the end of the text. `growthGap_` is the usual time between growths.
+  double glideFrom_ = 0;
+  double glideStart_ = 0;
+  double glideSpeed_ = 0;
+  double growthGap_ = 0;
+  std::optional<double> lastGrowth_;
   std::optional<double> finishedAt_;
 };
 
