@@ -164,7 +164,6 @@
         "cpp/**",
         "core/**",
         "highlight/**",
-        "streaming/**",
         "Package.swift",
         "$TURBO_ROOT$/packages/core/cpp/**"
       ],

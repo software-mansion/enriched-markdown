@@ -849,16 +849,16 @@ struct Answer: View {
 
 While `isStreaming` is true:
 
-- Only the unfinished end of the text re-renders: the open paragraph, list
-  item or code block. The text above keeps its layout and selection, and
-  updates stay fast as the answer grows. Inside a scroll view, only the text
-  near the visible area is laid out and drawn.
+- Only the unfinished end of the text re-renders, such as the paragraph,
+  list or code block still being written. The text above keeps its layout
+  and selection. Inside a scroll view, only the text near the visible area is
+  laid out and drawn.
 - Unfinished syntax such as `**bold` renders as if closed, following the
   rules of [remend](https://www.npmjs.com/package/remend). A link still
   being typed shows its text until it closes; an image waits.
 - Unfinished tables, code blocks and images follow `tables`, `codeBlocks` and
-  `media` below. A `$$` block stays hidden until it closes; with LaTeX on, so
-  does a formula inside a line.
+  `media` below. With LaTeX on, a `$$` block and a formula inside a line stay
+  hidden until they close.
 - New text animates in, as set by `transition`. Reduce Motion turns this off.
 
 ```swift
@@ -963,4 +963,4 @@ yarn workspace @enriched-markdown/ios bench:ios-native --base main
 
 Absolute numbers depend on the machine and on Debug builds; read the head/base ratio from one run. Each number is the median of XCTest's iterations, so a single stalled iteration does not move it. CI runs the same comparison on demand: label a pull request `benchmark: ios` (later pushes re-run it while the label stays), comment `/benchmark ios` on it, or start the "iOS benchmarks" workflow from the Actions tab. Each run posts the table as a new comment on the pull request, headed by the commit it measured, and the job fails only when a benchmark is twice as slow or takes twice the memory, since a shared runner cannot resolve smaller differences.
 
-In the monorepo, `core/enrmrkd`, `core/parser`, `core/repair`, `core/latex` and `streaming/core` are symlinks into the shared C++ sources at `packages/core/cpp`, and so are the highlighting seam, the tree-sitter runtime, and the grammars under `highlight/`. The tree-sitter files are not checked in: after `yarn install`, `node vendor/vendor-grammars.mjs` (run from the monorepo root, also part of `yarn prepare`) restores them. When syncing this folder to the standalone repository, dereference the symlinks so real files are copied (e.g. `rsync -a --copy-links`).
+In the monorepo, `core/enrmrkd`, `core/parser`, `core/repair` and `core/latex` are symlinks into the shared C++ sources at `packages/core/cpp`, and so are the highlighting seam, the tree-sitter runtime, and the grammars under `highlight/`. The tree-sitter files are not checked in: after `yarn install`, `node vendor/vendor-grammars.mjs` (run from the monorepo root, also part of `yarn prepare`) restores them. When syncing this folder to the standalone repository, dereference the symlinks so real files are copied (e.g. `rsync -a --copy-links`).

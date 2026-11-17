@@ -77,16 +77,8 @@ add_library(enriched_markdown_effects STATIC "${CPP_ROOT}/parser/StreamingEffect
 target_include_directories(enriched_markdown_effects PUBLIC "${CPP_ROOT}/parser")
 target_compile_options(enriched_markdown_effects PRIVATE -Wall -Wextra -Wpedantic)
 
-file(GLOB STREAMING_SOURCES CONFIGURE_DEPENDS "${CPP_ROOT}/streaming/*.cpp")
-add_library(enriched_markdown_streaming STATIC ${STREAMING_SOURCES}
-  "${CPP_ROOT}/parser/StreamingFilter.cpp" "${CPP_ROOT}/parser/BlockKinds.cpp")
-target_include_directories(enriched_markdown_streaming PUBLIC "${CPP_ROOT}/streaming" "${CPP_ROOT}/parser")
-target_link_libraries(enriched_markdown_streaming PUBLIC enriched_markdown_repair)
-target_compile_options(enriched_markdown_streaming PRIVATE -Wall -Wextra -Wpedantic)
-
 # --- Test areas --------------------------------------------------------------
 
 add_core_test(repair enriched_markdown_repair)
 add_core_test(latex enriched_markdown_latex)
 add_core_test(effects enriched_markdown_effects)
-add_core_test(streaming enriched_markdown_streaming)

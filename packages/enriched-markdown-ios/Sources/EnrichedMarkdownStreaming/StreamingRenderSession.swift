@@ -1,34 +1,31 @@
 import EnrichedMarkdown
 import UIKit
+import os
 
 final class StreamingRenderSession: MarkdownStreamingSession {
-    private struct Snapshot {
-        let bytes: Int
-        let outputLength: Int
-        let boundary: RenderContext.BoundaryState?
+    private struct Update {
+        let snapshot: StreamingSnapshot
+        let finished: String
+        let finishedBlocks: [MarkdownASTNode]
     }
 
-    private struct Rendered {
-        let text: NSMutableAttributedString
-        let finishedEnd: Int
-        let state: RenderContext.BoundaryState
-        let restartRequested: Bool
-    }
+    private static let nextID = OSAllocatedUnfairLock<UInt64>(initialState: 0)
+    private static let probe: String = "x"
 
     let key: MarkdownRenderInputs
-    private(set) var id: UInt64 = 0
+    private(set) var id: UInt64
     private let parsingOptions: MarkdownParsingOptions
     private lazy var renderer = AttributedRenderer(inputs: key)
-    private let core: StreamingCoreSession
 
+    private var stableSource: String = ""
     private let stableOutput = NSMutableAttributedString()
     private var boundary: RenderContext.BoundaryState?
-    private var snapshots: [Snapshot] = [Snapshot(bytes: 0, outputLength: 0, boundary: nil)]
+    private var splitsBlocks: Bool = true
 
     init(inputs: MarkdownRenderInputs) {
         key = inputs.sessionKey
+        id = Self.makeID()
         parsingOptions = MarkdownRenderer.effectiveParsingOptions(inputs.options, plugins: inputs.plugins.values)
-        core = StreamingCoreSession(options: parsingOptions)
     }
 
     func render(_ markdown: String, plugin: AnyMarkdownStreamingPlugin) -> StreamingRenderResult {
@@ -36,135 +33,96 @@ final class StreamingRenderSession: MarkdownStreamingSession {
     }
 
     func render(_ markdown: String, options: MarkdownStreamingOptions) -> StreamingRenderResult {
-        var update = core.update(markdown, options: options)
-        var rendered = render(markdown, update: update)
-        if rendered.restartRequested {
-            update = core.update(markdown, options: options, restartingOpenList: true)
-            rendered = render(markdown, update: update)
+        var markdown = markdown
+        markdown.makeContiguousUTF8()
+        if !Self.hasPrefix(markdown, stableSource) {
+            id = Self.makeID()
+            splitsBlocks = true
+            resetStableBlocks()
         }
-        commit(update, rendered)
-        TrailingSpacing.strip(from: rendered.text, codeBlockPadding: key.config.codeBlock.padding ?? 0)
-        let finishedEnd = update.frozenBytes + update.finishedBytes
-        let source = (String(bytes: markdown.utf8.prefix(finishedEnd), encoding: .utf8) ?? "") + update.tail
+        let update = prepare(markdown, options: options)
+        let stableBytes = stableSource.utf8.count
+        let finishedBytes = stableBytes + update.finished.utf8.count
+        let snapshotEnd = stableBytes + update.snapshot.finishedBytes
+
+        let text = NSMutableAttributedString(attributedString: stableOutput)
+        let context = renderer.makeRootContext()
+        if let boundary {
+            context.restore(boundary)
+        }
+        let stableLength = text.length
+        render(update.finishedBlocks, into: text, context: context, byteOffset: stableBytes)
+        let finishedEnd = text.length
+        let state = context.boundaryState
+
+        let tail = Self.text(of: markdown, in: finishedBytes..<snapshotEnd) + update.snapshot.tail
+        if !tail.isEmpty {
+            var root = MarkdownRenderer.parse(tail, options: parsingOptions)
+            if update.snapshot.endsInsideOpenCodeFence,
+               let marked = Self.markingPendingCodeBlock(root, tailEnd: Self.trimmingTrailingWhitespace(tail)).marked {
+                root = marked
+            }
+            render(root.children, into: text, context: context, byteOffset: finishedBytes)
+        }
+        renderer.finishBlocks(in: text, range: NSRange(location: stableLength, length: text.length - stableLength), context: context)
+
+        if !update.finished.isEmpty, Self.hasVisibleContent(text, in: NSRange(location: finishedEnd, length: text.length - finishedEnd)) {
+            stableOutput.append(text.attributedSubstring(from: NSRange(location: stableLength, length: finishedEnd - stableLength)))
+            InlineBackground.carryBorderRoom(from: text, to: stableOutput)
+            stableSource += update.finished
+            boundary = state
+        }
+        TrailingSpacing.strip(from: text, codeBlockPadding: key.config.codeBlock.padding ?? 0)
         return StreamingRenderResult(
-            text: rendered.text,
-            source: source,
-            lineage: StreamingLineage(session: id, stableLength: unchangedLength(of: rendered.text))
+            text: text,
+            source: Self.text(of: markdown, in: 0..<snapshotEnd) + update.snapshot.tail,
+            lineage: StreamingLineage(session: id, stableLength: unchangedLength(of: text))
         )
+    }
+
+    private func prepare(_ markdown: String, options: MarkdownStreamingOptions) -> Update {
+        let stableBytes = stableSource.utf8.count
+        let snapshot = StreamingSnapshot(of: markdown, from: stableBytes, parsing: parsingOptions, streaming: options)
+        if splitsBlocks, !parsingOptions.preserveBlankLines, !snapshot.mayDefineLinkReference {
+            let finished = Self.text(of: markdown, in: stableBytes..<stableBytes + snapshot.finishedBytes)
+            if let blocks = finishedBlocks(of: finished) {
+                return Update(snapshot: snapshot, finished: finished, finishedBlocks: blocks)
+            }
+            splitsBlocks = false
+        }
+        guard stableBytes > 0 else { return Update(snapshot: snapshot, finished: "", finishedBlocks: []) }
+        resetStableBlocks()
+        let whole = StreamingSnapshot(of: markdown, from: 0, parsing: parsingOptions, streaming: options)
+        return Update(snapshot: whole, finished: "", finishedBlocks: [])
+    }
+
+    private func finishedBlocks(of markdown: String) -> [MarkdownASTNode]? {
+        guard !markdown.isEmpty else { return [] }
+        let root = MarkdownRenderer.parse(markdown + Self.probe + "\n", options: parsingOptions)
+        guard let last = root.children.last, last.type == .paragraph, last.children.count == 1,
+              last.children[0].type == .text, last.children[0].content == Self.probe
+        else { return nil }
+        return Array(root.children.dropLast())
+    }
+
+    private func render(_ blocks: [MarkdownASTNode], into text: NSMutableAttributedString, context: RenderContext, byteOffset: Int) {
+        let start = text.length
+        renderer.renderBlocks(blocks, into: text, context: context)
+        if byteOffset > 0 {
+            Self.shiftSourceRanges(in: text, range: NSRange(location: start, length: text.length - start), by: byteOffset)
+        }
+    }
+
+    private func resetStableBlocks() {
+        stableSource = ""
+        stableOutput.setAttributedString(NSAttributedString())
+        boundary = nil
     }
 
     private func unchangedLength(of text: NSMutableAttributedString) -> Int {
         guard text.length <= stableOutput.length else { return stableOutput.length }
         guard text.length > 0 else { return 0 }
         return text.mutableString.paragraphRange(for: NSRange(location: text.length - 1, length: 0)).location
-    }
-
-    private func render(_ markdown: String, update: StreamingCoreSession.Update) -> Rendered {
-        synchronize(with: update)
-        let text = NSMutableAttributedString(attributedString: stableOutput)
-        let context = renderer.makeRootContext()
-        if let boundary {
-            context.restore(boundary)
-        }
-        if update.finishedContinuesList {
-            context.listContinuation = boundary?.openList
-        }
-        let stableLength = text.length
-        let finished = String(bytes: markdown.utf8.dropFirst(update.frozenBytes).prefix(update.finishedBytes), encoding: .utf8) ?? ""
-        render(finished, into: text, context: context, byteOffset: update.frozenBytes, continuedByNext: update.finishedContinuedByTail)
-        let finishedEnd = text.length
-        let state = context.boundaryState
-        if update.tailContinuesList {
-            context.listContinuation = state.openList
-        }
-        render(
-            update.tail,
-            root: codeBlockTail(of: update),
-            into: text,
-            context: context,
-            byteOffset: update.frozenBytes + update.finishedBytes,
-            pendingCodeBlock: update.tailEndsInsideOpenCodeFence
-        )
-        renderer.finishBlocks(in: text, range: NSRange(location: stableLength, length: text.length - stableLength), context: context)
-        return Rendered(text: text, finishedEnd: finishedEnd, state: state, restartRequested: context.listRestartRequested)
-    }
-
-    private func synchronize(with update: StreamingCoreSession.Update) {
-        if update.lineage != id {
-            id = update.lineage
-            stableOutput.setAttributedString(NSAttributedString())
-            boundary = nil
-            snapshots = [Snapshot(bytes: 0, outputLength: 0, boundary: nil)]
-        }
-        guard let index = snapshots.firstIndex(where: { $0.bytes == update.frozenBytes }), index + 1 < snapshots.count else { return }
-        let snapshot = snapshots[index]
-        stableOutput.deleteCharacters(in: NSRange(location: snapshot.outputLength, length: stableOutput.length - snapshot.outputLength))
-        boundary = snapshot.boundary
-        snapshots.removeSubrange((index + 1)...)
-    }
-
-    private func commit(_ update: StreamingCoreSession.Update, _ rendered: Rendered) {
-        guard update.finishedBytes > 0 else { return }
-        let stableLength = stableOutput.length
-        stableOutput.append(rendered.text.attributedSubstring(from: NSRange(location: stableLength, length: rendered.finishedEnd - stableLength)))
-        InlineBackground.carryBorderRoom(from: rendered.text, to: stableOutput)
-        boundary = rendered.state
-        let snapshot = Snapshot(bytes: update.frozenBytes + update.finishedBytes, outputLength: stableOutput.length, boundary: boundary)
-        if update.finishedContinuedByTail {
-            snapshots.append(snapshot)
-        } else {
-            snapshots = [snapshot]
-        }
-    }
-
-    private func codeBlockTail(of update: StreamingCoreSession.Update) -> MarkdownASTNode? {
-        guard let bodyStart = update.tailCodeBodyStart else { return nil }
-        let bytes = Array(update.tail.utf8)
-        guard bodyStart <= bytes.count,
-              let head = String(bytes: bytes[..<bodyStart], encoding: .utf8),
-              let body = String(bytes: bytes[bodyStart...], encoding: .utf8)
-        else { return nil }
-        let root = MarkdownRenderer.parse(head, options: parsingOptions)
-        guard let opened = root.children.last, opened.type == .codeBlock else { return nil }
-        var attributes = opened.attributes
-        attributes["pending"] = "true"
-        let range = [
-            SourceOffsetAnnotator.sourceStartKey: String(bodyStart),
-            SourceOffsetAnnotator.sourceEndKey: String(bytes.count)
-        ]
-        let code = MarkdownASTNode(type: .text, content: body, attributes: range)
-        let block = MarkdownASTNode(type: .codeBlock, attributes: attributes.merging(range) { _, new in new }, children: [code])
-        let children = Array(root.children.dropLast()) + [block]
-        return MarkdownASTNode(type: root.type, content: root.content, attributes: root.attributes, children: children)
-    }
-
-    private func render(
-        _ markdown: String,
-        root parsed: MarkdownASTNode? = nil,
-        into text: NSMutableAttributedString,
-        context: RenderContext,
-        byteOffset: Int,
-        continuedByNext: Bool = false,
-        pendingCodeBlock: Bool = false
-    ) {
-        guard !markdown.isEmpty else { return }
-        var root = parsed ?? MarkdownRenderer.parse(markdown, options: parsingOptions)
-        if parsed == nil, pendingCodeBlock,
-           let marked = Self.markingPendingCodeBlock(root, tailEnd: Self.trimmingTrailingWhitespace(markdown)).marked {
-            root = marked
-        }
-        let start = text.length
-        if continuedByNext, let last = root.children.last {
-            renderer.renderBlocks(Array(root.children.dropLast()), into: text, context: context)
-            context.listContinuedByNext = true
-            renderer.renderBlocks([last], into: text, context: context)
-            context.listContinuedByNext = false
-        } else {
-            renderer.renderBlocks(root.children, into: text, context: context)
-        }
-        if byteOffset > 0 {
-            Self.shiftSourceRanges(in: text, range: NSRange(location: start, length: text.length - start), by: byteOffset)
-        }
     }
 
     private static func markingPendingCodeBlock(_ node: MarkdownASTNode, tailEnd: String) -> (found: Bool, marked: MarkdownASTNode?) {
@@ -185,12 +143,40 @@ final class StreamingRenderSession: MarkdownStreamingSession {
         return (false, nil)
     }
 
+    private static func makeID() -> UInt64 {
+        nextID.withLock { id in
+            id += 1
+            return id
+        }
+    }
+
+    private static func hasPrefix(_ markdown: String, _ prefix: String) -> Bool {
+        guard !prefix.isEmpty else { return true }
+        guard markdown.utf8.count >= prefix.utf8.count else { return false }
+        let compared = markdown.utf8.withContiguousStorageIfAvailable { markdownBytes in
+            prefix.utf8.withContiguousStorageIfAvailable { prefixBytes in
+                memcmp(markdownBytes.baseAddress, prefixBytes.baseAddress, prefixBytes.count) == 0
+            }
+        }
+        return compared.flatMap { $0 } ?? markdown.utf8.starts(with: prefix.utf8)
+    }
+
+    private static func text(of markdown: String, in range: Range<Int>) -> String {
+        guard !range.isEmpty else { return "" }
+        let slice = markdown.utf8.withContiguousStorageIfAvailable { String(bytes: UnsafeBufferPointer(rebasing: $0[range]), encoding: .utf8) }
+        return (slice ?? String(bytes: Array(markdown.utf8)[range], encoding: .utf8)) ?? ""
+    }
+
     private static func trimmingTrailingWhitespace(_ text: String) -> String {
         var trimmed = text
         while let last = trimmed.last, last.isWhitespace {
             trimmed.removeLast()
         }
         return trimmed
+    }
+
+    private static func hasVisibleContent(_ text: NSMutableAttributedString, in range: NSRange) -> Bool {
+        text.mutableString.rangeOfCharacter(from: ParagraphStyleHelpers.nonNewlines, options: [], range: range).location != NSNotFound
     }
 
     private static func shiftSourceRanges(in output: NSMutableAttributedString, range: NSRange, by offset: Int) {
