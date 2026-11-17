@@ -73,6 +73,8 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
                                                      pointScaleFactor:pointScaleFactor
                                                      allowFontScaling:allowFontScaling
                                                     lineBreakStrategy:lineBreakStrategy
+                                                 writingDirectionMode:writingDirectionMode
+                                              resolvedLayoutDirection:resolvedLayoutDirection
                                                            wrapCursor:wrapCursor
                                                          slotMeasurer:slotMeasurer
                                                                origin:CGPointMake(origin.x, origin.y + totalHeight)];

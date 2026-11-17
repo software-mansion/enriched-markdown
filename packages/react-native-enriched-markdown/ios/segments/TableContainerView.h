@@ -11,7 +11,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 typedef void (^TableLinkPressBlock)(NSString *url);
 
-@interface TableContainerView : RCTUIView
+@interface TableContainerView : RCTUIView <ENRMWritingDirectionTarget>
 
 - (instancetype)initWithConfig:(StyleConfig *)config;
 

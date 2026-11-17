@@ -1,6 +1,10 @@
 package com.swmansion.enriched.markdown
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.RectF
 import android.text.StaticLayout
 import android.text.TextPaint
 import androidx.test.core.app.ApplicationProvider
@@ -14,6 +18,7 @@ import com.swmansion.enriched.markdown.test.HTMLAssertions.assertContainsHtml
 import com.swmansion.enriched.markdown.test.HTMLGeneratorTestSupport
 import com.swmansion.enriched.markdown.test.MarkdownExtractorTestSupport
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
+import com.swmansion.enriched.markdown.test.MarkerCanvas
 import com.swmansion.enriched.markdown.test.TestAstFactory.admonition
 import com.swmansion.enriched.markdown.test.TestAstFactory.blockquote
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
@@ -137,6 +142,56 @@ class AdmonitionRendererTest {
     assertEquals(0, metrics.ascent)
     assertEquals(expected, metrics.descent)
     assertEquals(expected, metrics.bottom)
+  }
+
+  @Test
+  fun aRightToLeftBodyPutsTheHeaderAndEveryBarOnTheRight() {
+    val tint = blockquoteStyle.admonitions.getValue("tip").color
+    val half = MarkerCanvas.LAYOUT_WIDTH / 2f
+
+    fun drawn(body: String) =
+      TintCanvas(tint).also {
+        MarkerCanvas.layout(render(document(admonition("tip", paragraph(text(body))))), blockquoteStyle.fontSize).draw(it)
+      }
+
+    val ltr = drawn("A tip")
+    assertTrue(ltr.bars.isNotEmpty() && ltr.bars.all { it.right < half } && ltr.titleX < half)
+    val rtl = drawn("نصيحة تساعدك")
+    assertTrue(rtl.bars.isNotEmpty() && rtl.bars.all { it.left > half } && rtl.titleX > half)
+  }
+
+  /** Records the bars and the title a layout draws in [tint]. */
+  private class TintCanvas(
+    private val tint: Int,
+  ) : Canvas(Bitmap.createBitmap(MarkerCanvas.LAYOUT_WIDTH, 1, Bitmap.Config.ARGB_8888)) {
+    val bars = mutableListOf<RectF>()
+    var titleX = Float.NaN
+
+    override fun getClipBounds(bounds: Rect): Boolean {
+      bounds.set(0, 0, MarkerCanvas.LAYOUT_WIDTH, Int.MAX_VALUE / 2)
+      return true
+    }
+
+    override fun drawRect(
+      left: Float,
+      top: Float,
+      right: Float,
+      bottom: Float,
+      paint: Paint,
+    ) {
+      if (paint.color == tint) bars += RectF(left, top, right, bottom)
+      super.drawRect(left, top, right, bottom, paint)
+    }
+
+    override fun drawText(
+      text: String,
+      x: Float,
+      y: Float,
+      paint: Paint,
+    ) {
+      if (paint.color == tint) titleX = x
+      super.drawText(text, x, y, paint)
+    }
   }
 
   @Test
