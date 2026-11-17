@@ -336,12 +336,15 @@ NSString *markdownFromASTNodeChildren(MarkdownASTNode *node)
 NSString *markdownFromTableCellNode(MarkdownASTNode *node)
 {
   NSString *markdown = markdownFromASTNodeChildren(node);
-  if (![markdown containsString:@"\n"])
+  if ([markdown rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"\r\n"]].location ==
+      NSNotFound)
     return markdown;
-  return [markdown stringByReplacingOccurrencesOfString:@"(?<!\\\\)(\\\\*)\n"
-                                            withString:@"$1$1<br>"
-                                               options:NSRegularExpressionSearch
-                                                 range:NSMakeRange(0, markdown.length)];
+  markdown = [markdown stringByReplacingOccurrencesOfString:@"(?<!\\\\)\\\\+(?=[\r\n])"
+                                                 withString:@"$0$0"
+                                                    options:NSRegularExpressionSearch
+                                                      range:NSMakeRange(0, markdown.length)];
+  markdown = [markdown stringByReplacingOccurrencesOfString:@"\r" withString:@"&#13;"];
+  return [markdown stringByReplacingOccurrencesOfString:@"\n" withString:@"&#10;"];
 }
 
 NSString *markdownFromBlockquoteNode(MarkdownASTNode *node)

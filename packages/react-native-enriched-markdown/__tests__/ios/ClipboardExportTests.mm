@@ -77,18 +77,30 @@
   XCTAssertEqualObjects(markdownFromASTNodeChildren(nestedCell), @"**$x_1$**");
 }
 
-- (void)testSerializedTableCellKeepsLineBreaksAsHTMLBreaks
+- (void)testSerializedTableCellsKeepLineEndingEntities
 {
-  MarkdownASTNode * (^cell)(NSString *) = ^(NSString *content) {
-    MarkdownASTNode *text = [[MarkdownASTNode alloc] initWithType:MarkdownNodeTypeText];
-    text.content = content;
-    MarkdownASTNode *node = [[MarkdownASTNode alloc] initWithType:MarkdownNodeTypeTableCell];
-    [node addChild:text];
-    return node;
-  };
-  XCTAssertEqualObjects(markdownFromTableCellNode(cell(@"one\ntwo")), @"one<br>two");
-  // A backslash before the break stays literal instead of escaping the tag.
-  XCTAssertEqualObjects(markdownFromTableCellNode(cell(@"a\\\nb")), @"a\\\\<br>b");
+  // Each source cell and how it copies; a decoded line ending would otherwise end the row.
+  NSArray<NSArray<NSString *> *> *cases = @[
+    @[ @"one&#10;two", @"one&#10;two" ],
+    @[ @"one&NewLine;two", @"one&#10;two" ],
+    @[ @"one&#13;two", @"one&#13;two" ],
+    @[ @"one&#13;&#10;two", @"one&#13;&#10;two" ],
+    @[ @"a\\\\&#10;b", @"a\\\\&#10;b" ],
+    @[ @"a\\\\\\\\&#10;b", @"a\\\\\\\\&#10;b" ],
+    @[ @"one<br>two", @"one<br>two" ],
+  ];
+  NSMutableString *markdown = [NSMutableString stringWithString:@"| h |\n|---|\n"];
+  for (NSArray<NSString *> *pair in cases)
+    [markdown appendFormat:@"| %@ |\n", pair[0]];
+  MarkdownASTNode *ast = [[[ENRMMarkdownParser alloc] init] parseMarkdown:markdown
+                                                                    flags:[ENRMMd4cFlags defaultFlags]
+                                                                    isGFM:YES];
+  MarkdownASTNode *table = ast.children.firstObject;
+  XCTAssertEqual(table.type, MarkdownNodeTypeTable);
+  NSArray<MarkdownASTNode *> *rows = table.children.lastObject.children;
+  XCTAssertEqual(rows.count, cases.count);
+  for (NSUInteger i = 0; i < MIN(rows.count, cases.count); i++)
+    XCTAssertEqualObjects(markdownFromTableCellNode(rows[i].children.firstObject), cases[i][1], @"%@", cases[i][0]);
 }
 
 @end
