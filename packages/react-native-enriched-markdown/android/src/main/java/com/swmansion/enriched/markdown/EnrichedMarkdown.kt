@@ -1068,9 +1068,12 @@ class EnrichedMarkdown(
         is RenderedSegment.Table -> {
           val tableView = view as TableContainerView
           val previousRowCount = tableView.rowCount
+          val previousWidths = tableView.shownColumnWidths
           tableView.applyTableNode(segment.node)
           if (fadesArrivals()) {
             tableView.animateNewRows(previousRowCount, BLOCK_FADE_DURATION_MS)
+            // A wider cell widens its column smoothly, not in one jump.
+            tableView.animateColumnWidths(previousWidths, COLUMN_WIDTHS_DURATION_MS)
           }
         }
 
@@ -1309,6 +1312,7 @@ class EnrichedMarkdown(
 
     private const val TAG = "EnrichedMarkdown"
     private const val BLOCK_FADE_DURATION_MS = 200L
+    private const val COLUMN_WIDTHS_DURATION_MS = 250L
 
     // A signature practically no segment has (they are FNV hashes salted per kind).
     private const val UNKNOWN_SIGNATURE = Long.MIN_VALUE
