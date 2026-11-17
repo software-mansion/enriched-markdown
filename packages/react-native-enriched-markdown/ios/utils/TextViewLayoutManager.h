@@ -9,9 +9,12 @@ NS_ASSUME_NONNULL_BEGIN
 @interface TextViewLayoutManager : NSLayoutManager
 
 @property (nonatomic, strong) StyleConfig *config;
-/// Set while a streaming text draws: what is drawn behind characters fades with them.
-@property (nonatomic, weak, nullable) ENRMStreamingEffects *drawingEffects;
-@property (nonatomic) CFTimeInterval drawingTime;
+/// Draws the backgrounds with what sits behind characters (inline code boxes, list markers) fading
+/// with `effects` at `time`. No ivars: this class is set onto layout managers UIKit already made.
+- (void)drawBackgroundForGlyphRange:(NSRange)glyphsToShow
+                            atPoint:(CGPoint)origin
+                            effects:(nullable ENRMStreamingEffects *)effects
+                               time:(CFTimeInterval)time;
 
 /// How much of the characters in `range` shows, on average: 1 unless they are animating.
 - (CGFloat)visibilityOfCharactersInRange:(NSRange)range;
