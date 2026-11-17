@@ -188,8 +188,9 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
   if (!_tableRows.count || !_columnWidths.count || !_rowHeights.count)
     return;
 
-  NSArray<NSNumber *> *shownWidths =
-      _shownColumnWidths.count == _columnWidths.count ? _shownColumnWidths : _columnWidths;
+  // Columns moving to their laid-out widths; otherwise the grid draws as it always has.
+  BOOL widthsAnimate = _shownColumnWidths.count == _columnWidths.count;
+  NSArray<NSNumber *> *shownWidths = widthsAnimate ? _shownColumnWidths : _columnWidths;
   CGContextRef context = UIGraphicsGetCurrentContext();
   CFTimeInterval now = CACurrentMediaTime();
   CGFloat yOffset = 0;
@@ -201,8 +202,11 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
       yOffset += rowHeight;
       continue;
     }
-    CGContextSaveGState(context);
-    CGContextSetAlpha(context, opacity);
+    BOOL fading = opacity < 1;
+    if (fading) {
+      CGContextSaveGState(context);
+      CGContextSetAlpha(context, opacity);
+    }
     CGFloat xOffset = 0;
 
     NSUInteger colCount = MIN(rowData.cellTexts.count, _columnWidths.count);
@@ -225,17 +229,23 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
         CGFloat shift = (columnWidth - [_columnWidths[c] doubleValue]) * ENRMTableTextAnchor(text);
         CGRect textRect = CGRectMake(xOffset + _horizontalCellPadding + shift, yOffset + _verticalCellPadding,
                                      textWidth, rowHeight - _verticalCellPadding * 2);
-        CGContextSaveGState(context);
-        CGContextClipToRect(context, CGRectInset(cellRect, _borderWidth, _borderWidth));
+        if (widthsAnimate) {
+          CGContextSaveGState(context);
+          CGContextClipToRect(context, CGRectInset(cellRect, _borderWidth, _borderWidth));
+        }
         [text drawWithRect:textRect
                    options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
                    context:nil];
-        CGContextRestoreGState(context);
+        if (widthsAnimate) {
+          CGContextRestoreGState(context);
+        }
       }
 
       xOffset += columnWidth;
     }
-    CGContextRestoreGState(context);
+    if (fading) {
+      CGContextRestoreGState(context);
+    }
     yOffset += rowHeight;
   }
 
