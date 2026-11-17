@@ -106,6 +106,28 @@ class InputMarkdownWrapperTest {
   }
 
   @Test
+  fun dropsThePastedAnchorOfAnEmptyItemPastedIntoText() {
+    view.setValueFromJS("ab")
+    view.setSelection(1)
+    view.pasteMarkdown("- ")
+
+    assertEquals("ab", view.text.toString())
+    assertEquals(1, view.selectionStart)
+    view.text!!.delete(view.selectionStart - 1, view.selectionStart)
+    assertEquals("b", view.text.toString())
+  }
+
+  @Test
+  fun keepsThePastedAnchorOfAnEmptyItemPastedOnAnEmptyLine() {
+    view.setValueFromJS("a\n\nc")
+    view.setSelection(2)
+    view.pasteMarkdown("- ")
+
+    assertEquals("a\n${ZWSP}\nc", view.text.toString())
+    assertEquals(3, view.selectionStart)
+  }
+
+  @Test
   fun keepsTheOrdinalsOfCopiedItems() {
     view.setValueFromJS("1. a\n2. b\n3. c\n4. d")
     val text = view.text.toString()
