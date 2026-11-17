@@ -12,6 +12,15 @@
   }
   return [super gestureRecognizerShouldBegin:gestureRecognizer];
 }
+#else
+- (void)scrollWheel:(NSEvent *)event
+{
+  if (ENRMIsPredominantlyVerticalScroll(event.scrollingDeltaX, event.scrollingDeltaY)) {
+    [self.nextResponder scrollWheel:event];
+    return;
+  }
+  [super scrollWheel:event];
+}
 #endif
 
 @end
