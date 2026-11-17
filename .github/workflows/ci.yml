@@ -686,7 +686,8 @@ jobs:
   ios-swift-lint:
     needs: changes
     if: needs.changes.outputs.ios == 'true'
-    runs-on: ubuntu-latest
+    # SwiftLint's Linux binary links libxml2.so.2, which ubuntu-26.04 (ubuntu-latest) no longer ships.
+    runs-on: ubuntu-24.04
     env:
       TURBO_CACHE_DIR: .turbo/ios-native
       SWIFTLINT_VERSION: 0.65.0
