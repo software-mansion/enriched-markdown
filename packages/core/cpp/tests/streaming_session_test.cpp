@@ -86,6 +86,17 @@ void checkPrefixes(const std::string &name, const std::string &document, bool wh
 
 } // namespace
 
+void expectListItems(const std::string &markdown, const std::string &end, const std::string &lastItem,
+                     const std::string &what) {
+  Markdown::StreamingSnapshot snapshot = Markdown::streamingSnapshot(markdown, {});
+  Markdown::FinishedListItems items = Markdown::streamingListItems(markdown, snapshot, {});
+  size_t expectedEnd = end.empty() ? snapshot.finishedBytes : markdown.find(end);
+  size_t expectedLastItem = lastItem.empty() ? snapshot.finishedBytes : markdown.find(lastItem);
+  check(items.end == expectedEnd && items.lastItem == expectedLastItem,
+        what + "\n  expected: " + std::to_string(expectedEnd) + ", " + std::to_string(expectedLastItem) +
+            "\n  got:      " + std::to_string(items.end) + ", " + std::to_string(items.lastItem));
+}
+
 int main(int argc, char **argv) {
   // Inline syntax still being typed: an image waits, a link shows its label.
   expect("- ![a](https://e", "- ", "a list item's half-typed image waits");
@@ -186,6 +197,18 @@ int main(int argc, char **argv) {
   check(finished("<prefix>\n\nOne\n\nTwo\n") == 15, "a tag that only starts like a raw one");
   check(finished("<!--\na\n\nb\n-->\n\nOne\n\nTwo\n") == 20, "a comment closed lines later");
   check(finished("> quote\n\nPara\n") == 9, "after a blockquote");
+
+  expectListItems("Intro\n\n- one\n- two", "- two", "- one", "the items of a list after an unfinished paragraph");
+  expectListItems("Para.\n\nNext\n\n- one\n- two\n- three", "- three", "- two",
+                  "offsets count from the snapshot's start");
+  expectListItems("- one\n- [", "- [", "- one", "an item the snapshot withholds still finishes the one before it");
+  expectListItems("Para.\n\nNext paragraph", "", "", "without a list both are the finished blocks' end");
+  {
+    Markdown::StreamingSnapshot changed;
+    changed.markdown = "- ONE\n- two";
+    Markdown::FinishedListItems items = Markdown::streamingListItems("- one\n- two", changed, {});
+    check(items.end == 0 && items.lastItem == 0, "items the snapshot shows differently are not finished");
+  }
 
   for (int i = 1; i < argc; i++)
     checkPrefixes(argv[i], readFile(argv[i]));

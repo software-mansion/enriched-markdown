@@ -139,6 +139,17 @@ echo "==> Streaming every fixture through the session and md4c"
   "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/streaming-session-fuzz"
 "$WORK/streaming-session-fuzz" "$TESTS_DIR"/fixtures/*.md
 
+echo "==> Checking that a list split at its finished items parses as the whole list"
+"$CXX_BIN" -O1 -std=c++17 -Wall -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" -I "$CPP_ROOT/repair" \
+  "$TESTS_DIR/list_items_parse_test.cpp" \
+  "$CPP_ROOT/parser/MD4CParser.cpp" \
+  "$CPP_ROOT/parser/StreamingSession.cpp" \
+  "$CPP_ROOT/parser/StreamingFilter.cpp" \
+  "$CPP_ROOT/parser/BlockKinds.cpp" \
+  "$CPP_ROOT"/repair/*.cpp \
+  "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/list-items-parse-test"
+"$WORK/list-items-parse-test" "$TESTS_DIR"/fixtures/*.md
+
 echo "==> Checking the streaming session's cost per tick"
 "$CXX_BIN" -O2 -std=c++17 -Wall -I "$CPP_ROOT/parser" -I "$CPP_ROOT/repair" \
   "$TESTS_DIR/streaming_session_bench.cpp" \
