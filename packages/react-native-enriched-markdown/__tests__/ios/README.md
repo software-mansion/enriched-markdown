@@ -22,7 +22,7 @@ yarn turbo run test:ios --filter=react-native-enriched-markdown-example
 #     -destination "platform=iOS Simulator,id=<resolved-udid>"
 ```
 
-CI runs this in the `rn-ios-unit-tests` job.
+CI runs this in the `rn-ios-build-and-tests` job.
 
 ## Adding a test file to the target
 

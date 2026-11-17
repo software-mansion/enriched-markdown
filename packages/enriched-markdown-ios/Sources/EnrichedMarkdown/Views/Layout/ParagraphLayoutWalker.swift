@@ -6,6 +6,24 @@ struct LineLayout {
     let bounds: CGRect
     /// The baseline, measured down from `bounds.minY`.
     let baselineOffset: CGFloat
+    let range: NSRange
+    private let fragment: NSTextLineFragment
+    private let elementStart: Int
+
+    init(fragment: NSTextLineFragment, origin: CGPoint, elementStart: Int) {
+        self.fragment = fragment
+        self.elementStart = elementStart
+        bounds = fragment.typographicBounds.offsetBy(dx: origin.x, dy: origin.y)
+        baselineOffset = fragment.glyphOrigin.y
+        range = NSRange(
+            location: elementStart + fragment.characterRange.location,
+            length: fragment.characterRange.length
+        )
+    }
+
+    func caretX(at offset: Int) -> CGFloat {
+        bounds.minX + fragment.locationForCharacter(at: offset - elementStart).x
+    }
 }
 
 /// One paragraph as TextKit 2 laid it out.
@@ -14,10 +32,20 @@ struct ParagraphLayout {
     /// The attributes at the paragraph's first character.
     let attributes: [NSAttributedString.Key: Any]
     let lines: [LineLayout]
+    let fragment: NSTextLayoutFragment
 
     /// The union of the lines' bounds; `.null` for a paragraph with none.
     var frame: CGRect {
         lines.reduce(CGRect.null) { $0.union($1.bounds) }
+    }
+
+    func attachmentFrame(at offset: Int) -> CGRect? {
+        guard let contentManager = fragment.textLayoutManager?.textContentManager,
+              let location = contentManager.location(contentManager.documentRange.location, offsetBy: offset)
+        else { return nil }
+        let frame = fragment.frameForTextAttachment(at: location)
+        guard !frame.isEmpty else { return nil }
+        return frame.offsetBy(dx: fragment.layoutFragmentFrame.minX, dy: fragment.layoutFragmentFrame.minY)
     }
 }
 
@@ -128,11 +156,9 @@ enum ParagraphLayoutWalker {
                 range: range,
                 attributes: textStorage.attributes(at: range.location, effectiveRange: nil),
                 lines: fragment.textLineFragments.map { line in
-                    LineLayout(
-                        bounds: line.typographicBounds.offsetBy(dx: origin.x, dy: origin.y),
-                        baselineOffset: line.glyphOrigin.y
-                    )
-                }
+                    LineLayout(fragment: line, origin: origin, elementStart: range.location)
+                },
+                fragment: fragment
             )
         }
     }

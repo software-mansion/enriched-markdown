@@ -1,17 +1,6 @@
-# Web Editor [![Experimental](https://img.shields.io/badge/-experimental-orange "Experimental: this feature is still taking shape and may get breaking changes, including in nightly releases.")](#experimental-status)
+# Web Editor
 
 `EnrichedMarkdownTextInput` runs on web as a `contentEditable` editor built from plain React and DOM primitives. It keeps its own document model, renders it into the editable element, and serializes it back to Markdown, so `getMarkdown()` and `onChangeMarkdown` work the same way they do on iOS and Android.
-
-> [!WARNING]
-> The web editor is **experimental**. Its props, ref methods and Markdown output may change in breaking ways, including in nightly releases, before it is marked stable. Pin an exact version if you depend on it.
-
-## Experimental status
-
-What "experimental" means here:
-
-- Breaking changes can land in any release, nightly builds included, without a major version bump.
-- Parts of the native API are missing on web (see [Not supported on web](#not-supported-on-web)); some will be added, and adding them may change existing behavior.
-- Report problems on [GitHub issues](https://github.com/software-mansion-labs/react-native-enriched-markdown/issues) and mention that you are on web.
 
 ## Setup
 

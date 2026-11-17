@@ -17,6 +17,7 @@ class OrderedListSpan(
   depth: Int,
   context: Context,
   styleCache: SpanStyleCache,
+  drawsMarker: Boolean = true,
   override val markerExtraWidth: Float = 0f,
   ancestorMarkerOffset: Float = 0f,
   parentMarkerWidth: Float? = null,
@@ -33,6 +34,7 @@ class OrderedListSpan(
       ),
     marginLeft = listStyle.marginLeft,
     gapWidth = listStyle.gapWidth,
+    drawsMarker = drawsMarker,
     ancestorMarkerOffset = ancestorMarkerOffset,
     parentMarkerWidth = parentMarkerWidth,
   ) {

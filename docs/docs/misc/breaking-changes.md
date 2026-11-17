@@ -11,7 +11,37 @@ Looking for the full release notes? See the [changelog](https://swmansion.com/ch
 
 This page tracks breaking changes and how to migrate for each, newest first, for the React Native package and the standalone [Android](#android-package) and [iOS](#ios-package) packages. Each package is versioned on its own. Deprecations (things that still work but are slated for removal) are noted alongside the change that introduces them.
 
-The React Native sections come first. Its current release is **1.1.1**, a patch over 1.1.0; neither introduced breaking changes.
+The React Native sections come first. Its current release is **1.2.0**. No release after 1.0.2 introduced breaking changes; the [Unreleased](#unreleased) entry is for the next release.
+
+## Unreleased
+
+### `streamingAnimation` is deprecated in favor of `streaming`, and no longer only animates
+
+`streamingAnimation` still works as an alias of [`streaming`](/react-native/api-reference/enriched-markdown-text#streaming) and logs a warning in development. Like `streaming`, while it is on it holds back trailing blocks that have not finished arriving and repairs half-written inline syntax, as well as fading new text in. Set `streaming` while the text arrives and turn it off when the stream ends: a view that leaves it on renders a finished message with that handling.
+
+[`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig) now applies under `flavor="commonmark"` too; before, it took effect only with `flavor="github"`. A `commonmark` view with `streamingAnimation` on therefore now holds back unfinished code blocks, images, videos, links and block math while the text streams. See [Incomplete blocks](/rich-text-formatting/markdown-streaming#incomplete-blocks).
+
+**Migrate:** replace `streamingAnimation` with `streaming`, and turn it off when the stream ends.
+
+Before:
+
+```tsx
+<EnrichedMarkdownText markdown={partialMarkdown} streamingAnimation />
+```
+
+After:
+
+```tsx
+<EnrichedMarkdownText markdown={partialMarkdown} streaming={isStreaming} />
+```
+
+`react-native-streamdown` is no longer needed: streaming is built into `react-native-enriched-markdown`, including repair of incomplete Markdown, with no Worklets setup. See [Migrating from `react-native-streamdown`](/rich-text-formatting/markdown-streaming#migrating-from-react-native-streamdown) for the steps.
+
+### `markdown` is optional in `EnrichedMarkdownTextProps`
+
+A view now takes its text from `markdown` or from [`stream`](/react-native/api-reference/enriched-markdown-text#stream), so `markdown` is typed `string | undefined`. TypeScript code that reads `props.markdown` as a `string`, in a wrapper that takes `EnrichedMarkdownTextProps`, no longer compiles under `strict`.
+
+**Migrate:** handle `undefined` where you read it, for example `props.markdown ?? ''`.
 
 ## v1.0.2
 
@@ -68,7 +98,7 @@ The `enriched-markdown` block in your app's `package.json` is now the single sou
 In a monorepo the _build_ flag is read from the app's `package.json` (beside `ios/` / `android/`), so each app configures independently; the _download_ opt-out is read where the install runs (usually the workspace root). See [Native assets](/react-native/guides/native-assets#reducing-binary-size).
 
 :::caution
-In 1.0.2 through 1.1.1 the download opt-out is read from the workspace root **only**: a block in a workspace app's `package.json` disables the feature at build time but does not stop the install-time download. Later releases also read the workspace members that depend on the package, so an app-level block is enough when every consuming app opts out. See [Native assets](/react-native/guides/native-assets#reducing-binary-size).
+In 1.0.2 through 1.1.1 the download opt-out is read from the workspace root **only**: a block in a workspace app's `package.json` disables the feature at build time but does not stop the install-time download. 1.2.0 and later also read the workspace members that depend on the package, so an app-level block is enough when every consuming app opts out. See [Native assets](/react-native/guides/native-assets#reducing-binary-size).
 :::
 
 ### Explicitly enabling a feature whose assets are missing now fails the build

@@ -13,13 +13,14 @@
 
 /// Runs renderBlock on the serial queue, one at a time. A call made before the previous
 /// renderBlock has started replaces it, so a burst of calls renders only the newest one.
-/// If renderBlock returns YES, applyBlock is dispatched on the main queue,
-/// provided the render ID has not been superseded by a newer call.
+/// If renderBlock returns YES, applyBlock is dispatched on the main queue. A newer call
+/// still pending does not hold it back: while updates arrive faster than a render takes,
+/// each finished render shows instead of none.
 - (void)scheduleRender:(BOOL (^)(void))renderBlock apply:(dispatch_block_t)applyBlock;
 
-/// Drops pending work and advances the render ID so any in-flight render's apply block is discarded
-/// by the renderId == currentRenderId check when it lands on the main queue.
-/// Use before recycling or otherwise resetting a host that owns this coordinator.
+/// Drops pending work and discards the apply block of any render already in flight.
+/// Use before recycling or otherwise resetting a host that owns this coordinator,
+/// and before rendering synchronously, so an older async result can't land after it.
 - (void)invalidate;
 
 @end

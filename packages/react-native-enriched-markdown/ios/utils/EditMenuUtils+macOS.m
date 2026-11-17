@@ -10,7 +10,8 @@
 NSMenu *_Nullable buildEditMenuForSelection(NSAttributedString *attributedText, NSRange range,
                                             NSString *_Nullable cachedMarkdown, StyleConfig *styleConfig,
                                             NSArray *suggestedActions, NSArray<NSMenuItem *> *_Nullable customItems,
-                                            ENRMSelectionMenuConfig selectionMenuConfig)
+                                            ENRMSelectionMenuConfig selectionMenuConfig,
+                                            ENRMSelectionCopyHandler _Nullable onSelectionCopy)
 {
   NSMenu *menu = ([suggestedActions.firstObject isKindOfClass:[NSMenu class]]) ? (NSMenu *)suggestedActions.firstObject
                                                                                : [[NSMenu alloc] initWithTitle:@""];
@@ -26,8 +27,8 @@ NSMenu *_Nullable buildEditMenuForSelection(NSAttributedString *attributedText, 
   // Replace the system Copy item with our enhanced version (copies RTF/HTML/Markdown).
   // This mirrors the iOS behaviour where we replace the standard-edit Copy action.
   NSString *copyTitle = selectionMenuConfig.copyLabel;
-  NSMenuItem *enhancedCopy =
-      ENRMCreateMenuItem(copyTitle, ^{ copyAttributedStringToPasteboard(selectedText, markdown, styleConfig); });
+  NSMenuItem *enhancedCopy = ENRMCreateMenuItem(
+      copyTitle, ^{ ENRMCopySelection(selectedText, range, markdown, styleConfig, onSelectionCopy); });
   NSInteger systemCopyIndex = [menu indexOfItemWithTarget:nil andAction:@selector(copy:)];
   if (systemCopyIndex != NSNotFound) {
     [menu removeItemAtIndex:systemCopyIndex];
@@ -40,14 +41,16 @@ NSMenu *_Nullable buildEditMenuForSelection(NSAttributedString *attributedText, 
   }
 
   if (selectionMenuConfig.copyAsMarkdown && markdown.length > 0) {
-    [menu addItem:ENRMCreateMenuItem(selectionMenuConfig.copyAsMarkdownLabel, ^{ copyStringToPasteboard(markdown); })];
+    [menu addItem:ENRMCreateMenuItem(selectionMenuConfig.copyAsMarkdownLabel, ^{
+            ENRMCopySelectionString(markdown, ENRMSelectionCopyFormatMarkdown, range, onSelectionCopy);
+          })];
   }
 
   if (selectionMenuConfig.copyImageURL && imageURLs.count > 0) {
     NSString *title = ENRMResolveImageURLsTitle(selectionMenuConfig, imageURLs.count);
     [menu addItem:ENRMCreateMenuItem(title, ^{
             NSString *urlsToCopy = [imageURLs componentsJoinedByString:@"\n"];
-            copyStringToPasteboard(urlsToCopy);
+            ENRMCopySelectionString(urlsToCopy, ENRMSelectionCopyFormatImageURLs, range, onSelectionCopy);
           })];
   }
 

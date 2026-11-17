@@ -452,9 +452,9 @@ On native, requires [`flavor="github"`](/react-native/api-reference/enriched-mar
 
 ### Inline image-specific
 
-| Property | Type     | Default | Description         |
-| -------- | -------- | ------- | ------------------- |
-| `size`   | `number` | `20`    | Image size (square) |
+| Property | Type     | Default | Description                                                                                                               |
+| -------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `size`   | `number` | `20`    | Side length of the square the image is drawn in. The image is scaled up or down to fit inside it, keeping its proportions |
 
 <LivePreview src={InlineImageSrc} />
 

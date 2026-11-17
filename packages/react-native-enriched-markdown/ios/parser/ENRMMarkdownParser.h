@@ -17,6 +17,11 @@
 
 @end
 
+#ifdef __cplusplus
+#include "MD4CParser.hpp"
+Markdown::Md4cFlags ENRMCoreMd4cFlags(ENRMMd4cFlags *flags);
+#endif
+
 @class ENRMLinkRegexConfig;
 
 @interface ENRMMarkdownParser : NSObject

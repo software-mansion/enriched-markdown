@@ -37,9 +37,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// when the override says to show the placeholder only).
 @property (nonatomic, readonly) NSString *requestURL;
 @property (nonatomic, readonly) BOOL isInline;
+@property (nonatomic, strong, nullable) UIFont *textFont;
 
 /**
- * Invoked on the main thread whenever the image finishes loading/processing.
+ * Invoked on the main thread whenever the image finishes loading/processing, or fails to load.
  * Used by self-drawing hosts (e.g. a table grid) that rasterize the attributed
  * string via -drawWithRect: and therefore never get a live text view for the
  * attachment's normal -refreshDisplay invalidation to reach. Such hosts set this
@@ -50,6 +51,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)attachmentForURL:(NSString *)imageURL config:(StyleConfig *)config isInline:(BOOL)isInline;
 + (instancetype)attachmentForURL:(NSString *)imageURL
                           source:(nullable ENRMImageSourceOverride *)source
+                         altText:(NSString *)altText
                           config:(StyleConfig *)config
                         isInline:(BOOL)isInline;
 
@@ -57,5 +59,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSCache<NSString *, RCTUIImage *> *)processedImageCache;
 
 @end
+
+FOUNDATION_EXPORT void ENRMImageAttachmentsAdoptTextFonts(NSAttributedString *text);
 
 NS_ASSUME_NONNULL_END

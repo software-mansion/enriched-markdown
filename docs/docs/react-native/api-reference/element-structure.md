@@ -189,7 +189,7 @@ Requires both [`flavor="github"`](/react-native/api-reference/enriched-markdown-
 Images are automatically detected as block or inline based on context:
 
 - **Block images** use block-level spacing and sit on their own line.
-- **Inline images** align with the text baseline inside the surrounding run of text.
+- **Inline images** sit inside the surrounding run of text, centred on its cap height, in a square of `inlineImage.size`. The image is scaled up or down to fit inside that square, keeping its proportions, so it is never distorted or cropped.
 
 You don't need to specify which type - the renderer determines it from the image's position. Note that a single newline does not split a paragraph, so an image on its own source line directly below text is still inline; separate it with a blank line to make it a block image.
 

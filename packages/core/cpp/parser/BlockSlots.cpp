@@ -41,19 +41,13 @@ ImagePlacement imagePlacement(BlockSlotPlacement placement) {
 }
 
 // Ids count earlier entries with the same base, in document order.
-class IdCounter {
-public:
-  std::string next(const char *prefix, const std::string &identity) {
-    std::string base = std::string(prefix) + ':' + fnv1a64Hex(identity);
-    unsigned &count = counts_[base];
-    std::string id = base + ':' + std::to_string(count);
-    count++;
-    return id;
-  }
-
-private:
-  std::unordered_map<std::string, unsigned> counts_;
-};
+std::string nextId(std::unordered_map<std::string, unsigned> &counts, const char *prefix, const std::string &identity) {
+  std::string base = std::string(prefix) + ':' + fnv1a64Hex(identity);
+  unsigned &count = counts[base];
+  std::string id = base + ':' + std::to_string(count);
+  count++;
+  return id;
+}
 
 struct Ancestors {
   bool inLink = false;
@@ -61,17 +55,17 @@ struct Ancestors {
   bool inList = false;
 };
 
-// Walks the tree once, collecting slots and image and link occurrences.
+// Walks a top-level node once, collecting slots and image and link occurrences.
 struct Visitor {
-  IdCounter slotIds;
-  IdCounter imageIds;
-  CollectedBlocks collected;
+  std::unordered_map<std::string, unsigned> &slotCounts;
+  std::unordered_map<std::string, unsigned> &imageCounts;
+  CollectedBlocks &collected;
 
   const ImageOccurrence &recordImage(const MarkdownASTNode &image, ImagePlacement placement) {
     std::string url = nodeAttribute(image, kUrlAttribute);
     std::string alt = inlineText(image);
     std::string title = nodeAttribute(image, kTitleAttribute);
-    std::string id = imageIds.next("img", blockIdentity(url, alt, title));
+    std::string id = nextId(imageCounts, "img", blockIdentity(url, alt, title));
     collected.imageByNode[&image] = collected.images.size();
     collected.images.push_back({std::move(id), std::move(url), std::move(alt), std::move(title), placement});
     return collected.images.back();
@@ -82,7 +76,7 @@ struct Visitor {
     BlockSlot slot;
     slot.placement = placement;
     slot.node = &block;
-    slot.id = slotIds.next(kind.name, kind.fill(media, slot));
+    slot.id = nextId(slotCounts, kind.name, kind.fill(media, slot));
     if (auto *image = std::get_if<ImageSlotFields>(&slot.fields))
       image->occurrenceId = recordImage(media, imagePlacement(placement)).id;
     collected.slotByNode[&block] = collected.slots.size();
@@ -138,12 +132,16 @@ struct Visitor {
 
 } // namespace
 
+void BlockCollector::add(const MarkdownASTNode &topLevelNode) {
+  Visitor{slotCounts_, imageCounts_, collected}.visit(topLevelNode, NodeType::Document, Ancestors{});
+}
+
 CollectedBlocks collect(const MarkdownASTNode &root) {
-  Visitor visitor;
+  BlockCollector collector;
   for (const auto &child : root.children) {
-    visitor.visit(*child, root.type, Ancestors{});
+    collector.add(*child);
   }
-  return std::move(visitor.collected);
+  return std::move(collector.collected);
 }
 
 bool isSlotComplete(const CollectedBlocks &blocks, const BlockSlot &slot, bool endsInsideOpenCodeFence) {

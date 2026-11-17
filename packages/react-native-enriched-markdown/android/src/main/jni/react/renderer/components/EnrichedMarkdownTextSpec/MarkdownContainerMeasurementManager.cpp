@@ -1,5 +1,4 @@
 #include "MarkdownContainerMeasurementManager.h"
-#include "conversions.h"
 
 #include <fbjni/fbjni.h>
 #include <react/jni/ReadableNativeMap.h>
@@ -9,7 +8,8 @@ using namespace facebook::jni;
 
 namespace facebook::react {
 
-Size MarkdownContainerMeasurementManager::measure(SurfaceId surfaceId, int viewTag, const EnrichedMarkdownProps &props,
+Size MarkdownContainerMeasurementManager::measure(SurfaceId surfaceId, int viewTag, const std::string &markdown,
+                                                  const MarkdownMeasureKeys &keys,
                                                   const std::vector<std::string> &blockSlotIds,
                                                   LayoutConstraints layoutConstraints) const {
   const jni::global_ref<jobject> &fabricUIManager = contextContainer_->at<jni::global_ref<jobject>>("FabricUIManager");
@@ -36,11 +36,13 @@ Size MarkdownContainerMeasurementManager::measure(SurfaceId surfaceId, int viewT
   local_ref<ReadableMap::javaobject> extraDataRM =
       make_local(reinterpret_cast<ReadableMap::javaobject>(extraDataRNM.get()));
 
-  // Serialize props for measurement
-  auto serializedProps = toDynamic(props);
-  local_ref<ReadableNativeMap::javaobject> propsRNM = ReadableNativeMap::newObjectCxxArgs(serializedProps);
+  // The keys stand in for the props; Kotlin pulls the markdown or config from the session when it
+  // doesn't have them (MarkdownMeasureSession).
+  local_ref<ReadableNativeMap::javaobject> propsRNM = ReadableNativeMap::newObjectCxxArgs(keys.toDynamic());
   local_ref<ReadableMap::javaobject> propsRM = make_local(reinterpret_cast<ReadableMap::javaobject>(propsRNM.get()));
 
+  MarkdownMeasureSession session(markdown, *keys.config);
+  MarkdownMeasureSession::Scope scope(&session);
   auto measurement = yogaMeassureToSize(measure(fabricUIManager, surfaceId, componentName.get(), extraDataRM.get(),
                                                 propsRM.get(), nullptr, minimumSize.width, maximumSize.width,
                                                 minimumSize.height, maximumSize.height));

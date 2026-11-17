@@ -9,7 +9,7 @@ This section covers the rough edges worth knowing about before you hit them.
 Deliberate behaviours, constraints imposed by the underlying text stacks, and a few things
 that are simply not wired up yet.
 
-Most of this page covers `react-native-enriched-markdown` 1.1.1, including its
+Most of this page covers `react-native-enriched-markdown` 1.2.0, including its
 web and macOS targets. The standalone native packages have their own lists at
 the end: [iOS package](#ios-package) (0.4.0) and
 [Android package](#android-package) (0.3.0).
@@ -43,6 +43,21 @@ planned, see the [Roadmap](/misc/roadmap); for the full per-feature matrix,
   promotes the text to `DynamicLayout`, which has no `maxLines` support - React
   Native's own `Text` behaves the same way. Both are restored once the clamp is
   removed, and iOS keeps selection and links while clamped.
+- **[iOS] Captures of very tall content.** Text, code blocks, tables, quotes and
+  math draw only near the visible area, and draw the rest when they are
+  captured: `renderInContext:` gets all of it at any size, and so does
+  `drawViewHierarchyInRect:` (`react-native-view-shot`'s default) for a view up
+  to 8,192 pixels tall and wide (about 2,730 pt on a 3x iPhone). UIKit renders
+  nothing for a larger view; `react-native-view-shot`'s `useRenderInContext`
+  option captures it. Snapshot views (`snapshotViewAfterScreenUpdates:`,
+  `resizableSnapshotViewFromRect:afterScreenUpdates:withCapInsets:`) get it
+  too. A capture made off the main thread shows the content near the visible
+  area only, and so does anything that mirrors the live view instead of
+  capturing it (a context menu or drag preview of the view itself, a scaled-down
+  ancestor). The drawing relies on
+  UIKit internals: if a future iOS version shows blank or doubled text, set
+  `EnrichedMarkdownDisableTextTiles` to `YES` in your app's `Info.plist` to draw
+  text the standard way, and please report it.
 - **Raw HTML is not rendered.** Inline HTML is disabled and HTML tags in the
   source are ignored. The one allowlisted exception is a block-level
   [`<video>`](/react-native/api-reference/element-structure#videos) tag, of which
@@ -152,7 +167,7 @@ The full announcement model is in
 
 ### Web
 
-The web editor is experimental and does not yet cover the native editor's surface - see [Web editor](/react-native/guides/web-editor#not-supported-on-web). The rest of this section is about the renderer.
+The web editor does not yet cover the native editor's surface - see [Web editor](/react-native/guides/web-editor#not-supported-on-web). The rest of this section is about the renderer.
 
 :::danger
 **Spoilers lose their content on web.** The parser emits a spoiler node, the web
@@ -174,7 +189,7 @@ other native-only props. See
 
 **Block math is silently dropped** under `flavor="github"` - the equation
 produces no segment and no fallback text. Inline math renders. Beyond that: the
-tail fade-in animation falls back to an instant reveal, system font-scale
+streaming animations (`'fade'`, `'gradient'`) fall back to an instant reveal, system font-scale
 changes are not observed, VoiceOver is stubbed, and `selectionColor` tints only
 the selection background - AppKit's `NSTextView` does not expose caret and
 handle tinting via `tintColor`. See

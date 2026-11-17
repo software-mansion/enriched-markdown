@@ -2,6 +2,7 @@
 
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMContainerNodeView.h"
+#import "EditMenuUtils.h"
 #import "StyleConfig.h"
 
 @class MarkdownASTNode;
@@ -36,8 +37,9 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 
 - (instancetype)initWithConfig:(StyleConfig *)config;
 
-// Splits the node's children into segments and applies them to this container.
-- (void)applyBlockquoteNode:(MarkdownASTNode *)node;
+// Splits the node's children into segments and applies them to this container. Task-list items are
+// numbered from taskIndexOffset: the document-global index of the quote's first task.
+- (void)applyBlockquoteNode:(MarkdownASTNode *)node taskIndexOffset:(NSInteger)taskIndexOffset;
 
 // Laid-out height of this quote at the given outer width (the width the parent
 // lays it out at, before this view's own inset).
@@ -85,6 +87,8 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 @property (nonatomic, copy, nullable) void (^onTextPress)(NSInteger index, NSString *text);
 
 @property (nonatomic, copy, nullable) ENRMCodeBlockCopyBlock onCopyPress;
+/// Handed to every text view in this quote, nested quotes included, for the Copy key command.
+@property (nonatomic, copy, nullable) ENRMSelectionCopyHandler onSelectionCopy;
 @property (nonatomic, copy, nullable) ENRMCodeBlockPressBlock onCodeBlockPress;
 
 // Shared, runtime-mutable block props (context-menu gate, code-block tap gate,

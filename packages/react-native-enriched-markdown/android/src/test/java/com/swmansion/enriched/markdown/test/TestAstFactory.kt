@@ -8,6 +8,9 @@ object TestAstFactory {
 
   fun text(content: String): MarkdownASTNode = MarkdownASTNode(NodeType.Text, content = content)
 
+  /** An image with no URL: it keeps its placeholder and requests nothing. */
+  fun image(): MarkdownASTNode = MarkdownASTNode(NodeType.Image, attributes = mapOf("url" to ""))
+
   /** An ordered list; [start] is the first number, as md4c reports it. */
   fun orderedList(
     vararg items: MarkdownASTNode,
