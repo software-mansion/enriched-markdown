@@ -124,8 +124,13 @@ static void ENRMDrawText(UITextView *textView, ENRMStreamingEffects *effects, UI
   if (glyphs.length == 0) {
     return;
   }
-  [layoutManager drawBackgroundForGlyphRange:glyphs atPoint:origin];
   CFTimeInterval now = CACurrentMediaTime();
+  TextViewLayoutManager *ownLayoutManager =
+      [layoutManager isKindOfClass:[TextViewLayoutManager class]] ? (TextViewLayoutManager *)layoutManager : nil;
+  ownLayoutManager.drawingEffects = effects;
+  ownLayoutManager.drawingTime = now;
+  [layoutManager drawBackgroundForGlyphRange:glyphs atPoint:origin];
+  ownLayoutManager.drawingEffects = nil;
   NSRange animated = effects != nil ? [effects animatedRangeAt:now] : NSMakeRange(NSNotFound, 0);
   NSRange shown = animated.location == NSNotFound || ![layoutManager isKindOfClass:[TextViewLayoutManager class]]
                       ? NSMakeRange(NSNotFound, 0)

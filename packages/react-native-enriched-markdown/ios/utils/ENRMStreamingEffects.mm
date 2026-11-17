@@ -114,6 +114,25 @@ static std::optional<EffectColor> ENRMEffectColor(RCTUIColor *_Nullable color)
                             alpha:a * (1 + (look.tint.a - 1) * t) * look.opacity];
 }
 
+- (CGFloat)visibilityOfCharactersInRange:(NSRange)range time:(CFTimeInterval)time
+{
+  if (range.length == 0) {
+    return 1;
+  }
+  // Characters outside the animated range are drawn as they are, whatever their look says.
+  auto animated = _effects.animatedRange(time);
+  if (!animated) {
+    return 1;
+  }
+  NSRange shown = NSIntersectionRange(range, NSMakeRange(animated->start, animated->length));
+  double sum = static_cast<double>(range.length - shown.length);
+  for (NSUInteger index = shown.location; index < NSMaxRange(shown); index++) {
+    Markdown::CharacterLook look = _effects.lookAt(index, time);
+    sum += (1 + (look.tint.a - 1) * look.tintAmount) * look.opacity;
+  }
+  return sum / range.length;
+}
+
 - (NSUInteger)lookEndForCharacterAtIndex:(NSUInteger)index
 {
   return _effects.lookEnd(index);

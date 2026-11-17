@@ -73,9 +73,12 @@ class CodeBackgroundSpan(
       val endX = drawer.x(layout, line, lineStart, lineEnd, if (isLast) rangeEnd else lineEnd)
       rect.set(min(startX, endX), top.toFloat(), max(startX, endX), bottom.toFloat())
 
+      // A streaming effect's characters take their box with them.
+      val visibility = streamingVisibility(text, max(rangeStart, lineStart), min(rangeEnd, lineEnd))
+      if (visibility <= 0f) return
       val codeStyle = styleConfig.codeStyle
-      sharedBackgroundPaint.color = codeStyle.backgroundColor
-      sharedBorderPaint.color = codeStyle.borderColor
+      sharedBackgroundPaint.color = codeStyle.backgroundColor.withVisibility(visibility)
+      sharedBorderPaint.color = codeStyle.borderColor.withVisibility(visibility)
       // A right-to-left line starts on the right, so the span's first fragment is closed there.
       if (rightToLeft) drawShapes(canvas, isLast, isFirst) else drawShapes(canvas, isFirst, isLast)
     }
@@ -96,6 +99,9 @@ class CodeBackgroundSpan(
     }
     drawUncoveredRange(cursor, spanEnd)
   }
+
+  private fun Int.withVisibility(visibility: Float): Int =
+    if (visibility >= 1f) this else (((this ushr 24) * visibility).toInt() shl 24) or (this and 0xFFFFFF)
 
   // Rounds and closes the [closedLeft] and [closedRight] sides of [rect].
   private fun drawShapes(
