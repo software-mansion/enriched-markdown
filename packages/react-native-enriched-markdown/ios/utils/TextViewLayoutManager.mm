@@ -2,6 +2,7 @@
 #import "BlockquoteBorder.h"
 #import "CodeBackground.h"
 #import "CodeBlockBackground.h"
+#import "ENRMStreamingEffects.h"
 #import "ENRMTextViewport.h"
 #import "ListMarkerDrawer.h"
 #import "RuntimeKeys.h"
@@ -70,6 +71,12 @@ static char kGlyphColorKey;
   }
 }
 #endif
+
+- (CGFloat)visibilityOfCharactersInRange:(NSRange)range
+{
+  ENRMStreamingEffects *effects = self.drawingEffects;
+  return effects ? [effects visibilityOfCharactersInRange:range time:self.drawingTime] : 1;
+}
 
 - (void)drawBackgroundForGlyphRange:(NSRange)glyphsToShow atPoint:(CGPoint)origin
 {

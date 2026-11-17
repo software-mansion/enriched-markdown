@@ -1,6 +1,7 @@
 #import "CodeBackground.h"
 #import "ENRMUIKit.h"
 #import "RenderContext.h"
+#import "TextViewLayoutManager.h"
 
 NSString *const CodeAttributeName = @"Code";
 
@@ -109,11 +110,26 @@ void ENRMEnumerateWholeRuns(NSAttributedString *text, NSString *name, NSRange ra
                                    finalRect.size.height = referenceHeight;
                                  }
 
+                                 // A streaming effect's characters take their box with them.
+                                 CGFloat visibility = 1;
+                                 if ([layoutManager isKindOfClass:[TextViewLayoutManager class]]) {
+                                   NSRange characters = [layoutManager characterRangeForGlyphRange:intersect
+                                                                                  actualGlyphRange:NULL];
+                                   visibility = [(TextViewLayoutManager *)layoutManager
+                                       visibilityOfCharactersInRange:characters];
+                                 }
+                                 if (visibility <= 0) {
+                                   return;
+                                 }
+                                 CGContextRef context = UIGraphicsGetCurrentContext();
+                                 CGContextSaveGState(context);
+                                 CGContextSetAlpha(context, visibility);
                                  [self drawBackgroundAndBorders:finalRect
                                                 backgroundColor:backgroundColor
                                                     borderColor:borderColor
                                                         isFirst:isFirst
                                                          isLast:isLast];
+                                 CGContextRestoreGState(context);
                                }];
 }
 
