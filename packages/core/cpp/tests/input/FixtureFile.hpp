@@ -1,9 +1,7 @@
 #pragma once
 
-// Reads the shared fixture files in fixtures/input: a JSON object whose "cases"
-// array holds strings, or [markdown, expected] pairs of strings. Just enough
-// JSON for that, so the host tests need no library; the Jest suites read the
-// same files with JSON.parse.
+// Just enough JSON to read fixtures/input: a "cases" array of strings or
+// [markdown, expected] pairs.
 #include "Utf16.hpp"
 #include <fstream>
 #include <sstream>

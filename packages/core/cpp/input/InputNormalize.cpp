@@ -4,7 +4,6 @@
 #include <optional>
 #include <unordered_map>
 
-// normalizeImport.ts, plus the list metadata pass of BlockStore.
 namespace Markdown::Input {
 
 std::vector<size_t> lineStartsOf(std::u16string_view text) {
@@ -21,8 +20,8 @@ std::vector<FormattingRange> normalizeFormattingRanges(std::vector<FormattingRan
                    [](const FormattingRange &a, const FormattingRange &b) { return a.start < b.start; });
   std::vector<FormattingRange> merged;
   merged.reserve(ranges.size());
-  // The last merged range of each type, and of each url for links.
-  std::array<std::optional<size_t>, 6> openByType;
+  // Index in `merged` of the last range of each style type; links go by url.
+  std::array<std::optional<size_t>, kStyleTypeCount> openByType;
   std::unordered_map<std::u16string, size_t> openLinks;
   for (FormattingRange &range : ranges) {
     if (range.end <= range.start) {
@@ -63,9 +62,8 @@ bool isHeading(BlockType type) {
   return type >= BlockType::H1 && type <= BlockType::H6;
 }
 
-// When two blocks claim one line, the one kept. A list item is the outer
-// structure ("- # foo" is an item holding a heading), and losing it would break
-// the list's numbering and nesting around it; the line's text stays either way.
+// Which block keeps a line two blocks claim. A list item wins ("- # foo" is an
+// item holding a heading), so the list's numbering and nesting survive.
 int blockPriority(BlockType type) {
   if (isListItem(type)) {
     return 2;
@@ -83,9 +81,8 @@ std::vector<BlockRange> normalizeBlockRanges(std::u16string_view text, const std
   const size_t lineCount = lineStarts.size();
   const auto lineEnd = [&](size_t line) { return lineEndOf(text, lineStarts, line); };
 
-  // Indexed by line. Blocks arrive nearly sorted (a nested item is emitted
-  // before its parent), so the line of each start is found walking from the
-  // previous one, with a binary search only to go back.
+  // Blocks arrive nearly sorted (nested items before their parent), so lines
+  // are found walking forward, with a binary search to go back.
   std::vector<BlockRange> byLine(lineCount);
   std::vector<char> filled(lineCount, 0);
   size_t cursor = 0;

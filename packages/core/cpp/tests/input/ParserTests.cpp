@@ -1,6 +1,4 @@
-// InputParser.ts and normalizeImport.ts. The AST cases are the TypeScript unit
-// tests, over the same hand-built trees; the markdown cases were checked
-// against the TypeScript reference.
+// Import, over hand-built ASTs and markdown strings.
 #include "InputInternal.hpp"
 #include "Utf16.hpp"
 #include "doctest/doctest.h"
@@ -391,7 +389,7 @@ TEST_CASE("parse: leading whitespace is kept as text") {
   result = parseUtf8("  **bold**");
   CHECK(result.plainText == u"  bold");
   CHECK(describe(result.formattingRanges) == "strong:2-6 ");
-  // A line ending in a carriage return is left as it is, as in the reference.
+  // A line ending in a carriage return is left as it is.
   CHECK(textOf("a\n  b\r\nc") == "a\nb\nc");
 }
 

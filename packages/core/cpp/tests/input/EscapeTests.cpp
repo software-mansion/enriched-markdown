@@ -1,5 +1,4 @@
-// markdownEscape.ts: the positions found for plain text that would otherwise
-// read as markup. Expectations were checked against the TypeScript reference.
+// Escape positions for plain text that would otherwise read as markup.
 #include "InputInternal.hpp"
 #include "doctest/doctest.h"
 

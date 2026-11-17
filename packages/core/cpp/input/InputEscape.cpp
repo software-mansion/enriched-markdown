@@ -1,12 +1,7 @@
 #include "InputInternal.hpp"
 
-// Backslash escapes for plain text written into markdown, so the editor's own
-// output re-imports as the text the user typed. A port of markdownEscape.ts.
-//
-// A position does not depend on the delimiters written around it. That
-// over-escapes in places ("**\#**" where "**#**" would not have read as a
-// heading either), which is harmless: an escaped punctuation character reads
-// back as itself anywhere.
+// Backslash escapes, so exported plain text re-imports as typed. Positions
+// ignore the surrounding delimiters, which over-escapes in places harmlessly.
 namespace Markdown::Input {
 
 namespace {
@@ -35,8 +30,7 @@ bool isAlphanumeric(char16_t c) {
   return isDigit(c) || (c >= u'A' && c <= u'Z') || (c >= u'a' && c <= u'z');
 }
 
-// Characters that can open or close a span anywhere in a line: /[\\`*_~|[\]<&]/.
-// "&" only counts where it starts an entity (`startsEntity`).
+// Characters that can open or close a span. "&" only when it starts an entity.
 bool isInlineSpecial(char16_t c) {
   switch (c) {
     case u'\\':
@@ -71,11 +65,8 @@ bool startsEntity(std::u16string_view text, size_t at, size_t end) {
 
 namespace {
 
-// Where a line starting at `start` would read as a block marker - a heading,
-// a bullet, a quote, a setext underline or an ordered item's "1." / "1)" - the
-// index of the character to escape, or npos. However deep the indent: import
-// keeps a line's leading whitespace as text only when no marker follows it, so
-// an indented marker the user typed has to be escaped to stay text.
+// The index to escape when the line would read as a block marker (heading,
+// bullet, quote, setext underline, "1." / "1)"), however indented, or npos.
 size_t lineStartMarkerAt(std::u16string_view text, size_t start, size_t end) {
   size_t i = start;
   while (i < end && isBlank(text[i])) {
@@ -102,8 +93,7 @@ size_t lineStartMarkerAt(std::u16string_view text, size_t start, size_t end) {
   return i + 1 == end || isBlank(text[i + 1]) ? i : std::u16string_view::npos;
 }
 
-// A closing sequence an ATX heading would strip - a "#" run ending the line,
-// after whitespace or alone - as the index of its first "#".
+// The first "#" of a closing sequence an ATX heading would strip, or npos.
 size_t trailingHashesAt(std::u16string_view text, size_t start, size_t end) {
   size_t i = end;
   while (i > start && isBlank(text[i - 1])) {
@@ -128,8 +118,7 @@ std::vector<uint32_t> markdownEscapePositions(std::u16string_view text) {
     if (lineEnd == std::u16string_view::npos) {
       lineEnd = text.size();
     }
-    // In index order: a marker leads its line and a closing "#" run, which
-    // holds only "#" and blanks, ends it. Neither is an inline special.
+    // In index order: the line marker, inline specials, the closing "#" run.
     const size_t marker = lineStartMarkerAt(text, lineStart, lineEnd);
     if (marker != std::u16string_view::npos) {
       positions.push_back(static_cast<uint32_t>(marker));

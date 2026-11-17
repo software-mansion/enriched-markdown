@@ -1,12 +1,6 @@
-// Seeded fuzz tests for the two properties that hold for any input. Both are
-// deterministic: a failure names its seed, and a failing seed is pinned in
-// fixtures/input rather than left to chance.
-//
-//  * The editor model survives export: for a random model (plain text drawn from
-//    an alphabet heavy in markup characters, random formatting ranges and
-//    blocks), parse(serialize(model)) gives the model back. Modelled on
-//    serializerFuzz.test.ts, extended to blocks and escaping.
-//  * Any markdown reaches a fixed point after one round trip and keeps its text.
+// Seeded fuzz tests; a failure names its seed, to pin in fixtures/input.
+//  * parse(serialize(model)) gives a random editor model back.
+//  * Any markdown settles within three round trips and keeps its text.
 #include "InputInternal.hpp"
 #include "TestSupport.hpp"
 #include "doctest/doctest.h"
@@ -21,7 +15,7 @@ using namespace TestSupport;
 
 namespace {
 
-// mulberry32, the generator serializerFuzz.test.ts uses.
+// mulberry32.
 class Rng {
 public:
   explicit Rng(uint32_t seed) : state_(seed) {}
@@ -123,10 +117,8 @@ Line makeTextLine(Rng &rng, Line::Kind kind, bool rough) {
   return line;
 }
 
-// A random model that is canonical by construction: one block per line, no
-// leading, trailing or whitespace-only lines, no empty heading, an empty list
-// item only where md4c reads its marker back as an item. `rough` lets styles
-// start and end anywhere, over text where a delimiter often cannot work.
+// A random model that is canonical by construction. `rough` lets styles start
+// and end anywhere, where a delimiter often cannot work.
 Model makeModel(uint32_t seed, bool rough) {
   Rng rng(seed);
   const size_t lineCount = 1 + rng.pick(7);
@@ -197,9 +189,8 @@ Model makeModel(uint32_t seed, bool rough) {
     }
   }
 
-  // Some items empty, where the serializer keeps their marker.
-  // Only between items, and not above a paragraph: md4c reads the line after
-  // an empty first item as the item's own text (see known-limitations.json).
+  // Some items empty: only between items and not above a paragraph (see
+  // known-limitations.json).
   const auto paragraphFollows = [&](size_t index) {
     for (size_t next = index + 1; next < lines.size(); next++) {
       if (lines[next].kind != Line::Empty) {
@@ -280,11 +271,8 @@ Model makeModel(uint32_t seed, bool rough) {
       model.ranges.push_back(std::move(range));
     }
   }
-  // Known limitation, shared with the reference (see known-limitations.json):
-  // import keeps leading whitespace as text by swapping it for private-use
-  // characters md4c reads as word characters, which a delimiter right after them
-  // cannot open against, while the serializer judges it against the space. So no
-  // delimiter style is generated over a line that starts with whitespace.
+  // Known limitation (see known-limitations.json): a delimiter can't open right
+  // after leading whitespace, so no style covers a line that starts with it.
   model.ranges.erase(std::remove_if(model.ranges.begin(), model.ranges.end(),
                                     [&](const FormattingRange &range) {
                                       if (range.type == StyleType::Link || range.type == StyleType::Spoiler) {
@@ -384,9 +372,8 @@ TEST_CASE("fuzz: styles anywhere never change the text or blocks and never add a
   for (uint32_t seed = 1; seed <= kModelSeeds; seed++) {
     const Model model = makeModel(seed, true);
     const std::u16string markdown = serialize(model.text, model.ranges, model.blocks);
-    // Known serializer limitation, shared with the reference: bold and italic
-    // boundaries meeting at one point emit a run of four or more "*" that md4c
-    // cannot pair back into the original spans.
+    // Known limitation: bold and italic meeting at one point give a run of four
+    // or more "*" that md4c can't pair back.
     if (markdown.find(u"****") != std::u16string::npos) {
       skipped++;
       continue;
@@ -491,9 +478,7 @@ std::u16string randomMarkdown(uint32_t seed) {
 
 namespace {
 
-// The non-empty lines of a text, without their trailing spaces: what no import
-// loses. Empty lines and the spaces ending a line may go on a later import, an
-// empty line above a nested item among them.
+// The non-empty lines without trailing spaces: what no import loses.
 std::u16string comparable(const std::u16string &text) {
   const std::u16string lines = withoutTrailingBlanks(text);
   std::u16string out;
@@ -524,13 +509,8 @@ size_t tripsToFixedPoint(std::u16string &markdown, size_t limit) {
 
 } // namespace
 
-// The reference does not reach its fixed point in one round trip for every
-// markdown, only for the canonical ones (see known-limitations.json): a code
-// block or an indented line keeps trailing whitespace that the next import
-// drops, a dropped empty heading leaves its line break, and an empty list item
-// is left bare when md4c would read it back as a setext underline or as a
-// sublist's parent. What does hold, and is tested here, is that every markdown
-// settles within three round trips, and settles on the same text.
+// Only canonical markdown settles in one round trip (see
+// known-limitations.json); any markdown settles within three.
 TEST_CASE("fuzz: any markdown settles within three round trips and keeps its text") {
   size_t notFixedAfterOne = 0;
   for (uint32_t seed = 1; seed <= kMarkdownSeeds; seed++) {
