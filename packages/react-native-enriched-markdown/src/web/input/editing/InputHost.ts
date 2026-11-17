@@ -204,7 +204,8 @@ export class InputHost {
   // asynchronously while `getMarkdown` is synchronous. Loading starts here, and
   // `onChangeMarkdown` is held until it settles, then emits once with the
   // current value. A failed load settles too: the value then goes out as the
-  // plain text `getMarkdown` falls back to.
+  // plain text `getMarkdown` falls back to. A host detached when it settles
+  // keeps the edit held and emits it from `attach`.
   private inputCoreSettled = isInputCoreLoaded();
   private markdownEmitHeld = false;
 
@@ -214,12 +215,21 @@ export class InputHost {
     }
     const settle = () => {
       this.inputCoreSettled = true;
-      if (this.markdownEmitHeld && !this.destroyed) {
-        this.markdownEmitHeld = false;
-        this.emitMarkdown();
-      }
+      this.flushHeldMarkdown();
     };
     loadParser().then(settle, settle);
+  }
+
+  private flushHeldMarkdown(): void {
+    if (
+      this.markdownEmitHeld &&
+      this.inputCoreSettled &&
+      this.attached &&
+      !this.destroyed
+    ) {
+      this.markdownEmitHeld = false;
+      this.emitMarkdown();
+    }
   }
 
   // Keeps the document, its DOM and the undo history, so that `attach` picks
@@ -254,6 +264,7 @@ export class InputHost {
     // renderer rebuilds lines that no longer match what it rendered. This
     // also puts `data-empty` back.
     this.render();
+    this.flushHeldMarkdown();
   }
 
   get isAttached(): boolean {

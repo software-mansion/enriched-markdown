@@ -126,6 +126,36 @@ describe('before the markdown core has loaded', () => {
 
     expect(markdowns).toEqual([]);
   });
+
+  it('keeps the edit held for a host detached while it loads, and emits it on attach', async () => {
+    const { mount, loadParser, typeText } = fresh();
+    const { host, root, markdowns } = mount();
+    typeText(root, 'a*b');
+    host.detach();
+
+    await loadParser();
+    await Promise.resolve();
+    expect(markdowns).toEqual([]);
+
+    host.attach();
+    expect(markdowns).toEqual(['a\\*b']);
+    host.detach();
+    host.attach();
+    expect(markdowns).toEqual(['a\\*b']);
+  });
+
+  it('emits nothing for a host detached while it loads, then destroyed', async () => {
+    const { mount, loadParser, typeText } = fresh();
+    const { host, root, markdowns } = mount();
+    typeText(root, 'abc');
+    host.detach();
+
+    await loadParser();
+    await Promise.resolve();
+    host.destroy();
+
+    expect(markdowns).toEqual([]);
+  });
 });
 
 describe('when the markdown core fails to load', () => {
