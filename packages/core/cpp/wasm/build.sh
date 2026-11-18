@@ -55,6 +55,11 @@ emcc \
 
 # Compile C++ sources and link everything together. em++, not emcc: emscripten
 # 6.0.6 turned DEFAULT_TO_CXX off, so emcc no longer links the C++ runtime.
+#
+# WASM_ASYNC_COMPILATION=0: with the binary inlined (SINGLE_FILE), the module
+# compiles and runs inside the createMd4cModule() call, so the first render can
+# parse, on the server and while hydrating too. Chrome caps synchronous compiles
+# on the main thread at 8 MB; this one is under 200 KB.
 em++ \
   "$SCRIPT_DIR/md4c_wasm.cpp" \
   "$SCRIPT_DIR/ASTSerializer.cpp" \
@@ -69,6 +74,7 @@ em++ \
   -Wswitch \
   -s WASM=1 \
   -s SINGLE_FILE=1 \
+  -s WASM_ASYNC_COMPILATION=0 \
   -s EXPORTED_FUNCTIONS='["_parseMarkdown"]' \
   -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","UTF8ToString"]' \
   -s ENVIRONMENT='web' \

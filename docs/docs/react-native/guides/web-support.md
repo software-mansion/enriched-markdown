@@ -124,8 +124,8 @@ module.exports = {
   module: {
     rules: [
       {
-        // 3. The parser does a dynamic `import('./wasm/md4c')` with no file
-        //    extension, inside a strict-ESM build.
+        // 3. The parser imports `./wasm/md4c` with no file extension,
+        //    inside a strict-ESM build.
         test: /\.m?js$/,
         resolve: { fullySpecified: false },
       },
@@ -168,8 +168,15 @@ Nothing from it reaches the rendered output.
 
 ### Parser (WASM)
 
-The inlined WebAssembly parser described above decodes and compiles once, on the
-first render. There is nothing to configure.
+The inlined WebAssembly parser described above decodes and compiles once,
+synchronously, in the first render that parses - on the server too. There is
+nothing to configure.
+
+It ships in the chunk that imports the component, not a chunk of its own, so a
+page pays for it as soon as it imports `EnrichedMarkdownText` or
+`EnrichedMarkdownTextInput`. If that is a route that renders no Markdown, load
+the component lazily (`React.lazy`, or a route of its own) to keep the parser
+out of that route's chunk.
 
 ### Math (KaTeX)
 
@@ -256,17 +263,17 @@ warnings. Use `id`, `aria-*` and CSS instead.
 :::
 
 :::note
-The WASM parser loads once per page, starting when the package is imported. An
-instance mounted before that load finishes renders nothing until it does. From
-then on, every render shows the markdown it was given in the same commit.
-Nothing is emitted during server-side rendering - wrap the component in a
-client-only boundary if your framework pre-renders. (Style injection itself is
-SSR-safe.)
+Every render shows the markdown it was given in the same commit, the first
+one included: the WASM parser loads synchronously, in the first render that
+parses. That includes server-side rendering, with `renderToString` as well as
+the streaming APIs, and hydration keeps the server's HTML as is. (Style
+injection is SSR-safe too.)
 :::
 
-If parsing fails, the component does not crash: it renders the raw `markdown`
-string in a `<pre style="white-space: pre-wrap">` and logs the error in
-development.
+If parsing fails, or the parser cannot load (no WebAssembly, or a Content
+Security Policy without `'wasm-unsafe-eval'`), the component does not crash: it
+renders the raw `markdown` string in a `<pre style="white-space: pre-wrap">`
+and logs the error in development.
 
 ## Supported features
 

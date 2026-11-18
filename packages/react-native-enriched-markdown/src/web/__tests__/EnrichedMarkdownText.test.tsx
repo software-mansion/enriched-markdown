@@ -7,15 +7,10 @@
 import { act, useLayoutEffect, useRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { TextEncoder } from 'util';
-import {
-  isParserReady,
-  loadParser,
-  subscribeParserReady,
-} from '../parseMarkdown';
 
 // jsdom has no TextEncoder, which the block collector reads at module load.
 globalThis.TextEncoder ??= TextEncoder as typeof globalThis.TextEncoder;
-// Not the package entry: it also loads the input, which preloads the parser.
+// Required, not imported, so that it loads after the polyfill above.
 const { EnrichedMarkdownText } =
   require('../EnrichedMarkdownText') as typeof import('../EnrichedMarkdownText');
 
@@ -58,53 +53,29 @@ afterEach(() => {
   container.remove();
 });
 
-// Runs first: the parser is module state, loaded once for the whole file.
-it('renders nothing until the first WASM load, then the markdown', async () => {
-  expect(isParserReady()).toBe(false);
-  const commits: string[] = [];
-
-  act(() => root.render(<Probe markdown="Hello" commits={commits} />));
-  expect(commits).toEqual(['']);
-
-  // The component starts the load itself, so only wait for it to land. Only
-  // the markdown re-renders then, not the probe.
-  await act(
-    () =>
-      new Promise<void>((resolve) => {
-        const unsubscribe = subscribeParserReady(() => {
-          unsubscribe();
-          resolve();
-        });
-      })
-  );
-  expect(container.textContent).toBe('Hello');
-});
-
-describe('once the WASM has loaded', () => {
-  beforeAll(() => loadParser());
-
-  it.each([true, false])(
-    'shows the markdown in the first commit (latexMath: %s)',
-    (latexMath) => {
-      const commits: string[] = [];
-
-      act(() =>
-        root.render(
-          <Probe markdown="Hello" latexMath={latexMath} commits={commits} />
-        )
-      );
-
-      expect(commits).toEqual(['Hello']);
-    }
-  );
-
-  it('shows the new markdown in the commit that changes it', () => {
+// The first case runs before anything has loaded the WASM: the parse that
+// loads it is the one in the first render.
+it.each([true, false])(
+  'shows the markdown in the first commit (latexMath: %s)',
+  (latexMath) => {
     const commits: string[] = [];
 
-    act(() => root.render(<Probe markdown="Row A" commits={commits} />));
-    act(() => root.render(<Probe markdown="Row B" commits={commits} />));
-    act(() => root.render(<Probe markdown="Row A" commits={commits} />));
+    act(() =>
+      root.render(
+        <Probe markdown="Hello" latexMath={latexMath} commits={commits} />
+      )
+    );
 
-    expect(commits).toEqual(['Row A', 'Row B', 'Row A']);
-  });
+    expect(commits).toEqual(['Hello']);
+  }
+);
+
+it('shows the new markdown in the commit that changes it', () => {
+  const commits: string[] = [];
+
+  act(() => root.render(<Probe markdown="Row A" commits={commits} />));
+  act(() => root.render(<Probe markdown="Row B" commits={commits} />));
+  act(() => root.render(<Probe markdown="Row A" commits={commits} />));
+
+  expect(commits).toEqual(['Row A', 'Row B', 'Row A']);
 });

@@ -16,6 +16,13 @@ interface Md4cModule {
   UTF8ToString(ptr: number): string;
 }
 
-declare function createMd4cModule(options?: object): Promise<Md4cModule>;
+// The object passed to the factory, which Emscripten fills in as the module.
+// Built with WASM_ASYNC_COMPILATION=0, it is filled in and
+// `onRuntimeInitialized` has run by the time the factory returns.
+export type Md4cModuleArg = Partial<Md4cModule> & {
+  onRuntimeInitialized?: () => void;
+};
+
+declare function createMd4cModule(options?: Md4cModuleArg): Promise<Md4cModule>;
 
 export default createMd4cModule;
