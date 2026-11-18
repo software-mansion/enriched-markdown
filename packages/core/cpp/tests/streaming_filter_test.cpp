@@ -59,6 +59,9 @@ void checkFinishedListItems() {
   expectItems("- one\n  more\n\n  second paragraph\n- two", "- two", "- one", "an item of several lines");
   expectItems("- one\n  - nested a\n  - nested b\n- two", "- two", "- one", "nested items are the item's content");
   expectItems("- one\n  ```\n  - code\n  - code\n  ```\n- two", "- two", "- one", "a fence inside an item");
+  expectItems(
+      "- one\n  ```go\n  func main() {\n\tfmt.Println()\n  }\n  ```\n- two\n  ```sh\n  go run .\n  ```\n- three",
+      "- three", "- two", "a tab-indented line inside an item's fence");
   expectItems("- one\n- two\n\ntext\n\n- three\n- four", "- four", "- three", "a second list");
   expectItems("- one\n- two\n\n* three", "- two", "- one", "another bullet starts another list");
   expectItems("- one\n- two\n\nAfter the list.", "- two", "- one", "text after the list keeps its last item");
@@ -231,6 +234,8 @@ int main() {
         "a waiting fence is cut as a hidden one would be");
   check(!Markdown::renderableMarkdownForStreaming("A\n\n```mer", {}).endsInsideOpenCodeFence,
         "a waiting fence is not flagged");
+  check(Markdown::renderableMarkdownForStreaming("- one\n  ```go\n\tfmt.Println()\n", {}).endsInsideOpenCodeFence,
+        "a tab-indented line stays inside an item's fence");
   expect("", "", "empty input");
   expect("\r\n" + img + "\r\n", "\r\n" + img + "\r\n", "CRLF: complete image kept (progressive)");
   expect("\r\n" + img + "\r\n\r", "\r\n", "CRLF: trailing CR line is blank, image still open (hidden)", H);

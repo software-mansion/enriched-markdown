@@ -126,6 +126,29 @@ size_t listMarkerWidth(std::string_view body) {
   return content;
 }
 
+size_t indentColumns(std::string_view text) {
+  size_t columns = 0;
+  for (char ch : text) {
+    if (ch == ' ')
+      columns++;
+    else if (ch == '\t')
+      columns += 4 - columns % 4;
+    else
+      break;
+  }
+  return columns;
+}
+
+std::string_view afterIndent(std::string_view text, size_t columns) {
+  size_t column = 0;
+  size_t i = 0;
+  while (i < text.size() && column < columns && (text[i] == ' ' || text[i] == '\t')) {
+    column += text[i] == '\t' ? 4 - column % 4 : 1;
+    i++;
+  }
+  return text.substr(i);
+}
+
 // ---- fenced code, in one forward scan
 
 struct FenceMarker {
@@ -175,7 +198,7 @@ size_t scanFences(Lines &lines) {
     Quoted quoted = stripQuotes(lines[i].text);
     std::string_view body = quoted.body;
     bool blank = isBlank(body);
-    size_t lead = leadingSpaces(body);
+    size_t lead = indentColumns(body);
     if (inFence) {
       // A blank last line has not streamed its quote markers in yet, so it cannot
       // end a quoted fence.
@@ -184,7 +207,7 @@ size_t scanFences(Lines &lines) {
       if (!containerEnded) {
         lines[i].code = true;
         FenceMarker marker;
-        if (!blank && parseFenceMarker(body.substr(fence.indent), marker) && marker.ch == fence.ch &&
+        if (!blank && parseFenceMarker(afterIndent(body, fence.indent), marker) && marker.ch == fence.ch &&
             marker.length >= fence.length && isBlank(marker.info))
           inFence = false;
         continue;
@@ -198,12 +221,13 @@ size_t scanFences(Lines &lines) {
     if (size_t marker = listMarkerWidth(body)) {
       listIndent = marker;
       indent = marker;
+      content = body.substr(marker);
     } else if (listIndent != 0 && lead >= listIndent) {
       indent = listIndent;
+      content = afterIndent(body, listIndent);
     } else {
       listIndent = 0;
     }
-    content = body.substr(indent);
     FenceMarker marker;
     if (parseFenceMarker(content, marker)) {
       inFence = true;
@@ -597,19 +621,6 @@ size_t finishedBlocksEnd(std::string_view markdown, bool latexMath) {
 }
 
 namespace {
-
-size_t indentColumns(std::string_view text) {
-  size_t columns = 0;
-  for (char ch : text) {
-    if (ch == ' ')
-      columns++;
-    else if (ch == '\t')
-      columns += 4 - columns % 4;
-    else
-      break;
-  }
-  return columns;
-}
 
 bool isThematicBreak(std::string_view body) {
   char mark = 0;
