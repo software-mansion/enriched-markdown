@@ -207,38 +207,91 @@ static const CGFloat kBlockHeight = 100;
   XCTAssertGreaterThan([self accessibilityHeightAfterReflowNotifying:YES], 0);
 }
 
-// A view that has not drawn yet (below the fold) has no text view for the attachment to
-// reach when the failure arrives. Its text stays laid out with the square, and the host
-// keeps the height it measured with it, until the attachment draws and catches both up.
-- (void)testFailureBeforeTheFirstDrawIsLaidOutOnceTheImageDraws
+// The app links a text view to its container before it sets the text (applyRenderedText:,
+// applyAttributedText:). The text view holds that host's measurement, made earlier by its own copy.
+- (UITextView *)linkedTextViewIn:(ENRMRecordingLayoutObserver *)host
 {
-  ENRMImageAttachment<ENRMLateFailure> *attachment =
-      (id)[self attachmentForURL:[self missingFile:@"before-draw"] alt:@"a diagram" isInline:YES];
-  attachment.loadFailed = NO; // the download is still running when the text is laid out
-
-  ENRMRecordingLayoutObserver *host = [[ENRMRecordingLayoutObserver alloc] init];
   UITextView *textView = [[UITextView alloc] initWithFrame:CGRectMake(0, 0, 320, 200)];
+  (void)textView.layoutManager; // TextKit 1, as the app's text views
+  objc_setAssociatedObject(textView.textContainer, kTextViewKey, textView, OBJC_ASSOCIATION_ASSIGN);
   [host addSubview:textView];
+  return textView;
+}
+
+- (NSAttributedString *)textWith:(ENRMImageAttachment *)attachment
+{
   NSMutableAttributedString *text = [[NSAttributedString attributedStringWithAttachment:attachment] mutableCopy];
   [text appendAttributedString:[[NSAttributedString alloc] initWithString:@" after"]];
-  textView.attributedText = text;
-  [textView.layoutManager ensureLayoutForTextContainer:textView.textContainer];
-  XCTAssertEqual([textView.layoutManager attachmentSizeForGlyphAtIndex:0].width, kInlineSize);
+  return text;
+}
+
+- (void)runMainLoopFor:(NSTimeInterval)seconds
+{
+  [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:seconds]];
+}
+
+// A failure that arrives after the host measured the text, but before the view laid it out
+// (it mounts below the fold): the view lays out the chip, while the host keeps the height it
+// measured with the square. The attachment tells the host when the view lays it out.
+- (void)testFailureAfterMeasurementIsReportedWhenTheViewLaysItOut
+{
+  ENRMImageAttachment<ENRMLateFailure> *attachment =
+      (id)[self attachmentForURL:[self missingFile:@"before-mount"] alt:@"a diagram" isInline:YES];
+  attachment.loadFailed = NO; // the download is still running when the text is measured
+
+  NSTextStorage *storage = [[NSTextStorage alloc] initWithAttributedString:[self textWith:attachment]];
+  NSLayoutManager *measurement = [[NSLayoutManager alloc] init];
+  NSTextContainer *container = [[NSTextContainer alloc] initWithSize:CGSizeMake(320, CGFLOAT_MAX)];
+  [measurement addTextContainer:container];
+  [storage addLayoutManager:measurement];
+  [measurement ensureLayoutForTextContainer:container];
+  XCTAssertEqual([measurement attachmentSizeForGlyphAtIndex:0].width, kInlineSize);
 
   [attachment handleLoadFailure];
-  // Only the draw leads the attachment to its text view: the layout above happened before the
-  // container knew it (a container that knows its view on layout is reached on the failure itself).
-  objc_setAssociatedObject(textView.textContainer, kTextViewKey, textView, OBJC_ASSOCIATION_ASSIGN);
+
+  ENRMRecordingLayoutObserver *host = [[ENRMRecordingLayoutObserver alloc] init];
+  __block NSUInteger reports = 0;
   XCTestExpectation *resolved = [self expectationWithDescription:@"host re-measures"];
-  host.onResolve = ^{ [resolved fulfill]; };
+  host.onResolve = ^{
+    if (++reports == 1)
+      [resolved fulfill];
+  };
+  UITextView *textView = [self linkedTextViewIn:host];
+  textView.attributedText = [self textWith:attachment];
+  [textView.layoutManager ensureLayoutForTextContainer:textView.textContainer];
+  XCTAssertGreaterThan([textView.layoutManager attachmentSizeForGlyphAtIndex:0].width, kInlineSize);
+  [self waitForExpectations:@[ resolved ] timeout:1];
+
+  // Drawing it afterwards has nothing left to report.
   (void)[attachment imageForBounds:CGRectMake(0, 0, kInlineSize, kInlineSize)
                      textContainer:textView.textContainer
                     characterIndex:0];
-  [self waitForExpectations:@[ resolved ] timeout:1];
+  [self runMainLoopFor:0.2];
+  XCTAssertEqual(reports, 1);
   host.onResolve = ^{}; // a late report must not reach a later test's run loop
+}
 
+// A failure before anything was measured (a missing local file fails at once) leaves no size
+// to correct: the host is not asked to measure the text again.
+- (void)testFailureBeforeAnyMeasurementIsNotReported
+{
+  ENRMImageAttachment *attachment = [self attachmentForURL:[self missingFile:@"unmeasured"]
+                                                       alt:@"a diagram"
+                                                  isInline:YES];
+
+  ENRMRecordingLayoutObserver *host = [[ENRMRecordingLayoutObserver alloc] init];
+  __block NSUInteger reports = 0;
+  host.onResolve = ^{ reports++; };
+  UITextView *textView = [self linkedTextViewIn:host];
+  textView.attributedText = [self textWith:attachment];
   [textView.layoutManager ensureLayoutForTextContainer:textView.textContainer];
   XCTAssertGreaterThan([textView.layoutManager attachmentSizeForGlyphAtIndex:0].width, kInlineSize);
+  (void)[attachment imageForBounds:CGRectMake(0, 0, kInlineSize, kInlineSize)
+                     textContainer:textView.textContainer
+                    characterIndex:0];
+  [self runMainLoopFor:0.2];
+  XCTAssertEqual(reports, 0);
+  host.onResolve = ^{};
 }
 
 @end
