@@ -6,6 +6,7 @@ import android.text.Spannable
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.widget.TextView
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.styles.StyleConfig
@@ -13,11 +14,13 @@ import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport
 import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
 import com.swmansion.enriched.markdown.test.TestAstFactory.orderedList
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
+import com.swmansion.enriched.markdown.test.TestAstFactory.taskListItem
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
 import com.swmansion.enriched.markdown.test.TestAstFactory.unorderedList
 import com.swmansion.enriched.markdown.utils.common.serialization.MarkdownASTSerializer
 import com.swmansion.enriched.markdown.utils.text.conversion.HTMLGenerator
 import com.swmansion.enriched.markdown.utils.text.conversion.MarkdownExtractor
+import com.swmansion.enriched.markdown.utils.text.interaction.TaskListTapUtils
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -161,6 +164,25 @@ class ClipboardExportTest {
 
     val fromBlockStart = MarkdownExtractor.extractFromSpannable(spannable, text.indexOf("first"), text.indexOf("third") + "third\n".length)
     assertEquals("```\nfirst\nsecond\nthird\n```\n", fromBlockStart)
+  }
+
+  @Test
+  fun toggledTaskOpeningWithCodeKeepsItsCurrentMarker() {
+    val textView = TextView(context)
+    textView.setText(
+      render(
+        unorderedList(
+          taskListItem(false, codeBlock("val x = 1\n"), paragraph(text("After code"))),
+          listItem(paragraph(text("Next"))),
+        ),
+      ),
+      TextView.BufferType.SPANNABLE,
+    )
+    assertTrue(TaskListTapUtils.updateTaskListItemCheckedState(textView, 0, true, style()))
+
+    val spannable = textView.text as Spannable
+    val end = spannable.indexOf("After code") + "After code".length
+    assertEquals("- [x] ```\n  val x = 1\n  ```\n  After code", MarkdownExtractor.extractFromSpannable(spannable, 0, end))
   }
 
   private fun codeBlock(code: String) =
