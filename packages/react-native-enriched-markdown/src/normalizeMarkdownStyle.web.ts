@@ -10,7 +10,7 @@ import {
   normalizeLinkVariantEntries,
   normalizeLinkPillStyle,
 } from './linkVariantUtils';
-import { resolveAdmonitions } from './admonitionDefaults';
+import { resolveAdmonitionColors } from './admonitionDefaults';
 import {
   DEFAULT_HEADING_FONT_WEIGHT,
   HEADING_DEFAULTS,
@@ -98,7 +98,7 @@ export const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
     backgroundColor: '#F9FAFB',
     borderRadius: 0,
     padding: 0,
-    admonitions: resolveAdmonitions(undefined),
+    admonitions: resolveAdmonitionColors(undefined),
   },
   list: {
     fontSize: 16,
@@ -324,11 +324,10 @@ export const normalizeMarkdownStyle = (
       paragraphColor;
   }
 
-  // Admonitions are nested two levels deep (blockquote.admonitions.<type>),
-  // deeper than mergeSubStyle merges, so resolve each type's colors and default
-  // title here.
+  // Admonition colors are nested two levels deep (blockquote.admonitions.<type>),
+  // deeper than mergeSubStyle merges, so resolve the full per-type palette here.
   (result.blockquote as MarkdownStyleInternal['blockquote']).admonitions =
-    resolveAdmonitions(
+    resolveAdmonitionColors(
       style.blockquote?.admonitions
     ) as MarkdownStyleInternal['blockquote']['admonitions'];
 

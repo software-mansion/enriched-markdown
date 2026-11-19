@@ -73,14 +73,11 @@ export const EnrichedMarkdownText = ({
 }: EnrichedMarkdownTextProps) => {
   const streamSnapshot = useMarkdownStreamSnapshot(stream);
   const markdown = streamSnapshot?.text ?? markdownProp;
-  const styleWithoutTitles = useMemo(
+  const normalizedStyle = useMemo(
     () => normalizeMarkdownStyle(markdownStyle),
     [markdownStyle]
   );
-  const normalizedStyle = useAdmonitionTitles(
-    styleWithoutTitles,
-    admonitionTitles
-  );
+  const resolvedAdmonitionTitles = useAdmonitionTitles(admonitionTitles);
 
   const renderersEnabled = hasRenderers(renderers);
   // Collecting hashes every image and link: only when something reads it.
@@ -220,8 +217,16 @@ export const EnrichedMarkdownText = ({
       blockSlots,
       imageSources,
       blockDir,
+      admonitionTitles: resolvedAdmonitionTitles,
     }),
-    [katex, enableTaskListItemToggle, blockSlots, imageSources, blockDir]
+    [
+      katex,
+      enableTaskListItemToggle,
+      blockSlots,
+      imageSources,
+      blockDir,
+      resolvedAdmonitionTitles,
+    ]
   );
 
   const lastChildStyle = useMemo(

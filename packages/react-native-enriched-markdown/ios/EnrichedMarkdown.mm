@@ -1722,7 +1722,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
   if (applyMarkdownStyleToConfig(_config, newViewProps.markdownStyle, oldViewProps.markdownStyle)) {
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
-    if (!markdownChanged || admonitionTitlesChanged(newViewProps.markdownStyle, oldViewProps.markdownStyle)) {
+    if (!markdownChanged) {
       _dirtyFlags |= ENRMDirtyRecreateSegments;
     }
   }
@@ -1754,6 +1754,20 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     if (!markdownChanged) {
       _dirtyFlags |= ENRMDirtyRecreateSegments;
     }
+  }
+
+  const auto &titles = newViewProps.admonitionTitles;
+  const auto &oldTitles = oldViewProps.admonitionTitles;
+  if (titles.note != oldTitles.note || titles.tip != oldTitles.tip || titles.important != oldTitles.important ||
+      titles.warning != oldTitles.warning || titles.caution != oldTitles.caution) {
+    [_config setAdmonitionTitles:@{
+      @"note" : RCTNSStringFromString(titles.note),
+      @"tip" : RCTNSStringFromString(titles.tip),
+      @"important" : RCTNSStringFromString(titles.important),
+      @"warning" : RCTNSStringFromString(titles.warning),
+      @"caution" : RCTNSStringFromString(titles.caution),
+    }];
+    _dirtyFlags |= ENRMDirtyRender | ENRMDirtyRecreateSegments;
   }
 
   _selectable = newViewProps.selectable;

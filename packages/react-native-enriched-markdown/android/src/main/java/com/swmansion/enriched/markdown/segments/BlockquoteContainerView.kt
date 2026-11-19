@@ -269,7 +269,7 @@ class BlockquoteContainerView(
     titlePaint.color = tint
     val fm = titlePaint.fontMetrics
     val baseline = headerTop + headerHeight / 2f - (fm.ascent + fm.descent) / 2f
-    val title = blockquoteStyle.admonitions[type]?.title.orEmpty()
+    val title = parentConfig.style.admonitionTitles[type].orEmpty()
     val titleWidth = width - rightInset - titleX
     if (title.isEmpty() || titleWidth <= 0f) return
     val fitted = TextUtils.ellipsize(title, titlePaint, titleWidth, TextUtils.TruncateAt.END)

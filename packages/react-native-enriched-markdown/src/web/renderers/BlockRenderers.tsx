@@ -12,7 +12,10 @@ import {
   ADMONITION_ICON_PATHS,
   ADMONITION_ICON_VIEWBOX,
 } from './admonitionIcons';
-import type { AdmonitionType } from '../../admonitionDefaults';
+import {
+  DEFAULT_ADMONITION_TITLES,
+  type AdmonitionType,
+} from '../../admonitionDefaults';
 import { ENRM_ADMONITION_CLASS } from '../globalStyles';
 
 function ParagraphRenderer({
@@ -100,6 +103,8 @@ function AdmonitionRenderer({
   const type = (node.attributes?.admonitionType ?? 'note') as AdmonitionType;
   const blockquote = style.blockquote;
   const colors = blockquote.admonitions[type] ?? blockquote.admonitions.note;
+  const title =
+    capabilities.admonitionTitles?.[type] ?? DEFAULT_ADMONITION_TITLES[type];
   const tint = colors.color;
   const iconSize = Math.ceil(blockquote.fontSize);
   // Reuse the blockquote box geometry; override the accent bar + fill per type.
@@ -136,9 +141,7 @@ function AdmonitionRenderer({
           <path d={ADMONITION_ICON_PATHS[type]} />
         </svg>
         {/* <bdi>: own direction, skipped by the box's dir="auto". */}
-        {colors.title ? (
-          <bdi style={ADMONITION_TITLE_STYLE}>{colors.title}</bdi>
-        ) : null}
+        {title ? <bdi style={ADMONITION_TITLE_STYLE}>{title}</bdi> : null}
       </div>
       {renderChildren(node)}
     </div>

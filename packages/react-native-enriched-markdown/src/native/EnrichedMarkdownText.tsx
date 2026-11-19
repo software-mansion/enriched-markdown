@@ -262,10 +262,7 @@ export const EnrichedMarkdownText = ({
     return linkRecognitionRef.current!;
   }, [linkRecognition]);
   const normalizedStyleRef = useRef<MarkdownStyleInternal | null>(null);
-  const normalized = useAdmonitionTitles(
-    normalizeMarkdownStyle(markdownStyle),
-    admonitionTitles
-  );
+  const normalized = normalizeMarkdownStyle(markdownStyle);
   // normalizeMarkdownStyle returns cached objects for structurally equal inputs,
   // so this referential check is sufficient to preserve a stable prop reference.
   if (normalizedStyleRef.current !== normalized) {
@@ -592,6 +589,7 @@ export const EnrichedMarkdownText = ({
     () => resolveAccessibilityLabels(accessibilityLabels),
     [accessibilityLabels]
   );
+  const resolvedAdmonitionTitles = useAdmonitionTitles(admonitionTitles);
 
   // One parse on the JS thread serves both: the slot children land in the same
   // commit as the markdown they describe, the image sources before it is drawn.
@@ -677,7 +675,12 @@ export const EnrichedMarkdownText = ({
     <NativeMarkdown
       stream={followedStream}
       Component={EnrichedMarkdownNativeComponent}
-      nativeProps={{ ...sharedProps, enableCodeBlockWrapToggle, imageSources }}
+      nativeProps={{
+        ...sharedProps,
+        enableCodeBlockWrapToggle,
+        imageSources,
+        admonitionTitles: resolvedAdmonitionTitles,
+      }}
     >
       {slotChildren}
     </NativeMarkdown>

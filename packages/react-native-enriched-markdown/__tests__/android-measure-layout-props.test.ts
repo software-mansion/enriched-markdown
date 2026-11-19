@@ -29,6 +29,7 @@ const NOT_LAYOUT = new Set([
   'linkContextMenuItems',
   'selectionMenuConfig',
   'accessibilityLabels',
+  'admonitionTitles',
   'lineBreakStrategyIOS',
   // No-op on Android: each paragraph takes its first strong character's direction.
   'writingDirection',

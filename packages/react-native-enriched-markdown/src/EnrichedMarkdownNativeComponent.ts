@@ -24,18 +24,17 @@ interface HeadingStyleInternal extends BaseBlockStyleInternal {
   textAlign: string;
 }
 
-interface AdmonitionStyleInternal {
+interface AdmonitionColorsInternal {
   color: ColorValue;
   backgroundColor: ColorValue;
-  title: string;
 }
 
 interface AdmonitionsStyleInternal {
-  note: AdmonitionStyleInternal;
-  tip: AdmonitionStyleInternal;
-  important: AdmonitionStyleInternal;
-  warning: AdmonitionStyleInternal;
-  caution: AdmonitionStyleInternal;
+  note: AdmonitionColorsInternal;
+  tip: AdmonitionColorsInternal;
+  important: AdmonitionColorsInternal;
+  warning: AdmonitionColorsInternal;
+  caution: AdmonitionColorsInternal;
 }
 
 interface BlockquoteStyleInternal extends BaseBlockStyleInternal {
@@ -398,6 +397,14 @@ export interface AccessibilityLabelsProps {
   rotor: Readonly<AccessibilityLabelsRotorProps>;
 }
 
+export interface AdmonitionTitlesProps {
+  note: string;
+  tip: string;
+  important: string;
+  warning: string;
+  caution: string;
+}
+
 /**
  * MD4C parser flags configuration.
  * Controls how the markdown parser interprets certain syntax.
@@ -712,6 +719,7 @@ export interface NativeProps extends ViewProps {
    */
   selectionMenuConfig: Readonly<SelectionMenuConfig>;
   accessibilityLabels: Readonly<AccessibilityLabelsProps>;
+  admonitionTitles: Readonly<AdmonitionTitlesProps>;
   /**
    * Fired when a custom context menu item is pressed.
    * Receives the item label, the currently selected text, and the selection range.

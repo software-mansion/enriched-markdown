@@ -1,6 +1,5 @@
 #import "StyleConfig.h"
 #include "CodeBlockHighlighter.hpp"
-#import "ENRMAdmonitionIcons.h"
 #import "ENRMFontSlot.h"
 #import "FontUtils.h"
 #import <React/RCTFont.h>
@@ -1906,7 +1905,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   _admonitionTitles = [titles copy];
 }
 
-// Empty until a style arrives, like the codegen default.
+// Empty until the titles arrive, like the codegen default.
 - (NSString *)admonitionTitleForType:(NSString *)type
 {
   return _admonitionTitles[type] ?: @"";

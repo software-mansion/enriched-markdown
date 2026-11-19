@@ -24,18 +24,17 @@ interface HeadingStyleInternal extends BaseBlockStyleInternal {
   textAlign: string;
 }
 
-interface AdmonitionStyleInternal {
+interface AdmonitionColorsInternal {
   color: ColorValue;
   backgroundColor: ColorValue;
-  title: string;
 }
 
 interface AdmonitionsStyleInternal {
-  note: AdmonitionStyleInternal;
-  tip: AdmonitionStyleInternal;
-  important: AdmonitionStyleInternal;
-  warning: AdmonitionStyleInternal;
-  caution: AdmonitionStyleInternal;
+  note: AdmonitionColorsInternal;
+  tip: AdmonitionColorsInternal;
+  important: AdmonitionColorsInternal;
+  warning: AdmonitionColorsInternal;
+  caution: AdmonitionColorsInternal;
 }
 
 interface BlockquoteStyleInternal extends BaseBlockStyleInternal {
