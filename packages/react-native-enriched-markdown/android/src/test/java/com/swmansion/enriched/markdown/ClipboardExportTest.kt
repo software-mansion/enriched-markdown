@@ -1,6 +1,7 @@
 package com.swmansion.enriched.markdown
 
 import android.text.Layout
+import android.text.Spannable
 import android.text.SpannableString
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.renderer.Renderer
@@ -126,6 +127,18 @@ class ClipboardExportTest {
     assertEquals("- Outer\n  - Inner\n    ```\n    val x = 1\n    ```\n- Next", markdown)
   }
 
+  @Test
+  fun secondCodeBlockInItemOpenedByCodeContinuesTheItem() {
+    val markdown =
+      exportMarkdown(
+        unorderedList(
+          listItem(codeBlock("first\n"), paragraph(text("Between")), codeBlock("second\n")),
+          listItem(paragraph(text("Next"))),
+        ),
+      )
+    assertEquals("- ```\n  first\n  ```\n  Between\n  ```\n  second\n  ```\n- Next", markdown)
+  }
+
   private fun codeBlock(code: String) =
     MarkdownASTNode(
       MarkdownASTNode.NodeType.CodeBlock,
@@ -135,10 +148,14 @@ class ClipboardExportTest {
 
   /** A full selection with no container, so the markdown is rebuilt from spans. */
   private fun exportMarkdown(vararg blocks: MarkdownASTNode): String {
+    val spannable = render(*blocks)
+    return MarkdownExtractor.extractFromSpannable(spannable, 0, spannable.length).trimEnd('\n')
+  }
+
+  private fun render(vararg blocks: MarkdownASTNode): Spannable {
     val renderer = Renderer()
     renderer.configure(style(), context)
-    val spannable = renderer.renderContent(blocks.toList())
-    return MarkdownExtractor.extractFromSpannable(spannable, 0, spannable.length).trimEnd('\n')
+    return renderer.renderContent(blocks.toList())
   }
 
   private fun style() = StyleConfig(MarkdownRenderTestSupport.exportStyleMap(), context, false, 0f)

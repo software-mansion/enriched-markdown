@@ -14,6 +14,7 @@ import com.swmansion.enriched.markdown.spans.HeadingSpan
 import com.swmansion.enriched.markdown.spans.HighlightSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
+import com.swmansion.enriched.markdown.spans.ListMarkerAnchorSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.spans.StrikethroughSpan
 import com.swmansion.enriched.markdown.spans.StrongSpan
@@ -238,10 +239,13 @@ object MarkdownExtractor {
     // A code block inside a list item lines up under the item's text.
     val item = block.listItem
 
-    // When the block opens its item, the item's marker span is not attached (ListMarkerAnchorSpan draws the
-    // marker instead) or only covers text after the block.
-    val itemStart = item?.let { spannable.getSpanStart(it) } ?: -1
-    val blockOpensItem = item != null && (itemStart < 0 || itemStart >= spannable.getSpanEnd(block))
+    // When the block opens its item, the item's marker is drawn on the block's first line by a ListMarkerAnchorSpan.
+    // Later blocks of that item share the same unattached marker span, so only the anchor tells them apart.
+    val blockOpensItem =
+      item != null &&
+        spannable
+          .getSpans(spannable.getSpanStart(block), spannable.getSpanEnd(block), ListMarkerAnchorSpan::class.java)
+          .any { it.marker === item }
 
     // The fence takes the item's marker only when the selection includes the block's first line.
     val opensItem = opensBlock && blockOpensItem
