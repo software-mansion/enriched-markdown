@@ -1,8 +1,11 @@
 package com.swmansion.enriched.markdown
 
+import android.graphics.Color
 import android.text.Layout
 import android.text.Spannable
 import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.styles.StyleConfig
@@ -137,6 +140,27 @@ class ClipboardExportTest {
         ),
       )
     assertEquals("- ```\n  first\n  ```\n  Between\n  ```\n  second\n  ```\n- Next", markdown)
+  }
+
+  @Test
+  fun selectionStartingInsideItemCodeKeepsOneIndentAcrossSpans() {
+    val spannable =
+      render(
+        unorderedList(
+          listItem(paragraph(text("Item")), codeBlock("first\nsecond\nthird\n")),
+          listItem(paragraph(text("Next"))),
+        ),
+      )
+    val text = spannable.toString()
+    // A syntax-highlighting span splits the block into several segments.
+    val token = text.indexOf("ec")
+    spannable.setSpan(ForegroundColorSpan(Color.RED), token, token + "ec".length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+
+    val fromInside = MarkdownExtractor.extractFromSpannable(spannable, text.indexOf("irst"), text.indexOf("third") + "third\n".length)
+    assertEquals("```\nirst\nsecond\nthird\n```\n", fromInside)
+
+    val fromBlockStart = MarkdownExtractor.extractFromSpannable(spannable, text.indexOf("first"), text.indexOf("third") + "third\n".length)
+    assertEquals("```\nfirst\nsecond\nthird\n```\n", fromBlockStart)
   }
 
   private fun codeBlock(code: String) =

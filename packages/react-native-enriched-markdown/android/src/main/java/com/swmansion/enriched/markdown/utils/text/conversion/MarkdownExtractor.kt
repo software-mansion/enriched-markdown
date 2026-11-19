@@ -249,9 +249,19 @@ object MarkdownExtractor {
 
     // The fence takes the item's marker only when the selection includes the block's first line.
     val opensItem = opensBlock && blockOpensItem
-    val nestedItem = item?.takeIf { opensItem || result.isNotEmpty() }
-    val indent = nestedItem?.let { contentIndent(it) } ?: ""
-    if (nestedItem != null) state.listDepth = nestedItem.depth
+
+    // Highlighting spans split a block into several segments. The indent is decided on the block's first selected
+    // segment and reused for the rest, so later lines don't gain an indent the fence lacks.
+    val indent: String
+    if (!opensBlock && state.codeBlock === block) {
+      indent = state.codeBlockIndent
+    } else {
+      val nestedItem = item?.takeIf { opensItem || result.isNotEmpty() }
+      indent = nestedItem?.let { contentIndent(it) } ?: ""
+      if (nestedItem != null) state.listDepth = nestedItem.depth
+      state.codeBlock = block
+      state.codeBlockIndent = indent
+    }
 
     val needsFence = result.isEmpty() || result.endsWith("\n\n") || opensBlock
     if (needsFence) {
@@ -268,7 +278,8 @@ object MarkdownExtractor {
 
     if (text.endsWith("\n")) {
       result.append(indent).append("```\n")
-      state.needsBlankLine = nestedItem == null
+      // An unindented block is not nested in a list item.
+      state.needsBlankLine = indent.isEmpty()
     }
   }
 
@@ -392,6 +403,9 @@ object MarkdownExtractor {
     var blockquoteDepth: Int = -1,
     var listDepth: Int = -1,
     var needsBlankLine: Boolean = false,
+    /** The code block being extracted and the indent chosen for it on its first selected segment. */
+    var codeBlock: CodeBlockSpan? = null,
+    var codeBlockIndent: String = "",
   )
 
   /** Accumulates heading content across multiple span segments. */
