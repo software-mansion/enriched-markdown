@@ -26,7 +26,7 @@
     return 0;
   }
   CGFloat height = MAX(_measure(slotId, width), 0);
-  _frames[slotId] = [NSValue valueWithCGRect:CGRectMake(origin.x, origin.y, width, height)];
+  _frames[slotId] = ENRMBoxRect(CGRectMake(origin.x, origin.y, width, height));
   return height;
 }
 

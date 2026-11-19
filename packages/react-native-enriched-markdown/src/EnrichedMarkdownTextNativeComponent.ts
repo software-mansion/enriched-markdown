@@ -287,6 +287,11 @@ export interface ImagePressEvent {
   altText: string;
 }
 
+export interface TextPressEvent {
+  index: CodegenTypes.Int32;
+  text: string;
+}
+
 export interface TaskListItemPressEvent {
   index: CodegenTypes.Int32;
   checked: boolean;
@@ -341,6 +346,14 @@ export interface SelectionMenuConfig {
 export interface OnContextMenuItemPressEvent {
   itemText: string;
   selectedText: string;
+  selectionStart: CodegenTypes.Int32;
+  selectionEnd: CodegenTypes.Int32;
+}
+
+export interface SelectionCopyEvent {
+  text: string;
+  // 'plain' | 'markdown' | 'imageUrls'
+  format: string;
   selectionStart: CodegenTypes.Int32;
   selectionEnd: CodegenTypes.Int32;
 }
@@ -402,6 +415,12 @@ export interface Md4cFlagsInternal {
    */
   subscript: boolean;
   /**
+   * Enable strikethrough parsing (~~text~~ and ~text~) in CommonMark.
+   * GitHub flavor always enables it, so this is forced off there.
+   * @default false
+   */
+  strikethrough: boolean;
+  /**
    * Enable LaTeX math span parsing ($..$ and $$..$$).
    * When disabled, dollar signs are treated as plain text.
    * @default true
@@ -434,6 +453,13 @@ interface StreamingConfigInternal {
   tableMode: string;
   codeBlockMode: string;
   mediaMode?: string;
+  animation: string;
+  // The options of `animation`: duration in ms, length in characters.
+  animationDuration?: CodegenTypes.Float;
+  animationLength?: CodegenTypes.Int32;
+  animationStartColor?: ColorValue;
+  animationEndColor?: ColorValue;
+  smooth?: boolean;
 }
 
 interface LinkContextMenuItemConfig {
@@ -468,6 +494,12 @@ export interface NativeProps extends ViewProps {
    */
   markdown: string;
   /**
+   * A stream (createMarkdownStream) whose first `streamLength` bytes replace
+   * `markdown`; the component descriptor fills them in. 0 for none.
+   */
+  streamId?: CodegenTypes.WithDefault<CodegenTypes.Int32, 0>;
+  streamLength?: CodegenTypes.WithDefault<CodegenTypes.Int32, 0>;
+  /**
    * Internal style configuration for markdown elements.
    * Always provided with complete defaults via normalizeMarkdownStyle.
    * Block styles (paragraph, headings) contain fontSize, fontFamily, fontWeight, and color.
@@ -501,6 +533,19 @@ export interface NativeProps extends ViewProps {
    * @default false
    */
   enableImagePress?: CodegenTypes.WithDefault<boolean, false>;
+  /**
+   * Callback fired when plain text is tapped (not a link, image, checkbox or
+   * other interactive element). Receives the UTF-16 index of the character
+   * under the tap within the tapped text block, and that block's rendered text.
+   */
+  onTextPress?: CodegenTypes.BubblingEventHandler<TextPressEvent>;
+  /**
+   * Gates native plain-text tap handling. Set automatically to `true` by the
+   * JS wrapper when `onTextPress` is provided.
+   *
+   * @default false
+   */
+  enableTextPress?: CodegenTypes.WithDefault<boolean, false>;
   /**
    * Callback fired when a task list checkbox is tapped.
    * Receives the 0-based task index, current checked state, and the item's plain text.
@@ -608,15 +653,16 @@ export interface NativeProps extends ViewProps {
    */
   allowTrailingMargin?: CodegenTypes.WithDefault<boolean, false>;
   /**
-   * When true, newly appended content fades in during streaming updates.
-   * Only the tail (new characters beyond the previous content) is animated.
+   * While true, incomplete syntax at the end of `markdown` is held back or
+   * repaired, and new content animates in per `streamingConfig.animation`.
    * @default false
    */
-  streamingAnimation?: CodegenTypes.WithDefault<boolean, false>;
+  streaming?: CodegenTypes.WithDefault<boolean, false>;
   /**
-   * Fine-grained control over streaming behavior for block-level elements.
+   * Fine-grained control over streaming behavior.
    */
   streamingConfig?: StreamingConfigInternal;
+  onStreamingEnd?: CodegenTypes.DirectEventHandler<null>;
   /**
    * Controls how spoiler text is displayed before being revealed.
    * - 'particles' (default): animated particle overlay.
@@ -652,6 +698,12 @@ export interface NativeProps extends ViewProps {
    * Receives the item label, the currently selected text, and the selection range.
    */
   onContextMenuItemPress?: CodegenTypes.BubblingEventHandler<OnContextMenuItemPressEvent>;
+  /**
+   * Fired after a text selection is copied from the selection menu, with the
+   * keyboard shortcut, or through TalkBack. Receives the copied text, its
+   * format, and the range.
+   */
+  onSelectionCopy?: CodegenTypes.BubblingEventHandler<SelectionCopyEvent>;
   /**
    * Sets the text break strategy on Android (API 23+).
    * @default 'highQuality'

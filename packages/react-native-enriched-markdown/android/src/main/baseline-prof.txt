@@ -181,7 +181,7 @@ Lcom/swmansion/enriched/markdown/spans/CodeBackgroundSpan;
 Lcom/swmansion/enriched/markdown/spans/CodeBlockSpan;
 Lcom/swmansion/enriched/markdown/spans/CodeSpan;
 Lcom/swmansion/enriched/markdown/spans/EmphasisSpan;
-Lcom/swmansion/enriched/markdown/spans/FadeInSpan;
+Lcom/swmansion/enriched/markdown/spans/StreamingEffectSpan;
 Lcom/swmansion/enriched/markdown/spans/HeadingSpan;
 Lcom/swmansion/enriched/markdown/spans/HighlightSpan;
 Lcom/swmansion/enriched/markdown/spans/ImageSpan;
@@ -283,7 +283,8 @@ Lcom/swmansion/enriched/markdown/utils/input/MarkdownStyleParser;
 # Utilities - Text
 Lcom/swmansion/enriched/markdown/utils/text/ImageCache;
 Lcom/swmansion/enriched/markdown/utils/text/ImageDownloader;
-Lcom/swmansion/enriched/markdown/utils/text/TailFadeInAnimator;
+Lcom/swmansion/enriched/markdown/utils/text/StreamingEffectRuns;
+Lcom/swmansion/enriched/markdown/utils/text/StreamingEffectsAnimator;
 Lcom/swmansion/enriched/markdown/utils/text/conversion/HTMLGenerator;
 Lcom/swmansion/enriched/markdown/utils/text/conversion/HTMLGenerator$CachedStyles;
 Lcom/swmansion/enriched/markdown/utils/text/conversion/HTMLGenerator$GeneratorState;

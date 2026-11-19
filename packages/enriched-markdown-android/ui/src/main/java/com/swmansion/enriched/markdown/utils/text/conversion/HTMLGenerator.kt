@@ -21,6 +21,7 @@ import com.swmansion.enriched.markdown.spans.HeadingSpan
 import com.swmansion.enriched.markdown.spans.HighlightSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
+import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.spans.StrongSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
@@ -278,6 +279,8 @@ object HTMLGenerator {
      */
     val admonitionType: String? = null,
     val isTaskChecked: Boolean = false,
+    /** The number an ordered list item draws; the item that opens an `<ol>` sets its `start`. */
+    val itemNumber: Int = 1,
   )
 
   fun generateHTML(
@@ -331,6 +334,21 @@ object HTMLGenerator {
     if (paraText.isEmpty() && para.type == TYPE_NORMAL) {
       closeAllBlockquotes(html, state)
       state.previousWasBlockquote = false
+      return
+    }
+
+    // A block's bottom-margin line inside a list item or a quote holds no content of its own, but it
+    // still ends a code block, and in a quote that opens with code it is the first line to open the quote.
+    // A root quote's own margin line sits outside its span, so outside a quote this line ends any open one.
+    if (paraText.isEmpty() && text.getSpans(para.start, para.start + 1, MarginBottomSpan::class.java).isNotEmpty()) {
+      closeCodeBlockIfOpen(html, state, styles)
+      if (para.type == TYPE_BLOCKQUOTE) {
+        openBlockquotesTo(html, para, styles, state)
+        state.previousWasBlockquote = true
+      } else {
+        closeAllBlockquotes(html, state)
+        state.previousWasBlockquote = false
+      }
       return
     }
 
@@ -393,15 +411,13 @@ object HTMLGenerator {
     html.append("</code></pre>")
   }
 
-  private fun handleBlockquote(
+  /** Closes and opens quotes until as many are open as [para] is deep. */
+  private fun openBlockquotesTo(
     html: StringBuilder,
-    content: String,
     para: ParagraphInfo,
     styles: CachedStyles,
     state: GeneratorState,
   ) {
-    closeCodeBlockIfOpen(html, state, styles)
-
     val depth = para.depth
 
     // Reset if coming from non-blockquote content
@@ -453,6 +469,18 @@ object HTMLGenerator {
           .append(";\">")
       }
     }
+  }
+
+  private fun handleBlockquote(
+    html: StringBuilder,
+    content: String,
+    para: ParagraphInfo,
+    styles: CachedStyles,
+    state: GeneratorState,
+  ) {
+    closeCodeBlockIfOpen(html, state, styles)
+
+    openBlockquotesTo(html, para, styles, state)
 
     // The spacer paragraph that opens an admonition holds no text of its own: it becomes the
     // header row rather than an empty <p>. The octicon is left out — a tinted bold title carries
@@ -530,8 +558,15 @@ object HTMLGenerator {
         }
 
       if (isOrdered) {
+        html.append("<ol ")
+        if (state.listDepth == depth && para.itemNumber != 1) {
+          html
+            .append("start=\"")
+            .append(para.itemNumber)
+            .append("\" ")
+        }
         html
-          .append("<ol style=\"")
+          .append("style=\"")
           .append(marginStyle)
           .append("padding-inline-start: ")
           .append(styles.listMarginLeft)
@@ -945,6 +980,7 @@ object HTMLGenerator {
           depth = depth,
           admonitionType = admonitionType,
           isTaskChecked = isTaskChecked,
+          itemNumber = (listSpan as? OrderedListSpan)?.itemNumber ?: 1,
         ),
       )
       currentIndex = lineEnd

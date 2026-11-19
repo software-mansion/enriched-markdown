@@ -116,7 +116,11 @@ class BlockquoteContainerView(
     setOnLongClickListener { view -> showContextMenu(view) }
   }
 
-  fun applyBlockquoteNode(node: MarkdownASTNode) {
+  /** [taskIndexOffset] is the document-global index of the quote's first task-list item. */
+  fun applyBlockquoteNode(
+    node: MarkdownASTNode,
+    taskIndexOffset: Int = 0,
+  ) {
     admonitionType =
       if (node.type == MarkdownASTNode.NodeType.Admonition) {
         node.getAttribute("admonitionType")?.takeIf { it.isNotEmpty() } ?: "note"
@@ -139,6 +143,7 @@ class BlockquoteContainerView(
         parentConfig.onLinkLongPress,
         blockquoteStyle,
         onLatexError = parentConfig.onLatexError,
+        startingTaskIndex = taskIndexOffset,
       )
     applySegments(rendered, reset = false)
     requestLayout()
@@ -326,7 +331,7 @@ class BlockquoteContainerView(
         is RenderedSegment.Table -> (view as TableContainerView).applyTableNode(segment.node)
         is RenderedSegment.Math -> SegmentViewCreators.updateMathView(view, segment)
         is RenderedSegment.CodeBlock -> (view as CodeBlockContainerView).applyCodeBlockNode(segment.node)
-        is RenderedSegment.Blockquote -> (view as BlockquoteContainerView).applyBlockquoteNode(segment.node)
+        is RenderedSegment.Blockquote -> (view as BlockquoteContainerView).applyBlockquoteNode(segment.node, segment.taskIndexOffset)
         is RenderedSegment.Video -> SegmentViewCreators.updateVideoView(view, segment)
         is RenderedSegment.BlockSlot -> SegmentViewCreators.updateBlockSlotView(view as BlockSlotSegmentView, segment)
       }

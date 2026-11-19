@@ -1,6 +1,16 @@
-import { useMemo, useCallback, useRef, useEffect } from 'react';
+import {
+  useMemo,
+  useCallback,
+  useRef,
+  useEffect,
+  type ComponentType,
+  type ReactNode,
+} from 'react';
 import EnrichedMarkdownTextNativeComponent from '../EnrichedMarkdownTextNativeComponent';
-import type { MarkdownStyleInternal } from '../EnrichedMarkdownTextNativeComponent';
+import type {
+  MarkdownStyleInternal,
+  SelectionCopyEvent as NativeSelectionCopyEvent,
+} from '../EnrichedMarkdownTextNativeComponent';
 import EnrichedMarkdownNativeComponent from '../EnrichedMarkdownNativeComponent';
 import {
   isLinkRecognitionEqual,
@@ -18,9 +28,21 @@ import {
   normalizeLinkContextMenuItems,
 } from '../linkContextMenuUtils';
 import { resolveAccessibilityLabels } from '../accessibilityLabelDefaults';
-import { useBlockSlots, useCollectedMarkdown } from './useBlockSlots';
+import {
+  NOT_COLLECTED,
+  useBlockSlots,
+  useCollectedMarkdown,
+} from './useBlockSlots';
 import { hasRenderers } from '../blockRenderers';
 import { useImageSources } from './useImageSources';
+import { useLinksChange } from '../linkOccurrences';
+import { useStreamingEffects } from '../streamingEffects';
+import {
+  useMarkdownStreamEnded,
+  useMarkdownStreamSnapshot,
+  type MarkdownStream,
+  type MarkdownStreamSnapshot,
+} from '../markdownStream';
 import {
   normalizeMenuItem,
   normalizeLegacyBooleanMenuItem,
@@ -30,6 +52,9 @@ import type { MarkdownStyle, Md4cFlags } from '../types/MarkdownStyle';
 import type {
   EnrichedMarkdownTextProps,
   StreamingConfig,
+  StreamingAnimation,
+  StreamingFade,
+  StreamingGradient,
   ContextMenuItem,
   SelectionMenuConfig,
   SelectionMenuPluralLabels,
@@ -39,28 +64,36 @@ import type {
   MarkdownImageBlock,
   MarkdownVideoBlock,
   MarkdownLinkBlock,
+  MarkdownCodeBlock,
   MarkdownBlock,
   MarkdownRenderers,
   MarkdownImagePlacement,
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
 } from '../types/MarkdownTextProps';
 import type {
   LinkPressEvent,
   LinkLongPressEvent,
   ImagePressEvent,
+  TextPressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
   LatexErrorEvent,
   CodeBlockPressEvent,
   OnContextMenuItemPressEvent,
   OnLinkContextMenuItemPressEvent,
+  SelectionCopyEvent,
 } from '../types/events';
+import { isDev } from '../utils/isDev';
 
 export type { MarkdownStyle, Md4cFlags };
 export type {
   EnrichedMarkdownTextProps,
   StreamingConfig,
+  StreamingAnimation,
+  StreamingFade,
+  StreamingGradient,
   ContextMenuItem,
   SelectionMenuConfig,
   SelectionMenuPluralLabels,
@@ -70,11 +103,13 @@ export type {
   MarkdownImageBlock,
   MarkdownVideoBlock,
   MarkdownLinkBlock,
+  MarkdownCodeBlock,
   MarkdownBlock,
   MarkdownRenderers,
   MarkdownImagePlacement,
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
 };
 export type {
   LinkPressEvent,
@@ -84,6 +119,7 @@ export type {
   CopyPressEvent,
   LatexErrorEvent,
   CodeBlockPressEvent,
+  SelectionCopyEvent,
 };
 
 // Default English labels for the built-in selection menu actions. Defaults are
@@ -149,10 +185,13 @@ const buildPluralTemplates = (
 
 const NO_BLOCKS: ReadonlyArray<MarkdownBlock> = [];
 
+let warnedStreamingAnimation = false;
+
 const defaultMd4cFlags: Md4cFlags = {
   underline: false,
   superscript: false,
   subscript: false,
+  strikethrough: false,
   latexMath: true,
   highlight: false,
   hardSoftBreaks: false,
@@ -161,12 +200,14 @@ const defaultMd4cFlags: Md4cFlags = {
 };
 
 export const EnrichedMarkdownText = ({
-  markdown,
+  markdown: markdownProp = '',
+  stream,
   markdownStyle = {},
   containerStyle,
   onLinkPress,
   onLinkLongPress,
   onImagePress,
+  onTextPress,
   onTaskListItemPress,
   enableTaskListItemToggle = true,
   onCopyPress,
@@ -181,17 +222,21 @@ export const EnrichedMarkdownText = ({
   maxFontSizeMultiplier,
   allowTrailingMargin = false,
   flavor = 'commonmark',
-  streamingAnimation = false,
+  streaming: streamingProp,
+  streamingAnimation,
   streamingConfig,
+  onStreamingEnd,
   spoilerOverlay = 'particles',
   contextMenuItems,
   linkContextMenuItems,
   imageRequestHeaders,
   renderers,
   resolveImageSource,
+  onLinksChange,
   linkPillContent,
   linkRecognition,
   selectionMenuConfig,
+  onSelectionCopy,
   accessibilityLabels,
   selectionColor,
   selectionHandleColor,
@@ -236,11 +281,16 @@ export const EnrichedMarkdownText = ({
   // `> [!NOTE]` renders as a plain blockquote.
   const admonitions =
     flavor === 'github' ? (md4cFlags.admonitions ?? true) : false;
+  // GitHub flavor always parses strikethrough, so the flag cannot change the
+  // result there; force it off so toggling it does not invalidate anything.
+  const strikethrough =
+    flavor === 'github' ? false : (md4cFlags.strikethrough ?? false);
   const normalizedMd4cFlags = useMemo(
     () => ({
       underline,
       superscript,
       subscript,
+      strikethrough,
       latexMath,
       highlight,
       hardSoftBreaks,
@@ -251,6 +301,7 @@ export const EnrichedMarkdownText = ({
       underline,
       superscript,
       subscript,
+      strikethrough,
       latexMath,
       highlight,
       hardSoftBreaks,
@@ -369,6 +420,14 @@ export const EnrichedMarkdownText = ({
     [onImagePress]
   );
 
+  const handleTextPress = useCallback(
+    (e: NativeSyntheticEvent<TextPressEvent>) => {
+      const { index, text } = e.nativeEvent;
+      onTextPress?.({ index, text });
+    },
+    [onTextPress]
+  );
+
   const handleTaskListItemPress = useCallback(
     (e: NativeSyntheticEvent<TaskListItemPressEvent>) => {
       const { index, checked, text } = e.nativeEvent;
@@ -383,6 +442,11 @@ export const EnrichedMarkdownText = ({
       onCopyPress?.({ code, language });
     },
     [onCopyPress]
+  );
+
+  const handleStreamingEnd = useCallback(
+    () => onStreamingEnd?.(),
+    [onStreamingEnd]
   );
 
   const handleLatexError = useCallback(
@@ -401,12 +465,76 @@ export const EnrichedMarkdownText = ({
     [onCodeBlockPress]
   );
 
+  const handleSelectionCopy = useCallback(
+    (e: NativeSyntheticEvent<NativeSelectionCopyEvent>) => {
+      const { text, format, selectionStart, selectionEnd } = e.nativeEvent;
+      onSelectionCopy?.({
+        text,
+        format: format as SelectionCopyEvent['format'],
+        selection: { start: selectionStart, end: selectionEnd },
+      });
+    },
+    [onSelectionCopy]
+  );
+
+  if (isDev && streamingAnimation !== undefined && !warnedStreamingAnimation) {
+    warnedStreamingAnimation = true;
+    console.warn(
+      '[react-native-enriched-markdown] `streamingAnimation` is deprecated: use `streaming`, and turn it off when the stream ends. ' +
+        'Like `streaming`, it holds back incomplete blocks and repairs half-written syntax while it is on.'
+    );
+  }
+  const isGFM = flavor === 'github';
+  const renderersEnabled = hasRenderers(renderers);
+  const collectEnabled =
+    renderersEnabled || resolveImageSource != null || onLinksChange != null;
+  // With nothing here reading the text (only github collects), the stream's frames re-render only
+  // NativeMarkdown.
+  const readsStream = collectEnabled && isGFM;
+  const followedStream = readsStream ? undefined : stream;
+  const streamSnapshot = useMarkdownStreamSnapshot(
+    readsStream ? stream : undefined
+  );
+  const streamEnded = useMarkdownStreamEnded(stream);
+  const markdown = streamSnapshot?.text ?? markdownProp;
+  const streaming =
+    streamingProp ??
+    streamingAnimation ??
+    (streamEnded != null && !streamEnded);
   const tableMode = streamingConfig?.tableMode ?? 'progressive';
   const codeBlockMode = streamingConfig?.codeBlockMode ?? 'progressive';
   const mediaMode = streamingConfig?.mediaMode ?? 'progressive';
+  const {
+    animation,
+    animationDuration,
+    animationLength,
+    animationStartColor,
+    animationEndColor,
+  } = useStreamingEffects(streamingConfig?.animation);
+  const smooth = streamingConfig?.smooth ?? false;
   const normalizedStreamingConfig = useMemo(
-    () => ({ tableMode, codeBlockMode, mediaMode }),
-    [tableMode, codeBlockMode, mediaMode]
+    () => ({
+      tableMode,
+      codeBlockMode,
+      mediaMode,
+      animation,
+      animationDuration,
+      animationLength,
+      animationStartColor,
+      animationEndColor,
+      smooth,
+    }),
+    [
+      tableMode,
+      codeBlockMode,
+      mediaMode,
+      animation,
+      animationDuration,
+      animationLength,
+      animationStartColor,
+      animationEndColor,
+      smooth,
+    ]
   );
   const normalizedSelectionMenuConfig = useMemo(() => {
     // The boolean acceptance is confined to this wrapper boundary via a single
@@ -462,20 +590,20 @@ export const EnrichedMarkdownText = ({
 
   // One parse on the JS thread serves both: the slot children land in the same
   // commit as the markdown they describe, the image sources before it is drawn.
-  const isGFM = flavor === 'github';
-  const renderersEnabled = hasRenderers(renderers);
-  const collectEnabled = renderersEnabled || resolveImageSource != null;
+  const nativeStream = nativeStreamOf(streamSnapshot);
   const collectStreaming = useMemo(
     () => ({
-      enabled: streamingAnimation,
+      enabled: streaming,
       tableMode,
       codeBlockMode,
       mediaMode,
     }),
-    [streamingAnimation, tableMode, codeBlockMode, mediaMode]
+    [streaming, tableMode, codeBlockMode, mediaMode]
   );
   const collected = useCollectedMarkdown(
     markdown,
+    nativeStream?.streamId ?? 0,
+    nativeStream?.length ?? 0,
     normalizedMd4cFlags,
     isGFM,
     collectEnabled,
@@ -490,15 +618,18 @@ export const EnrichedMarkdownText = ({
     resolveImageSource,
     resolveImageSource != null && isGFM
   );
+  useLinksChange(collected.links, onLinksChange, collected !== NOT_COLLECTED);
 
   const sharedProps = {
-    markdown,
+    ...streamProps(nativeStream, markdown),
     linkRecognition: nativeLinkRecognition,
     markdownStyle: normalizedStyle,
     onLinkPress: handleLinkPress,
     onLinkLongPress: handleLinkLongPress,
     onImagePress: handleImagePress,
     enableImagePress: onImagePress != null,
+    onTextPress: handleTextPress,
+    enableTextPress: onTextPress != null,
     onTaskListItemPress: handleTaskListItemPress,
     enableTaskListItemToggle,
     onCopyPress: handleCopyPress,
@@ -513,8 +644,9 @@ export const EnrichedMarkdownText = ({
     allowFontScaling,
     maxFontSizeMultiplier,
     allowTrailingMargin,
-    streamingAnimation,
+    streaming,
     streamingConfig: normalizedStreamingConfig,
+    onStreamingEnd: handleStreamingEnd,
     spoilerOverlay,
     style: containerStyle,
     contextMenuItems: nativeContextMenuItems,
@@ -525,6 +657,7 @@ export const EnrichedMarkdownText = ({
     selectionMenuConfig: normalizedSelectionMenuConfig,
     accessibilityLabels: resolvedAccessibilityLabels,
     onContextMenuItemPress: handleContextMenuItemPress,
+    onSelectionCopy: handleSelectionCopy,
     selectionColor,
     selectionHandleColor,
     textBreakStrategy,
@@ -535,19 +668,58 @@ export const EnrichedMarkdownText = ({
     ...rest,
   };
 
-  if (isGFM) {
-    return (
-      <EnrichedMarkdownNativeComponent
-        {...sharedProps}
-        enableCodeBlockWrapToggle={enableCodeBlockWrapToggle}
-        imageSources={imageSources}
-      >
-        {slotChildren}
-      </EnrichedMarkdownNativeComponent>
-    );
-  }
-
-  return <EnrichedMarkdownTextNativeComponent {...sharedProps} />;
+  return isGFM ? (
+    <NativeMarkdown
+      stream={followedStream}
+      Component={EnrichedMarkdownNativeComponent}
+      nativeProps={{ ...sharedProps, enableCodeBlockWrapToggle, imageSources }}
+    >
+      {slotChildren}
+    </NativeMarkdown>
+  ) : (
+    <NativeMarkdown
+      stream={followedStream}
+      Component={EnrichedMarkdownTextNativeComponent}
+      nativeProps={sharedProps}
+    />
+  );
 };
+
+// A native stream's text stays in C++: the component descriptor puts it in `markdown`.
+const nativeStreamOf = (snapshot: MarkdownStreamSnapshot | null) =>
+  snapshot != null && snapshot.streamId !== 0 ? snapshot : null;
+
+const streamProps = (
+  nativeStream: MarkdownStreamSnapshot | null,
+  markdown: string
+) => ({
+  // Never real markdown, so leaving the stream sends `markdown` again.
+  markdown: nativeStream ? `\0stream:${nativeStream.streamId}` : markdown,
+  streamId: nativeStream?.streamId ?? 0,
+  streamLength: nativeStream?.length ?? 0,
+});
+
+/** The native view; given `stream`, it follows the stream's frames itself. */
+function NativeMarkdown<Props extends ReturnType<typeof streamProps>>({
+  stream,
+  Component,
+  nativeProps,
+  children,
+}: {
+  stream: MarkdownStream | undefined;
+  Component: ComponentType<Props>;
+  nativeProps: Props;
+  children?: ReactNode;
+}) {
+  const snapshot = useMarkdownStreamSnapshot(stream);
+  const props =
+    snapshot != null
+      ? {
+          ...nativeProps,
+          ...streamProps(nativeStreamOf(snapshot), snapshot.text),
+        }
+      : nativeProps;
+  return <Component {...props}>{children}</Component>;
+}
 
 export default EnrichedMarkdownText;

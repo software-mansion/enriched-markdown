@@ -19,7 +19,7 @@
 - 📐 CommonMark standard compliant
 - 📊 GitHub Flavored Markdown (GFM)
 - 🧮 LaTeX math rendering (block `$$...$$` with `flavor="github"`, inline `$...$` in all flavors)
-- 🔀 [Markdown Streaming](../../docs-md/MARKDOWN_STREAMING.md) support (via [react-native-streamdown](https://github.com/software-mansion-labs/react-native-streamdown))
+- 🔀 [Markdown Streaming](../../docs-md/MARKDOWN_STREAMING.md): new text fades in, incomplete blocks are held back and half-written syntax is repaired as an LLM streams
 - 🎨 Fully customizable styles for all elements
 - ✨ Text selection and copy support
 - 📌 Custom text selection context menu items
@@ -76,7 +76,7 @@ We can help you build your next dream product –
 - [API Reference](#api-reference)
 - [Testing with Jest](../../docs-md/TESTING.md)
 - [Web Support](../../docs-md/WEB.md)
-  - [Web Editor (experimental)](../../docs-md/WEB_INPUT.md)
+  - [Web Editor](../../docs-md/WEB_INPUT.md)
 - [macOS Support](../../docs-md/MACOS.md)
 - [Compatibility Table](#compatibility-table)
 - [Contributing](#contributing)
@@ -95,7 +95,7 @@ We can help you build your next dream product –
 
 - Requires [`react-native-web`](https://necolas.github.io/react-native-web/) (or a `react-native` → `react-native-web` alias); the package's `browser` field points web bundlers at the web build
 - No New Architecture requirement — the web renderer runs entirely in JavaScript via WebAssembly
-- `EnrichedMarkdownText` and `EnrichedMarkdownTextInput` both run on web; see [Web Support](../../docs-md/WEB.md) for what is not supported there. The web editor is [![Experimental](https://img.shields.io/badge/-experimental-orange "Experimental: this feature is still taking shape and may get breaking changes, including in nightly releases.")](../../docs-md/WEB_INPUT.md#experimental-status); see [Web Editor](../../docs-md/WEB_INPUT.md)
+- `EnrichedMarkdownText` and `EnrichedMarkdownTextInput` both run on web; see [Web Support](../../docs-md/WEB.md) for what is not supported there. The web editor is covered in [Web Editor](../../docs-md/WEB_INPUT.md)
 - LaTeX math requires the optional [`katex`](https://katex.org/) peer dependency
 
 ## Installation
@@ -257,7 +257,7 @@ We're actively working on expanding the capabilities of `react-native-enriched-m
 
 - `EnrichedMarkdownTextInput`: blockquotes, code blocks, inline images
 - `EnrichedMarkdownTextInput` on web: links and mentions
-- macOS: block math rendering, VoiceOver accessibility, tail fade-in animation
+- macOS: block math rendering, VoiceOver accessibility, streaming animations
 - Web (`EnrichedMarkdownText`): spoiler text, streaming animation, configurable link `target`, copy options (Copy as Markdown, multi-format clipboard)
 
 ## Compatibility Table
@@ -265,6 +265,7 @@ We're actively working on expanding the capabilities of `react-native-enriched-m
 |             | 0.82 | 0.83 | 0.84 | 0.85 | 0.86 | 0.87 | 0.88 |
 | ----------- | :--: | :--: | :--: | :--: | :--: | :--: | :--: |
 | **nightly** |  ⛔  |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |
+| **1.2.0**   |  ⛔  |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |
 | **1.1.x**   |  ⛔  |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |
 | **1.0.x**   |  ⛔  |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |
 | **0.7.0**   |  ⛔  |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |

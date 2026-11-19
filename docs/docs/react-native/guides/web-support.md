@@ -22,7 +22,7 @@ and no build step is required by consumers.
 :::note
 This page covers `EnrichedMarkdownText` (the renderer) and the setup it shares
 with the editor. `EnrichedMarkdownTextInput` also runs on web, as an
-<ExperimentalBadge /> editor with a smaller feature set - see
+editor with a smaller feature set - see
 [Web editor](/react-native/guides/web-editor). The
 [Feature support](/introduction/supported-features) overview has the full
 matrix.
@@ -256,10 +256,12 @@ warnings. Use `id`, `aria-*` and CSS instead.
 :::
 
 :::note
-Parsing is asynchronous: the component returns `null` until the first parse
-resolves. That means one empty frame on mount, and nothing at all emitted during
-server-side rendering - wrap it in a client-only boundary if your framework
-pre-renders. (Style injection itself is SSR-safe.)
+The WASM parser loads once per page, starting when the package is imported. An
+instance mounted before that load finishes renders nothing until it does. From
+then on, every render shows the markdown it was given in the same commit.
+Nothing is emitted during server-side rendering - wrap the component in a
+client-only boundary if your framework pre-renders. (Style injection itself is
+SSR-safe.)
 :::
 
 If parsing fails, the component does not crash: it renders the raw `markdown`
@@ -276,10 +278,11 @@ All core `EnrichedMarkdownText` features are supported on web, including:
 - `onLinkPress`, `onLinkLongPress` (mapped to the `contextmenu` event), `onImagePress`, `onTaskListItemPress` and `onCodeBlockPress`
 - `onCodeBlockPress` - makes fenced code blocks clickable and keyboard-activatable (Enter/Space) with a button role; it does not fire while code text is selected
 - `onImagePress` - makes rendered images focusable and keyboard-activatable (Enter/Space) with a button role; the browser's right-click menu is preserved
-- [`renderers`](/react-native/guides/custom-block-renderers) - React replacements for standalone images, standalone links and `<video>` blocks, with the same block ids and placements as native; the element replaces the block in the DOM and keeps its spacing
+- [`renderers`](/react-native/guides/custom-block-renderers) - React replacements for standalone images, standalone links, `<video>` blocks and code blocks, with the same block ids and placements as native; the element replaces the block in the DOM and keeps its spacing
 - `resolveImageSource` - swaps the `src` of every image occurrence, synchronously or from a promise; headers are dropped because `<img>` requests cannot carry them, and a pending or failed resolution renders the image without a source
 - `enableTaskListItemToggle` - set to `false` to render task list checkboxes read-only (the click is fully inert: no toggle, no `onTaskListItemPress`). The checkbox keeps its normal appearance, marked `readOnly` / `aria-disabled` and made pointer-inert rather than `disabled`, matching iOS and Android
-- `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `latexMath`, `highlight`, `hardSoftBreaks`, `preserveBlankLines`, `admonitions`)
+- `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `strikethrough`, `latexMath`, `highlight`, `hardSoftBreaks`, `preserveBlankLines`, `admonitions`; `strikethrough` is accepted but has no effect, because web always parses GFM)
+- `stream` from `createMarkdownStream()`: the view renders the text appended so far (without the native streaming filter or fade)
 - GitHub admonitions (`> [!NOTE]`) - rendered as callouts with the same icon set and `blockquote.admonitions` palette as native. There is no `flavor` prop on web, so they are always on unless `md4cFlags={{ admonitions: false }}`
 - [RTL and mixed-direction (bidi) content](/user-experience/rtl), resolved per block as on native
 - Arbitrary DOM attributes, which pass through to the root `<div>`
@@ -339,8 +342,8 @@ it is exactly the native-only surface:
 | `enableLinkPreview`                          | iOS-only feature (native link preview on long press).                                                                                                                                                   |
 | `enableBlockContextMenu`                     | The long-press block menu is a native interaction.                                                                                                                                                      |
 | `allowFontScaling` / `maxFontSizeMultiplier` | React Native text scaling props. Browsers handle font scaling through zoom and OS accessibility settings instead.                                                                                       |
-| `streamingAnimation`                         | Native-only tail fade-in animation. Not yet implemented on web.                                                                                                                                         |
-| `streamingConfig`                            | Native-only streaming block handling. Not yet implemented on web.                                                                                                                                       |
+| `streaming`, `streamingAnimation`            | Native-only streaming handling and fade-in. Not yet implemented on web.                                                                                                                                 |
+| `streamingConfig`                            | Native-only streaming configuration. Not yet implemented on web.                                                                                                                                        |
 | `spoilerOverlay`                             | There is no spoiler renderer on web.                                                                                                                                                                    |
 | `contextMenuItems`                           | Not supported - browsers don't allow extending the native context menu.                                                                                                                                 |
 | `linkContextMenuItems`                       | iOS 17+ [link menus](/react-native/guides/link-menus). On web a link long press is the `contextmenu` event, delivered to `onLinkLongPress`.                                                                  |
@@ -348,6 +351,7 @@ it is exactly the native-only surface:
 | `selectionMenuConfig`                        | Not supported - native-only built-in selection menu actions.                                                                                                                                            |
 | `onCopyPress`                                | There is no code-block header or copy button on web, so it can never fire.                                                                                                                              |
 | `onLatexError`                               | Web renders math through KaTeX and does not report failures through this callback.                                                                                                                      |
+| `onStreamingEnd`                             | Streaming is native-only, so it can never fire.                                                                                                                                                         |
 | `imageRequestHeaders`                        | Browsers do not allow custom headers on `<img>` requests.                                                                                                                                               |
 | `accessibilityLabels`                        | The web a11y strings are hard-coded - see the caution above.                                                                                                                                            |
 | `selectionHandleColor`                       | Android-only - desktop browsers don't render selection handles.                                                                                                                                         |
@@ -373,7 +377,7 @@ gone, not concealed. Do not put content behind a spoiler if the same Markdown is
 rendered on web.
 :::
 
-- Editor features - `EnrichedMarkdownTextInput` runs on web but is experimental and covers less than on native. See [Web editor](/react-native/guides/web-editor#not-supported-on-web).
+- Editor features - `EnrichedMarkdownTextInput` runs on web but covers less than on native. See [Web editor](/react-native/guides/web-editor#not-supported-on-web).
 - Code-block syntax highlighting - fenced code blocks render as plain monospaced text with no per-token colors, no header bar and no copy button
 - Configurable link `target` - all links open in a new tab (`target="_blank" rel="noopener noreferrer"`). Use `onLinkPress` for custom navigation.
 - Line clamping - `numberOfLines` and `ellipsizeMode` are native-only and are not part of the web props type

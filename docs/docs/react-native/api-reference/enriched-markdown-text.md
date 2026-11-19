@@ -12,6 +12,7 @@ import FlavorSrc from '!!raw-loader!@site/src/examples/react-native/api-referenc
 import Md4cUnderlineSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cUnderline';
 import Md4cSuperscriptSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cSuperscript';
 import Md4cSubscriptSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cSubscript';
+import Md4cStrikethroughSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cStrikethrough';
 import Md4cHighlightSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cHighlight';
 import Md4cLatexMathSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cLatexMath';
 import Md4cHardSoftBreaksSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cHardSoftBreaks';
@@ -26,6 +27,7 @@ import OnTaskListItemPressSrc from '!!raw-loader!@site/src/examples/react-native
 import EnableTaskListItemToggleSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/EnableTaskListItemToggle';
 import EnableBlockContextMenuSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/EnableBlockContextMenu';
 import OnCopyPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnCopyPress';
+import OnSelectionCopySrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnSelectionCopy';
 import OnCodeBlockPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnCodeBlockPress';
 import OnLatexErrorSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnLatexError';
 import EnableLinkPreviewSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/EnableLinkPreview';
@@ -35,7 +37,8 @@ import SelectionHandleColorSrc from '!!raw-loader!@site/src/examples/react-nativ
 import AllowFontScalingSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/AllowFontScaling';
 import MaxFontSizeMultiplierSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/MaxFontSizeMultiplier';
 import AllowTrailingMarginSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/AllowTrailingMargin';
-import StreamingAnimationSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/StreamingAnimation';
+import StreamingSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Streaming';
+import StreamSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Stream';
 import StreamingConfigSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/StreamingConfig';
 import SpoilerOverlaySrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/SpoilerOverlay';
 import ImageRequestHeadersSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/ImageRequestHeaders';
@@ -87,11 +90,37 @@ Each prop has a live playground below - edit the code and try it. Props marked w
 
 ### `markdown`
 
-The Markdown content to render. Which syntax elements are recognized depends on the [`flavor`](#flavor) and the [`md4cFlags`](#md4cflags) you set. To learn more, see [Feature support](/introduction/supported-features).
+The Markdown content to render. Which syntax elements are recognized depends on the [`flavor`](#flavor) and the [`md4cFlags`](#md4cflags) you set. To learn more, see [Feature support](/introduction/supported-features). Ignored while [`stream`](#stream) is set.
 
-<PropInfo type="string" required />
+<PropInfo type="string" />
 
 <LivePreview src={MarkdownSrc} />
+
+### `stream`
+
+Markdown arriving in pieces, from `createMarkdownStream()`: an alternative to `markdown` for text that grows, such as an LLM answer. Appending to the stream doesn't re-render your component; the view updates once per frame. On iOS and Android the text stays in native memory, so only each chunk crosses from JavaScript.
+
+```tsx
+import { createMarkdownStream, EnrichedMarkdownText } from 'react-native-enriched-markdown';
+
+const stream = createMarkdownStream();
+for await (const chunk of response) stream.append(chunk);
+stream.end();
+
+<EnrichedMarkdownText stream={stream} />;
+```
+
+- `append(chunk)` adds to the end of the text. After `end()` or `dispose()` it is ignored, with a warning in development.
+- `getText()` returns the text appended so far, for example to save or copy the message. After `dispose()` it is empty, even while a view still shows it.
+- `end()` marks the text complete: the view stops [`streaming`](#streaming) and shows everything.
+- `reset(text?)` replaces the text (empty by default) and streams again, for a retry or a regeneration. It also works after `dispose()`.
+- `dispose()` ends the stream, if `end()` wasn't called, and frees the text once no view shows it; a view that mounts after that shows nothing. Call it when the message is gone. A stream that JavaScript no longer references is freed too, where the engine supports `FinalizationRegistry`.
+
+The view streams until `end()`; an explicit `streaming` prop takes precedence. A task-list checkbox toggled while streaming is reset by the next update. Create the stream outside the component (for example next to the message in your store), so it outlives views that unmount and mount again, such as rows of a list. For the same reason, don't dispose it in an effect cleanup of the component that renders it: StrictMode runs cleanups during development.
+
+<PropInfo type="MarkdownStream" />
+
+<LivePreview src={StreamSrc} />
 
 ### `markdownStyle`
 
@@ -131,7 +160,7 @@ Markdown flavor. `'commonmark'` (default) renders the whole document as a single
 
 Toggles for md4c's parser extensions; each opts a piece of extra inline syntax in or out. Pass only the flags you want to change; the rest keep their defaults below. Where a flag enables a new inline element, tune its appearance through the matching [style property](/react-native/api-reference/style-properties).
 
-<PropInfo type="Md4cFlags" default="{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false, admonitions: true }" />
+<PropInfo type="Md4cFlags" default="{ underline: false, superscript: false, subscript: false, strikethrough: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false, admonitions: true }" />
 
 #### `underline`
 
@@ -151,11 +180,23 @@ When `true`, parses `^text^` as superscript.
 
 #### `subscript`
 
-When `true`, parses `~text~` as subscript. When disabled, `~` means nothing on its own; `~~text~~` is strikethrough, but only under [`flavor="github"`](#flavor) - under `commonmark` the tildes render literally.
+When `true`, parses `~text~` as subscript. When disabled, `~text~` and `~~text~~` are both strikethrough under [`flavor="github"`](#flavor) or with [`md4cFlags={{ strikethrough: true }}`](#strikethrough). Otherwise, CommonMark renders the tildes literally. Double tildes stay strikethrough when this flag is on.
 
 <PropInfo type="boolean" default="false" />
 
 <LivePreview src={Md4cSubscriptSrc} />
+
+#### `strikethrough`
+
+When `true`, enables strikethrough under `flavor="commonmark"`, for both `~~text~~` and single-tilde `~text~`. If [`subscript`](#subscript) is also on, `~text~` is subscript instead and only `~~text~~` strikes.
+
+Under `flavor="github"` strikethrough is always on, so this flag has no effect there, and setting it to `false` does not turn strikethrough off. The web build always parses GitHub extensions, so it ignores this flag too.
+
+Use this flag to display strikethrough emitted by `EnrichedMarkdownTextInput` while keeping CommonMark's single text view, cross-block selection, and `numberOfLines` / `ellipsizeMode` support. It does not enable tables or task lists or change the rendering flavor.
+
+<PropInfo type="boolean" default="false" />
+
+<LivePreview src={Md4cStrikethroughSrc} unavailable unavailableReason={<>iOS and Android only - the web build always parses GitHub extensions, so there is no strikethrough switch.</>} />
 
 #### `highlight`
 
@@ -281,26 +322,39 @@ Whether to preserve the bottom margin of the last block element. When `false` (d
 
 <LivePreview src={AllowTrailingMarginSrc} />
 
-### `streamingAnimation`
+### `streaming`
 
-When `true`, newly appended content fades in during streaming updates. Only the tail is animated, and the tail is found by **length**, not by diffing: everything past the previous content's length fades in. Streaming therefore assumes append-only updates - replacing `markdown` wholesale (a retry or a regeneration) will not fade correctly. Recommended for LLM streaming use cases.
+Set to `true` while `markdown` is still arriving, for example an LLM answer streaming in. Incomplete syntax at the end of the document is held back or repaired instead of rendering as raw markdown (see [`streamingConfig`](#streamingconfig)), and new content fades in. Set it back to `false` when the stream ends: the final render shows everything, including content that was held back.
+
+New content is found by **length**, not by diffing: everything past the previous content's length counts as new. Streaming therefore assumes append-only updates - replacing `markdown` wholesale (a retry or a regeneration) will not fade correctly.
+
+`streamingAnimation` is the previous name of this prop. It still works, but is deprecated; when both are set, `streaming` wins.
 
 <PropInfo type="boolean" default="false" />
 
-<LivePreview src={StreamingAnimationSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - the fade-in animation is native. On macOS it degrades to an instant reveal.</>} />
+<LivePreview src={StreamingSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - streaming is native. On macOS the fade-in degrades to an instant reveal.</>} />
 
 ### `streamingConfig`
 
-Fine-grained control over how incomplete tables, fenced code blocks and media blocks are handled while streaming. Two conditions must both hold for it to do anything: `streamingAnimation` must be `true`, **and** the flavor must be `github` - the filter runs only on the segmented renderer, so under `flavor="commonmark"` you get the tail fade and nothing else.
+Fine-grained control over streaming: how incomplete tables, fenced code blocks and media blocks are handled, and how new content appears. Only takes effect while [`streaming`](#streaming) is `true`, in both flavors.
 
-<PropInfo type="StreamingConfig" default="{ tableMode: 'progressive', codeBlockMode: 'progressive', mediaMode: 'progressive' }" />
+<PropInfo type="StreamingConfig" default="{ tableMode: 'progressive', codeBlockMode: 'progressive', mediaMode: 'progressive', animation: 'fade', smooth: false }" />
 
 ```ts
 interface StreamingConfig {
   tableMode?: 'hidden' | 'progressive';
   codeBlockMode?: 'hidden' | 'progressive';
   mediaMode?: 'hidden' | 'progressive';
+  animation?: StreamingAnimation;
+  smooth?: boolean;
 }
+
+type StreamingAnimation =
+  | 'fade'
+  | 'gradient'
+  | 'none'
+  | { type: 'fade'; duration?: number }
+  | { type: 'gradient'; length?: number; startColor?: ColorValue; endColor?: ColorValue };
 ```
 
 <LivePreview src={StreamingConfigSrc} unavailable unavailableReason={<>iOS and Android only - streaming block handling is native.</>} />
@@ -309,11 +363,16 @@ interface StreamingConfig {
   - `'progressive'` **(default)** renders the table row-by-row as content arrives (incomplete trailing rows are trimmed).
   - `'hidden'` withholds the table until it is complete.
 - `codeBlockMode`
-  - `'progressive'` **(default)** streams the code in with a visible but non-interactive header and defers syntax highlighting until the closing fence arrives.
+  - `'progressive'` **(default)** shows the block once the line opening the fence has ended, then streams the code in with a visible but non-interactive header and defers syntax highlighting until the closing fence arrives. A block drawn by [`renderers.code`](#renderers) re-renders as the code grows, with `isComplete: false`.
   - `'hidden'` withholds the block until it is complete.
 - `mediaMode`
   - `'progressive'` **(default)** shows a trailing image paragraph, link paragraph or `<video>` block as soon as its syntax is complete (the closing `)` or `>`); until then the partial line is withheld instead of rendering as text. A bare URL on its own line can always grow, so it is withheld until the next line arrives.
   - `'hidden'` withholds the block until a blank line or another block follows it, like `tableMode: 'hidden'`, so it never appears before the content after it. Applies to native images and to blocks drawn by [`renderers`](#renderers) alike.
+- `animation` - how new content appears. Reduce Motion turns it off. See [Animations](/rich-text-formatting/markdown-streaming#animations).
+  - `'fade'` **(default)** fades each new word in over its own 200 ms (`duration` in milliseconds), and fades in new blocks and table rows and grows a block drawn by [`renderers`](#renderers) into place. `duration` applies to text only: blocks and table rows keep a 200 ms fade.
+  - `'gradient'` runs the last 20 characters (`length`) from their own color to transparent, following the end of the text. `startColor` replaces their own color, and `endColor` (transparent by default) is the newest character's color. Blocks fade in as with `'fade'`.
+  - `'none'` shows new content at once, as does a `duration` or `length` of 0.
+- `smooth` - reveals new text word by word at a steady pace instead of in the bursts it arrives in. The view shows the text revealed so far, so its layout, list items and blocks grow with the words. Each chunk spreads over the time until the next one, at most a second behind, and what is left shows within 200 ms when the stream ends. Works with every `animation`; with `'none'` words appear without fading. Reduce Motion keeps the pacing. Defaults to `false`. See [Smooth pacing](/rich-text-formatting/markdown-streaming#smooth-pacing).
 
 An unterminated block-math (`$$`) block is also withheld until its closing `$$` arrives. That behavior is unconditional and has no key here.
 
@@ -344,11 +403,12 @@ HTTP headers attached to remote image requests, e.g. a `Referer` required by CDN
 
 Functions that return React elements to stand in for whole blocks, keyed by kind. The guide [Custom block renderers](/react-native/guides/custom-block-renderers) explains layout, streaming and examples.
 
-- **Which blocks:** a paragraph that is only an image (`image`), a paragraph that is only a link, autolink or bare URL (`link`), and a `<video src="...">` block (`video`). The block must sit directly in the document, a blockquote or an admonition, not in a list. A list item that holds only a video is an exception: the parser [moves that video out of the list](/react-native/api-reference/element-structure#videos), so it is replaced in the list's container. Images and links elsewhere stay native.
+- **Which blocks:** a paragraph that is only an image (`image`), a paragraph that is only a link, autolink or bare URL (`link`), a `<video src="...">` block (`video`), and a fenced or indented code block (`code`). The block must sit directly in the document, a blockquote or an admonition, not in a list. A list item that holds only a video is an exception: the parser [moves that video out of the list](/react-native/api-reference/element-structure#videos), so it is replaced in the list's container. Images, links and code blocks elsewhere stay native.
+- **Code blocks:** `code` receives every code block with its fence `language`. Return `undefined` for a language to keep the native code block. See [Code blocks](/react-native/guides/custom-block-renderers#code-blocks).
 - **Return value:** an element replaces the block; `undefined` (or no return) keeps the native block. A renderer that throws, or returns text, keeps the native block and warns in development.
 - **Size:** the element needs an intrinsic height; the host sets the width. See [Sizing your element](/react-native/guides/custom-block-renderers#sizing-your-element).
 - **Calls:** once per block, and again only when that block or a renderer function changes. Keep the functions stable with `useCallback`. A renderer is a plain function, not a component, so keep hooks inside the component it returns.
-- **Presses:** the element handles its own. [`onImagePress`](#onimagepress), [`onLinkPress`](#onlinkpress), [`onLinkLongPress`](#onlinklongpress) and the [link menu](#linkcontextmenuitems) do not fire for a replaced block.
+- **Presses:** the element handles its own. [`onImagePress`](#onimagepress), [`onLinkPress`](#onlinkpress), [`onLinkLongPress`](#onlinklongpress), [`onCodeBlockPress`](#oncodeblockpress) and the [link menu](#linkcontextmenuitems) do not fire for a replaced block.
 - **Flavor:** `flavor="github"` only.
 
 <PropInfo type="MarkdownRenderers" />
@@ -358,6 +418,7 @@ interface MarkdownRenderers {
   image?: (block: MarkdownImageBlock) => ReactElement | undefined;
   video?: (block: MarkdownVideoBlock) => ReactElement | undefined;
   link?: (block: MarkdownLinkBlock) => ReactElement | undefined;
+  code?: (block: MarkdownCodeBlock) => ReactElement | undefined;
 }
 
 // The container the block sits in. Inside a blockquote or an admonition the
@@ -385,13 +446,22 @@ interface MarkdownLinkBlock {
   kind: 'link';
   id: string;
   url: string;
-  label: string; // the link text; "" for a bare URL or autolink
+  label: string; // the link text; for a bare URL or autolink, the URL as written
   title: string; // the Markdown title, e.g. a MIME type or size; "" when there is none
   placement: MarkdownBlockPlacement;
 }
 
-// Any of the three, for code that handles every kind.
-type MarkdownBlock = MarkdownImageBlock | MarkdownVideoBlock | MarkdownLinkBlock;
+interface MarkdownCodeBlock {
+  kind: 'code';
+  id: string; // depends on the language only, so it holds while the code streams in
+  language: string; // the fence language; "" for an indented block or a fence without one
+  code: string; // without trailing newlines
+  isComplete: boolean; // false while the closing fence has not streamed in yet; always true on web
+  placement: MarkdownBlockPlacement;
+}
+
+// Any of the four, for code that handles every kind.
+type MarkdownBlock = MarkdownImageBlock | MarkdownVideoBlock | MarkdownLinkBlock | MarkdownCodeBlock;
 ```
 
 <LivePreview src={RenderersSrc} />
@@ -572,7 +642,7 @@ With `flavor="github"`, `selection.start` / `selection.end` in menu callbacks ar
 
 ### `accessibilityLabels`
 
-Translations for every string spoken by VoiceOver (iOS) and TalkBack (Android): list items, table rows, math, and the iOS rotor. All fields are optional; omitted fields fall back to the English defaults. Placeholders (`{n}`, `{content}`, `{latex}`) are substituted natively at speak time and must be preserved in translations. See the [Accessibility guide](/user-experience/accessibility) for the full defaults table.
+Translations for every string spoken by VoiceOver (iOS) and TalkBack (Android): list items, table rows, math, and the iOS rotor. All fields are optional; omitted fields fall back to the English defaults. Placeholders (`{n}`, `{content}`, `{speech}`, `{latex}`) are substituted natively at speak time and must be preserved in translations; `{speech}` is the formula read in English. See the [Accessibility guide](/user-experience/accessibility) for the full defaults table.
 
 <PropInfo type="AccessibilityLabels" />
 
@@ -592,7 +662,7 @@ interface AccessibilityLabels {
     row?: string; // {n} is the 1-based row index, {content} the joined cell text
   };
   math?: {
-    equation?: string; // {latex} is the equation source
+    equation?: string; // {speech} reads the formula in English, {latex} is its source
   };
   codeBlock?: {
     // the enableCodeBlockWrapToggle header button
@@ -749,6 +819,23 @@ interface ImagePressEvent {
 
 <LivePreview src={OnImagePressSrc} />
 
+### `onTextPress`
+
+Callback fired when plain text is tapped, anywhere a link, image, checkbox or other interactive element doesn't take the tap. `index` is the UTF-16 index of the tapped character within `text`, the rendered text of the tapped block. It points into the rendered text, not the Markdown source, so map it back yourself if you need a source position (for example, to place a caret when switching to an editor).
+
+A tap in the empty space beside a line reports that line's nearest character. Taps that only clear a selection, and taps inside table cells, don't fire it.
+
+Setting this callback makes plain text interactive; leaving it unset keeps the default tap and text-selection behavior unchanged.
+
+<PropInfo type="(event: TextPressEvent) => void" />
+
+```ts
+interface TextPressEvent {
+  index: number; // UTF-16 index of the tapped character within `text`
+  text: string; // the rendered text of the tapped block
+}
+```
+
 ### `onTaskListItemPress`
 
 Callback fired when a task list checkbox is tapped. The checkbox is toggled natively. Only fires when `flavor="github"`.
@@ -757,7 +844,7 @@ Callback fired when a task list checkbox is tapped. The checkbox is toggled nati
 
 ```ts
 interface TaskListItemPressEvent {
-  index: number; // 0-based item index
+  index: number; // 0-based index among all task items in the document, in document order
   checked: boolean; // checked state after toggling
   text: string; // the item's text
 }
@@ -779,6 +866,24 @@ interface CopyPressEvent {
 ```
 
 <LivePreview src={OnCopyPressSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - copying from a code block is a native interaction, and the web build renders code blocks without a copy affordance.</>} />
+
+### `onSelectionCopy`
+
+Callback fired after a text selection is copied - from the selection menu's **Copy**, **Copy as Markdown**, or **Copy Image URL** item, the keyboard shortcut (⌘C / Ctrl+C), or TalkBack's copy action. Keyboard and TalkBack copies report `format: 'plain'`, the same as **Copy**. `text` is what was put on the clipboard as plain text. Code copied from a code block's header button or long-press menu is reported by [`onCopyPress`](#oncopypress) instead.
+
+The `selection` offsets index the rendered text, not the Markdown source. With `flavor="github"` they restart at each block that renders as its own view, such as a table, code block or quote, so consecutive paragraphs count as one run of text.
+
+<PropInfo type="(event: SelectionCopyEvent) => void" />
+
+```ts
+interface SelectionCopyEvent {
+  text: string; // the copied plain text
+  format: 'plain' | 'markdown' | 'imageUrls'; // Copy, Copy as Markdown, Copy Image URL
+  selection: { start: number; end: number }; // the copied range
+}
+```
+
+<LivePreview src={OnSelectionCopySrc} unavailable unavailableReason={<>iOS, Android, and macOS only - the web build leaves copying to the browser.</>} />
 
 ### `onCodeBlockPress`
 
@@ -818,6 +923,31 @@ interface LatexErrorEvent {
 ```
 
 <LivePreview src={OnLatexErrorSrc} unavailable unavailableReason={<>iOS and Android only - the web build renders math with KaTeX and does not report failures through this callback.</>} />
+
+### `onStreamingEnd`
+
+Callback fired when the view stops [`streaming`](#streaming): once `streaming` turns `false` or the [`stream`](#stream) ends, and with [`smooth`](#streamingconfig) pacing, once the last words have appeared. It fires after the final render shows the whole text, so a handler can scroll to the end or measure. Use it to save the finished message or show actions under it. It fires once per stream, and not when the view unmounts while streaming. iOS and Android only, like `streaming`.
+
+<PropInfo type="() => void" />
+
+### `onLinksChange`
+
+Callback fired with the document's links: once when they are first known, then whenever they change. Use it to fill `markdownStyle.linkVariants`, [`linkPillContent`](#linkpillcontent) (iOS and Android) or [`linkContextMenuItems`](#linkcontextmenuitems) (iOS) for the links a document actually contains, such as a label and icon per file link.
+
+- **Which links:** every inline link, autolink and bare URL, in document order, including those in headings, lists, tables, blockquotes and link blocks. A URL that appears twice is reported twice. Links that [`linkRecognition`](#linkrecognition) adds are not reported, since recognition runs as the text is drawn.
+- **Calls:** after rendering, in a layout effect, so a state update made in it lands before the frame is drawn. A streaming tick that leaves the links unchanged reports nothing. Passing a new function does not report again.
+- **Streaming:** reports the links the [`streamingConfig`](#streamingconfig) filter lets through. A bare URL still being written counts as a change on every tick that extends it, so the handler sees partial URLs (`https://example.c`, then `https://example.com`).
+- **Flavor:** on iOS and Android, `flavor="github"` only. Other flavors report nothing.
+
+<PropInfo type="(links: MarkdownLinkOccurrence[]) => void" />
+
+```ts
+interface MarkdownLinkOccurrence {
+  url: string;
+  label: string; // the link text; for a bare URL or autolink, the URL as written
+  title: string; // the Markdown title, "" when there is none
+}
+```
 
 ## See also
 

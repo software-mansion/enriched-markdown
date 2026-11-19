@@ -162,6 +162,7 @@ The `MarkdownTheme` builder supports these elements:
 | `Paragraph()` | Body text |
 | `Heading(1)` … `Heading(6)` | Headings |
 | `Link()` | Links |
+| `Link(matching: "^user:")` | Links whose URL matches a pattern, such as mentions |
 | `Strong()` | Bold text |
 | `Emphasis()` | Italic text |
 | `Strikethrough()` | Struck-through text |
@@ -192,9 +193,9 @@ For custom families, `.bold()` and `.italic()` pick the matching face from the s
 
 Element-specific modifiers include:
 
-- **Link:** `.underline(_:)`
+- **Link:** `.underline(_:)`, `.background` / `.backgroundStyle`, `.cornerRadius`, `.border(_:width:)`. `Link(matching: "^user:")` styles only links whose URL matches the pattern, such as mentions. The pattern is a regular expression. Anything left unset comes from `Link()`, and the longest matching pattern wins. Inside a `==highlight==`, a link with a fill of its own keeps it
 - **Code / CodeBlock / Blockquote / Highlight:** `.background` / `.backgroundStyle`
-- **CodeBlock / Blockquote / Table:** `.border(_:width:)` — color and width together, as SwiftUI's modifier; leave `width` out to recolor a border a lower layer sized, or use `.border(width:)` to resize one a lower layer colored
+- **CodeBlock / Blockquote / Table / Link:** `.border(_:width:)` — color and width together, as SwiftUI's modifier; leave `width` out to recolor a border a lower layer sized, or use `.border(width:)` to resize one a lower layer colored
 - **CodeBlock / Blockquote:** `.padding` / `.gapWidth`, `.cornerRadius` (CodeBlock), `.headerForegroundStyle` (CodeBlock: the scrollable panel's language label and copy button, see [Code blocks](#code-blocks))
 - **Admonition:** `.foregroundStyle` (the accent bar, icon, and title tint) and `.background` / `.backgroundStyle` — the only modifiers; font, spacing, and geometry follow `Blockquote`. Types: `.note`, `.tip`, `.important`, `.warning`, `.caution`; the defaults are GitHub's palette with no fill
 - **List:** `.bulletColor`, `.markerColor`, `.bulletSize`, `.markerMinWidth`, `.gapWidth`, `.marginLeading`
@@ -285,6 +286,8 @@ EnrichedMarkdownText(markdown)
 ```
 
 `onMarkdownLinkLongPress` is called when a link is long-pressed, replacing the system link menu. Without it the system menu stays. Scope either to a single view or a larger subtree.
+
+Mentions such as `[@Alice](user://alice)` are links too. Route them by switching on `url.scheme` in the action, and style them with `Link(matching: "^user:")` (see [Theme elements](#theme-elements)).
 
 ### `.onTaskListItemToggle` / `.markdownTaskListItemToggleEnabled`
 
@@ -598,7 +601,7 @@ Three things worth knowing:
 - `.cornerRadius` rounds the drawn image, not the box, so with `.fit`, `.scaleDown` or `.original` the corners follow the image.
 - `.scaleDown` and `.original` draw the decoded image, and decoding is capped at the screen's pixel width, so a very large image is not drawn at its full pixel size.
 
-Inline images ignore all four modifiers. They are always a square of `InlineImage().size`.
+Inline images ignore the sizing and content mode modifiers. They always take a square of `InlineImage().size`, and the image is scaled up or down to fit inside it, keeping its proportions, as with `.fit`. `.cornerRadius` still rounds them, at most into a circle.
 
 ## Accessibility
 
@@ -843,12 +846,12 @@ These scripts run `swift build` / `swift test` / `swift package clean` from the 
 
 ### Benchmarks
 
-`Tests/EnrichedMarkdownTests/PerformanceBenchmarks.swift` times rendering, first layout, the accessibility element build and the decoration display of long documents. It is skipped in a normal test run; `scripts/benchmark.mjs` runs it on the booted simulator and, with `--base`, on another ref in a temporary worktree, and prints both with the ratio:
+`Tests/EnrichedMarkdownTests/PerformanceBenchmarks.swift` times rendering, first layout, the accessibility element build and the decoration display of long documents, and measures the heap a rendered document keeps and the heap and process footprint that showing one inside a scroll view adds. It is skipped in a normal test run; `scripts/benchmark.mjs` runs it on the booted simulator and, with `--base`, on another ref in a temporary worktree (with this checkout's benchmark file, so a new benchmark has a base too), and prints both with the ratio:
 
 ```sh
 yarn workspace @enriched-markdown/ios bench:ios-native --base main
 ```
 
-Absolute numbers depend on the machine and on Debug builds; read the head/base ratio from one run. Each number is the median of XCTest's iterations, so a single stalled iteration does not move it. CI runs the same comparison on demand: label a pull request `benchmark: ios` (later pushes re-run it while the label stays), comment `/benchmark ios` on it, or start the "iOS benchmarks" workflow from the Actions tab. Each run posts the table as a new comment on the pull request, headed by the commit it measured, and the job fails only when a benchmark is twice as slow, since a shared runner cannot resolve smaller differences.
+Absolute numbers depend on the machine and on Debug builds; read the head/base ratio from one run. Each number is the median of XCTest's iterations, so a single stalled iteration does not move it. CI runs the same comparison on demand: label a pull request `benchmark: ios` (later pushes re-run it while the label stays), comment `/benchmark ios` on it, or start the "iOS benchmarks" workflow from the Actions tab. Each run posts the table as a new comment on the pull request, headed by the commit it measured, and the job fails only when a benchmark is twice as slow or takes twice the memory, since a shared runner cannot resolve smaller differences.
 
 In the monorepo, `core/md4c` and `core/parser` are symlinks into the shared C++ sources at `packages/core/cpp`, and so are the highlighting seam, the tree-sitter runtime, and the grammars under `highlight/`. The tree-sitter files are not checked in: after `yarn install`, `node vendor/vendor-grammars.mjs` (run from the monorepo root, also part of `yarn prepare`) restores them. When syncing this folder to the standalone repository, dereference the symlinks so real files are copied (e.g. `rsync -a --copy-links`).

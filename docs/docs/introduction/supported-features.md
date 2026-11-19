@@ -19,8 +19,8 @@ and by how each feature is enabled.
   in the editor tables. See [iOS](/ios/basics/installation) and
   [Android](/android/basics/installation) installation.
 - The **Web** column is the same package's web build, a plain React renderer
-  that emits semantic HTML. In the editor tables it is the experimental web
-  editor. See the [Web support](/react-native/guides/web-support) and
+  that emits semantic HTML. In the editor tables it is the web editor. See the
+  [Web support](/react-native/guides/web-support) and
   [Web editor](/react-native/guides/web-editor) guides.
 
 **Yes** means the feature renders with no extra work beyond the switch named in
@@ -146,7 +146,7 @@ Each has its own page - under **Rich text formatting**, or under the React Nativ
 | Feature                 | React Native | iOS | Android | Web | Learn more                                                         |
 | ----------------------- | :----------: | :-: | :-----: | :-: | ------------------------------------------------------------------ |
 | LaTeX math              |     Yes      | Yes |   Yes   | Yes | [LaTeX math](/rich-text-formatting/latex-math)                     |
-| Mentions                |     Yes      | No  |   No    | Yes | [Mentions](/rich-text-formatting/mentions)                         |
+| Mentions                |     Yes      | Yes |   No    | Yes | [Mentions](/rich-text-formatting/mentions)                         |
 | Code-block highlighting |     Yes      | Yes |   Yes   | No  | [Code-block highlighting](/rich-text-formatting/code-highlighting) |
 | Markdown streaming      |     Yes      | No  |   No    | No  | [Markdown streaming](/rich-text-formatting/markdown-streaming)     |
 | Link pills              |     Yes      | No  |   No    | No  | [Link pills](/react-native/guides/link-pills)                      |
@@ -154,9 +154,10 @@ Each has its own page - under **Rich text formatting**, or under the React Nativ
 
 LaTeX math on web needs the optional `katex` peer dependency; without it the
 formula falls back to its raw `$...$` source. Code-block highlighting on web
-renders a plain, uncolored `<pre><code>`. The two streaming props are stripped
-on web. Link pills are drawn by the native text stack, so on web those links
-render as ordinary links with the variant's colors; custom link menus are an
+renders a plain, uncolored `<pre><code>`. `streaming` and `streamingConfig` are
+stripped on web; a `stream` still shows its text as it grows. Link pills are
+drawn by the native text stack, so on web those links render as ordinary links
+with the variant's colors; custom link menus are an
 iOS 17+ feature, and a long press on web is the `contextmenu` event delivered
 to `onLinkLongPress`.
 
@@ -174,18 +175,22 @@ On the standalone SDKs, the advanced features that render are optional add-ons:
   optional `com.swmansion.enriched.markdown:code-highlight` artifact and
   register `CodeHighlightPlugin` (see
   [Android code highlighting](/android/guides/code-highlighting)).
-- **Mentions** - there is no mention support in either SDK, but mention links
-  written as ordinary Markdown links (`[display](url)`) still render and are
-  tappable like any other link.
+- **Mentions** - built into the iOS package, with no add-on: style each URL
+  scheme with a
+  [`Link(matching:)`](/ios/api-reference/style-properties#link-matching) theme
+  element and route taps in `openURL` (see
+  [Mentions](/rich-text-formatting/mentions#displaying-mentions)). On Android,
+  mentions render and respond to taps like any other link, but cannot be styled
+  apart.
 
 ## EnrichedMarkdownTextInput
 
 The editor - produces a Markdown string as the user types.
 
 :::important
-The editor runs on iOS, Android and macOS. Its web build is
-<ExperimentalBadge /> and covers less: no Markdown shortcuts, link or mention
-commands, auto-link detection or `markdownStyle.linkVariants`. See
+The editor runs on iOS, Android and macOS. Its web build covers less: no
+Markdown shortcuts, link or mention commands, auto-link detection or
+`markdownStyle.linkVariants`. See
 [Web editor](/react-native/guides/web-editor).
 :::
 

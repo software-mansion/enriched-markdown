@@ -488,8 +488,7 @@ enum MarkdownHTMLGenerator {
             tags.append((open: styles.highlightOpenTag, close: "</mark>"))
         }
         if let linkURL {
-            let open = "<a href=\"\(escapeHTML(linkURL))\" style=\"color: \(styles.linkColor); "
-                + "text-decoration: \(styles.linkUnderline ? "underline" : "none");\">"
+            let open = "<a href=\"\(escapeHTML(linkURL))\" style=\"\(styles.linkCSS.resolve(linkURL))\">"
             tags.append((open: open, close: "</a>"))
         }
         if isCode {

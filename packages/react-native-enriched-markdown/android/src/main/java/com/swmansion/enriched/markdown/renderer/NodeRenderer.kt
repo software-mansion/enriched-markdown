@@ -195,9 +195,16 @@ class RendererFactory(
     onLinkPress: ((String) -> Unit)?,
     onLinkLongPress: ((String) -> Unit)?,
   ) {
-    nodes.forEach { node ->
-      getRenderer(node).render(node, builder, onLinkPress, onLinkLongPress, this)
-    }
+    nodes.forEach { node -> renderNode(node, builder, onLinkPress, onLinkLongPress) }
+  }
+
+  fun renderNode(
+    node: MarkdownASTNode,
+    builder: SpannableStringBuilder,
+    onLinkPress: ((String) -> Unit)?,
+    onLinkLongPress: ((String) -> Unit)?,
+  ) {
+    getRenderer(node).render(node, builder, onLinkPress, onLinkLongPress, this)
   }
 
   /**

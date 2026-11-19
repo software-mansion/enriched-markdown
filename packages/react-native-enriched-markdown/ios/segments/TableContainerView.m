@@ -242,6 +242,29 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 @end
 #endif
 
+#if !TARGET_OS_OSX
+// Ticks the column animation without the display link retaining the table.
+@interface ENRMTableWidthsTicker : NSObject
+@property (nonatomic, weak) TableContainerView *table;
+@end
+
+@interface TableContainerView ()
+- (void)stepColumnWidths;
+@end
+
+@implementation ENRMTableWidthsTicker
+- (void)tick:(CADisplayLink *)link
+{
+  TableContainerView *table = self.table;
+  if (table) {
+    [table stepColumnWidths];
+  } else {
+    [link invalidate];
+  }
+}
+@end
+#endif
+
 @implementation TableContainerView {
   ENRMHorizontalScrollView *_scrollView;
   RCTUIView *_gridContainer;
@@ -254,6 +277,13 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   CGFloat _totalTableHeight;
 
   NSString *_cachedMarkdown;
+
+  // While the columns move from `_widthsFrom` to `_colWidths`: what is drawn now.
+  NSArray<NSNumber *> *_shownColWidths;
+  NSArray<NSNumber *> *_widthsFrom;
+  CFTimeInterval _widthsStart;
+  CFTimeInterval _widthsDuration;
+  CADisplayLink *_widthsLink;
 
   NSArray *_cachedAccessibilityElements;
 
@@ -344,6 +374,65 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   return _rows.count;
 }
 
+- (NSArray<NSNumber *> *)shownColumnWidths
+{
+  return _shownColWidths ?: _colWidths ?: @[];
+}
+
+- (CGFloat)shownTableWidth
+{
+  if (_shownColWidths == nil) {
+    return _totalTableWidth;
+  }
+  return [[_shownColWidths valueForKeyPath:@"@sum.self"] doubleValue] + self.config.tableBorderWidth;
+}
+
+#if !TARGET_OS_OSX
+- (void)animateColumnWidthsFrom:(NSArray<NSNumber *> *)widths duration:(NSTimeInterval)duration
+{
+  if (widths.count != _colWidths.count || [widths isEqualToArray:_colWidths] || duration <= 0) {
+    return;
+  }
+  _widthsFrom = [widths copy];
+  _widthsStart = CACurrentMediaTime();
+  _widthsDuration = duration;
+  if (_widthsLink == nil) {
+    ENRMTableWidthsTicker *ticker = [[ENRMTableWidthsTicker alloc] init];
+    ticker.table = self;
+    _widthsLink = [CADisplayLink displayLinkWithTarget:ticker selector:@selector(tick:)];
+    _widthsLink.preferredFrameRateRange = CAFrameRateRangeMake(30, 60, 60);
+    [_widthsLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+  }
+  [self stepColumnWidths];
+}
+
+- (void)stepColumnWidths
+{
+  double progress = MIN(1.0, (CACurrentMediaTime() - _widthsStart) / _widthsDuration);
+  if (progress >= 1 || _widthsFrom.count != _colWidths.count) {
+    [_widthsLink invalidate];
+    _widthsLink = nil;
+    _widthsFrom = nil;
+    _shownColWidths = nil;
+  } else {
+    double eased = 1 - pow(1 - progress, 3);
+    NSMutableArray<NSNumber *> *shown = [NSMutableArray arrayWithCapacity:_colWidths.count];
+    for (NSUInteger column = 0; column < _colWidths.count; column++) {
+      double from = [_widthsFrom[column] doubleValue];
+      [shown addObject:@(from + ([_colWidths[column] doubleValue] - from) * eased)];
+    }
+    _shownColWidths = shown;
+  }
+  [(ENRMTableIOSGridView *)_gridContainer setShownColumnWidths:_shownColWidths];
+  [self setNeedsLayout];
+  [self layoutIfNeeded];
+}
+#else
+- (void)animateColumnWidthsFrom:(NSArray<NSNumber *> *)widths duration:(NSTimeInterval)duration
+{
+}
+#endif
+
 #if !TARGET_OS_OSX
 - (void)animateNewRowsFromPreviousCount:(NSUInteger)previousRowCount duration:(NSTimeInterval)duration
 {
@@ -352,10 +441,23 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   }
   [(ENRMTableIOSGridView *)_gridContainer fadeInRowsFrom:previousRowCount duration:duration];
 }
+
+- (void)finishRowFade
+{
+  [(ENRMTableIOSGridView *)_gridContainer finishRowFade];
+  if (_widthsLink != nil) {
+    _widthsStart = 0;
+    [self stepColumnWidths];
+  }
+}
 #else
 - (void)animateNewRowsFromPreviousCount:(NSUInteger)previousRowCount duration:(NSTimeInterval)duration
 {
   // No-op on macOS
+}
+
+- (void)finishRowFade
+{
 }
 #endif
 
@@ -370,6 +472,15 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   _cachedMarkdown = [self buildMarkdownFromRows];
   _cachedAccessibilityElements = nil;
   [self computeLayout];
+#if !TARGET_OS_OSX
+  if (_shownColWidths.count != _colWidths.count) {
+    [_widthsLink invalidate];
+    _widthsLink = nil;
+    _widthsFrom = nil;
+    _shownColWidths = nil;
+    [(ENRMTableIOSGridView *)_gridContainer setShownColumnWidths:nil];
+  }
+#endif
   [self renderGrid];
 }
 
@@ -556,8 +667,13 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     return;
   }
 
+  // The row elements carry the old row frames.
+  _cachedAccessibilityElements = nil;
   [self renderGrid];
   [self setNeedsLayout];
+#if !TARGET_OS_OSX
+  UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+#endif
 
   [[self.superview enrm_imageLayoutObserver] imageAttachmentDidResolveLayout];
 }
@@ -789,7 +905,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 #if !TARGET_OS_OSX
   CGFloat overhang = MAX(self.config.tableHorizontalOverflow, 0);
   CGFloat containerWidth = self.bounds.size.width;
-  BOOL tableOverflows = (overhang > 0 && _totalTableWidth > containerWidth);
+  CGFloat tableWidth = [self shownTableWidth];
+  BOOL tableOverflows = (overhang > 0 && tableWidth > containerWidth);
 
   if (tableOverflows) {
     UIEdgeInsets inset = UIEdgeInsetsMake(0, overhang, 0, overhang);
@@ -797,16 +914,16 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
       _scrollView.contentInset = inset;
       _scrollView.contentOffset = CGPointMake(-overhang, 0);
     }
-    _scrollView.contentSize = CGSizeMake(_totalTableWidth, _totalTableHeight);
+    _scrollView.contentSize = CGSizeMake(tableWidth, _totalTableHeight);
     _scrollView.scrollEnabled = YES;
-    _gridContainer.frame = CGRectMake(0, 0, _totalTableWidth, _totalTableHeight);
+    _gridContainer.frame = CGRectMake(0, 0, tableWidth, _totalTableHeight);
   } else {
-    CGFloat alignOffset = [self alignOffsetForFreeSpace:containerWidth - overhang * 2 - _totalTableWidth];
+    CGFloat alignOffset = [self alignOffsetForFreeSpace:containerWidth - overhang * 2 - tableWidth];
     _scrollView.contentInset = UIEdgeInsetsZero;
     _scrollView.contentOffset = CGPointZero;
-    _scrollView.contentSize = CGSizeMake(MAX(_totalTableWidth, containerWidth), _totalTableHeight);
-    _scrollView.scrollEnabled = (_totalTableWidth > containerWidth);
-    _gridContainer.frame = CGRectMake(overhang + alignOffset, 0, _totalTableWidth, _totalTableHeight);
+    _scrollView.contentSize = CGSizeMake(MAX(tableWidth, containerWidth), _totalTableHeight);
+    _scrollView.scrollEnabled = (tableWidth > containerWidth);
+    _gridContainer.frame = CGRectMake(overhang + alignOffset, 0, tableWidth, _totalTableHeight);
   }
 #else
   CGFloat overhang = MAX(self.config.tableHorizontalOverflow, 0);

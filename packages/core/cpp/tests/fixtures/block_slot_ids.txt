@@ -1,8 +1,8 @@
 # input<TAB>fnv1a64 hex of its UTF-8 bytes, the hash inside block and image ids
-# (over the URL, text and title joined by U+001F, written \u001f here). Shared
-# by block_slots_test.cpp and the web collector's Jest test
-# (src/web/__tests__/blockSlots.test.ts), so the id hash cannot drift between the
-# C++ core and its web twin.
+# (over the URL, text and title joined by U+001F, written \u001f here, or over a
+# code block's language alone). Shared by block_slots_test.cpp and the web
+# collector's Jest test (src/web/__tests__/blockSlots.test.ts), so the id hash
+# cannot drift between the C++ core and its web twin.
 	cbf29ce484222325
 a	af63dc4c8601ec8c
 https://e.com/a.png	e8d05e0390168677
@@ -12,3 +12,4 @@ https://e.com/a%20b.png	46918e290136a75a
 https://e.com/a.png\u001fHero\u001fHero title	e85faf12c5d7f6fb
 https://e.com/v.mp4\u001f\u001f	def4b155e595949c
 https://e.com/café.png\u001fCafé ☕\u001f	8883def9c19af003
+js	08c15507b564d18a

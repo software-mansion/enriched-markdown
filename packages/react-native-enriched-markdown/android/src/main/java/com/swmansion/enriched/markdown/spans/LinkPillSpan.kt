@@ -25,6 +25,7 @@ import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.styles.LinkPillStyle
 import com.swmansion.enriched.markdown.styles.LinkVariantEntry
 import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
+import com.swmansion.enriched.markdown.utils.text.view.repaintSpan
 import java.lang.ref.WeakReference
 import kotlin.math.ceil
 import kotlin.math.max
@@ -186,7 +187,7 @@ class LinkPillSpan(
   }
 
   private fun invalidateViews() {
-    withHosts { hosts -> hosts.forEach { reflowIn(it) } }
+    withHosts { hosts -> hosts.forEach { repaintIn(it) } }
   }
 
   /** Hands the registered views, once, to [action] on the main thread. */
@@ -202,6 +203,7 @@ class LinkPillSpan(
    * longer shows this span.
    */
   private fun reflowIn(view: View): Boolean {
+    TextBackgroundDrawer.noteReflow()
     val text = (view as? TextView)?.text as? Spannable
     val start = text?.getSpanStart(this) ?: -1
     if (text != null && start >= 0) {
@@ -210,6 +212,11 @@ class LinkPillSpan(
     }
     view.invalidate()
     return false
+  }
+
+  /** Redraws a pill whose size did not change, without laying the text out again. */
+  private fun repaintIn(view: View) {
+    ((view as? TextView)?.text as? Spannable)?.repaintSpan(this) ?: view.invalidate()
   }
 
   private fun TextPaint.applyLabelStyle(source: Paint): TextPaint {
@@ -375,7 +382,7 @@ class LinkPillSpan(
       end: Int,
     ) {
       val spanned = view.text as? Spanned ?: return
-      spanned.getSpans(start, end, LinkPillSpan::class.java).forEach { it.reflowIn(view) }
+      spanned.getSpans(start, end, LinkPillSpan::class.java).forEach { it.repaintIn(view) }
     }
   }
 }
