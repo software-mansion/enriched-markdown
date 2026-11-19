@@ -198,6 +198,19 @@ cd ios && bundle install && bundle exec pod install
 cd macos && bundle install && bundle exec pod install
 ```
 
+If your app uses React Native's experimental Swift Package Manager setup (React Native 0.88+)
+instead of CocoaPods, run this instead of `pod install`:
+
+```sh
+npx react-native spm
+```
+
+The library ships a `Package.swift` and reads the same `enriched-markdown` block. Run
+`npx react-native spm` again after editing the block, as you would `pod install`. Without it, the
+change reaches the build one build later. The block is applied to the installed package, so in a
+monorepo several Swift Package Manager apps sharing one copy of the library build with the block of
+whichever app ran `npx react-native spm` last.
+
 ### Expo app
 
 #### 1. Install the library
