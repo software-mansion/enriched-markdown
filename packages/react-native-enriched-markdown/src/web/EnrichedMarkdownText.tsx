@@ -1,11 +1,4 @@
-import {
-  useState,
-  useEffect,
-  useMemo,
-  useSyncExternalStore,
-  type CSSProperties,
-  type ReactNode,
-} from 'react';
+import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react';
 import type { EnrichedMarkdownTextProps } from '../types/MarkdownTextProps.web';
 import { useMarkdownStreamSnapshot } from '../markdownStream';
 import { normalizeMarkdownStyle } from '../normalizeMarkdownStyle.web';
@@ -14,12 +7,7 @@ import {
   parseErrorFallbackStyle,
   buildStyles,
 } from './styles';
-import {
-  isParserReady,
-  loadParser,
-  parseMarkdownSync,
-  subscribeParserReady,
-} from './parseMarkdown';
+import { parseMarkdownSync } from './parseMarkdown';
 import { recognizeTextLinks } from './recognizeTextLinks';
 import { RenderNode } from './renderers';
 import type { ASTNode, RendererCallbacks, RenderCapabilities } from './types';
@@ -36,15 +24,12 @@ import { isDev } from '../utils/isDev';
 
 const EMPTY: CollectedBlocks = { blocks: [], images: [], links: [] };
 
-// `ast` is null when the parse threw; `error` is what it threw.
+// `ast` is null when the parse or the WASM load threw; `error` is what threw.
 interface ParseResult {
   ast: ASTNode | null;
   collected: CollectedBlocks;
   error: unknown;
 }
-
-// The server never loads the WASM, so hydration starts from "not ready" too.
-const isParserReadyOnServer = () => false;
 
 export const EnrichedMarkdownText = ({
   markdown: markdownProp = '',
@@ -80,7 +65,6 @@ export const EnrichedMarkdownText = ({
   // Collecting hashes every image and link: only when something reads it.
   const collectEnabled =
     renderersEnabled || resolveImageSource != null || onLinksChange != null;
-  const [loadFailed, setLoadFailed] = useState(false);
 
   const {
     underline = false,
@@ -99,33 +83,9 @@ export const EnrichedMarkdownText = ({
   const textLinkKey = textLinkRegex?.toString() ?? null;
   const inlineCodeLinkKey = inlineCodeLinkRegex?.toString() ?? null;
 
-  const parserReady = useSyncExternalStore(
-    subscribeParserReady,
-    isParserReady,
-    isParserReadyOnServer
-  );
-
-  // Only the first load waits; once the WASM is up, every render parses the
-  // markdown it was given, so no commit shows empty or previous content.
-  useEffect(() => {
-    if (parserReady) return;
-    let cancelled = false;
-    // A load that succeeds flips `parserReady`, which supersedes `loadFailed`.
-    loadParser().catch((error) => {
-      if (cancelled) return;
-      if (isDev) {
-        console.error('[EnrichedMarkdownText] Parser failed to load:', error);
-      }
-      setLoadFailed(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-    // A new markdown retries a load that failed, as each parse used to.
-  }, [parserReady, markdown]);
-
-  const parsed = useMemo<ParseResult | null>(() => {
-    if (!parserReady) return null;
+  // The WASM loads synchronously on the first parse, so every render, on the
+  // server and while hydrating too, has the markdown it was given.
+  const parsed = useMemo<ParseResult>(() => {
     try {
       const result = parseMarkdownSync(markdown, {
         underline,
@@ -150,7 +110,6 @@ export const EnrichedMarkdownText = ({
     // The regexes are keyed by their text, see above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    parserReady,
     markdown,
     underline,
     latexMath,
@@ -166,13 +125,12 @@ export const EnrichedMarkdownText = ({
   ]);
 
   useEffect(() => {
-    if (parsed && !parsed.ast && isDev) {
+    if (!parsed.ast && isDev) {
       console.error('[EnrichedMarkdownText] Parse failed:', parsed.error);
     }
   }, [parsed]);
 
-  const ast = parsed?.ast ?? null;
-  const collected = parsed?.collected ?? EMPTY;
+  const { ast, collected } = parsed;
   const katex = latexMath ? loadKaTeX() : null;
 
   const callbacks = useMemo<RendererCallbacks>(
@@ -203,7 +161,7 @@ export const EnrichedMarkdownText = ({
   }, [renderersEnabled, renderedBlocks]);
 
   const imageSources = useImageSources(collected.images, resolveImageSource);
-  // Nothing is known before the first parse.
+  // Nothing is known when the parse failed.
   useLinksChange(collected.links, onLinksChange, collected !== EMPTY);
 
   const blockDir = dir === 'ltr' || dir === 'rtl' ? undefined : 'auto';
@@ -248,7 +206,7 @@ export const EnrichedMarkdownText = ({
 
   const domProps = filterNativeOnlyProps(rest);
 
-  if (parsed ? !parsed.ast : loadFailed) {
+  if (!ast) {
     return (
       <div
         className={ENRM_TEXT_CLASS}
@@ -261,8 +219,6 @@ export const EnrichedMarkdownText = ({
       </div>
     );
   }
-
-  if (!ast) return null;
 
   const children = ast.children ?? [];
   const lastIdx = children.length - 1;

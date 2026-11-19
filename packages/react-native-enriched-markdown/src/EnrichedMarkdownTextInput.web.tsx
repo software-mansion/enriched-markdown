@@ -33,12 +33,6 @@ import {
   measureInWindow,
   measureLayout,
 } from './web/input/measureElement';
-import { preloadParser } from './web/parseMarkdown';
-
-// Warmed at module load, not on mount: the mount starts the `defaultValue`
-// import in the same layout effect, so that would give no head start, and the
-// editor drops keystrokes while that parse is pending.
-preloadParser();
 
 export type {
   CaretRect,
