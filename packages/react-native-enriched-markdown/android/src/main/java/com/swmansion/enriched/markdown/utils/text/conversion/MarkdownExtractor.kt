@@ -59,6 +59,8 @@ object MarkdownExtractor {
       val nextTransition = spannable.nextSpanTransition(i, end, Any::class.java)
       val segmentText = spannable.subSequence(i, nextTransition).toString()
 
+      state.codeBlock?.let { if (i >= spannable.getSpanEnd(it)) closeCodeBlock(result, state) }
+
       val handled =
         processSegment(
           spannable = spannable,
@@ -78,6 +80,7 @@ object MarkdownExtractor {
       i = nextTransition
     }
 
+    closeCodeBlock(result, state)
     headingAccumulator.flush(result, state)
     return result.toString()
   }
@@ -115,6 +118,15 @@ object MarkdownExtractor {
 
     if (segmentText.isEmpty()) return true
 
+    // Before newlines: a newline between two highlighted tokens is still code.
+    val codeBlockSpans = spannable.getSpans(segmentStart, segmentEnd, CodeBlockSpan::class.java)
+    if (codeBlockSpans.isNotEmpty()) {
+      headingAccumulator.flush(result, state)
+      val opensBlock = codeBlockSpans.any { spannable.getSpanStart(it) == segmentStart }
+      appendCodeBlock(spannable, codeBlockSpans[0], segmentText, opensBlock, result, state)
+      return true
+    }
+
     if (segmentText == "\n" || segmentText == "\n\n") {
       handleNewline(spannable, segmentStart, segmentEnd, result, state)
       return true
@@ -126,13 +138,6 @@ object MarkdownExtractor {
       return true
     } else {
       headingAccumulator.flush(result, state)
-    }
-
-    val codeBlockSpans = spannable.getSpans(segmentStart, segmentEnd, CodeBlockSpan::class.java)
-    if (codeBlockSpans.isNotEmpty()) {
-      val opensBlock = codeBlockSpans.any { spannable.getSpanStart(it) == segmentStart }
-      appendCodeBlock(spannable, codeBlockSpans[0], segmentText, opensBlock, result, state)
-      return true
     }
 
     return false
@@ -223,6 +228,10 @@ object MarkdownExtractor {
     }
   }
 
+  /**
+   * Appends one segment of a code block. Highlighting spans split a block into several segments, so the fence
+   * opens on the block's first selected segment and [closeCodeBlock] closes it once the selection leaves the block.
+   */
   private fun appendCodeBlock(
     spannable: Spannable,
     block: CodeBlockSpan,
@@ -231,6 +240,25 @@ object MarkdownExtractor {
     result: StringBuilder,
     state: ExtractionState,
   ) {
+    if (state.codeBlock !== block) openCodeBlock(spannable, block, opensBlock, result, state)
+
+    val indent = state.codeBlockIndent
+    text.split('\n').forEachIndexed { index, line ->
+      if (index > 0) result.append('\n')
+      if (line.isNotEmpty() && result.isAtLineStart()) result.append(indent)
+      result.append(line)
+    }
+  }
+
+  private fun openCodeBlock(
+    spannable: Spannable,
+    block: CodeBlockSpan,
+    opensBlock: Boolean,
+    result: StringBuilder,
+    state: ExtractionState,
+  ) {
+    closeCodeBlock(result, state)
+
     if (state.needsBlankLine) {
       result.ensureBlankLine()
       state.needsBlankLine = false
@@ -250,37 +278,30 @@ object MarkdownExtractor {
     // The fence takes the item's marker only when the selection includes the block's first line.
     val opensItem = opensBlock && blockOpensItem
 
-    // Highlighting spans split a block into several segments. The indent is decided on the block's first selected
-    // segment and reused for the rest, so later lines don't gain an indent the fence lacks.
-    val indent: String
-    if (!opensBlock && state.codeBlock === block) {
-      indent = state.codeBlockIndent
-    } else {
-      val nestedItem = item?.takeIf { opensItem || result.isNotEmpty() }
-      indent = nestedItem?.let { contentIndent(it) } ?: ""
-      if (nestedItem != null) state.listDepth = nestedItem.depth
-      state.codeBlock = block
-      state.codeBlockIndent = indent
-    }
+    // The indent is decided here, once per block, so later segments don't gain an indent the fence lacks.
+    val nestedItem = item?.takeIf { opensItem || result.isNotEmpty() }
+    val indent = nestedItem?.let { contentIndent(it) } ?: ""
+    if (nestedItem != null) state.listDepth = nestedItem.depth
+    state.codeBlock = block
+    state.codeBlockIndent = indent
 
-    val needsFence = result.isEmpty() || result.endsWith("\n\n") || opensBlock
-    if (needsFence) {
-      if (!result.isAtLineStart()) result.append("\n")
-      result.append(if (opensItem) listMarker(item) else indent)
-      result.append("```\n")
-    }
+    if (!result.isAtLineStart()) result.append("\n")
+    result.append(if (opensItem) listMarker(item) else indent)
+    result.append("```\n")
+  }
 
-    text.split('\n').forEachIndexed { index, line ->
-      if (index > 0) result.append('\n')
-      if (line.isNotEmpty() && result.isAtLineStart()) result.append(indent)
-      result.append(line)
-    }
+  /** Closes the open code block's fence, also when the selection or the trimmed document ends mid-line. */
+  private fun closeCodeBlock(
+    result: StringBuilder,
+    state: ExtractionState,
+  ) {
+    if (state.codeBlock == null) return
 
-    if (text.endsWith("\n")) {
-      result.append(indent).append("```\n")
-      // An unindented block is not nested in a list item.
-      state.needsBlankLine = indent.isEmpty()
-    }
+    if (!result.isAtLineStart()) result.append("\n")
+    result.append(state.codeBlockIndent).append("```\n")
+    // An unindented block is not nested in a list item.
+    state.needsBlankLine = state.codeBlockIndent.isEmpty()
+    state.codeBlock = null
   }
 
   private fun detectBlockquote(
@@ -403,7 +424,7 @@ object MarkdownExtractor {
     var blockquoteDepth: Int = -1,
     var listDepth: Int = -1,
     var needsBlankLine: Boolean = false,
-    /** The code block being extracted and the indent chosen for it on its first selected segment. */
+    /** The code block whose fence is open, and the indent chosen for it on its first selected segment. */
     var codeBlock: CodeBlockSpan? = null,
     var codeBlockIndent: String = "",
   )

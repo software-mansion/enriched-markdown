@@ -185,6 +185,57 @@ class ClipboardExportTest {
     assertEquals("- [x] ```\n  val x = 1\n  ```\n  After code", MarkdownExtractor.extractFromSpannable(spannable, 0, end))
   }
 
+  @Test
+  fun highlightedCodeBlockStaysOneFencedBlock() {
+    // Token spans leave the newline between them as a segment of its own.
+    val betweenTokens = render(codeBlock("first\nsecond\n"), paragraph(text("After")))
+    highlight(betweenTokens, "first", "second")
+    assertEquals("```\nfirst\nsecond\n```\n\nAfter", extractAll(betweenTokens))
+
+    // A token at a line start ends the previous segment with a newline.
+    val tokenAtLineStart = render(codeBlock("first\nsecond\n"), paragraph(text("After")))
+    highlight(tokenAtLineStart, "second")
+    assertEquals("```\nfirst\nsecond\n```\n\nAfter", extractAll(tokenAtLineStart))
+  }
+
+  @Test
+  fun highlightedCodeBlockInItemStaysUnderTheItem() {
+    val spannable =
+      render(
+        unorderedList(
+          listItem(paragraph(text("Item")), codeBlock("first\nsecond\n")),
+          listItem(paragraph(text("Next"))),
+        ),
+      )
+    highlight(spannable, "first", "second")
+    assertEquals("- Item\n  ```\n  first\n  second\n  ```\n- Next", extractAll(spannable))
+  }
+
+  @Test
+  fun lastCodeBlockInDocumentIsClosed() {
+    assertEquals("Before\n\n```\nval x = 1\n```", exportMarkdown(paragraph(text("Before")), codeBlock("val x = 1\n")))
+  }
+
+  @Test
+  fun selectionEndingInsideCodeClosesTheFence() {
+    val spannable = render(codeBlock("first\nsecond\n"), paragraph(text("After")))
+    val end = spannable.indexOf("second") + "sec".length
+    assertEquals("```\nfirst\nsec\n```\n", MarkdownExtractor.extractFromSpannable(spannable, 0, end))
+  }
+
+  private fun highlight(
+    spannable: Spannable,
+    vararg tokens: String,
+  ) {
+    for (token in tokens) {
+      val start = spannable.indexOf(token)
+      spannable.setSpan(ForegroundColorSpan(Color.RED), start, start + token.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+  }
+
+  private fun extractAll(spannable: Spannable): String =
+    MarkdownExtractor.extractFromSpannable(spannable, 0, spannable.length).trimEnd('\n')
+
   private fun codeBlock(code: String) =
     MarkdownASTNode(
       MarkdownASTNode.NodeType.CodeBlock,
