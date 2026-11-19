@@ -25,12 +25,12 @@ fun EnrichedMarkdownText(
   spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles(),
   includeLastBlockMargin: Boolean = false,
   plugins: List<MarkdownPlugin> = LocalMarkdownPlugins.current,
-  admonitionTitles: AdmonitionTitles = AdmonitionTitles.Default,
+  admonitionTitles: AdmonitionTitles = LocalAdmonitionTitles.current,
   onPluginEvent: (PluginEvent) -> Unit = {},
 )
 ```
 
-`EnrichedMarkdownText`, `MarkdownStyle`, `MarkdownTheme`, `MarkdownOptions`, `CodeBlockLayout`, `CodeBlockCopy`, `TaskListItemToggle`, `MarkdownPlugin`, `LocalMarkdownPlugins`, and `PluginEvent` all import from `com.swmansion.enriched.markdown.compose`. `SpoilerOverlay` imports from `com.swmansion.enriched.markdown.spoiler`.
+`EnrichedMarkdownText`, `MarkdownStyle`, `MarkdownTheme`, `MarkdownOptions`, `CodeBlockLayout`, `CodeBlockCopy`, `TaskListItemToggle`, `MarkdownPlugin`, `LocalMarkdownPlugins`, `AdmonitionTitles`, `LocalAdmonitionTitles`, and `PluginEvent` all import from `com.swmansion.enriched.markdown.compose`. `SpoilerOverlay` imports from `com.swmansion.enriched.markdown.spoiler`.
 
 :::note
 The composable wraps a real Android `View` through `AndroidView`, so it renders **nothing** in `@Preview`. Run it on a device or emulator.
@@ -270,7 +270,7 @@ Headers take part in the cache key, so the same URL fetched with different heade
 
 Renames or translates the [admonition](#admonitions) header titles. A type you leave out keeps its English title, and an empty string shows the icon without a title. The header stays one line high, so a title wider than the callout ends in an ellipsis. Copying an admonition still gives its `> [!NOTE]` marker, and TalkBack reads the title you set.
 
-<PropInfo type="AdmonitionTitles" default="AdmonitionTitles.Default" />
+<PropInfo type="AdmonitionTitles" default="LocalAdmonitionTitles.current" />
 
 ```kotlin
 data class AdmonitionTitles(
@@ -288,6 +288,16 @@ EnrichedMarkdownText(
   options = MarkdownOptions(admonitions = true),
   admonitionTitles = AdmonitionTitles(note = "Uwaga", warning = "Ostrzeżenie"),
 )
+```
+
+The default reads `LocalAdmonitionTitles`, which starts out as `AdmonitionTitles.Default`. Provide it once to translate every `EnrichedMarkdownText` below, and pass the parameter only where one view needs other titles:
+
+```kotlin
+CompositionLocalProvider(
+  LocalAdmonitionTitles provides AdmonitionTitles(note = "Uwaga", warning = "Ostrzeżenie"),
+) {
+  ChatScreen()
+}
 ```
 
 ### `taskListToggleEnabled` {#tasklisttoggleenabled}
