@@ -131,8 +131,8 @@ ENRMRenderResult *ENRMRenderASTNodesResuming(NSArray<MarkdownASTNode *> *nodes, 
   [context applyImageAttributesToString:tail];
   ENRMApplyLineBreakStrategyToParagraphStyles(tail, lineBreakStrategy);
   // A renderer that changed the text before the tail would have changed it in the whole text too.
-  if (tail.length < kResumeSeedLength || ![[tail attributedSubstringFromRange:NSMakeRange(0, kResumeSeedLength)]
-                                             isEqualToAttributedString:seed]) {
+  if (tail.length < kResumeSeedLength ||
+      ![[tail attributedSubstringFromRange:NSMakeRange(0, kResumeSeedLength)] isEqualToAttributedString:seed]) {
     return nil;
   }
   [tail deleteCharactersInRange:NSMakeRange(0, kResumeSeedLength)];

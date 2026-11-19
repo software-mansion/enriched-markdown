@@ -10,8 +10,7 @@ namespace facebook::react {
 // The streaming options that change what is laid out: the modes decide what the streaming filter
 // withholds, smooth pacing how much the view shows. The animation draws over the same layout, so
 // it stays out and changing it measures nothing again.
-template <typename StreamingConfig>
-folly::dynamic streamingLayoutConfig(const StreamingConfig &config) {
+template <typename StreamingConfig> folly::dynamic streamingLayoutConfig(const StreamingConfig &config) {
   return folly::dynamic::object("tableMode", config.tableMode)("codeBlockMode", config.codeBlockMode)(
       "mediaMode", config.mediaMode)("smooth", config.smooth);
 }

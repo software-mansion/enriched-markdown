@@ -124,9 +124,8 @@ Size MarkdownContainerShadowNode::measureWithSlots(const LayoutContext &layoutCo
   Size size;
   {
     BlockSlotMeasureSession::Scope scope(&session);
-    size =
-        measurementsManager_->measure(getSurfaceId(), getTag(), getConcreteProps().markdown, measureKeys(), session.ids(),
-                                      layoutConstraints);
+    size = measurementsManager_->measure(getSurfaceId(), getTag(), getConcreteProps().markdown, measureKeys(),
+                                         session.ids(), layoutConstraints);
   }
   slotMeasurement_ = SlotMeasurement{true,  true, getProps().get(), getStateData().getForceHeightRecalculationCounter(),
                                      width, size, session.frames()};

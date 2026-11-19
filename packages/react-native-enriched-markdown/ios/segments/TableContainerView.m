@@ -329,7 +329,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   // a single drawRect: pass (no subview / layer compositing issues).
   ENRMTableGridView *gridView = [[ENRMTableGridView alloc] initWithFrame:CGRectZero];
   __weak TableContainerView *weakSelf = self;
-  gridView.menuProvider = ^NSMenu * {
+  gridView.menuProvider = ^NSMenu *
+  {
     TableContainerView *strongSelf = weakSelf;
     if (!strongSelf || !strongSelf.dynamicProps.enableBlockContextMenu)
       return nil;

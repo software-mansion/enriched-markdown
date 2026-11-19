@@ -48,6 +48,10 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
 @property (nonatomic, assign) BOOL loadFailed;
 @property (nonatomic, strong) ENRMImageFailurePlaceholder *failurePlaceholder;
 @property (nonatomic, strong) RCTUIImage *failureImage;
+// A size was handed out to layout or measurement, so a later size change leaves it stale.
+@property (nonatomic, assign) BOOL hasBeenMeasured;
+// An inline size change that had no text view to report to yet (the view had not laid us out).
+@property (nonatomic, assign) BOOL layoutReportPending;
 
 @end
 
@@ -189,10 +193,13 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
                              glyphPosition:(CGPoint)position
                             characterIndex:(NSUInteger)characterIndex
 {
+  self.hasBeenMeasured = YES;
   // A text view lays out attachments it never draws (outside the drawn part of a long text):
   // the container leads a load back to it (refreshDisplay). Not a measurement-only container.
+  // A failure that arrived before this layout is reported now, while the view may be off screen.
   if (textContainer != nil && objc_getAssociatedObject(textContainer, kTextViewKey) != nil) {
     self.textContainer = textContainer;
+    [self reportPendingLayoutChange];
   }
 
   CGFloat height = self.cachedHeight;
@@ -224,6 +231,7 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
                 characterIndex:(NSUInteger)characterIndex
 {
   self.textContainer = textContainer;
+  [self reportPendingLayoutChange];
 
   if (self.loadFailed) {
     return [self failureImageForSize:imageBounds.size] ?: self.placeholderImage;
@@ -439,8 +447,12 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
   }
 
   ENRMPlatformTextView *textView = [self fetchAssociatedTextView];
-  if (!textView)
+  if (!textView) {
+    // The host may have measured us before this change; tell it once we know our text view.
+    // Nothing to tell when no size was handed out yet: every layout will see the new one.
+    self.layoutReportPending = self.layoutReportPending || (inlineSizeChanged && self.hasBeenMeasured);
     return;
+  }
 
   NSRange range = [self findAttachmentRangeInText:textView.textStorage];
   if (range.location != NSNotFound) {
@@ -467,6 +479,20 @@ static NSCache<NSString *, NSNumber *> *_failedImageKeys;
     return;
 
   [self postImageLayoutResolved:textView];
+}
+
+- (void)reportPendingLayoutChange
+{
+  if (!self.layoutReportPending)
+    return;
+  ENRMPlatformTextView *textView = [self fetchAssociatedTextView];
+  if (!textView)
+    return;
+  self.layoutReportPending = NO;
+  // We are mid-layout or mid-draw, and the text view (or the host's measurement) may still hold the
+  // old size: lay this range out again (which also reports the change) once that is over.
+  __weak typeof(self) weakSelf = self;
+  dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf refreshDisplayAfterInlineSizeChange:YES]; });
 }
 
 // Only maxHeight/aspectRatio boxes can change height after load; a fixed

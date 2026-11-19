@@ -75,8 +75,7 @@ static inline bool ENRMIsStreamUpdate(const ENRMPreviousMeasurement<PropsT> &pre
                                       const MeasurementCacheKey &layoutKey, NSWritingDirection layoutDirection)
 {
   return props.streaming && previous.props && previous.layoutKey == layoutKey &&
-         previous.layoutDirection == layoutDirection &&
-         ENRMStreamingRenderEqual(*previous.props, props) &&
+         previous.layoutDirection == layoutDirection && ENRMStreamingRenderEqual(*previous.props, props) &&
          ENRMMarkdownExtends(previous.props->markdown, props.markdown);
 }
 

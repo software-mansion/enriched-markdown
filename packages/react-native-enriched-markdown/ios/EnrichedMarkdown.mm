@@ -1458,7 +1458,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
                                   selectionEnd:selectionEnd];
         });
     return buildEditMenuForSelection(textView.textStorage, textView.selectedRange, segmentMarkdown, strongSelf->_config,
-                                     @[ baseMenu ], customItems, strongSelf->_selectionMenuConfig,
+                                     @[ baseMenu ], customItems, strongSelf -> _selectionMenuConfig,
                                      [strongSelf selectionCopyHandler]);
   }];
 #endif

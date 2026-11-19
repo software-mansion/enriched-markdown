@@ -612,8 +612,8 @@ JNIEXPORT void JNICALL Java_com_swmansion_enriched_markdown_MeasurementStore_nat
 
 // Called by MeasurementStore while a markdown shadow node measures, for the inputs it doesn't keep;
 // see MarkdownMeasureSession. Outside a measurement there is no session and nothing to pull.
-JNIEXPORT jstring JNICALL Java_com_swmansion_enriched_markdown_MeasurementStore_nativeMeasureMarkdown(JNIEnv *env,
-                                                                                                      jclass /* clazz */) {
+JNIEXPORT jstring JNICALL
+Java_com_swmansion_enriched_markdown_MeasurementStore_nativeMeasureMarkdown(JNIEnv *env, jclass /* clazz */) {
   auto *session = facebook::react::MarkdownMeasureSession::current();
   if (!session) {
     return nullptr;
@@ -626,8 +626,8 @@ JNIEXPORT jstring JNICALL Java_com_swmansion_enriched_markdown_MeasurementStore_
   }
 }
 
-JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_MeasurementStore_nativeMeasureConfig(JNIEnv * /* env */,
-                                                                                                    jclass /* clazz */) {
+JNIEXPORT jobject JNICALL
+Java_com_swmansion_enriched_markdown_MeasurementStore_nativeMeasureConfig(JNIEnv * /* env */, jclass /* clazz */) {
   auto *session = facebook::react::MarkdownMeasureSession::current();
   if (!session) {
     return nullptr;

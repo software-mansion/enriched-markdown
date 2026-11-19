@@ -452,7 +452,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
         });
     return buildEditMenuForSelection(textView.textStorage, textView.selectedRange, strongSelf->_cachedMarkdown,
                                      strongSelf->_config, @[ baseMenu ], customItems,
-                                     strongSelf->_selectionMenuConfig, [strongSelf selectionCopyHandler]);
+                                     strongSelf -> _selectionMenuConfig, [strongSelf selectionCopyHandler]);
   };
 #endif
 
