@@ -69,5 +69,18 @@ class ClipboardExportTest {
     assertEquals("**\$x_1\$**", MarkdownASTSerializer.serializeChildren(nestedCell))
   }
 
+  @Test
+  fun serializedTableCellsKeepLineEndingEntities() {
+    // Cell text as the parser decodes it, and how it copies; a raw line ending would end the row.
+    fun cell(text: String) =
+      MarkdownASTNode(MarkdownASTNode.NodeType.TableCell, children = listOf(MarkdownASTNode(MarkdownASTNode.NodeType.Text, text)))
+    assertEquals("one&#10;two", MarkdownASTSerializer.serializeTableCell(cell("one\ntwo")))
+    assertEquals("one&#13;two", MarkdownASTSerializer.serializeTableCell(cell("one\rtwo")))
+    assertEquals("one&#13;&#10;two", MarkdownASTSerializer.serializeTableCell(cell("one\r\ntwo")))
+    // A backslash before the entity stays literal instead of escaping its `&`.
+    assertEquals("a\\\\&#10;b", MarkdownASTSerializer.serializeTableCell(cell("a\\\nb")))
+    assertEquals("one<br>two", MarkdownASTSerializer.serializeTableCell(cell("one<br>two")))
+  }
+
   private fun style() = StyleConfig(MarkdownRenderTestSupport.exportStyleMap(), context, false, 0f)
 }
