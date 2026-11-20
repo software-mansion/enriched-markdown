@@ -225,6 +225,28 @@ class TableSegmentTest {
   }
 
   @Test
+  fun serializeTableKeepsLineEndingEntitiesInCells() {
+    // Cell text as md4c decodes `&#10;` and `&#13;`; a raw line ending would end the copied row.
+    val node =
+      table(
+        head = tableHead(tableRow(tableHeaderCell("default", text("A")))),
+        body =
+          tableBody(
+            tableRow(tableCell("default", text("one\ntwo"))),
+            tableRow(tableCell("default", text("one\r\ntwo"))),
+            tableRow(tableCell("default", text("a\\\nb"))),
+          ),
+      )
+
+    val markdown = MarkdownASTSerializer.serializeTable(node)
+
+    assertEquals(
+      "| A |\n| --- |\n| one&#10;two |\n| one&#13;&#10;two |\n| a\\\\&#10;b |\n",
+      markdown,
+    )
+  }
+
+  @Test
   fun serializeTableKeepsInlineEmphasisMarkers() {
     val node =
       table(

@@ -19,8 +19,7 @@ object MarkdownASTSerializer {
       node.children.forEach { section ->
         section.children.filter { it.type == NodeType.TableRow }.forEach { row ->
           append("| ")
-          // A literal pipe would otherwise start a new column.
-          append(row.children.joinToString(" | ") { serializeChildren(it).replace("|", "\\|") })
+          append(row.children.joinToString(" | ") { serializeTableCell(it) })
           append(" |\n")
 
           // md4c always emits exactly one head row (guarded by ParserTest).
@@ -32,6 +31,22 @@ object MarkdownASTSerializer {
         }
       }
     }
+
+  private val backslashesBeforeLineEnding = Regex("""(?<!\\)\\+(?=[\r\n])""")
+
+  /**
+   * A cell's markdown on one line: a literal pipe would start a new column, and a line ending
+   * (decoded from `&#10;` or `&#13;`) would end the row, so it goes back to that entity.
+   * Backslashes right before it are doubled so they stay literal instead of escaping its `&`.
+   */
+  private fun serializeTableCell(cell: MarkdownASTNode): String {
+    val markdown = serializeChildren(cell).replace("|", "\\|")
+    if ('\n' !in markdown && '\r' !in markdown) return markdown
+    return markdown
+      .replace(backslashesBeforeLineEnding, "$0$0")
+      .replace("\r", "&#13;")
+      .replace("\n", "&#10;")
+  }
 
   private fun alignmentMarker(align: String?): String =
     when (align) {
