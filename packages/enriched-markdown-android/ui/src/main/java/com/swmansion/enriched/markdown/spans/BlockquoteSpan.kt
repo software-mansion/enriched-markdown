@@ -10,6 +10,7 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.text.Layout
 import android.text.Spanned
+import android.text.TextDirectionHeuristics
 import android.text.TextPaint
 import android.text.TextUtils
 import android.text.style.LeadingMarginSpan
@@ -77,9 +78,15 @@ class BlockquoteSpan(
     Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
   }
 
-  // Cache for shouldSkipDrawing to avoid repeated getSpans() calls during draw passes
+  // Caches for shouldSkipDrawing and lineIsRtl to avoid repeated scans during draw passes
   private var cachedText: CharSequence? = null
   private var cachedSpansByPosition = mutableMapOf<Int, Array<BlockquoteSpan>>()
+  private var cachedRtlByLine = mutableMapOf<Int, Boolean?>()
+
+  // The last paragraph resolved, so its wrapped lines don't scan it again.
+  private var cachedParagraphStart = 0
+  private var cachedParagraphEnd = 0
+  private var cachedParagraphRtl = false
 
   private var boxLeft = 0f
   private var boxRight = 0f
@@ -124,6 +131,16 @@ class BlockquoteSpan(
       return
     }
 
+    var lineX = x
+    var lineDir = dir
+    if (layout != null && isEmptyLine(spanned, start)) {
+      val rtl = lineIsRtl(spanned, start)
+      if (rtl != null && rtl != (dir < 0)) {
+        lineX = layout.width - x
+        lineDir = -dir
+      }
+    }
+
     val rootSpan = spanAtMinDepth(spanned, start)
     val clipToRoot =
       radius > 0f && boxRight > boxLeft && rootSpan != null && isBoundaryLine(spanned, start, end, rootSpan)
@@ -133,8 +150,8 @@ class BlockquoteSpan(
     var bottomInset = 0f
 
     for (level in 0..depth) {
-      val borderX = x + (levelSpacing * level * dir)
-      val borderRight = borderX + (blockquoteStyle.borderWidth * dir)
+      val borderX = lineX + (levelSpacing * level * lineDir)
+      val borderRight = borderX + (blockquoteStyle.borderWidth * lineDir)
       val stripeLeft = minOf(borderX, borderRight)
       val stripeRight = maxOf(borderX, borderRight)
       val stripeTop = top.toFloat() + topInset
@@ -156,8 +173,8 @@ class BlockquoteSpan(
             clipPath(path)
           }
           if (clipToOwn) {
-            val clipLeft = if (dir >= 0) stripeLeft else boxLeft
-            val clipRight = if (dir >= 0) boxRight else stripeRight
+            val clipLeft = if (lineDir >= 0) stripeLeft else boxLeft
+            val clipRight = if (lineDir >= 0) boxRight else stripeRight
             buildBoundaryPath(spanned, start, end, levelSpan!!, clipLeft, stripeTop, clipRight, stripeBottom)
             clipPath(path)
           }
@@ -172,7 +189,7 @@ class BlockquoteSpan(
     }
 
     if (header != null && start == spanned.getSpanStart(header)) {
-      drawAdmonitionHeader(c, x, dir, top)
+      drawAdmonitionHeader(c, lineX, lineDir, top)
     }
   }
 
@@ -267,16 +284,16 @@ class BlockquoteSpan(
     // Like the accent bars, every enclosing level is filled by this span (the deepest one on the
     // line), outermost first, each inset by one bar + gap so it starts where that level's own bar
     // does. Without the inset a nested admonition would be swallowed by its parent's fill instead
-    // of sitting framed inside it.
+    // of sitting framed inside it. This runs before drawLeadingMargin hands out the line's
+    // direction, so the bars' side is resolved here the way the layout resolves it.
+    val rtl = depth > 0 && (lineIsRtl(spanned, start) ?: isRTL)
     for (level in 0..depth) {
       val levelSpan = (if (level == 0) spanAtMinDepth(spanned, start) else spanAtDepth(spanned, start, level)) ?: continue
       val bgColor = levelSpan.boxBackgroundColor ?: continue
       val backgroundPaint = configureBackgroundPaint(bgColor)
-      // drawBackground runs before any drawLeadingMargin of this frame, so the layout direction it
-      // hands out is not available yet; the view's configured direction stands in for it.
       val inset = levelSpacing * level
-      val levelLeft = if (isRTL) left.toFloat() else left + inset
-      val levelRight = if (isRTL) right - inset else right.toFloat()
+      val levelLeft = if (rtl) left.toFloat() else left + inset
+      val levelRight = if (rtl) right - inset else right.toFloat()
 
       if (radius <= 0f) {
         canvas.drawRect(levelLeft, top.toFloat(), levelRight, bottom.toFloat(), backgroundPaint)
@@ -319,6 +336,18 @@ class BlockquoteSpan(
   companion object {
     private const val BOLD_ITALIC_MASK = Typeface.BOLD or Typeface.ITALIC
 
+    /** The direction of the first strong character in [start]..[end], or `null` when there is none. */
+    private fun firstStrongIsRtl(
+      text: CharSequence,
+      start: Int,
+      end: Int,
+    ): Boolean? {
+      if (end <= start) return null
+      if (TextDirectionHeuristics.FIRSTSTRONG_LTR.isRtl(text, start, end - start)) return true
+      if (!TextDirectionHeuristics.FIRSTSTRONG_RTL.isRtl(text, start, end - start)) return false
+      return null
+    }
+
     private val sharedBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val sharedBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
   }
@@ -333,17 +362,62 @@ class BlockquoteSpan(
       color = bgColor
     }
 
+  private fun resetCachesFor(text: Spanned) {
+    if (cachedText !== text) {
+      cachedText = text
+      cachedSpansByPosition.clear()
+      cachedRtlByLine.clear()
+      cachedParagraphEnd = cachedParagraphStart
+    }
+  }
+
   private fun spansAt(
     text: Spanned,
     start: Int,
   ): Array<BlockquoteSpan> {
-    if (cachedText !== text) {
-      cachedText = text
-      cachedSpansByPosition.clear()
-    }
+    resetCachesFor(text)
     return cachedSpansByPosition.getOrPut(start) {
       text.getSpans(start, start + 1, BlockquoteSpan::class.java)
     }
+  }
+
+  private fun isEmptyLine(
+    text: Spanned,
+    start: Int,
+  ): Boolean = start >= text.length || text[start] == '\n'
+
+  /**
+   * The direction of the line at [start]: its paragraph's, as the layout resolves it. An empty line
+   * takes the direction of the quote text after it, `null` when that text has no strong character.
+   */
+  private fun lineIsRtl(
+    text: Spanned,
+    start: Int,
+  ): Boolean? {
+    resetCachesFor(text)
+    if (start !in cachedRtlByLine) {
+      cachedRtlByLine[start] =
+        if (isEmptyLine(text, start)) {
+          val quoteEnd = text.getSpanEnd(this).takeIf { it >= 0 } ?: text.length
+          firstStrongIsRtl(text, start, quoteEnd)
+        } else {
+          paragraphIsRtl(text, start)
+        }
+    }
+    return cachedRtlByLine[start]
+  }
+
+  private fun paragraphIsRtl(
+    text: Spanned,
+    start: Int,
+  ): Boolean {
+    if (start !in cachedParagraphStart until cachedParagraphEnd) {
+      cachedParagraphStart = TextUtils.lastIndexOf(text, '\n', start - 1) + 1
+      cachedParagraphEnd = TextUtils.indexOf(text, '\n', start).takeIf { it >= 0 } ?: text.length
+      val heuristic = if (isRTL) TextDirectionHeuristics.FIRSTSTRONG_RTL else TextDirectionHeuristics.FIRSTSTRONG_LTR
+      cachedParagraphRtl = heuristic.isRtl(text, cachedParagraphStart, cachedParagraphEnd - cachedParagraphStart)
+    }
+    return cachedParagraphRtl
   }
 
   private fun shouldSkipDrawing(

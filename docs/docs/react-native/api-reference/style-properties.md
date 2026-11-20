@@ -206,8 +206,8 @@ Each heading level (`h1`-`h6`) and `paragraph` is styled by its own key. Give ea
 
 | Property          | Type     | Default   | Description                              |
 | ----------------- | -------- | --------- | ---------------------------------------- |
-| `borderColor`     | `string` | `#D1D5DB` | Left border color                        |
-| `borderWidth`     | `number` | `3`       | Left border width                        |
+| `borderColor`     | `string` | `#D1D5DB` | Accent bar color                         |
+| `borderWidth`     | `number` | `3`       | Accent bar width                         |
 | `gapWidth`        | `number` | `16`      | Gap between border and text              |
 | `backgroundColor` | `string` | `#F9FAFB` | Background color                         |
 | `borderRadius`    | `number` | `0`       | Corner radius of the blockquote box      |

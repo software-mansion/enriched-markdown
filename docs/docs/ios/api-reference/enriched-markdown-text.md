@@ -541,7 +541,7 @@ EnrichedMarkdownText(content)
 | `.leftToRight` | Left-to-right, whatever its text |
 | `.rightToLeft` | Right-to-left, whatever its text |
 
-Under every case other than `.natural`, a paragraph's decorations follow that paragraph: a right-to-left list item has its marker or checkbox on the right, a right-to-left quote its bar on the right, even in a left-to-right app. An admonition's title takes the direction of the body it introduces. **Code blocks always render left-to-right**, whichever case is set.
+Under every case other than `.natural`, a paragraph's decorations follow that paragraph: a right-to-left list item has its marker or checkbox on the right, a right-to-left quote its bar on the right, even in a left-to-right app. An admonition's title takes the direction of the first strong character in the body below it; a table does not count. **Code blocks always render left-to-right**, whichever case is set.
 
 ### `.markdownBottomMargin` {#markdownbottommargin}
 

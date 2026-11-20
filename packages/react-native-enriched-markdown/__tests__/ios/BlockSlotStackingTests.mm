@@ -62,8 +62,8 @@ static NSString *ENRMFirstSlotId(NSString *markdown)
                                                                              return childHeight;
                                                                            }];
   CGFloat withSlot = ENRMMeasureSegmentsHeightViewFree(
-      segments, config, width, NO, 2, ENRMWritingDirectionModeFirstStrong, NSWritingDirectionLeftToRight, YES,
-      NSLineBreakStrategyStandard, nil, measurer, CGPointZero);
+      segments, config, width, NO, 2, ENRMWritingDirectionModeFirstStrong, NSWritingDirectionLeftToRight,
+      NSWritingDirectionNatural, YES, NSLineBreakStrategyStandard, nil, measurer, CGPointZero);
 
   NSValue *frameValue = measurer.frames[slotId];
   XCTAssertNotNil(frameValue, @"the walk records where the slot landed");
@@ -89,8 +89,8 @@ static NSString *ENRMFirstSlotId(NSString *markdown)
       [[ENRMBlockSlotMeasurer alloc] initWithSlotIds:[NSSet set]
                                              measure:^CGFloat(NSString *id, CGFloat w) { return 100; }];
   ENRMMeasureSegmentsHeightViewFree(segments, config, 320, NO, 2, ENRMWritingDirectionModeFirstStrong,
-                                    NSWritingDirectionLeftToRight, YES, NSLineBreakStrategyStandard, nil, measurer,
-                                    CGPointZero);
+                                    NSWritingDirectionLeftToRight, NSWritingDirectionNatural, YES,
+                                    NSLineBreakStrategyStandard, nil, measurer, CGPointZero);
   XCTAssertEqual(measurer.frames.count, 0u);
 }
 
@@ -107,8 +107,8 @@ static NSString *ENRMFirstSlotId(NSString *markdown)
       [[ENRMBlockSlotMeasurer alloc] initWithSlotIds:[NSSet setWithObject:slotId]
                                              measure:^CGFloat(NSString *id, CGFloat w) { return 50; }];
   CGFloat height = ENRMMeasureSegmentsHeightViewFree(segments, config, 320, YES, 2, ENRMWritingDirectionModeFirstStrong,
-                                                     NSWritingDirectionLeftToRight, YES, NSLineBreakStrategyStandard,
-                                                     nil, measurer, CGPointZero);
+                                                     NSWritingDirectionLeftToRight, NSWritingDirectionNatural, YES,
+                                                     NSLineBreakStrategyStandard, nil, measurer, CGPointZero);
   XCTAssertEqualWithAccuracy(height, config.paragraphMarginTop + 50 + config.paragraphMarginBottom, 0.5);
   XCTAssertEqualWithAccuracy(measurer.frames[slotId].CGRectValue.origin.y, config.paragraphMarginTop, 0.5);
 }
@@ -128,8 +128,8 @@ static NSString *ENRMFirstSlotId(NSString *markdown)
       [[ENRMBlockSlotMeasurer alloc] initWithSlotIds:[NSSet setWithObject:slotId]
                                              measure:^CGFloat(NSString *id, CGFloat w) { return 50; }];
   CGFloat height = ENRMMeasureSegmentsHeightViewFree(segments, config, 320, YES, 2, ENRMWritingDirectionModeFirstStrong,
-                                                     NSWritingDirectionLeftToRight, YES, NSLineBreakStrategyStandard,
-                                                     nil, measurer, CGPointZero);
+                                                     NSWritingDirectionLeftToRight, NSWritingDirectionNatural, YES,
+                                                     NSLineBreakStrategyStandard, nil, measurer, CGPointZero);
   XCTAssertEqualWithAccuracy(height, config.codeBlockMarginTop + 50 + config.codeBlockMarginBottom, 0.5);
   XCTAssertEqualWithAccuracy(measurer.frames[slotId].CGRectValue.origin.y, config.codeBlockMarginTop, 0.5);
 }
@@ -138,8 +138,8 @@ static NSString *ENRMFirstSlotId(NSString *markdown)
 {
   NSArray *segments = [self segmentsFor:markdown config:config slotIds:[NSSet set]];
   return ENRMMeasureSegmentsHeightViewFree(segments, config, width, NO, 2, ENRMWritingDirectionModeFirstStrong,
-                                           NSWritingDirectionLeftToRight, YES, NSLineBreakStrategyStandard, nil, nil,
-                                           CGPointZero);
+                                           NSWritingDirectionLeftToRight, NSWritingDirectionNatural, YES,
+                                           NSLineBreakStrategyStandard, nil, nil, CGPointZero);
 }
 
 @end
