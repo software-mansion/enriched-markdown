@@ -54,6 +54,8 @@ function CodeRenderer({ node, styles, renderChildren }: RendererProps) {
   );
 }
 
+const BROWSER_OPENABLE_URL = /^(https?:|mailto:|\/|#|\?)/i;
+
 function LinkRenderer({
   node,
   style,
@@ -65,6 +67,19 @@ function LinkRenderer({
   if (!url) return <>{renderChildren(node)}</>;
 
   const handleClick = (event: MouseEvent) => {
+    // Like web routers do: cmd/ctrl/shift/alt-click and non-primary buttons on a link the browser
+    // can open (new tab or window) stay with the browser. Other schemes, such as custom mentions,
+    // still go to onLinkPress.
+    const isModified =
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      event.button !== 0;
+    if (isModified && BROWSER_OPENABLE_URL.test(url)) {
+      return;
+    }
+
     if (callbacks.onLinkPress) {
       event.preventDefault();
       callbacks.onLinkPress({ url });
