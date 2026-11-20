@@ -91,6 +91,14 @@ class MarkdownAccessibilityHelperTest {
     )
   }
 
+  /** The span has a label but no plain text, so nothing but the label says the paragraph has anything to read. */
+  @Test
+  fun formulaAloneInAParagraphIsRead() {
+    val text = SpannableStringBuilder().append("￼", FormulaSpan(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+
+    assertEquals(listOf("Math: E equals m c squared"), nodes(text, 1).map { it.contentDescription.toString() })
+  }
+
   @Test
   fun formulaInsideLinkIsReadAsPartOfTheLink() {
     val text = render(document(paragraph(text("see "), link("https://example.com", text("x here")))))

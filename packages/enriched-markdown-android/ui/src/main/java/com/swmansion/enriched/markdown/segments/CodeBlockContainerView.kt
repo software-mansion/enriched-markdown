@@ -38,6 +38,7 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.TypefaceUtils
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfigurable
 import com.swmansion.enriched.markdown.views.ContextMenuPopup
 import com.swmansion.enriched.markdown.views.CopyGlyph
 import kotlin.math.ceil
@@ -54,13 +55,14 @@ class CodeBlockContainerView(
   context: Context,
   private val styleConfig: StyleConfig,
 ) : FrameLayout(context),
-  BlockSegmentView {
+  BlockSegmentView,
+  SelectionMenuConfigurable {
   private val codeBlockStyle: CodeBlockStyle = styleConfig.codeBlockStyle
 
   override val segmentMarginTop: Int get() = codeBlockStyle.marginTop.toInt()
   override val segmentMarginBottom: Int get() = codeBlockStyle.marginBottom.toInt()
 
-  var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig()
+  override var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig()
 
   /** Called after the copy button or the long-press Copy puts the code on the clipboard; not for Copy as Markdown. */
   var onCodeBlockCopy: ((CodeBlockCopy) -> Unit)? = null
