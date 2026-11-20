@@ -268,9 +268,12 @@ layout gets tight.
 The WASM parser loads once per page, starting when the package is imported. An
 instance mounted before that load finishes renders nothing until it does. From
 then on, every render shows the markdown it was given in the same commit.
-Nothing is emitted during server-side rendering - wrap the component in a
-client-only boundary if your framework pre-renders. (Style injection itself is
-SSR-safe.)
+A server render emits nothing either, unless
+[`suspense`](/react-native/api-reference/enriched-markdown-text#suspense) is set:
+the component then suspends until the parser has loaded, so the server renders
+the markdown, and hydration keeps that HTML until the parser has loaded in the
+browser. It needs React 19 and a `<Suspense>` boundary above the component.
+(Style injection itself is SSR-safe.)
 :::
 
 If parsing fails, the component does not crash: it renders the raw `markdown`
@@ -331,13 +334,35 @@ the `<pre>` / `<img>`, which replaces their code and image semantics.
 | Prop     | Description                                                                                                                                               |
 | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `dir`    | Text direction (`'ltr'`, `'rtl'`, or `'auto'`). Unset or `'auto'` resolves each block from its content; `'ltr'` / `'rtl'` force the whole document. |
+| `suspense` | Suspends until the WASM parser has loaded, instead of rendering nothing until then. See [Server-side rendering](#server-side-rendering). |
 | `testID` | Rendered as `data-testid`, so DOM testing libraries can query it.                                                                                         |
 
 The web entry point exports its own `EnrichedMarkdownTextProps` type. It drops
-the native-only props and `style`, and adds the ones above. Note that `dir` is
+the native-only props and `style`, and adds the ones above. Note that `dir` and `suspense` are
 declared on **both** the native and the web props type - deliberately, so a
-project typed against the native interface can pass it without switching types.
-It is a no-op on native.
+project typed against the native interface can pass them without switching types.
+They are no-ops on native.
+
+## Server-side rendering
+
+The WASM parser loads asynchronously, and until it has, `EnrichedMarkdownText`
+renders nothing: a server render emits no markdown, and the content appears once
+parsed in the browser, shifting the page. Set `suspense` to suspend until the
+parser has loaded instead:
+
+```tsx
+<Suspense fallback={null}>
+  <EnrichedMarkdownText markdown={markdown} suspense />
+</Suspense>
+```
+
+A streaming server render (`renderToPipeableStream`, `renderToReadableStream`,
+or a framework built on them) then waits for the parser and renders the
+markdown, and hydration keeps the server's HTML until the parser has loaded in
+the browser too, so the first paint already has the text. It needs React 19
+(`use`). On the client, the boundary shows its fallback while the parser loads,
+only before the first load: later instances render the markdown in their first
+commit either way.
 
 ## Ignored props (native-only)
 
