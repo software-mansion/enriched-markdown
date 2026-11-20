@@ -11,8 +11,8 @@
 
 <link rel="icon" type="image/png" href="/enriched-markdown/img/favicon.png">
 <script>!function(){try{var e=location.pathname;if([].some(function(t){return e===t||0===e.indexOf(t+"/")}))return;var t=localStorage.getItem("swm.topbarbanner.v1.enriched-topbar-1.ea15c4216158c4097b65fe6504a4b3b7");if(!t)return;var r=JSON.parse(t);if(!r||"number"!=typeof r.height||r.height<5)return;if(Date.now()-r.timestamp>=2592e6)return;var n=document.documentElement;n.style.setProperty("--banner-height-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.height+"px"),"string"==typeof r.bgColor&&n.style.setProperty("--banner-bg-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.bgColor)}catch(e){}}()</script><link rel="stylesheet" href="/enriched-markdown/assets/css/styles.9863f435.css">
-<script src="/enriched-markdown/assets/js/runtime~main.4a7b4687.js" defer="defer"></script>
-<script src="/enriched-markdown/assets/js/main.9911922d.js" defer="defer"></script>
+<script src="/enriched-markdown/assets/js/runtime~main.25758089.js" defer="defer"></script>
+<script src="/enriched-markdown/assets/js/main.4a2e8b3e.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
 <svg style="display: none;"><defs>
@@ -144,7 +144,7 @@ development.</p>
 <li class=""><code>enableTaskListItemToggle</code> - set to <code>false</code> to render task list checkboxes read-only (the click is fully inert: no toggle, no <code>onTaskListItemPress</code>). The checkbox keeps its normal appearance, marked <code>readOnly</code> / <code>aria-disabled</code> and made pointer-inert rather than <code>disabled</code>, matching iOS and Android</li>
 <li class=""><code>allowTrailingMargin</code>, <code>containerStyle</code>, <code>selectable</code>, <code>selectionColor</code>, <code>md4cFlags</code> (<code>underline</code>, <code>superscript</code>, <code>subscript</code>, <code>strikethrough</code>, <code>latexMath</code>, <code>highlight</code>, <code>hardSoftBreaks</code>, <code>preserveBlankLines</code>, <code>admonitions</code>; <code>strikethrough</code> is accepted but has no effect, because web always parses GFM)</li>
 <li class=""><code>stream</code> from <code>createMarkdownStream()</code>: the view renders the text appended so far (without the native streaming filter or fade)</li>
-<li class="">GitHub admonitions (<code>&gt; [!NOTE]</code>) - rendered as callouts with the same icon set and <code>blockquote.admonitions</code> palette as native. There is no <code>flavor</code> prop on web, so they are always on unless <code>md4cFlags={{ admonitions: false }}</code></li>
+<li class="">GitHub admonitions (<code>&gt; [!NOTE]</code>) - rendered as callouts with the same icon set, <code>blockquote.admonitions</code> palette and <code>admonitionTitles</code> as native. There is no <code>flavor</code> prop on web, so they are always on unless <code>md4cFlags={{ admonitions: false }}</code></li>
 <li class=""><a class="" href="/enriched-markdown/user-experience/rtl">RTL and mixed-direction (bidi) content</a>, resolved per block as on native</li>
 <li class="">Arbitrary DOM attributes, which pass through to the root <code>&lt;div&gt;</code></li>
 </ul>

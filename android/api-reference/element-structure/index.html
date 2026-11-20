@@ -11,8 +11,8 @@
 
 <link rel="icon" type="image/png" href="/enriched-markdown/img/favicon.png">
 <script>!function(){try{var e=location.pathname;if([].some(function(t){return e===t||0===e.indexOf(t+"/")}))return;var t=localStorage.getItem("swm.topbarbanner.v1.enriched-topbar-1.ea15c4216158c4097b65fe6504a4b3b7");if(!t)return;var r=JSON.parse(t);if(!r||"number"!=typeof r.height||r.height<5)return;if(Date.now()-r.timestamp>=2592e6)return;var n=document.documentElement;n.style.setProperty("--banner-height-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.height+"px"),"string"==typeof r.bgColor&&n.style.setProperty("--banner-bg-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.bgColor)}catch(e){}}()</script><link rel="stylesheet" href="/enriched-markdown/assets/css/styles.9863f435.css">
-<script src="/enriched-markdown/assets/js/runtime~main.4a7b4687.js" defer="defer"></script>
-<script src="/enriched-markdown/assets/js/main.9911922d.js" defer="defer"></script>
+<script src="/enriched-markdown/assets/js/runtime~main.25758089.js" defer="defer"></script>
+<script src="/enriched-markdown/assets/js/main.4a2e8b3e.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
 <svg style="display: none;"><defs>
@@ -51,7 +51,7 @@
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="admonitions">Admonitions<a href="#admonitions" class="hash-link" aria-label="Direct link to Admonitions" title="Direct link to Admonitions" translate="no">​</a></h2>
 <p>A blockquote whose <strong>first line</strong> is one of the five GitHub alert markers renders as a themed callout: the usual quote geometry plus a header row with a tinted icon and a bold title.</p>
 <div class="language-markdown codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:var(--swm-navy-light-80)"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-markdown codeBlock_bY9V thin-scrollbar" style="color:var(--swm-navy-light-80)"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:var(--swm-navy-light-80)"><span class="token blockquote punctuation" style="color:var(--swm-green-light-100)">&gt;</span><span class="token plain"> [!WARNING]</span><br></span><span class="token-line" style="color:var(--swm-navy-light-80)"><span class="token plain"></span><span class="token blockquote punctuation" style="color:var(--swm-green-light-100)">&gt;</span><span class="token plain"> This action cannot be undone.</span><br></span></code></pre></div></div>
-<p>The five types are <code>[!NOTE]</code>, <code>[!TIP]</code>, <code>[!IMPORTANT]</code>, <code>[!WARNING]</code>, and <code>[!CAUTION]</code>. Colors come from the <a class="" href="/enriched-markdown/android/api-reference/style-properties#admonitions"><code>admonitions</code></a> style block, which sits inside <code>blockquote { admonitions { } }</code>.</p>
+<p>The five types are <code>[!NOTE]</code>, <code>[!TIP]</code>, <code>[!IMPORTANT]</code>, <code>[!WARNING]</code>, and <code>[!CAUTION]</code>. Colors come from the <a class="" href="/enriched-markdown/android/api-reference/style-properties#admonitions"><code>admonitions</code></a> style block, which sits inside <code>blockquote { admonitions { } }</code>. The titles default to the type names in English; <a class="" href="/enriched-markdown/android/api-reference/enriched-markdown-text#admonitiontitles"><code>admonitionTitles</code></a> renames or translates them.</p>
 <p>This is an opt-in parser extension. Without <code>MarkdownOptions(admonitions = true)</code> the marker stays <strong>literal text</strong> inside an ordinary quote.</p>
 <p>Two behaviors worth knowing:</p>
 <ul>
