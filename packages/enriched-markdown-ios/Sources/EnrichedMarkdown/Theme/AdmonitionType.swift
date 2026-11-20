@@ -6,7 +6,4 @@ public enum AdmonitionType: String, CaseIterable, Sendable {
     case important
     case warning
     case caution
-
-    /// The header label ("Note").
-    var title: String { rawValue.capitalized }
 }

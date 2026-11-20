@@ -12,7 +12,8 @@ final class AttributedRenderer {
         plugins: [any MarkdownRenderPlugin] = [],
         writingDirection: MarkdownWritingDirection = .firstStrong,
         layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight,
-        codeBlockLayout: MarkdownCodeBlockLayout = .wrapping
+        codeBlockLayout: MarkdownCodeBlockLayout = .wrapping,
+        admonitionTitles: MarkdownAdmonitionTitles = .default
     ) {
         self.config = config
         self.factory = RendererFactory(
@@ -21,7 +22,8 @@ final class AttributedRenderer {
             plugins: plugins,
             writingDirection: writingDirection,
             layoutDirection: layoutDirection,
-            codeBlockLayout: codeBlockLayout
+            codeBlockLayout: codeBlockLayout,
+            admonitionTitles: admonitionTitles
         )
         self.rootBlockMargins = plugins.reduce(into: [:]) { margins, plugin in
             for type in plugin.rootBlockNodeTypes where margins[type] == nil {

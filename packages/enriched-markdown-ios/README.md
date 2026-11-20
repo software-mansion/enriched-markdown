@@ -466,6 +466,31 @@ EnrichedMarkdownText(markdown)
 
 `{n}` is a 1-based index and `{content}` the comma-joined cell text of a table row; translations must keep the placeholder names. Defaults use the cardinal form ("List item 2") so one template works in every language without plural rules. The math label lives in the LaTeX module: `.markdownLaTeX(accessibilityLabel: "Formel: {speech}")`, or `.markdownLaTeX { latex in … }` for a custom converter.
 
+### `.markdownAdmonitionTitles`
+
+```swift
+public struct MarkdownAdmonitionTitles: Equatable, Sendable {
+  public var note: String       // "Note"
+  public var tip: String        // "Tip"
+  public var important: String  // "Important"
+  public var warning: String    // "Warning"
+  public var caution: String    // "Caution"
+
+  public static let `default`: MarkdownAdmonitionTitles
+}
+
+extension View {
+  func markdownAdmonitionTitles(_ titles: MarkdownAdmonitionTitles) -> some View
+}
+```
+
+Renames or translates the GitHub alert titles. A type you leave out keeps its English title, and an empty string shows the icon alone. The header is one line high, so a title too wide for the callout ends in an ellipsis. `MarkdownRenderer.render`, `renderLaTeX`, and `renderSyntaxHighlighted` take the same value as `admonitionTitles:`.
+
+```swift
+EnrichedMarkdownText(markdown, options: MarkdownParsingOptions(admonitions: true))
+    .markdownAdmonitionTitles(MarkdownAdmonitionTitles(note: "Uwaga", warning: "Ostrzeżenie"))
+```
+
 ### `.markdownImageRequestHeaders`
 
 ```swift

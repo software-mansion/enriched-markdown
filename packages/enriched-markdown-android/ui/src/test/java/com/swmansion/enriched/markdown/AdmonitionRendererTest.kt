@@ -3,7 +3,10 @@ package com.swmansion.enriched.markdown
 import android.graphics.Paint
 import android.text.StaticLayout
 import android.text.TextPaint
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
+import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
 import com.swmansion.enriched.markdown.spans.AdmonitionIcons
 import com.swmansion.enriched.markdown.spans.BlockquoteSpan
@@ -22,9 +25,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import java.io.File
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -52,6 +57,41 @@ class AdmonitionRendererTest {
     val quote = rendered.getSpans(0, rendered.length, BlockquoteSpan::class.java).single()
     assertEquals(rendered.getSpanStart(quote), rendered.getSpanStart(headers[0]))
     assertTrue("Header must sit inside the quote", rendered.getSpanEnd(headers[0]) <= rendered.getSpanEnd(quote))
+  }
+
+  @Test
+  fun admonitionTitlesReplaceTheTypeName() {
+    val renderer = Renderer()
+    renderer.configure(
+      HTMLGeneratorTestSupport.defaultStyle,
+      ApplicationProvider.getApplicationContext(),
+      plugins = PluginSnapshot.EMPTY,
+      admonitionTitles = AdmonitionTitles(note = "Uwaga\n", tip = ""),
+    )
+    val rendered =
+      renderer.renderDocument(
+        document(
+          admonition("note", paragraph(text("A"))),
+          admonition("tip", paragraph(text("B"))),
+          admonition("caution", paragraph(text("C"))),
+        ),
+        null,
+        null,
+      )
+
+    val titles =
+      rendered
+        .getSpans(
+          0,
+          rendered.length,
+          AdmonitionHeaderSpan::class.java,
+        ).sortedBy { rendered.getSpanStart(it) }
+        .map { it.title }
+    assertEquals(listOf("Uwaga", "", "Caution"), titles)
+
+    val html = HTMLGeneratorTestSupport.generateHTML(rendered)
+    html.assertContainsHtml("font-weight: 700;\"><bdi>Uwaga</bdi></p>")
+    assertEquals("An empty title leaves no header row", 2, html.split("font-weight: 700;").size - 1)
   }
 
   @Test
@@ -115,10 +155,22 @@ class AdmonitionRendererTest {
   }
 
   @Test
-  fun everyAlertTypeHasAnIconAndATitle() {
+  fun everyAlertTypeHasAnIcon() {
     for (type in AdmonitionIcons.TYPES) {
       assertNotNull("Missing icon for $type", AdmonitionIcons.path(type))
-      assertEquals(type.replaceFirstChar { it.uppercase() }, AdmonitionIcons.title(type))
+    }
+  }
+
+  /** The React Native package's defaults are the source of truth. Skipped outside the monorepo. */
+  @Test
+  fun defaultTitlesMatchTheReactNativeSource() {
+    val file = File("../../react-native-enriched-markdown/src/admonitionDefaults.ts")
+    assumeTrue("${file.path} not available", file.exists())
+    // Prettier wraps long entries onto the next line; join key and value.
+    val source = file.readText().replace(Regex(":\\s+'"), ": '")
+
+    for (type in AdmonitionIcons.TYPES) {
+      assertTrue("title for $type", source.contains("$type: '${AdmonitionTitles.Default.forType(type)}'"))
     }
   }
 
@@ -237,7 +289,7 @@ class AdmonitionRendererTest {
 
     // #9A6700 is the GitHub warning color, applied to both the accent bar and the title.
     html.assertContainsHtml("border-inline-start: 3px solid #9A6700")
-    html.assertContainsHtml("font-weight: 700;\">Warning</p>")
+    html.assertContainsHtml("font-weight: 700;\"><bdi>Warning</bdi></p>")
     html.assertContainsHtml("Careful")
   }
 
