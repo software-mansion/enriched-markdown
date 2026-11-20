@@ -26,8 +26,18 @@ fun TextView.applySelectionColors(
   selectionHandleColor?.let { applySelectionHandleTint(it) }
 }
 
+/**
+ * Tints the selection handles of a [TextView] with [color], or clears a previously
+ * applied tint when [color] is null (e.g. when the prop is removed).
+ */
+fun TextView.applySelectionHandleColor(
+  @ColorInt color: Int?,
+) {
+  applySelectionHandleTint(color)
+}
+
 private fun TextView.applySelectionHandleTint(
-  @ColorInt color: Int,
+  @ColorInt color: Int?,
 ) {
   if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
 
@@ -40,7 +50,11 @@ private fun TextView.applySelectionHandleTint(
 
   handles.forEach { (getter, setter) ->
     try {
-      getter(this)?.mutate()?.also { DrawableCompat.setTint(it, color) }?.let { setter(this, it) }
+      getter(this)
+        ?.mutate()
+        ?.also {
+          if (color != null) DrawableCompat.setTint(it, color) else DrawableCompat.setTintList(it, null)
+        }?.let { setter(this, it) }
     } catch (e: LinkageError) {
       Log.w(TAG, "Selection handle tint skipped: ${e.message}")
     }

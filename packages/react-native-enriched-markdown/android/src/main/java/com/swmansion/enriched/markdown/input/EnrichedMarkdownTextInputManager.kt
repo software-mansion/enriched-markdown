@@ -211,6 +211,14 @@ class EnrichedMarkdownTextInputManager :
     }
   }
 
+  @ReactProp(name = "selectionHandleColor", customType = "Color")
+  override fun setSelectionHandleColor(
+    view: EnrichedMarkdownTextInputView?,
+    value: Int?,
+  ) {
+    view?.setSelectionHandleColor(value)
+  }
+
   @ReactProp(name = "markdownStyle")
   override fun setMarkdownStyle(
     view: EnrichedMarkdownTextInputView?,
