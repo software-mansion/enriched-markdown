@@ -38,15 +38,15 @@
 #import <React/RCTBackedTextInputDelegate.h>
 #endif
 
-#import <ReactNativeEnrichedMarkdown/EnrichedMarkdownTextInputComponentDescriptor.h>
+#import "EnrichedMarkdownTextInputComponentDescriptor.h"
 #import <react/renderer/components/EnrichedMarkdownTextSpec/EventEmitters.h>
 #import <react/renderer/components/EnrichedMarkdownTextSpec/Props.h>
 #import <react/renderer/components/EnrichedMarkdownTextSpec/RCTComponentViewHelpers.h>
 
 #import "EnrichedMarkdownTextInputShadowNode.h"
 #import "HeightUpdateUtils.h"
-#import "RCTFabricComponentsPlugins.h"
 #import <React/RCTConversions.h>
+#import <React/RCTFabricComponentsPlugins.h>
 
 using namespace facebook::react;
 

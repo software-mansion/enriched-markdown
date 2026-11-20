@@ -16,6 +16,8 @@
     "cpp",
     "common",
     "*.podspec",
+    "Package.swift",
+    "spm-plugin.js",
     "jest.js",
     "jest.d.ts",
     "react-native.config.js",
@@ -147,6 +149,9 @@
         }
       ]
     ]
+  },
+  "swiftpmConfig": {
+    "autolinkingPlugin": "./spm-plugin.js"
   },
   "codegenConfig": {
     "name": "EnrichedMarkdownTextSpec",

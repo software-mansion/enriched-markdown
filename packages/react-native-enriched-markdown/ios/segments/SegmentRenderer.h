@@ -1,7 +1,7 @@
 #pragma once
 
+#import "ENRMUIKit.h"
 #import "ParagraphStyleUtils.h"
-#import <Foundation/Foundation.h>
 
 @class ENRMRenderResult;
 @class ENRMRenderedSegment;

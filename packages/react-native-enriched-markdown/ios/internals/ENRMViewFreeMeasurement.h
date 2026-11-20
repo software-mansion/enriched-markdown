@@ -1,4 +1,5 @@
 #pragma once
+#import "ENRMUIKit.h"
 
 #import "ENRMBlockSlotMeasurer.h"
 #import "ENRMBlockSlotSegmentView.h"

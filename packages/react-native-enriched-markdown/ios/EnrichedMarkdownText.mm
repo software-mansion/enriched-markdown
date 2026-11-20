@@ -45,13 +45,13 @@
 #import "StylePropsUtils.h"
 #import "TaskListTapUtils.h"
 
-#import <ReactNativeEnrichedMarkdown/EnrichedMarkdownTextComponentDescriptor.h>
+#import "EnrichedMarkdownTextComponentDescriptor.h"
 #import <react/renderer/components/EnrichedMarkdownTextSpec/EventEmitters.h>
 #import <react/renderer/components/EnrichedMarkdownTextSpec/Props.h>
 #import <react/renderer/components/EnrichedMarkdownTextSpec/RCTComponentViewHelpers.h>
 
-#import "RCTFabricComponentsPlugins.h"
 #import <React/RCTConversions.h>
+#import <React/RCTFabricComponentsPlugins.h>
 #import <React/RCTFont.h>
 #import <React/RCTI18nUtil.h>
 #import <React/RCTMountingTransactionObserving.h>

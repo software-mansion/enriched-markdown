@@ -1,7 +1,7 @@
 #pragma once
 #include "ENRMReactHeaders.h"
+#include "EnrichedMarkdownTextState.h"
 #include "MeasurementCache.h"
-#include <ReactNativeEnrichedMarkdown/EnrichedMarkdownTextState.h>
 #include <react/renderer/components/EnrichedMarkdownTextSpec/EventEmitters.h>
 #include <react/renderer/components/EnrichedMarkdownTextSpec/Props.h>
 
