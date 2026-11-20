@@ -292,6 +292,35 @@ export interface TextPressEvent {
   text: string;
 }
 
+interface TextHighlightInternal {
+  start: CodegenTypes.Int32;
+  end: CodegenTypes.Int32;
+  // A processed color as a signed 32-bit ARGB integer.
+  color: CodegenTypes.Int32;
+  borderRadius: CodegenTypes.Float;
+  padding: CodegenTypes.Float;
+}
+
+// Event codegen reads only inline `{ ... }[]` arrays.
+export interface RenderedTextChangeEvent {
+  text: string;
+  blocks: {
+    start: CodegenTypes.Int32;
+    end: CodegenTypes.Int32;
+    kind: string;
+  }[];
+}
+
+export interface HighlightLayoutEvent {
+  highlights: {
+    index: CodegenTypes.Int32;
+    x: CodegenTypes.Double;
+    y: CodegenTypes.Double;
+    width: CodegenTypes.Double;
+    height: CodegenTypes.Double;
+  }[];
+}
+
 export interface TaskListItemPressEvent {
   index: CodegenTypes.Int32;
   checked: boolean;
@@ -546,6 +575,27 @@ export interface NativeProps extends ViewProps {
    * @default false
    */
   enableTextPress?: CodegenTypes.WithDefault<boolean, false>;
+  /**
+   * Ranges of the rendered text to paint behind the glyphs, in order (later
+   * ones paint over earlier ones). Offsets are UTF-16 indices into the text
+   * that `onRenderedTextChange` reports.
+   */
+  highlights?: ReadonlyArray<Readonly<TextHighlightInternal>>;
+  /** Fired after each render with the rendered text and its blocks. */
+  onRenderedTextChange?: CodegenTypes.DirectEventHandler<RenderedTextChangeEvent>;
+  /**
+   * Gates `onRenderedTextChange`. Set automatically to `true` by the JS
+   * wrapper when `onRenderedTextChange` is provided.
+   *
+   * @default false
+   */
+  enableRenderedTextChange?: CodegenTypes.WithDefault<boolean, false>;
+  /**
+   * Fired when the box of a highlight moves: after `highlights` change, and
+   * after a render or layout moves the text. One rect per highlight that
+   * shows, in view coordinates.
+   */
+  onHighlightLayout?: CodegenTypes.DirectEventHandler<HighlightLayoutEvent>;
   /**
    * Callback fired when a task list checkbox is tapped.
    * Receives the 0-based task index, current checked state, and the item's plain text.

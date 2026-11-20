@@ -1,5 +1,6 @@
 #pragma once
 #import "ENRMDynamicBlockProps.h"
+#import "ENRMHighlightCoordinator.h"
 #import "ENRMUIKit.h"
 #import "ParagraphStyleUtils.h"
 #import "StyleConfig.h"
@@ -11,7 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 typedef void (^TableLinkPressBlock)(NSString *url);
 
-@interface TableContainerView : RCTUIView <ENRMWritingDirectionTarget>
+@interface TableContainerView : RCTUIView <ENRMWritingDirectionTarget, ENRMRenderedTextProviding>
 
 - (instancetype)initWithConfig:(StyleConfig *)config;
 

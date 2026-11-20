@@ -33,6 +33,10 @@ extern void *kListMarkerDrawerKey;
 // Used by TextViewLayoutManager for code block background drawing
 extern void *kCodeBlockBackgroundKey;
 
+// Key for storing the ENRMTextHighlight array on NSLayoutManager
+// Used by TextViewLayoutManager to draw highlights behind the text
+extern void *kTextHighlightsKey;
+
 // Custom attribute keys for markdown type tracking (used for Copy Markdown)
 extern NSString *const MarkdownTypeAttributeName;
 

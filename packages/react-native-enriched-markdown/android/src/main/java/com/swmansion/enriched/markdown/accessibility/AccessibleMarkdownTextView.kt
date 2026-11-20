@@ -9,6 +9,8 @@ import android.view.ActionMode
 import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.appcompat.widget.AppCompatTextView
+import com.swmansion.enriched.markdown.highlight.TextHighlightHost
+import com.swmansion.enriched.markdown.highlight.TextHighlightPainter
 import com.swmansion.enriched.markdown.spans.LinkPillSpan
 import com.swmansion.enriched.markdown.spans.TextBackgroundDrawer
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
@@ -24,7 +26,8 @@ abstract class AccessibleMarkdownTextView
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
-  ) : AppCompatTextView(context, attrs, defStyleAttr) {
+  ) : AppCompatTextView(context, attrs, defStyleAttr),
+    TextHighlightHost {
     val accessibilityHelper = MarkdownAccessibilityHelper(this)
     var onSelectionCopyCallback: OnSelectionCopy? = null
 
@@ -35,12 +38,18 @@ abstract class AccessibleMarkdownTextView
     // Made on first draw: setText runs from the TextView constructor, before fields are set.
     private var textBackgrounds: TextBackgroundDrawer? = null
 
+    override val highlightPainter = TextHighlightPainter(this)
+
     override fun onDraw(canvas: Canvas) {
       // Past the pre-draw where TextView would have scrolled for a patch.
       keepScroll = false
       val drawer = textBackgrounds ?: TextBackgroundDrawer().also { textBackgrounds = it }
       drawer.draw(canvas, this)
+      // Highlights go over the text backgrounds and under the text and the selection,
+      // which TextView draws next.
+      highlightPainter.draw(canvas)
       super.onDraw(canvas)
+      highlightPainter.drawOverBackgrounds(canvas)
     }
 
     // The selection menu's Copy ends up here, and Ctrl+C (and TalkBack's copy action) call this directly.
