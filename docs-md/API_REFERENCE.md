@@ -167,6 +167,45 @@ Setting this callback makes plain text interactive on the native side; leaving i
 | ------------------------------------- | ------------- | -------- |
 | `(event: TextPressEvent) => void`     | -             | Both     |
 
+### `highlights`
+
+Ranges of the rendered text to paint behind the glyphs, such as the sentence and the word a text-to-speech engine reads. Each entry has `start` and `end` (UTF-16 offsets into the text that [`onRenderedTextChange`](#onrenderedtextchange) reports), a `color`, and an optional `borderRadius` and `padding` for each line's box. Later entries paint over earlier ones, so a paragraph tint followed by a word tint shows the word on top.
+
+Highlights are drawn, not added to the text: selection, copy, measuring and accessibility do not change, and a change of `highlights` does not render the Markdown again. Use translucent colors so the selection shows through. With `flavor="github"`, a code block or table is tinted as a whole. `PlatformColor` and `DynamicColorIOS` are not supported.
+
+| Type                              | Default Value | Platform |
+| --------------------------------- | ------------- | -------- |
+| `ReadonlyArray<TextHighlight>`    | -             | Both     |
+
+```tsx
+<EnrichedMarkdownText
+  markdown={markdown}
+  flavor="github"
+  onRenderedTextChange={({ text }) => setRendered(text)}
+  highlights={[
+    { start: sentence.start, end: sentence.end, color: 'rgba(255, 204, 0, 0.2)' },
+    { start: word.start, end: word.end, color: 'rgba(255, 149, 0, 0.45)', borderRadius: 4 },
+  ]}
+  onHighlightLayout={({ highlights }) => scrollIntoView(highlights[1])}
+/>
+```
+
+### `onRenderedTextChange`
+
+Callback after each render with `text`, the text as the view shows it, and `blocks`, the part of it each block shows (`start`, `end`, and `kind`: `text`, `code` or `table`). Blocks are joined with `\n`; a table's cells are joined with tabs and its rows with newlines. `highlights` offsets index into `text`. It differs from the Markdown source and can differ between iOS and Android, so read it on each platform rather than computing it. With `flavor="commonmark"` there is one block, and `onTextPress` indexes into the same text; with `flavor="github"`, add the block's `start` to the `onTextPress` index.
+
+| Type                                         | Default Value | Platform |
+| -------------------------------------------- | ------------- | -------- |
+| `(event: RenderedTextChangeEvent) => void`   | -             | Both     |
+
+### `onHighlightLayout`
+
+Callback when a highlight's box moves: after `highlights` change, and when a render or a new width moves the text. Receives `highlights`, one `{ index, x, y, width, height }` for each highlight that shows, where `index` is its position in `highlights` and the rect bounds all its lines in the component's coordinates. Use it to scroll the highlighted word into view.
+
+| Type                                      | Default Value | Platform |
+| ----------------------------------------- | ------------- | -------- |
+| `(event: HighlightLayoutEvent) => void`   | -             | Both     |
+
 ### `onTaskListItemPress`
 
 Callback when a task list checkbox is tapped. Receives `index` (0-based), `checked` (new state after toggling), and `text` (item text).

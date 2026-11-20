@@ -3,6 +3,7 @@
 #import "CodeBackground.h"
 #import "CodeBlockBackground.h"
 #import "ENRMStreamingEffects.h"
+#import "ENRMTextHighlight.h"
 #import "ENRMTextViewport.h"
 #import "ListMarkerDrawer.h"
 #import "RuntimeKeys.h"
@@ -113,8 +114,10 @@ static char kDrawingTimeKey;
     return;
 
   StyleConfig *config = self.config;
-  if (!config)
+  if (!config) {
+    ENRMDrawTextHighlights(self.textHighlights, self, glyphsToShow, origin);
     return;
+  }
 
   // 3. Draw specialized layers
   // We fetch the objects into local variables FIRST to ensure they don't
@@ -128,6 +131,9 @@ static char kDrawingTimeKey;
 
   BlockquoteBorder *quoteBorder = [self getBlockquoteBorderWithConfig:config];
   [quoteBorder drawBordersForGlyphRange:glyphsToShow layoutManager:self textContainer:textContainer atPoint:origin];
+
+  // After the code and quote backgrounds, so highlighted code and quotes show it.
+  ENRMDrawTextHighlights(self.textHighlights, self, glyphsToShow, origin);
 
   ListMarkerDrawer *markerDrawer = [self getListMarkerDrawerWithConfig:config];
   [markerDrawer drawMarkersForGlyphRange:glyphsToShow layoutManager:self textContainer:textContainer atPoint:origin];
@@ -233,6 +239,54 @@ static char kDrawingTimeKey;
     objc_setAssociatedObject(self, kCodeBlockBackgroundKey, obj, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
   }
   return obj;
+}
+
+#pragma mark - Highlights
+
+// An associated object, not an ivar: text views get this class through
+// object_setClass, which cannot add storage.
+- (NSArray<ENRMTextHighlight *> *)textHighlights
+{
+  return objc_getAssociatedObject(self, kTextHighlightsKey) ?: @[];
+}
+
+- (void)setTextHighlights:(NSArray<ENRMTextHighlight *> *)textHighlights
+{
+  NSArray<ENRMTextHighlight *> *previous = self.textHighlights;
+  if ([previous isEqualToArray:textHighlights]) {
+    return;
+  }
+  objc_setAssociatedObject(self, kTextHighlightsKey, [textHighlights copy], OBJC_ASSOCIATION_COPY_NONATOMIC);
+  NSUInteger length = self.textStorage.length;
+  for (NSArray<ENRMTextHighlight *> *list in @[ previous, textHighlights ]) {
+    for (ENRMTextHighlight *highlight in list) {
+      NSRange range = NSIntersectionRange(highlight.range, NSMakeRange(0, length));
+      if (range.length > 0) {
+        [self invalidateDisplayForCharacterRange:[self displayRangeForHighlightRange:range padding:highlight.padding]];
+      }
+    }
+  }
+}
+
+// Padding can reach the lines above and below, so those redraw too.
+- (NSRange)displayRangeForHighlightRange:(NSRange)range padding:(CGFloat)padding
+{
+  if (padding <= 0) {
+    return range;
+  }
+  NSRange glyphs = [self glyphRangeForCharacterRange:range actualCharacterRange:NULL];
+  NSUInteger glyphCount = self.numberOfGlyphs;
+  if (glyphs.length == 0 || glyphCount == 0) {
+    return range;
+  }
+  NSUInteger first = glyphs.location > 0 ? glyphs.location - 1 : glyphs.location;
+  NSUInteger last = MIN(NSMaxRange(glyphs), glyphCount - 1);
+  NSRange firstLine = NSMakeRange(first, 0);
+  NSRange lastLine = NSMakeRange(last, 0);
+  [self lineFragmentRectForGlyphAtIndex:first effectiveRange:&firstLine];
+  [self lineFragmentRectForGlyphAtIndex:last effectiveRange:&lastLine];
+  NSRange lines = NSUnionRange(firstLine, lastLine);
+  return [self characterRangeForGlyphRange:lines actualGlyphRange:NULL];
 }
 
 #pragma mark - Configuration

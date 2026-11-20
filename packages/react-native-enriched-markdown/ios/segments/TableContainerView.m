@@ -835,6 +835,16 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   return [markdown copy];
 }
 
+- (NSString *)renderedText
+{
+  return [self buildPlainTextFromRows];
+}
+
+- (NSString *)renderedTextKind
+{
+  return @"table";
+}
+
 - (NSString *)buildPlainTextFromRows
 {
   if (_rows.count == 0)

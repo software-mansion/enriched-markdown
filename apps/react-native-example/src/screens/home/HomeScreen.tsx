@@ -45,6 +45,13 @@ const SCREENS: ScreenItem[] = [
     color: '#AF52DE',
   },
   {
+    route: 'Highlight',
+    label: 'Highlight',
+    subtext: 'read-along highlight ranges',
+    testID: 'home-block-highlight',
+    color: '#FF9F0A',
+  },
+  {
     route: 'Storybook',
     label: 'Storybook',
     subtext: 'component stories',

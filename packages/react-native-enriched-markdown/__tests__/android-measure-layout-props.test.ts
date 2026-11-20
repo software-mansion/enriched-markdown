@@ -17,6 +17,9 @@ const NOT_LAYOUT = new Set([
   'streamLength',
   'enableImagePress',
   'enableTextPress',
+  // Drawn over the laid-out text, never measured.
+  'highlights',
+  'enableRenderedTextChange',
   'enableTaskListItemToggle',
   'enableCodeBlockPress',
   'enableBlockContextMenu',

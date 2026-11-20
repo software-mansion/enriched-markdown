@@ -25,6 +25,7 @@ import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
+import com.swmansion.enriched.markdown.highlight.RenderedTextProvider
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.LineHeightSpan
 import com.swmansion.enriched.markdown.styles.CodeBlockStyle
@@ -56,7 +57,8 @@ class CodeBlockContainerView(
   context: Context,
   styleConfig: StyleConfig,
 ) : FrameLayout(context),
-  BlockSegmentView {
+  BlockSegmentView,
+  RenderedTextProvider {
   private val codeBlockStyle: CodeBlockStyle = styleConfig.codeBlockStyle
 
   private val inset = contentInset(codeBlockStyle)
@@ -80,6 +82,10 @@ class CodeBlockContainerView(
     }
 
   private var code: String = ""
+
+  override val renderedText: String get() = code
+  override val renderedTextKind: String = "code"
+  override val highlightCornerRadius: Float get() = codeBlockStyle.borderRadius
   private var language: String? = null
   private var fenceChar: String = "`"
   private var appliedTextMaxWidth = Int.MAX_VALUE

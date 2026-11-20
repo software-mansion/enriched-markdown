@@ -5,6 +5,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @class StyleConfig;
 @class ENRMStreamingEffects;
+@class ENRMTextHighlight;
 
 @interface TextViewLayoutManager : NSLayoutManager
 
@@ -23,6 +24,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// Draws the glyphs in `color` instead of their own (a streaming effect).
 - (void)drawGlyphsForGlyphRange:(NSRange)glyphRange atPoint:(CGPoint)origin color:(UIColor *)color;
 #endif
+
+/// Drawn behind the glyphs, after the code backgrounds. Setting it redraws
+/// only the ranges that change.
+@property (nonatomic, copy) NSArray<ENRMTextHighlight *> *textHighlights;
 
 @end
 

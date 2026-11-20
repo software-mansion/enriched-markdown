@@ -18,6 +18,44 @@ export interface TextPressEvent {
   text: string;
 }
 
+/** The part of the rendered text that one block shows. */
+export interface RenderedTextBlock {
+  /** UTF-16 offset in the rendered text where the block starts. */
+  start: number;
+  /** UTF-16 offset where the block ends (exclusive). */
+  end: number;
+  /**
+   * `text` for prose (paragraphs, headings, lists, quotes), `code` for a
+   * fenced code block, `table` for a table.
+   */
+  kind: 'text' | 'code' | 'table';
+}
+
+export interface RenderedTextChangeEvent {
+  /**
+   * The text as the view shows it, which differs from the Markdown source.
+   * `highlights` offsets index into it. Blocks are joined with `\n`.
+   */
+  text: string;
+  /** The blocks in document order. */
+  blocks: RenderedTextBlock[];
+}
+
+/** Where a highlight shows, in the component's coordinates. */
+export interface HighlightRect {
+  /** The highlight's index in `highlights`. */
+  index: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface HighlightLayoutEvent {
+  /** One rect for each highlight that shows, in `highlights` order. */
+  highlights: HighlightRect[];
+}
+
 export interface TaskListItemPressEvent {
   index: number;
   checked: boolean;
