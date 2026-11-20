@@ -220,6 +220,70 @@ android {
   }
 }
 
+// Kotlin sources shared with the standalone Android library (@enriched-markdown/android).
+// shared-sources.txt lists the files this module compiles from the library instead of
+// keeping its own copy. Only those files are taken: the rest of the library still has
+// same-named, different counterparts under src/main/java, so adding a whole library
+// directory as a source dir would redeclare those classes.
+//
+// The library root is resolved in both layouts, like cpp/ in src/main/jni/CMakeLists.txt:
+// "shared-sources" in a published tarball (materialized at prepack by
+// scripts/prepare-npm-publish.sh), "../../enriched-markdown-android" in the monorepo.
+def sharedSourcesManifest = new File(projectDir, "shared-sources.txt")
+def sharedSourcesEntries = sharedSourcesManifest.readLines().collect { it.trim() }.findAll { it && !it.startsWith("#") }
+def sharedSourcesRoot = [
+  new File(projectDir, "shared-sources"),
+  new File(projectDir, "../../enriched-markdown-android"),
+].find { it.isDirectory() }
+if (sharedSourcesRoot == null && !sharedSourcesEntries.isEmpty()) {
+  throw new GradleException("[ReactNativeEnrichedMarkdown] shared Android sources not found. Expected " +
+      "android/shared-sources (published package) or packages/enriched-markdown-android (monorepo).")
+}
+logger.info("[ReactNativeEnrichedMarkdown] shared Android sources: ${sharedSourcesRoot}")
+// Library module -> paths relative to that module's src/main/java.
+def sharedSourcesByModule = [:]
+sharedSourcesEntries.each { entry ->
+  def matcher = entry =~ /^([^\/]+)\/src\/main\/java\/(.+\.(?:kt|java))$/
+  if (!matcher.matches()) {
+    throw new GradleException("[ReactNativeEnrichedMarkdown] invalid entry in ${sharedSourcesManifest}: '${entry}'. " +
+        "Expected <module>/src/main/java/<package path>/<File>.kt.")
+  }
+  def module = matcher.group(1)
+  def relativePath = matcher.group(2)
+  if (!new File(sharedSourcesRoot, entry).isFile()) {
+    throw new GradleException("[ReactNativeEnrichedMarkdown] shared source '${entry}' listed in " +
+        "${sharedSourcesManifest} is missing from ${sharedSourcesRoot.canonicalPath}.")
+  }
+  if (new File(projectDir, "src/main/java/${relativePath}").exists()) {
+    throw new GradleException("[ReactNativeEnrichedMarkdown] '${relativePath}' is listed in ${sharedSourcesManifest} " +
+        "but also exists in src/main/java. Delete the copy in src/main/java or remove the manifest entry.")
+  }
+  sharedSourcesByModule.computeIfAbsent(module) { [] } << relativePath
+}
+
+// The listed files are copied into one generated source dir (Sync also drops files that
+// left the manifest), which the main source set compiles like any other.
+def sharedSourcesOutputDir = layout.buildDirectory.dir("generated/source/shared/java")
+def syncSharedSources = tasks.register("syncSharedSources", Sync) {
+  description = "Copies the Kotlin sources shared with @enriched-markdown/android (shared-sources.txt)."
+  inputs.file(sharedSourcesManifest)
+  sharedSourcesByModule.each { module, relativePaths ->
+    from(new File(sharedSourcesRoot, "${module}/src/main/java")) {
+      include relativePaths
+    }
+  }
+  into sharedSourcesOutputDir
+  includeEmptyDirs = false
+  duplicatesStrategy = DuplicatesStrategy.FAIL
+}
+android.sourceSets.main.java.srcDir(sharedSourcesOutputDir.get().asFile)
+tasks.named("preBuild").configure { dependsOn(syncSharedSources) }
+// ktlint-gradle (applied to this module by the example app's root build, and possibly by
+// a consumer) lints every dir of the source set without going through preBuild. Gradle
+// fails a task that reads another task's output with no declared dependency when both
+// run in one build, so declare it. No-op when the plugin is not applied.
+tasks.matching { it.name.startsWith("runKtlint") }.configureEach { dependsOn(syncSharedSources) }
+
 // Code-block syntax highlighting (tree-sitter) native wiring. This module owns
 // no externalNativeBuild block: RN autolinking compiles src/main/jni/CMakeLists.txt
 // as part of the consumer app's native build, so the app -- not this library --
