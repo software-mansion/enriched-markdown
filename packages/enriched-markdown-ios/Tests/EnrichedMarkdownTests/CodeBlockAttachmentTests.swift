@@ -365,29 +365,27 @@ final class CodeBlockAttachmentTests: XCTestCase {
         let view = try XCTUnwrap(textView.firstSubview(of: CodeBlockAttachmentView.self))
         let scrollView = try XCTUnwrap(view.firstSubview(of: UIScrollView.self))
         scrollView.contentOffset = CGPoint(x: 120, y: 0)
-        scrollView.delegate?.scrollViewDidScroll?(scrollView)
 
-        let rerendered = render("```\n\(longLine)\n```")
-        textView.setMarkdownAttributedText(rerendered)
-        XCTAssertEqual(attachments(in: rerendered).first?.preservedContentOffset.x, 120)
+        textView.setMarkdownAttributedText(render("```\n\(longLine)\n```"))
+        textView.layoutIfNeeded()
+        XCTAssertTrue(try XCTUnwrap(textView.firstSubview(of: CodeBlockAttachmentView.self)) === view)
+        XCTAssertEqual(scrollView.contentOffset.x, 120)
     }
 
-    func testScrollOffsetsCarryBetweenBlocksOfTheSameKind() throws {
+    func testHostedViewsCarryBetweenBlocksOfTheSameKind() throws {
         let longLine = String(repeating: "x", count: 400)
-        let first = render("```\n\(longLine)\n```")
-        let scrolled = try XCTUnwrap(attachments(in: first).first)
-        scrolled.preservedContentOffset = CGPoint(x: 120, y: 0)
-        let textView = MarkdownTextView()
-        textView.setMarkdownAttributedText(first)
+        let textView = laidOutTextView(showing: render("```\n\(longLine)\n```"))
+        let panel = try XCTUnwrap(textView.firstSubview(of: CodeBlockAttachmentView.self))
+        let scrollView = try XCTUnwrap(panel.firstSubview(of: UIScrollView.self))
+        scrollView.contentOffset = CGPoint(x: 120, y: 0)
 
-        let second = render("| A | B |\n|---|---|\n| 1 | 2 |\n\n```\n\(longLine)\n```")
-        textView.setMarkdownAttributedText(second)
-        XCTAssertEqual(attachments(in: second).first?.preservedContentOffset.x, 120)
-        var table: TableAttachment?
-        second.enumerateAttribute(.attachment, in: NSRange(location: 0, length: second.length)) { value, _, _ in
-            if let found = value as? TableAttachment { table = found }
-        }
-        XCTAssertEqual(try XCTUnwrap(table).preservedContentOffset, .zero)
+        textView.setMarkdownAttributedText(render("| A | B |\n|---|---|\n| 1 | 2 |\n\n```\n\(longLine)\n```"))
+        textView.frame.size.height = height(of: textView, width: 380)
+        textView.layoutIfNeeded()
+
+        XCTAssertTrue(try XCTUnwrap(textView.firstSubview(of: CodeBlockAttachmentView.self)) === panel)
+        XCTAssertEqual(scrollView.contentOffset.x, 120)
+        XCTAssertNotNil(textView.firstSubview(of: TableAttachmentView.self))
     }
 
     func testOutwardPanYieldsOnlyWhenSettledAtTheLeadingEdge() {

@@ -33,11 +33,6 @@ package struct PluginStyleStorage: Equatable, Sendable {
 }
 
 private extension PluginStyle {
-    func isEqual(to other: any PluginStyle) -> Bool {
-        guard let other = other as? Self else { return false }
-        return self == other
-    }
-
     /// A key holds one type, so the mismatch fallback is unreachable.
     func merged(with other: any PluginStyle) -> any PluginStyle {
         guard let other = other as? Self else { return other }

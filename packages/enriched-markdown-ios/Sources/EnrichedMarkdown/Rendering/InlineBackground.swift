@@ -1,6 +1,6 @@
 import UIKit
 
-struct InlineBackground: Hashable {
+package struct InlineBackground: Hashable {
     struct Border: Hashable {
         let color: UIColor
         let width: CGFloat
@@ -33,13 +33,13 @@ struct InlineBackground: Hashable {
         return InlineBackground(style: style, linkStart: linkStart, underlay: highlight)
     }
 
-    static func reserveLineHeight(in output: NSMutableAttributedString) {
-        guard isPresent(in: output) else { return }
+    static func reserveLineHeight(in output: NSMutableAttributedString, range: NSRange? = nil) {
+        let range = range ?? NSRange(location: 0, length: output.length)
+        guard isPresent(in: output, range: range) else { return }
         let string = output.mutableString
         var paragraphs: [NSRange] = []
-        var widestBorder: CGFloat = 0
-        let full = NSRange(location: 0, length: output.length)
-        output.enumerateAttribute(MarkdownAttribute.inlineBackground, in: full, options: []) { value, range, _ in
+        var widestBorder = borderRoom(in: output)
+        output.enumerateAttribute(MarkdownAttribute.inlineBackground, in: range, options: []) { value, range, _ in
             guard let border = (value as? InlineBackground)?.style.border else { return }
             widestBorder = max(widestBorder, border.width)
             if !(paragraphs.last.map { NSLocationInRange(range.location, $0) } ?? false) {
@@ -52,6 +52,12 @@ struct InlineBackground: Hashable {
         if widestBorder > 0 {
             output.addAttribute(MarkdownAttribute.inlineBorderWidth, value: widestBorder, range: NSRange(location: 0, length: 1))
         }
+    }
+
+    package static func carryBorderRoom(from text: NSAttributedString, to output: NSMutableAttributedString) {
+        let room = borderRoom(in: text)
+        guard room > 0, output.length > 0 else { return }
+        output.addAttribute(MarkdownAttribute.inlineBorderWidth, value: room, range: NSRange(location: 0, length: 1))
     }
 
     static func borderRoom(in text: NSAttributedString) -> CGFloat {
@@ -93,11 +99,11 @@ struct InlineBackground: Hashable {
         return height
     }
 
-    static func isPresent(in text: NSAttributedString) -> Bool {
-        guard text.length > 0 else { return false }
-        let full = NSRange(location: 0, length: text.length)
+    static func isPresent(in text: NSAttributedString, range: NSRange? = nil) -> Bool {
+        let range = range ?? NSRange(location: 0, length: text.length)
+        guard range.length > 0 else { return false }
         var absentRun = NSRange()
-        let first = text.attribute(MarkdownAttribute.inlineBackground, at: 0, longestEffectiveRange: &absentRun, in: full)
-        return first != nil || absentRun != full
+        let first = text.attribute(MarkdownAttribute.inlineBackground, at: range.location, longestEffectiveRange: &absentRun, in: range)
+        return first != nil || absentRun != range
     }
 }

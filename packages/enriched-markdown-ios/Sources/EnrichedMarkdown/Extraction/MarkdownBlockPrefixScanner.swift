@@ -4,18 +4,18 @@ import Foundation
 /// start and a selection's first mapped byte) so the slicer can decide
 /// whether everything in between is marker syntax: indentation, blockquote
 /// bars, a list marker with optional task box, and heading hashes.
-struct MarkdownBlockPrefixScanner {
+package struct MarkdownBlockPrefixScanner {
     let slice: ArraySlice<UInt8>
-    var index: Int
+    package var index: Int
 
-    init(slice: ArraySlice<UInt8>) {
+    package init(slice: ArraySlice<UInt8>) {
         self.slice = slice
         self.index = slice.startIndex
     }
 
     var isAtEnd: Bool { index == slice.endIndex }
 
-    func peek() -> UInt8? { index < slice.endIndex ? slice[index] : nil }
+    package func peek() -> UInt8? { index < slice.endIndex ? slice[index] : nil }
 
     mutating func consumeWhitespace() -> Bool {
         let start = index
@@ -25,7 +25,7 @@ struct MarkdownBlockPrefixScanner {
         return index > start
     }
 
-    mutating func consumeIndentAndBars() {
+    package mutating func consumeIndentAndBars() {
         while let byte = peek(),
               byte == UInt8(ascii: " ") || byte == UInt8(ascii: "\t") || byte == UInt8(ascii: ">") {
             index += 1
@@ -33,7 +33,7 @@ struct MarkdownBlockPrefixScanner {
     }
 
     /// "-", "*", "+", "1.", or "1)" followed by whitespace.
-    mutating func consumeListMarker() -> Bool {
+    package mutating func consumeListMarker() -> Bool {
         let start = index
         if let byte = peek(), [UInt8(ascii: "-"), UInt8(ascii: "*"), UInt8(ascii: "+")].contains(byte) {
             index += 1

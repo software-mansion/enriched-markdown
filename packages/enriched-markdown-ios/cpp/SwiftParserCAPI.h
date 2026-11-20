@@ -32,6 +32,18 @@ char *em_code_block_language_display_name(const char *language);
 char *em_latex_spoken_form(const char *latex);
 void em_string_release(char *string);
 
+typedef struct {
+  char *tail; // what follows the finished blocks; NULL when the snapshot failed
+  size_t finishedBytes;
+  int endsInsideOpenCodeFence;
+  int mayDefineLinkReference;
+} EMCStreamingSnapshot;
+
+// Caller releases with em_streaming_snapshot_release.
+void em_streaming_snapshot(const char *markdown, int latexMath, int superscript, int subscript, int highlight,
+                           int hideTables, int hideCodeBlocks, int hideMedia, EMCStreamingSnapshot *snapshot);
+void em_streaming_snapshot_release(EMCStreamingSnapshot *snapshot);
+
 #ifdef __cplusplus
 }
 #endif

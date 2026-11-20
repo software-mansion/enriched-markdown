@@ -36,7 +36,7 @@ SwiftUI and Jetpack Compose apps, and have their own columns.
 | [Videos](/react-native/api-reference/element-structure#videos) | Yes | Planned | Planned | Yes | Yes |
 | [LaTeX math](/rich-text-formatting/latex-math) | Yes | Yes | Yes | Inline only | Yes |
 | [Code-block highlighting](/rich-text-formatting/code-highlighting) | Yes | Yes | Yes | Yes | Planned |
-| [Markdown streaming](/rich-text-formatting/markdown-streaming) | Yes | Planned | Planned | Instant reveal | Planned |
+| [Markdown streaming](/rich-text-formatting/markdown-streaming) | Yes | Yes | Planned | Instant reveal | Planned |
 | [Smart copy](/user-experience/copy-options) | Yes | Plain text + HTML | Yes | Yes | Planned |
 | [Accessibility](/user-experience/accessibility) | Yes | Yes | Partial | Planned | Partial |
 | [RTL](/user-experience/rtl) | Yes | Yes | Yes | Yes | Container-level |
@@ -45,7 +45,8 @@ SwiftUI and Jetpack Compose apps, and have their own columns.
 In the native columns, LaTeX math comes from an optional add-on - the
 `EnrichedMarkdownLaTeX` product on iOS, the `math` artifact on Android - and so
 does code-block highlighting: the `EnrichedMarkdownSyntaxHighlighting` product on
-iOS, the `code-highlight` artifact on Android. The iOS package's smart copy writes plain text and HTML, with no RTF
+iOS, the `code-highlight` artifact on Android. Markdown streaming on iOS is the
+`EnrichedMarkdownStreaming` product. The iOS package's smart copy writes plain text and HTML, with no RTF
 or RTFD flavor. The Android package's accessibility strings are hard-coded
 English with no way to override them.
 
