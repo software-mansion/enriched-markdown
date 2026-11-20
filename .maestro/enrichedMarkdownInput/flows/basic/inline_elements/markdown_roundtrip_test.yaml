@@ -1,0 +1,67 @@
+appId: swmansion.enriched.markdown.example
+# Not run yet: written for a later worker to run on the Android emulator.
+# (The Set Raw Markdown modal isn't visible to Maestro on non-CI emulators.)
+tags:
+  - input
+  - roundtrip
+  - escape
+---
+# setValue() -> getMarkdown() goes through the shared C++ input core
+# (packages/core/cpp/input) on every platform. These values must come back as
+# given: offsets stay right with surrogate pairs and CJK text, and plain text that
+# would read as markup is escaped instead of turning into formatting (#1127).
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+# UTF-16 offsets: a surrogate pair (emoji) before the styled run.
+- runFlow:
+    file: '../../../subflows/assert_markdown_roundtrip.yaml'
+    env:
+      VALUE: '😀 **bold** end'
+      EXPECTED: '(?s).*😀 \*\*bold\*\* end.*'
+
+# CJK text around a styled run.
+- runFlow:
+    file: '../../../subflows/assert_markdown_roundtrip.yaml'
+    env:
+      VALUE: '漢字 **太字** 終'
+      EXPECTED: '(?s).*漢字 \*\*太字\*\* 終.*'
+
+# #1127: an unclosed "[" stays literal text and no longer drops the paragraph after it.
+- tapOn:
+    id: set-markdown-button
+- waitForAnimationToEnd
+- tapOn:
+    id: set-markdown-input
+- inputText: '## Title [wip'
+- pressKey: Enter
+- inputText: 'Body text'
+- tapOn:
+    id: set-markdown-confirm
+- waitForAnimationToEnd
+- tapOn:
+    id: get-markdown-button
+- assertVisible: '(?s).*## Title \\\[wip.*Body text.*'
+- tapOn: 'OK'
+
+# #1127: text that would read as emphasis, a quote or a closing "#" is escaped on export.
+- runFlow:
+    file: '../../../subflows/assert_markdown_roundtrip.yaml'
+    env:
+      VALUE: '2 \*x\* 6'
+      EXPECTED: '(?s).*2 \\\*x\\\* 6.*'
+
+- runFlow:
+    file: '../../../subflows/assert_markdown_roundtrip.yaml'
+    env:
+      VALUE: '- \> x'
+      EXPECTED: '(?s).*- \\> x.*'
+
+- runFlow:
+    file: '../../../subflows/assert_markdown_roundtrip.yaml'
+    env:
+      VALUE: '## Use \#'
+      EXPECTED: '(?s).*## Use \\#.*'
