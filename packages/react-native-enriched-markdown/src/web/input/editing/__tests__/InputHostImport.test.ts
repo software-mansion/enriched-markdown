@@ -2,12 +2,16 @@
  * @jest-environment jsdom
  */
 import { InputHost } from '../InputHost';
+import { loadParser } from '../../../parseMarkdown';
 import { parseToPlainTextAndRanges } from '../../formatting/InputParser';
 import type { ParseResult } from '../../formatting/InputParser';
 
 jest.mock('../../formatting/InputParser', () => ({
   parseToPlainTextAndRanges: jest.fn(),
 }));
+
+// Serializing needs the markdown core; only the parse is replaced here.
+beforeAll(() => loadParser());
 
 const parse = parseToPlainTextAndRanges as jest.MockedFunction<
   typeof parseToPlainTextAndRanges
