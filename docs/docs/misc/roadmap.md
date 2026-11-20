@@ -103,8 +103,8 @@ The [web build](/react-native/guides/web-support) ships the renderer and the
 editor. Still to come:
 
 - **Editor parity.** The [web editor](/react-native/guides/web-editor) is still
-  missing Markdown shortcuts, link and mention commands, auto-link detection,
-  custom menus and `markdownStyle.linkVariants`.
+  missing link and mention commands, auto-link detection, custom menus and
+  `markdownStyle.linkVariants`.
 - **Spoilers**, which are currently dropped along with their text - the most
   important gap on this list.
 - **Code-block highlighting**, including the header and copy button.

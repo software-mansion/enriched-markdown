@@ -29,6 +29,10 @@ import {
 import { inputStyleVariables } from './web/input/render/inputStyleVariables';
 import { filterNativeOnlyInputProps } from './web/input/nativeInputProps';
 import {
+  normalizeMarkdownShortcuts,
+  type MarkdownShortcutsConfig,
+} from './normalizeMarkdownShortcuts';
+import {
   measure,
   measureInWindow,
   measureLayout,
@@ -76,6 +80,15 @@ export interface EnrichedMarkdownTextInputProps extends ForwardedDomProps {
   editable?: boolean;
   autoFocus?: boolean;
   spellCheck?: boolean;
+  /**
+   * Converts markdown block prefixes typed at the start of a paragraph into
+   * blocks: `#`–`######` + space becomes a heading, `-`/`*`/`+` + space a
+   * bullet item, `1.` (or `1)`) + space a numbered item. The prefix and its
+   * space are removed, and one undo brings them back as text. `true` enables
+   * all three; pass a {@link MarkdownShortcutsConfig} to enable a subset.
+   * @default false
+   */
+  markdownShortcuts?: boolean | MarkdownShortcutsConfig;
   style?: CSSProperties;
   /** Formatting colors and heading sizes. `linkVariants` is ignored on web. */
   markdownStyle?: MarkdownTextInputStyle;
@@ -137,6 +150,7 @@ export const EnrichedMarkdownTextInput = forwardRef<
     editable = true,
     autoFocus = false,
     spellCheck,
+    markdownShortcuts,
     style,
     markdownStyle,
     className,
@@ -174,9 +188,14 @@ export const EnrichedMarkdownTextInput = forwardRef<
   };
   const callbacks = useRef(currentCallbacks);
   const latestEditable = useRef(editable);
+  // Normalized per render; the effect below compares the three flags, since an
+  // inline config object is new on every render.
+  const shortcuts = normalizeMarkdownShortcuts(markdownShortcuts);
+  const latestShortcuts = useRef(shortcuts);
   useLayoutEffect(() => {
     callbacks.current = currentCallbacks;
     latestEditable.current = editable;
+    latestShortcuts.current = shortcuts;
   });
 
   // A layout effect, not a passive one: `useImperativeHandle` installs the
@@ -223,6 +242,7 @@ export const EnrichedMarkdownTextInput = forwardRef<
     root.addEventListener('focus', handleFocus);
     root.addEventListener('blur', handleBlur);
     attached.setEditable(latestEditable.current);
+    attached.setMarkdownShortcuts(latestShortcuts.current);
     if (isNew && initialDefaultValue !== undefined) {
       // `importValue`, not `setValue`: reporting the app's own markdown back
       // would hand it the serializer's re-normalization. Neither native emits
@@ -245,6 +265,11 @@ export const EnrichedMarkdownTextInput = forwardRef<
   useLayoutEffect(() => {
     host.current?.setEditable(editable);
   }, [editable]);
+
+  const { heading, unorderedList, orderedList } = shortcuts;
+  useLayoutEffect(() => {
+    host.current?.setMarkdownShortcuts({ heading, unorderedList, orderedList });
+  }, [heading, unorderedList, orderedList]);
 
   // The host cannot tell whether anyone listens: the forwarding closure above
   // exists whether or not the prop does, and serializing every edit is costly.
