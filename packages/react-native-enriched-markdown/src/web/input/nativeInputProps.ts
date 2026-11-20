@@ -31,7 +31,6 @@ const NATIVE_ONLY_INPUT_PROP_NAMES: Record<
   Record<string, true> = {
   ref: true,
   scrollEnabled: true,
-  markdownShortcuts: true,
   multiline: true,
   onCaretRectChange: true,
   onLinkDetected: true,

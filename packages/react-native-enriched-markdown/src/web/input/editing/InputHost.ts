@@ -1,6 +1,14 @@
 import { BlockStore, lineAtPosition } from '../formatting/BlockStore';
 import { FormattingStore } from '../formatting/FormattingStore';
 import {
+  markdownShortcutsEnabled,
+  matchMarkdownShortcut,
+} from '../formatting/markdownShortcuts';
+import {
+  normalizeMarkdownShortcuts,
+  type NormalizedMarkdownShortcuts,
+} from '../../../normalizeMarkdownShortcuts';
+import {
   parseToPlainTextAndRanges,
   type ParseResult,
 } from '../formatting/InputParser';
@@ -130,6 +138,8 @@ export class InputHost {
   private importGeneration = 0;
   private pendingImports = 0;
   private editable = true;
+  private markdownShortcuts: NormalizedMarkdownShortcuts =
+    normalizeMarkdownShortcuts(false);
   private markdownEmitEnabled = true;
   private lastEmittedMarkdown: string | null = null;
   private lastEmittedState: InputState | null = null;
@@ -318,6 +328,11 @@ export class InputHost {
     }
     this.editable = editable;
     this.root.setAttribute('contenteditable', editable ? 'true' : 'false');
+  }
+
+  // The `markdownShortcuts` prop, normalized as for the natives.
+  setMarkdownShortcuts(config: NormalizedMarkdownShortcuts): void {
+    this.markdownShortcuts = config;
   }
 
   // Mirrors native's `isOnChangeMarkdownSet` prop. Every edit would otherwise
@@ -739,6 +754,12 @@ export class InputHost {
     }
     this.syncSelectionFromDom();
     this.applyModelEdit(edit, insertedText.length > 0 ? 'typing' : 'deleting');
+    // The shortcut removes the prefix the browser is about to keep.
+    if (this.convertMarkdownShortcut(edit)) {
+      event.preventDefault();
+      this.renderEdit();
+      return true;
+    }
     const line = lineAtPosition(editStart, this.text);
     const runs = computeStyleRuns(
       this.formattingStore.allRanges,
@@ -1571,11 +1592,82 @@ export class InputHost {
     }: { caret?: number; render?: boolean; kind?: EditKind } = {}
   ): void {
     this.applyModelEdit(edit, kind, caret);
+    if (kind === 'typing') {
+      this.convertMarkdownShortcut(edit);
+    }
     if (render) {
       this.renderEdit();
     } else {
       this.emitTextEdited();
     }
+  }
+
+  // Markdown shortcuts, as on the natives (`convertMarkdownShortcut` in
+  // Android's EditPipeline): a space typed after `#`-`######`, `-`/`*`/`+` or
+  // `1.`/`1)` at the start of a plain paragraph drops the prefix and the space
+  // and makes the paragraph that block. Runs after the typed edit is in the
+  // model, as a step of its own, so one undo brings the typed `## ` back as
+  // text. Model only; the caller renders.
+  private convertMarkdownShortcut({
+    editStart,
+    deletedText,
+    insertedText,
+  }: TextEdit): boolean {
+    const config = this.markdownShortcuts;
+    if (
+      !markdownShortcutsEnabled(config) ||
+      deletedText.length !== 0 ||
+      insertedText.length === 0
+    ) {
+      return false;
+    }
+    // The first space of the insert, and a line break ends the search, so the
+    // converted line is always the one the insert started on.
+    let spaceIndex = -1;
+    for (let i = 0; i < insertedText.length; i++) {
+      const char = insertedText[i];
+      if (char === '\n') {
+        break;
+      }
+      if (char === ' ') {
+        spaceIndex = editStart + i;
+        break;
+      }
+    }
+    if (spaceIndex === -1) {
+      return false;
+    }
+    const lineStart = lineAtPosition(spaceIndex, this.text).start;
+    if (
+      spaceIndex === lineStart ||
+      this.blockStore.blockStartingAt(lineStart) !== null
+    ) {
+      return false;
+    }
+    const match = matchMarkdownShortcut(
+      this.text.slice(lineStart, spaceIndex),
+      config
+    );
+    if (match === null) {
+      return false;
+    }
+    const deleteEnd = spaceIndex + 1;
+    this.applyModelEdit(
+      {
+        editStart: lineStart,
+        deletedText: this.text.slice(lineStart, deleteEnd),
+        insertedText: '',
+      },
+      'other',
+      this.selection.start - (deleteEnd - lineStart),
+      false
+    );
+    this.session.scoped('processing', () =>
+      this.blockStore.edit(this.text, (blocks) =>
+        blocks.setBlock(match.type, match.level, lineStart, lineStart)
+      )
+    );
+    return true;
   }
 
   private renderEdit(): void {

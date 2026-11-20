@@ -42,6 +42,24 @@ let parserPromise: Promise<ParseFn> | null = null;
 let loadedParser: ParseFn | null = null;
 const parserReadyListeners = new Set<() => void>();
 
+let loadFailureReported = false;
+
+// Every caller falls back to showing the markdown as plain text when the load
+// fails, and the input's import and preload drop the error, so without this
+// the only sign is unformatted text. Logged in production too, and outside
+// Metro, where `__DEV__` is not defined: the usual causes (no WebAssembly, a
+// CSP without 'wasm-unsafe-eval', a bundler that drops md4c.js's export) are
+// set up by the app, not fixed by a reload. Once per page, as each component
+// retries the load and would repeat it.
+function reportLoadFailure(error: unknown): void {
+  if (loadFailureReported) return;
+  loadFailureReported = true;
+  console.error(
+    '[EnrichedMarkdown] The WASM markdown parser failed to load, so markdown is shown as plain text:',
+    error
+  );
+}
+
 // SINGLE_FILE=1 inlines the WASM binary as base64 inside md4c.js, so no
 // network fetch is needed — only a one-time decode + compile on first call.
 function initializeParser(): Promise<ParseFn> {
@@ -70,6 +88,7 @@ function initializeParser(): Promise<ParseFn> {
       })
       .catch((error) => {
         parserPromise = null;
+        reportLoadFailure(error);
         throw error;
       }) as Promise<ParseFn>;
   }

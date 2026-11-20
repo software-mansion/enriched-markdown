@@ -1,3 +1,16 @@
+/**
+ * Which typed markdown block prefixes convert into blocks. An omitted key is
+ * off, so `{ heading: true }` enables headings and nothing else.
+ */
+export interface MarkdownShortcutsConfig {
+  /** `#`–`######` + space. @default false */
+  heading?: boolean;
+  /** `-`/`*`/`+` + space. @default false */
+  unorderedList?: boolean;
+  /** `1.` or `1)` + space. @default false */
+  orderedList?: boolean;
+}
+
 export type NormalizedMarkdownShortcuts = {
   heading: boolean;
   unorderedList: boolean;

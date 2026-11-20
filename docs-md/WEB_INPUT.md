@@ -138,14 +138,13 @@ A ref kept after the input unmounts still answers `getMarkdown()` with the last 
 
 These props are stripped before the editor `<div>` is rendered, so they never reach the DOM or trigger React "unknown prop" warnings:
 
-`markdownShortcuts`, `multiline`, `scrollEnabled`, `writingDirection`, `linkRegex`, `onLinkDetected`, `mentionIndicators`, `onStartMention`, `onChangeMention`, `onEndMention`, `contextMenuItems`, `selectionMenuConfig`, `formatMenuConfig`, `onCaretRectChange`, and the React Native press props (`onPress`, `onPressIn`, `onPressOut`, `rejectResponderTermination`, `hitSlop`).
+`multiline`, `scrollEnabled`, `writingDirection`, `linkRegex`, `onLinkDetected`, `mentionIndicators`, `onStartMention`, `onChangeMention`, `onEndMention`, `contextMenuItems`, `selectionMenuConfig`, `formatMenuConfig`, `onCaretRectChange`, and the React Native press props (`onPress`, `onPressIn`, `onPressOut`, `rejectResponderTermination`, `hitSlop`).
 
 `onKeyPress` and `autoCapitalize` are not stripped: they share a name with DOM props and reach the `<div>` as those. `onKeyPress` is then the browser's `keypress` event, which does not fire for Backspace, Delete, arrow keys or IME input, so it is not a replacement for the native event.
 
 ## Not supported on web
 
 - **Link and mention commands** — `setLink`, `insertLink`, `removeLink`, `insertMention`, `startMention` and `copyToClipboard` warn once and do nothing.
-- **Markdown shortcuts** — typing `# ` or `- ` does not turn the line into a heading or list.
 - **Auto-link detection** — `linkRegex` and `onLinkDetected` are ignored.
 - **Mentions** — no mention flow; mention events never fire.
 - **Custom menus** — `contextMenuItems`, `selectionMenuConfig` and `formatMenuConfig` are ignored; the browser's own context menu is shown.
