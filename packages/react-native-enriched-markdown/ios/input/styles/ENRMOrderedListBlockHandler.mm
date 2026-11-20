@@ -33,16 +33,4 @@
   paragraphStyle.paragraphSpacingBefore = style.listItemSpacing;
 }
 
-- (NSString *)markdownLinePrefixForBlockRange:(ENRMBlockRange *)blockRange
-{
-  NSInteger depth = blockRange.level;
-  if (depth < 0) {
-    depth = 0;
-  } else if (depth > kENRMMaxListDepth) {
-    depth = kENRMMaxListDepth;
-  }
-  NSString *indent = [@"" stringByPaddingToLength:depth * 3 withString:@" " startingAtIndex:0];
-  return [indent stringByAppendingFormat:@"%ld. ", (long)blockRange.ordinal];
-}
-
 @end

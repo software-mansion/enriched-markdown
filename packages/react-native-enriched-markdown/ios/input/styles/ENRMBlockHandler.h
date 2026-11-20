@@ -5,12 +5,11 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/// A block handler owns how its ENRMInputBlockType styles its paragraph and how
-/// it serializes to a markdown line prefix. Mirrors ENRMStyleHandler for the
-/// inline pipeline. Parser recognition is NOT handler-driven: it lives in
-/// ENRMInputParser's kSupportedBlocks central map, exactly as kSupportedSpans
-/// does for inline styles — a new block type adds one entry there plus one
-/// handler here. These signatures are designed to cover headings AND list items.
+/// A block handler owns how its ENRMInputBlockType styles its paragraph. Mirrors
+/// ENRMStyleHandler for the inline pipeline. Markdown import and export (block
+/// recognition and the line markers) are not handler-driven: they live in the
+/// shared input core (cpp/input). These signatures are designed to cover
+/// headings AND list items.
 @protocol ENRMBlockHandler <NSObject>
 
 @property (nonatomic, readonly) ENRMInputBlockType blockType;
@@ -29,11 +28,6 @@ NS_ASSUME_NONNULL_BEGIN
                              attributes:(NSMutableDictionary<NSAttributedStringKey, id> *)attributes
                              blockRange:(ENRMBlockRange *)blockRange
                                   style:(ENRMInputFormatterStyle *)style;
-
-/// Markdown prefix prepended to each line of the block during serialization,
-/// e.g. @"# " for an H1 or @"- " for a bullet. Returns @"" when the block needs
-/// no prefix. Owning the marker here replaces a central serializer switch.
-- (NSString *)markdownLinePrefixForBlockRange:(ENRMBlockRange *)blockRange;
 
 @optional
 
