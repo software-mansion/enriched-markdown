@@ -28,6 +28,7 @@ import {
   normalizeLinkContextMenuItems,
 } from '../linkContextMenuUtils';
 import { resolveAccessibilityLabels } from '../accessibilityLabelDefaults';
+import { useAdmonitionTitles } from '../admonitionDefaults';
 import {
   NOT_COLLECTED,
   useBlockSlots,
@@ -238,6 +239,7 @@ export const EnrichedMarkdownText = ({
   selectionMenuConfig,
   onSelectionCopy,
   accessibilityLabels,
+  admonitionTitles,
   selectionColor,
   selectionHandleColor,
   textBreakStrategy,
@@ -587,6 +589,7 @@ export const EnrichedMarkdownText = ({
     () => resolveAccessibilityLabels(accessibilityLabels),
     [accessibilityLabels]
   );
+  const resolvedAdmonitionTitles = useAdmonitionTitles(admonitionTitles);
 
   // One parse on the JS thread serves both: the slot children land in the same
   // commit as the markdown they describe, the image sources before it is drawn.
@@ -672,7 +675,12 @@ export const EnrichedMarkdownText = ({
     <NativeMarkdown
       stream={followedStream}
       Component={EnrichedMarkdownNativeComponent}
-      nativeProps={{ ...sharedProps, enableCodeBlockWrapToggle, imageSources }}
+      nativeProps={{
+        ...sharedProps,
+        enableCodeBlockWrapToggle,
+        imageSources,
+        admonitionTitles: resolvedAdmonitionTitles,
+      }}
     >
       {slotChildren}
     </NativeMarkdown>

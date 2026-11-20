@@ -513,7 +513,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
   }
 }
 
-// Draws the admonition header (tinted octicon + capitalized title) in the band
+// Draws the admonition header (tinted octicon + title) in the band
 // reserved at the top by the enlarged content inset. The view is flipped on
 // macOS, so the y-down icon path and text draw identically on both platforms.
 - (void)drawAdmonitionHeaderForType:(NSString *)type config:(StyleConfig *)config
@@ -547,14 +547,25 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
     titleX = leftInset + iconSize + round(iconSize * 0.4);
   }
 
-  NSString *title = ENRMAdmonitionTitle(type);
-  UIFont *titleFont = ENRMAdmonitionTitleFont(config);
-  NSDictionary<NSAttributedStringKey, id> *attributes =
-      @{NSFontAttributeName : titleFont, NSForegroundColorAttributeName : tint};
+  NSString *title = [config admonitionTitleForType:type];
+  CGFloat titleWidth = self.bounds.size.width - ceil(padding) - titleX;
+  if (title.length == 0 || titleWidth <= 0) {
+    return;
+  }
+  NSMutableParagraphStyle *paragraph = [[NSMutableParagraphStyle alloc] init];
+  paragraph.lineBreakMode = NSLineBreakByTruncatingTail;
+  paragraph.alignment = NSTextAlignmentLeft;
+  NSDictionary<NSAttributedStringKey, id> *attributes = @{
+    NSFontAttributeName : ENRMAdmonitionTitleFont(config),
+    NSForegroundColorAttributeName : tint,
+    NSParagraphStyleAttributeName : paragraph,
+  };
   NSAttributedString *attributed = [[NSAttributedString alloc] initWithString:title attributes:attributes];
-  CGSize titleSize = [attributed size];
-  CGFloat titleY = headerTop + (headerHeight - titleSize.height) / 2.0;
-  [attributed drawAtPoint:CGPointMake(titleX, titleY)];
+  CGFloat titleHeight = [attributed size].height;
+  CGFloat titleY = headerTop + (headerHeight - titleHeight) / 2.0;
+  [attributed drawWithRect:CGRectMake(titleX, titleY, titleWidth, ceil(titleHeight))
+                   options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingTruncatesLastVisibleLine
+                   context:nil];
 }
 
 #pragma mark - Context menu

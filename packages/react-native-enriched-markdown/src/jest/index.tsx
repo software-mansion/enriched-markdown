@@ -39,6 +39,7 @@ export {
   resolveAccessibilityLabels,
 } from '../accessibilityLabelDefaults';
 export { createMarkdownStream } from '../markdownStream';
+export { DEFAULT_ADMONITION_TITLES } from '../admonitionDefaults';
 
 type AnyFn = (...args: any[]) => any;
 declare const jest: { fn: <T extends AnyFn>(impl?: T) => T };
@@ -324,6 +325,7 @@ export const EnrichedMarkdownText = ({
   linkPillContent: _linkPillContent,
   selectionMenuConfig: _selectionMenuConfig,
   accessibilityLabels: _accessibilityLabels,
+  admonitionTitles: _admonitionTitles,
   selectionColor: _selectionColor,
   selectionHandleColor: _selectionHandleColor,
   textBreakStrategy: _textBreakStrategy,

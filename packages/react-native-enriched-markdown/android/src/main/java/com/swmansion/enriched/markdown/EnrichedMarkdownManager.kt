@@ -14,6 +14,7 @@ import com.facebook.react.uimanager.annotations.ReactProp
 import com.facebook.react.viewmanagers.EnrichedMarkdownManagerDelegate
 import com.facebook.react.viewmanagers.EnrichedMarkdownManagerInterface
 import com.facebook.yoga.YogaMeasureMode
+import com.swmansion.enriched.markdown.segments.AdmonitionIcons
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayMode
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.MediaStreamingMode
@@ -439,6 +440,15 @@ class EnrichedMarkdownManager :
   ) {
     if (view == null) return
     view.setAccessibilityLabels(parseAccessibilityLabels(value))
+  }
+
+  @ReactProp(name = "admonitionTitles")
+  override fun setAdmonitionTitles(
+    view: EnrichedMarkdown?,
+    value: ReadableMap?,
+  ) {
+    if (view == null) return
+    view.setAdmonitionTitles(AdmonitionIcons.TYPES.associateWith { value?.getString(it).orEmpty() })
   }
 
   override fun setPadding(

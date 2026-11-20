@@ -292,7 +292,7 @@ All core `EnrichedMarkdownText` features are supported on web, including:
 - `enableTaskListItemToggle` - set to `false` to render task list checkboxes read-only (the click is fully inert: no toggle, no `onTaskListItemPress`). The checkbox keeps its normal appearance, marked `readOnly` / `aria-disabled` and made pointer-inert rather than `disabled`, matching iOS and Android
 - `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `strikethrough`, `latexMath`, `highlight`, `hardSoftBreaks`, `preserveBlankLines`, `admonitions`; `strikethrough` is accepted but has no effect, because web always parses GFM)
 - `stream` from `createMarkdownStream()`: the view renders the text appended so far (without the native streaming filter or fade)
-- GitHub admonitions (`> [!NOTE]`) - rendered as callouts with the same icon set and `blockquote.admonitions` palette as native. There is no `flavor` prop on web, so they are always on unless `md4cFlags={{ admonitions: false }}`
+- GitHub admonitions (`> [!NOTE]`) - rendered as callouts with the same icon set, `blockquote.admonitions` palette and `admonitionTitles` as native. There is no `flavor` prop on web, so they are always on unless `md4cFlags={{ admonitions: false }}`
 - [RTL and mixed-direction (bidi) content](/user-experience/rtl), resolved per block as on native
 - Arbitrary DOM attributes, which pass through to the root `<div>`
 

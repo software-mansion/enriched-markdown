@@ -217,7 +217,7 @@ Each heading level (`h1`-`h6`) and `paragraph` is styled by its own key. Give ea
 
 ### Admonitions {#admonitions}
 
-A blockquote opening with `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, or `> [!CAUTION]` renders as a themed callout with an icon and title header. Admonitions nest under `blockquote` because they **inherit its geometry** - `borderWidth`, `gapWidth`, `padding`, `borderRadius`, font, and spacing all come from the blockquote style above - and override only the colors below.
+A blockquote opening with `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, or `> [!CAUTION]` renders as a themed callout with an icon and title header. Admonitions nest under `blockquote` because they **inherit its geometry** - `borderWidth`, `gapWidth`, `padding`, `borderRadius`, font, and spacing all come from the blockquote style above - and override only the colors below. The title text is not a style: set it with the [`admonitionTitles`](/react-native/api-reference/enriched-markdown-text#admonitiontitles) prop.
 
 | Property                                             | Type               | Default                       | Description              |
 | ---------------------------------------------------- | ------------------ | ----------------------------- | ------------------------ |

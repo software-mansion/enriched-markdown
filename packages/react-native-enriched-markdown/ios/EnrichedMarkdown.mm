@@ -1756,6 +1756,20 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     }
   }
 
+  const auto &titles = newViewProps.admonitionTitles;
+  const auto &oldTitles = oldViewProps.admonitionTitles;
+  if (titles.note != oldTitles.note || titles.tip != oldTitles.tip || titles.important != oldTitles.important ||
+      titles.warning != oldTitles.warning || titles.caution != oldTitles.caution) {
+    [_config setAdmonitionTitles:@{
+      @"note" : RCTNSStringFromString(titles.note),
+      @"tip" : RCTNSStringFromString(titles.tip),
+      @"important" : RCTNSStringFromString(titles.important),
+      @"warning" : RCTNSStringFromString(titles.warning),
+      @"caution" : RCTNSStringFromString(titles.caution),
+    }];
+    _dirtyFlags |= ENRMDirtyRender | ENRMDirtyRecreateSegments;
+  }
+
   _selectable = newViewProps.selectable;
 
   for (RCTUIView *segment in _segmentViews) {

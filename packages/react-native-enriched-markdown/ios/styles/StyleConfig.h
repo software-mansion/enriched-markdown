@@ -313,6 +313,9 @@ NS_ASSUME_NONNULL_BEGIN
            backgroundColors:(NSDictionary<NSString *, RCTUIColor *> *)backgroundColors;
 - (RCTUIColor *)admonitionColorForType:(NSString *)type;
 - (RCTUIColor *)admonitionBackgroundColorForType:(NSString *)type;
+// Per-admonition-type header titles; an empty one draws the icon only.
+- (void)setAdmonitionTitles:(NSDictionary<NSString *, NSString *> *)titles;
+- (NSString *)admonitionTitleForType:(NSString *)type;
 // List style properties (combined for both ordered and unordered lists)
 - (CGFloat)listStyleFontSize;
 - (void)setListStyleFontSize:(CGFloat)newValue;

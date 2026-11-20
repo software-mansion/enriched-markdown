@@ -240,25 +240,30 @@ final class AdmonitionRenderingTests: XCTestCase {
         }
     }
 
-    /// The glyphs and titles are duplicated per platform; the web file is
-    /// the source of truth. Skipped outside the monorepo.
+    /// The glyphs and default titles are duplicated per platform; the React
+    /// Native package's files are the source of truth. Skipped outside the
+    /// monorepo.
     func testIconAssetsMatchTheWebSourceOfTruth() throws {
-        let webFile = URL(fileURLWithPath: #filePath)
+        let src = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent() // EnrichedMarkdownTests
             .deletingLastPathComponent() // Tests
             .deletingLastPathComponent() // enriched-markdown-ios
             .deletingLastPathComponent() // packages
-            .appendingPathComponent("react-native-enriched-markdown/src/web/renderers/admonitionIcons.ts")
-        guard let rawSource = try? String(contentsOf: webFile, encoding: .utf8) else {
-            throw XCTSkip("web admonitionIcons.ts not available (standalone package)")
+            .appendingPathComponent("react-native-enriched-markdown/src")
+        func read(_ path: String) throws -> String {
+            guard let raw = try? String(contentsOf: src.appendingPathComponent(path), encoding: .utf8) else {
+                throw XCTSkip("\(path) not available (standalone package)")
+            }
+            // Prettier wraps long entries onto the next line; join key and value.
+            return raw.replacingOccurrences(of: ":\\s+'", with: ": '", options: .regularExpression)
         }
-        // Prettier wraps long entries onto the next line; join key and value.
-        let source = rawSource.replacingOccurrences(of: ":\\s+'", with: ": '", options: .regularExpression)
+        let icons = try read("web/renderers/admonitionIcons.ts")
+        let defaults = try read("admonitionDefaults.ts")
 
         for type in AdmonitionType.allCases {
-            XCTAssertTrue(source.contains("\(type.rawValue): '\(AdmonitionHeader.iconPathData(for: type))'"), "path for \(type)")
-            XCTAssertTrue(source.contains("\(type.rawValue): '\(type.title)'"), "title for \(type)")
+            XCTAssertTrue(icons.contains("\(type.rawValue): '\(AdmonitionHeader.iconPathData(for: type))'"), "path for \(type)")
+            XCTAssertTrue(defaults.contains("\(type.rawValue): '\(type.title)'"), "title for \(type)")
         }
-        XCTAssertTrue(source.contains("ADMONITION_ICON_VIEWBOX = \(Int(AdmonitionHeader.iconViewBox));"))
+        XCTAssertTrue(icons.contains("ADMONITION_ICON_VIEWBOX = \(Int(AdmonitionHeader.iconViewBox));"))
     }
 }
