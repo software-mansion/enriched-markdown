@@ -659,10 +659,10 @@ class EnrichedMarkdownTextInputView(
       }
       eventEmitter.emitState()
     } else {
-      applyFormattingAndEmit()
       pendingStyles.clear()
       pendingStyleRemovals.clear()
       seedPendingStylesFromSelection(selStart, selEnd)
+      applyFormattingAndEmit()
     }
   }
 
