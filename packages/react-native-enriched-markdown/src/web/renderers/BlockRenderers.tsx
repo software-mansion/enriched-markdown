@@ -88,7 +88,7 @@ const ADMONITION_ICON_STYLE: CSSProperties = { flexShrink: 0 };
 
 const ADMONITION_TITLE_STYLE: CSSProperties = {
   minWidth: 0,
-  overflow: 'hidden',
+  overflowX: 'clip',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
 };
