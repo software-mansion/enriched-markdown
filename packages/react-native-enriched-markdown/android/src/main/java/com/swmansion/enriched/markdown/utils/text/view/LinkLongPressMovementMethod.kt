@@ -87,7 +87,13 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
           } else {
             null
           }
-        isLinkTouchActive = pressedLink != null || pressedImage != null || pressedCodeBlock != null || pressedTextOffset != null
+        // A reveal tap is claimed like a link tap, so an enclosing Pressable doesn't fire as well.
+        isLinkTouchActive =
+          pressedSpoiler != null ||
+          pressedLink != null ||
+          pressedImage != null ||
+          pressedCodeBlock != null ||
+          pressedTextOffset != null
         isTouchWithinTextBounds = charOffsetAt(widget, event) != null || pressedCodeBlock != null || pressedTextOffset != null
         pressedLink?.let { scheduleLongPress(widget, it) }
         // Keeps RNGH Pressable and scrolling parents from stealing the press before ACTION_UP.

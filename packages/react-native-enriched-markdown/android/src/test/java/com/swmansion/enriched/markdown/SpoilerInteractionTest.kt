@@ -14,6 +14,7 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.link
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
 import com.swmansion.enriched.markdown.test.TestAstFactory.spoiler
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
+import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -101,6 +102,19 @@ class SpoilerInteractionTest {
     view.send(MotionEvent.ACTION_UP, x, eventTime = held)
 
     assertFalse(view.spoiler.revealing || view.spoiler.revealed)
+  }
+
+  @Test
+  fun aPressOnAConcealedSpoilerIsClaimedFromTheParent() {
+    val view = laidOutView(paragraph(text("plain "), spoiler(link("https://example.com", text("secret")))))
+    val movementMethod = view.movementMethod as LinkLongPressMovementMethod
+
+    view.send(MotionEvent.ACTION_DOWN, view.xOf("plain"))
+    assertFalse("Plain text stays with the parent", movementMethod.isLinkTouchActive)
+    view.send(MotionEvent.ACTION_UP, view.xOf("plain"))
+
+    view.send(MotionEvent.ACTION_DOWN, view.xOf("secret"))
+    assertTrue(movementMethod.isLinkTouchActive)
   }
 
   @Test
