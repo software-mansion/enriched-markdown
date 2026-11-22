@@ -24,6 +24,7 @@ jobs:
       react-native: ${{ steps.filter.outputs.react-native }}
       android: ${{ steps.filter.outputs.android }}
       ios: ${{ steps.filter.outputs.ios }}
+      ios-spm: ${{ steps.filter.outputs.ios-spm }}
       core: ${{ steps.filter.outputs.core }}
       core-cpp: ${{ steps.filter.outputs.core-cpp }}
     steps:
@@ -71,6 +72,16 @@ jobs:
               - 'yarn.lock'
               - '.nvmrc'
               - '.yarnrc.yml'
+              - '.github/**'
+            ios-spm:
+              - 'packages/react-native-enriched-markdown/ios/**'
+              - 'packages/react-native-enriched-markdown/common/**'
+              # cpp is a symlink into core, so the diff lands on the real path.
+              - 'packages/core/cpp/**'
+              - 'packages/react-native-enriched-markdown/Package.swift'
+              - 'packages/react-native-enriched-markdown/spm-plugin.js'
+              - 'package.json'
+              - 'yarn.lock'
               - '.github/**'
             core-cpp:
               - 'packages/core/cpp/**'
@@ -430,6 +441,67 @@ jobs:
       - name: Run RN iOS unit tests
         run: yarn test:ios --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
+  # CocoaPods builds do not compile Package.swift or run spm-plugin.js, so a
+  # change that only breaks SwiftPM apps used to pass CI. Build a template app
+  # against the packed tarball to exercise the published layout end to end.
+  rn-ios-spm-build:
+    needs: changes
+    if: needs.changes.outputs.ios-spm == 'true'
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: '26.3'
+
+      # yarn prepare runs bob build, so lib/ exists when npm pack runs. The
+      # package's prepack vendors the C++ sources into the tarball; the symlink
+      # in the workspace is not what a consumer receives.
+      - name: Build the library
+        run: yarn prepare
+
+      - name: Pack the library
+        id: pack
+        run: |
+          cd packages/react-native-enriched-markdown
+          echo "tarball=$PWD/$(npm pack --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Create a React Native 0.88 app from the template
+        run: |
+          npx @react-native-community/cli@latest init SpmSmokeApp \
+            --version 0.88.0 \
+            --directory "$RUNNER_TEMP/spm-smoke" \
+            --pm npm
+
+      - name: Install the packed library
+        working-directory: ${{ runner.temp }}/spm-smoke
+        run: npm install "${{ steps.pack.outputs.tarball }}"
+
+      # Run from ios/: spm injects into the app's xcodeproj and needs the
+      # Podfile there to deintegrate CocoaPods first.
+      - name: Switch the app to SwiftPM
+        working-directory: ${{ runner.temp }}/spm-smoke/ios
+        run: npx react-native spm add --deintegrate --yes
+
+      - name: Build for the iOS simulator
+        working-directory: ${{ runner.temp }}/spm-smoke/ios
+        run: |
+          xcodebuild \
+            -project SpmSmokeApp.xcodeproj \
+            -scheme SpmSmokeApp \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/spm-derived-data" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
   android-build:
     needs: changes
     if: needs.changes.outputs.android == 'true'
@@ -744,6 +816,7 @@ jobs:
       - rn-build-android
       - rn-android-unit-tests
       - rn-ios-build-and-tests
+      - rn-ios-spm-build
       - android-build
       - android-unit-tests
       - android-kotlin-lint
@@ -757,6 +830,7 @@ jobs:
           REACT_NATIVE: ${{ needs.changes.outputs.react-native }}
           ANDROID: ${{ needs.changes.outputs.android }}
           IOS: ${{ needs.changes.outputs.ios }}
+          IOS_SPM: ${{ needs.changes.outputs.ios-spm }}
           CORE_CPP: ${{ needs.changes.outputs.core-cpp }}
           CORE_PARSER: ${{ needs.core-parser.result }}
           CORE: ${{ needs.changes.outputs.core }}
@@ -766,6 +840,7 @@ jobs:
           RN_BUILD_ANDROID: ${{ needs.rn-build-android.result }}
           RN_ANDROID_UNIT_TESTS: ${{ needs.rn-android-unit-tests.result }}
           RN_IOS_BUILD_AND_TESTS: ${{ needs.rn-ios-build-and-tests.result }}
+          RN_IOS_SPM_BUILD: ${{ needs.rn-ios-spm-build.result }}
           ANDROID_BUILD: ${{ needs.android-build.result }}
           ANDROID_UNIT_TESTS: ${{ needs.android-unit-tests.result }}
           ANDROID_KOTLIN_LINT: ${{ needs.android-kotlin-lint.result }}
@@ -796,7 +871,7 @@ jobs:
             fi
           }
 
-          if [[ "$REACT_NATIVE" != "true" && "$ANDROID" != "true" && "$IOS" != "true" && "$CORE_CPP" != "true" && "$CORE" != "true" ]]; then
+          if [[ "$REACT_NATIVE" != "true" && "$ANDROID" != "true" && "$IOS" != "true" && "$IOS_SPM" != "true" && "$CORE_CPP" != "true" && "$CORE" != "true" ]]; then
             echo "No relevant changes detected - CI passed"
             exit 0
           fi
@@ -808,6 +883,7 @@ jobs:
           check_required "$REACT_NATIVE" "$RN_BUILD_ANDROID" "rn-build-android"
           check_required "$REACT_NATIVE" "$RN_ANDROID_UNIT_TESTS" "rn-android-unit-tests"
           check_required "$REACT_NATIVE" "$RN_IOS_BUILD_AND_TESTS" "rn-ios-build-and-tests" "$RN_IOS_BUILD_AND_TESTS_CACHE"
+          check_required "$IOS_SPM" "$RN_IOS_SPM_BUILD" "rn-ios-spm-build"
           check_required "$ANDROID" "$ANDROID_BUILD" "android-build"
           check_required "$ANDROID" "$ANDROID_UNIT_TESTS" "android-unit-tests"
           check_required "$ANDROID" "$ANDROID_KOTLIN_LINT" "android-kotlin-lint"
