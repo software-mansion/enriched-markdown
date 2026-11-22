@@ -28,7 +28,6 @@ inline folly::dynamic measureLayoutConfig(const EnrichedMarkdownTextProps &props
   serializedProps["maxFontSizeMultiplier"] = props.maxFontSizeMultiplier;
   serializedProps["allowTrailingMargin"] = props.allowTrailingMargin;
   serializedProps["textBreakStrategy"] = props.textBreakStrategy;
-  serializedProps["streaming"] = props.streaming;
   serializedProps["streamingConfig"] = streamingLayoutConfig(props.streamingConfig);
   serializedProps["numberOfLines"] = props.numberOfLines;
   serializedProps["ellipsizeMode"] = props.ellipsizeMode;
@@ -60,7 +59,6 @@ inline folly::dynamic measureLayoutConfig(const EnrichedMarkdownProps &props) {
   serializedProps["maxFontSizeMultiplier"] = props.maxFontSizeMultiplier;
   serializedProps["allowTrailingMargin"] = props.allowTrailingMargin;
   serializedProps["textBreakStrategy"] = props.textBreakStrategy;
-  serializedProps["streaming"] = props.streaming;
   serializedProps["streamingConfig"] = streamingLayoutConfig(props.streamingConfig);
   // A `<video>` block only exists under GFM; CommonMark measures it as text.
   serializedProps["isGFM"] = props.isGFM;
