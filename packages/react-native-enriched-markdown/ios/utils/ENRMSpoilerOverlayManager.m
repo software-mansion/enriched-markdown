@@ -9,8 +9,41 @@ static NSString *overlayKey(NSRange charRange, CGRect frame)
                                     frame.size.height];
 }
 
+@interface ENRMSpoilerTextViewLayout : NSObject <ENRMSpoilerTextLayout>
+@property (nonatomic, weak) ENRMPlatformTextView *textView;
+@end
+
+@implementation ENRMSpoilerTextViewLayout
+- (NSTextStorage *)textStorage
+{
+  return _textView.textStorage;
+}
+- (NSLayoutManager *)layoutManager
+{
+  return _textView.layoutManager;
+}
+- (NSTextContainer *)textContainer
+{
+  return _textView.textContainer;
+}
+- (RCTUIView *)spoilerOverlayHost
+{
+  return _textView;
+}
+- (CGPoint)spoilerTextOrigin
+{
+  UIEdgeInsets inset = _textView.textContainerInset;
+  return CGPointMake(inset.left, inset.top);
+}
+- (BOOL)spoilerLayoutReady
+{
+  return _textView && _textView.bounds.size.width > 0;
+}
+@end
+
 @implementation ENRMSpoilerOverlayManager {
-  __weak ENRMPlatformTextView *_textView;
+  __weak id<ENRMSpoilerTextLayout> _layout;
+  ENRMSpoilerTextViewLayout *_ownedLayout;
   StyleConfig *_config;
   NSMutableDictionary<NSString *, ENRMSpoilerOverlayView *> *_overlaysByKey;
   BOOL _needsUpdate;
@@ -36,8 +69,18 @@ static NSString *overlayKey(NSRange charRange, CGRect frame)
 
 - (instancetype)initWithTextView:(ENRMPlatformTextView *)textView config:(StyleConfig *)config
 {
+  ENRMSpoilerTextViewLayout *layout = [ENRMSpoilerTextViewLayout new];
+  layout.textView = textView;
+  if (self = [self initWithLayout:layout config:config]) {
+    _ownedLayout = layout;
+  }
+  return self;
+}
+
+- (instancetype)initWithLayout:(id<ENRMSpoilerTextLayout>)layout config:(StyleConfig *)config
+{
   if (self = [super init]) {
-    _textView = textView;
+    _layout = layout;
     _config = config;
     _overlaysByKey = [NSMutableDictionary new];
   }
@@ -55,10 +98,9 @@ static NSString *overlayKey(NSRange charRange, CGRect frame)
 {
   if (!_needsUpdate)
     return;
-  ENRMPlatformTextView *textView = _textView;
-  // Intentionally keep _needsUpdate=YES when the text view is unavailable
-  // or has zero width — the update will be retried on the next layout pass.
-  if (!textView || textView.bounds.size.width <= 0)
+  // Intentionally keep _needsUpdate=YES when the text has no width yet:
+  // the update will be retried on the next layout pass.
+  if (!_layout.spoilerLayoutReady)
     return;
   [self updateOverlays];
 }
@@ -83,9 +125,9 @@ static NSString *overlayKey(NSRange charRange, CGRect frame)
 
 - (void)removeAllOverlays
 {
-  ENRMPlatformTextView *textView = _textView;
-  if (textView && textView.textStorage.length > 0) {
-    ENRMRestoreSpoilerTextColors(textView.textStorage, NSMakeRange(0, textView.textStorage.length));
+  NSTextStorage *storage = _layout.textStorage;
+  if (storage.length > 0) {
+    ENRMRestoreSpoilerTextColors(storage, NSMakeRange(0, storage.length));
   }
   for (ENRMSpoilerOverlayView *overlay in _overlaysByKey.allValues) {
     [overlay removeFromSuperview];
@@ -99,23 +141,25 @@ static NSString *overlayKey(NSRange charRange, CGRect frame)
 {
   _needsUpdate = NO;
 
-  ENRMPlatformTextView *textView = _textView;
-  if (!textView) {
+  RCTUIView *host = _layout.spoilerOverlayHost;
+  if (!host) {
     [self removeAllOverlays];
     return;
   }
 
-  NSTextStorage *textStorage = textView.textStorage;
+  NSTextStorage *textStorage = _layout.textStorage;
   if (!textStorage || textStorage.length == 0) {
     [self removeAllOverlays];
     return;
   }
 
-  NSLayoutManager *layoutManager = textView.layoutManager;
-  NSTextContainer *textContainer = textView.textContainer;
+  NSLayoutManager *layoutManager = _layout.layoutManager;
+  NSTextContainer *textContainer = _layout.textContainer;
   [layoutManager ensureLayoutForTextContainer:textContainer];
 
-  UIEdgeInsets inset = textView.textContainerInset;
+  CGPoint origin = _layout.spoilerTextOrigin;
+  RCTUIColor *backgroundColor =
+      [_layout respondsToSelector:@selector(spoilerBackgroundColor)] ? _layout.spoilerBackgroundColor : nil;
 
   NSMutableSet<NSString *> *desiredKeys = [NSMutableSet new];
 
@@ -142,8 +186,8 @@ static NSString *overlayKey(NSRange charRange, CGRect frame)
                                                CGRect textRect =
                                                    [layoutManager boundingRectForGlyphRange:intersect
                                                                             inTextContainer:textContainer];
-                                               CGRect frame = CGRectMake(textRect.origin.x + inset.left,
-                                                                         textRect.origin.y + inset.top,
+                                               CGRect frame = CGRectMake(textRect.origin.x + origin.x,
+                                                                         textRect.origin.y + origin.y,
                                                                          textRect.size.width, textRect.size.height);
                                                if (frame.size.width <= 0 || frame.size.height <= 0)
                                                  return;
@@ -159,8 +203,9 @@ static NSString *overlayKey(NSRange charRange, CGRect frame)
                                                    [ENRMSpoilerOverlayView overlayWithMode:self->_spoilerOverlay
                                                                                     config:self->_config
                                                                                  charRange:charRange];
+                                               overlay.underlyingBackgroundColor = backgroundColor;
                                                overlay.frame = frame;
-                                               [textView addSubview:overlay];
+                                               [host addSubview:overlay];
                                                self->_overlaysByKey[key] = overlay;
                                              }];
               }];

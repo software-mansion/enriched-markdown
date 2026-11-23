@@ -16,7 +16,15 @@ extern NSString *const SpoilerOriginalColorAttributeName;
 BOOL handleSpoilerTap(ENRMPlatformTextView *textView, ENRMTapRecognizer *recognizer,
                       ENRMSpoilerOverlayManager *spoilerManager);
 
-void ENRMRestoreSpoilerTextColors(NSTextStorage *textStorage, NSRange range);
+void ENRMRestoreSpoilerTextColors(NSMutableAttributedString *textStorage, NSRange range);
+
+NSRange ENRMRevealSpoilerAtIndex(NSMutableAttributedString *text, NSUInteger index);
+
+void ENRMRevealSpoilerInRange(NSMutableAttributedString *text, NSRange range);
+
+void ENRMConcealSpoilers(NSMutableAttributedString *text);
+
+void ENRMSetTextColorRespectingSpoilers(NSMutableAttributedString *text, RCTUIColor *_Nullable color, NSRange range);
 
 #ifdef __cplusplus
 }

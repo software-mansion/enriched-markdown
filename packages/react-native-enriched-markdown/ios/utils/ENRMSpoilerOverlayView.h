@@ -27,6 +27,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, readonly) NSRange charRange;
 @property (nonatomic, readonly) BOOL revealing;
+@property (nonatomic, strong, nullable) RCTUIColor *underlyingBackgroundColor;
 
 - (instancetype)initWithCharRange:(NSRange)charRange;
 

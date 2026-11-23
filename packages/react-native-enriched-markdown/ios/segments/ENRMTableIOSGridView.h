@@ -3,7 +3,10 @@
 #include <TargetConditionals.h>
 #if !TARGET_OS_OSX
 
+#import "ENRMSpoilerOverlayView.h"
 #import <UIKit/UIKit.h>
+
+@class StyleConfig;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -41,6 +44,9 @@ typedef NS_ENUM(NSInteger, ENRMTableIOSItemKind) {
 /// interaction, so the long-press recognizer must not take that touch.
 @property (nonatomic, copy, nullable) BOOL (^hasLinkContextMenu)(NSString *url);
 - (nullable ENRMTableIOSItemHit *)linkAtPoint:(CGPoint)point;
+
+@property (nonatomic, strong, nullable) StyleConfig *spoilerConfig;
+@property (nonatomic, assign) ENRMSpoilerOverlay spoilerOverlay;
 
 - (void)updateWithRows:(NSArray<ENRMTableIOSRowData *> *)rows
              columnWidths:(NSArray<NSNumber *> *)columnWidths

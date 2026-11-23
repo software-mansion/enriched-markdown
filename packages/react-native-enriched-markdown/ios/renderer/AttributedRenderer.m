@@ -4,6 +4,7 @@
 #import "ENRMBlockquoteTextRenderer.h"
 #import "ENRMImageAttachment.h"
 #import "ENRMLinkPillText.h"
+#import "ENRMSpoilerTapUtils.h"
 #import "LastElementUtils.h"
 #import "MarkdownASTNode.h"
 #import "NodeRenderer.h"
@@ -80,6 +81,7 @@
   [block postProcess:output];
   ENRMLinkPillsAdoptPlaceholderFonts(output);
   ENRMImageAttachmentsAdoptTextFonts(output);
+  ENRMConcealSpoilers(output);
 
   // 5. Cleanup global state to prevent side effects in subsequent renders.
   [context clearBlockStyle];

@@ -35,6 +35,8 @@ ENRMSpoilerOverlay ENRMSpoilerOverlayFromString(NSString *string)
 
 - (CGColorRef)resolveBackgroundCGColor
 {
+  if (_underlyingBackgroundColor && CGColorGetAlpha(_underlyingBackgroundColor.CGColor) > 0)
+    return _underlyingBackgroundColor.CGColor;
 #if !TARGET_OS_OSX
   for (UIView *view = self.superview; view; view = view.superview) {
     CGColorRef color = view.backgroundColor.CGColor;

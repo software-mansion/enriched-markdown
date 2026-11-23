@@ -1,5 +1,7 @@
 #import "ENRMTableIOSGridView.h"
 #import "ENRMDroppableContent.h"
+#import "ENRMSpoilerOverlayManager.h"
+#import "ENRMSpoilerTapUtils.h"
 #import "LinkTapUtils.h"
 
 #if !TARGET_OS_OSX
@@ -23,6 +25,95 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
       return rightToLeft ? 1 : 0;
   }
 }
+
+static BOOL ENRMTextHasSpoiler(NSAttributedString *text)
+{
+  __block BOOL found = NO;
+  [text enumerateAttribute:SpoilerAttributeName
+                   inRange:NSMakeRange(0, text.length)
+                   options:NSAttributedStringEnumerationLongestEffectiveRangeNotRequired
+                usingBlock:^(id value, NSRange range, BOOL *stop) {
+                  if (value) {
+                    found = YES;
+                    *stop = YES;
+                  }
+                }];
+  return found;
+}
+
+@interface ENRMTableSpoilerCell : NSObject <ENRMSpoilerTextLayout>
+@property (nonatomic, strong) NSMutableAttributedString *cellText;
+@property (nonatomic, strong) NSTextStorage *textStorage;
+@property (nonatomic, strong) NSLayoutManager *layoutManager;
+@property (nonatomic, strong) NSTextContainer *textContainer;
+@property (nonatomic, weak) UIView *spoilerOverlayHost;
+@property (nonatomic, assign) CGPoint spoilerTextOrigin;
+@property (nonatomic, strong) ENRMSpoilerOverlayManager *manager;
+@property (nonatomic, strong, nullable) UIColor *spoilerBackgroundColor;
+@end
+
+@implementation ENRMTableSpoilerCell
+
+- (instancetype)initWithText:(NSMutableAttributedString *)text host:(UIView *)host config:(StyleConfig *)config
+{
+  if (self = [super init]) {
+    _cellText = text;
+    _textStorage = [[NSTextStorage alloc] initWithAttributedString:text];
+    _layoutManager = [[NSLayoutManager alloc] init];
+    _textContainer = [[NSTextContainer alloc] initWithSize:CGSizeZero];
+    _textContainer.lineFragmentPadding = 0;
+    [_layoutManager addTextContainer:_textContainer];
+    [_textStorage addLayoutManager:_layoutManager];
+    _spoilerOverlayHost = host;
+    _manager = [[ENRMSpoilerOverlayManager alloc] initWithLayout:self config:config];
+  }
+  return self;
+}
+
+- (BOOL)spoilerLayoutReady
+{
+  return _textContainer.size.width > 0;
+}
+
+- (void)layoutInRect:(CGRect)textRect
+{
+  if (!CGSizeEqualToSize(_textContainer.size, textRect.size)) {
+    _textContainer.size = textRect.size;
+  }
+  _spoilerTextOrigin = textRect.origin;
+  [_manager setNeedsUpdate];
+  [_manager updateIfNeeded];
+}
+
+- (BOOL)revealAtPoint:(CGPoint)point
+{
+  CGPoint local = CGPointMake(point.x - _spoilerTextOrigin.x, point.y - _spoilerTextOrigin.y);
+  [_layoutManager ensureLayoutForTextContainer:_textContainer];
+  CGFloat fraction = 0;
+  NSUInteger glyphIndex = [_layoutManager glyphIndexForPoint:local
+                                             inTextContainer:_textContainer
+                              fractionOfDistanceThroughGlyph:&fraction];
+  if (glyphIndex >= _layoutManager.numberOfGlyphs)
+    return NO;
+  CGRect glyphRect = [_layoutManager boundingRectForGlyphRange:NSMakeRange(glyphIndex, 1)
+                                               inTextContainer:_textContainer];
+  if (!CGRectContainsPoint(glyphRect, local))
+    return NO;
+  NSUInteger charIndex = [_layoutManager characterIndexForGlyphAtIndex:glyphIndex];
+  NSRange revealed = ENRMRevealSpoilerAtIndex(_textStorage, charIndex);
+  if (revealed.location == NSNotFound)
+    return NO;
+  ENRMRevealSpoilerInRange(_cellText, revealed);
+  [_manager removeOverlaysForCharRange:revealed];
+  return YES;
+}
+
+- (void)removeOverlays
+{
+  [_manager removeAllOverlays];
+}
+
+@end
 
 // Ticks the row fade without the display link retaining the grid.
 @interface ENRMTableFadeTicker : NSObject
@@ -65,6 +156,7 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
   NSMutableArray<NSNumber *> *_rowFadeStarts;
   NSTimeInterval _rowFadeDuration;
   CADisplayLink *_rowFadeLink;
+  NSMutableDictionary<NSIndexPath *, ENRMTableSpoilerCell *> *_spoilerCells;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -106,7 +198,96 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
   _cornerRadius = cornerRadius;
   _horizontalCellPadding = horizontalCellPadding;
   _verticalCellPadding = verticalCellPadding;
+  [self syncSpoilerCells];
   [self setNeedsDisplay];
+}
+
+#pragma mark - Spoilers
+
+- (void)setSpoilerOverlay:(ENRMSpoilerOverlay)spoilerOverlay
+{
+  _spoilerOverlay = spoilerOverlay;
+  for (ENRMTableSpoilerCell *cell in _spoilerCells.allValues) {
+    cell.manager.spoilerOverlay = spoilerOverlay;
+  }
+}
+
+// Keeps a spoiler cell for each cell whose text holds spoilers. New cell text starts hidden again.
+- (void)syncSpoilerCells
+{
+  NSMutableDictionary<NSIndexPath *, ENRMTableSpoilerCell *> *cells = [NSMutableDictionary dictionary];
+  for (NSUInteger r = 0; r < _tableRows.count; r++) {
+    NSArray<NSAttributedString *> *texts = _tableRows[r].cellTexts;
+    for (NSUInteger c = 0; c < texts.count; c++) {
+      NSAttributedString *text = texts[c];
+      if (![text isKindOfClass:[NSMutableAttributedString class]] || !ENRMTextHasSpoiler(text))
+        continue;
+      NSIndexPath *key = [NSIndexPath indexPathForRow:r inSection:c];
+      ENRMTableSpoilerCell *cell = _spoilerCells[key];
+      if (cell.cellText != text) {
+        [cell removeOverlays];
+        cell = [[ENRMTableSpoilerCell alloc] initWithText:(NSMutableAttributedString *)text
+                                                     host:self
+                                                   config:_spoilerConfig];
+        cell.spoilerBackgroundColor = _tableRows[r].backgroundColor;
+        cell.manager.spoilerOverlay = _spoilerOverlay;
+      }
+      cells[key] = cell;
+    }
+  }
+  for (NSIndexPath *key in _spoilerCells) {
+    if (cells[key] != _spoilerCells[key]) {
+      [_spoilerCells[key] removeOverlays];
+    }
+  }
+  _spoilerCells = cells.count ? cells : nil;
+  [self layoutSpoilerCells];
+}
+
+// Places each spoiler cell's text where drawRect: draws it.
+- (void)layoutSpoilerCells
+{
+  if (!_spoilerCells.count)
+    return;
+  BOOL widthsAnimate = _shownColumnWidths.count == _columnWidths.count;
+  NSArray<NSNumber *> *shownWidths = widthsAnimate ? _shownColumnWidths : _columnWidths;
+  [_spoilerCells enumerateKeysAndObjectsUsingBlock:^(NSIndexPath *key, ENRMTableSpoilerCell *cell, BOOL *stop) {
+    NSUInteger r = key.row, c = key.section;
+    if (r >= self->_rowHeights.count || c >= self->_columnWidths.count)
+      return;
+    CGFloat y = 0;
+    for (NSUInteger i = 0; i < r; i++)
+      y += [self->_rowHeights[i] doubleValue];
+    CGFloat x = 0;
+    for (NSUInteger i = 0; i < c; i++)
+      x += [shownWidths[i] doubleValue];
+    CGFloat laidOutWidth = [self->_columnWidths[c] doubleValue];
+    CGFloat shift = ([shownWidths[c] doubleValue] - laidOutWidth) * ENRMTableTextAnchor(cell.cellText);
+    CGFloat rowHeight = [self->_rowHeights[r] doubleValue];
+    [cell layoutInRect:CGRectMake(x + self->_horizontalCellPadding + shift, y + self->_verticalCellPadding,
+                                  laidOutWidth - self->_horizontalCellPadding * 2,
+                                  rowHeight - self->_verticalCellPadding * 2)];
+  }];
+}
+
+- (ENRMTableSpoilerCell *)spoilerCellAtPoint:(CGPoint)point
+{
+  CGFloat y = 0;
+  for (NSUInteger r = 0; r < _rowHeights.count; r++) {
+    CGFloat rh = [_rowHeights[r] doubleValue];
+    if (point.y >= y && point.y < y + rh) {
+      CGFloat x = 0;
+      for (NSUInteger c = 0; c < _columnWidths.count; c++) {
+        CGFloat cw = [_columnWidths[c] doubleValue];
+        if (point.x >= x && point.x < x + cw)
+          return _spoilerCells[[NSIndexPath indexPathForRow:r inSection:c]];
+        x += cw;
+      }
+      return nil;
+    }
+    y += rh;
+  }
+  return nil;
 }
 
 - (void)fadeInRowsFrom:(NSUInteger)startRow duration:(NSTimeInterval)duration
@@ -179,6 +360,7 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
 {
   _shownColumnWidths = [widths copy];
   [self setNeedsDisplay];
+  [self layoutSpoilerCells];
 }
 
 #pragma mark - Drawing
@@ -318,6 +500,9 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
   if (charIndex >= text.length)
     return nil;
 
+  if ([text attribute:SpoilerAttributeName atIndex:charIndex effectiveRange:NULL])
+    return nil;
+
   NSRange itemRange;
   NSRange whole = NSMakeRange(0, text.length);
   NSString *linkURL = [text attribute:@"linkURL" atIndex:charIndex longestEffectiveRange:&itemRange inRange:whole];
@@ -377,7 +562,12 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
 {
   if (recognizer.state != UIGestureRecognizerStateEnded)
     return;
-  ENRMTableIOSItemHit *hit = [self itemAtPoint:[recognizer locationInView:self]];
+  CGPoint point = [recognizer locationInView:self];
+  if ([[self spoilerCellAtPoint:point] revealAtPoint:point]) {
+    [self setNeedsDisplay];
+    return;
+  }
+  ENRMTableIOSItemHit *hit = [self itemAtPoint:point];
   if (!hit)
     return;
   if (hit.kind == ENRMTableIOSItemKindLink) {

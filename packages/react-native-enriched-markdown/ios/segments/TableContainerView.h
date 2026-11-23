@@ -1,5 +1,6 @@
 #pragma once
 #import "ENRMDynamicBlockProps.h"
+#import "ENRMSpoilerOverlayView.h"
 #import "ENRMUIKit.h"
 #import "ParagraphStyleUtils.h"
 #import "StyleConfig.h"
@@ -53,6 +54,7 @@ typedef void (^TableLinkPressBlock)(NSString *url);
 // at menu-open. Set to the root's shared instance at creation. See
 // ENRMDynamicBlockProps.
 @property (nonatomic, strong) ENRMDynamicBlockProps *dynamicProps;
+@property (nonatomic, assign) ENRMSpoilerOverlay spoilerOverlay;
 
 @property (nonatomic, readonly) NSUInteger rowCount;
 

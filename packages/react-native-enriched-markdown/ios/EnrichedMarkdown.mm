@@ -553,6 +553,7 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   view.lineBreakStrategy = _lineBreakStrategy;
   view.dynamicProps = _dynamicBlockProps;
   view.accessibilityLabels = _accessibilityLabels;
+  view.spoilerOverlay = _spoilerOverlay;
   view.onSelectionCopy = [self selectionCopyHandler];
 
   __weak EnrichedMarkdown *weakSelf = self;
@@ -1481,6 +1482,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   tableView.dynamicProps = _dynamicBlockProps;
   ENRMSetWritingDirection(tableView, _writingDirectionMode, _resolvedLayoutDirection);
   tableView.accessibilityLabels = _accessibilityLabels;
+  tableView.spoilerOverlay = _spoilerOverlay;
 
   __weak EnrichedMarkdown *weakSelf = self;
 
@@ -1951,6 +1953,10 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     for (RCTUIView *segment in _segmentViews) {
       if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
         ((EnrichedMarkdownInternalText *)segment).spoilerOverlay = _spoilerOverlay;
+      } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
+        ((ENRMBlockquoteContainerView *)segment).spoilerOverlay = _spoilerOverlay;
+      } else if ([segment isKindOfClass:[TableContainerView class]]) {
+        ((TableContainerView *)segment).spoilerOverlay = _spoilerOverlay;
       }
     }
   }

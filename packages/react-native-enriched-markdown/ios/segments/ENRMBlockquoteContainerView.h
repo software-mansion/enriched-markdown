@@ -3,6 +3,7 @@
 
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMContainerNodeView.h"
+#import "ENRMSpoilerOverlayView.h"
 #import "EditMenuUtils.h"
 #import "ParagraphStyleUtils.h"
 #import "StyleConfig.h"
@@ -108,6 +109,8 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 // the host at creation and pushed to this quote's children, recursing into
 // nested quotes, so they are labelled the same way top-level segments are.
 @property (nonatomic, strong, nullable) ENRMAccessibilityLabels *accessibilityLabels;
+
+@property (nonatomic, assign) ENRMSpoilerOverlay spoilerOverlay;
 
 @property (nonatomic, assign) ENRMWritingDirectionMode writingDirectionMode;
 @property (nonatomic, assign) NSWritingDirection resolvedLayoutDirection;
