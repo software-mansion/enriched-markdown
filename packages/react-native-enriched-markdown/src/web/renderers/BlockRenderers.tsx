@@ -1,3 +1,4 @@
+import { useContext } from 'react';
 import type { CSSProperties, KeyboardEvent, ReactNode } from 'react';
 import { extractNodeText, filenameFromUrl } from '../utils';
 import type {
@@ -17,6 +18,7 @@ import {
   type AdmonitionType,
 } from '../../admonitionDefaults';
 import { ENRM_ADMONITION_CLASS } from '../globalStyles';
+import { ConcealedSpoilerContext } from './ConcealedSpoilerContext';
 
 function ParagraphRenderer({
   node,
@@ -251,6 +253,7 @@ function ImageRenderer({
   callbacks,
   capabilities,
 }: RendererProps) {
+  const isConcealed = useContext(ConcealedSpoilerContext);
   const url = node.attributes?.url;
   if (!url) return null;
 
@@ -271,6 +274,7 @@ function ImageRenderer({
 
   const interactive =
     callbacks.onImagePress != null &&
+    !isConcealed &&
     parentType !== 'Link' &&
     parentType !== 'TableCell' &&
     parentType !== 'TableHeaderCell';

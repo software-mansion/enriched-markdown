@@ -1,8 +1,14 @@
-import type { MouseEvent } from 'react';
+import { useContext, useState } from 'react';
+import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react';
 import type { RendererProps, RendererMap } from '../types';
 import { extractNodeText } from '../utils';
 import { KaTeXRenderer } from './KaTeXRenderer';
+import { ConcealedSpoilerContext } from './ConcealedSpoilerContext';
 import { linkStyleForUrl } from '../styles';
+import {
+  ENRM_SPOILER_CLASS,
+  ENRM_SPOILER_CONTENT_CLASS,
+} from '../globalStyles';
 
 function TextRenderer({ node }: RendererProps) {
   return <>{node.content ?? ''}</>;
@@ -48,6 +54,53 @@ function HighlightRenderer({ node, styles, renderChildren }: RendererProps) {
   return <mark style={styles.highlight}>{renderChildren(node)}</mark>;
 }
 
+const CONCEALED_CONTENT_STYLE: CSSProperties = { opacity: 0 };
+
+function SpoilerRenderer({ node, styles, renderChildren }: RendererProps) {
+  const text = extractNodeText(node);
+  const [isRevealed, setIsRevealed] = useState(false);
+  const [seenText, setSeenText] = useState(text);
+  if (seenText !== text) {
+    setSeenText(text);
+    setIsRevealed(false);
+  }
+
+  const handleClick = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (window.getSelection()?.isCollapsed === false) return;
+    setIsRevealed(true);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    event.stopPropagation();
+    setIsRevealed(true);
+  };
+
+  return (
+    <span
+      className={ENRM_SPOILER_CLASS}
+      style={isRevealed ? styles.spoilerRevealed : styles.spoiler}
+      data-revealed={isRevealed ? '' : undefined}
+      role={isRevealed ? undefined : 'button'}
+      tabIndex={isRevealed ? -1 : 0}
+      onClick={isRevealed ? undefined : handleClick}
+      onKeyDown={isRevealed ? undefined : handleKeyDown}
+    >
+      <span
+        className={ENRM_SPOILER_CONTENT_CLASS}
+        style={isRevealed ? undefined : CONCEALED_CONTENT_STYLE}
+      >
+        <ConcealedSpoilerContext.Provider value={!isRevealed}>
+          {renderChildren(node)}
+        </ConcealedSpoilerContext.Provider>
+      </span>
+    </span>
+  );
+}
+
 function CodeRenderer({ node, styles, renderChildren }: RendererProps) {
   return (
     <code style={styles.code}>{node.content ?? renderChildren(node)}</code>
@@ -61,8 +114,15 @@ function LinkRenderer({
   renderChildren,
 }: RendererProps) {
   const url = node.attributes?.url;
+  const isConcealed = useContext(ConcealedSpoilerContext);
 
   if (!url) return <>{renderChildren(node)}</>;
+
+  if (isConcealed) {
+    return (
+      <span style={linkStyleForUrl(style, url)}>{renderChildren(node)}</span>
+    );
+  }
 
   const handleClick = (event: MouseEvent) => {
     if (callbacks.onLinkPress) {
@@ -120,6 +180,7 @@ export const inlineRenderers: RendererMap = {
   Superscript: SuperscriptRenderer,
   Subscript: SubscriptRenderer,
   Highlight: HighlightRenderer,
+  Spoiler: SpoilerRenderer,
   Code: CodeRenderer,
   Link: LinkRenderer,
   LatexMathInline: LatexMathInlineRenderer,

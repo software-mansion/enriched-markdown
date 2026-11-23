@@ -400,11 +400,9 @@ Controls how spoiler text (`||hidden text||`) is displayed before being revealed
 
 <PropInfo type="'particles' | 'solid'" default="'particles'" />
 
-:::danger
-The web build has no spoiler renderer at all, and an unhandled node is dropped **together with its subtree** - so `a ||secret|| b` renders as `a  b` with the concealed text missing, not concealed. Do not place content behind a spoiler if the same Markdown is also rendered on web.
-:::
+On web the prop is ignored: every spoiler is concealed by the solid cover, styled by [`markdownStyle.spoiler`](/react-native/api-reference/style-properties#spoiler-specific).
 
-<LivePreview src={SpoilerOverlaySrc} unavailable unavailableReason={<>iOS and Android only - the web build drops spoiler nodes entirely.</>} />
+<LivePreview src={SpoilerOverlaySrc} unavailable unavailableReason={<>iOS and Android only - the web build always draws the solid cover.</>} />
 
 - **`'particles'`**: animated particle overlay (CAEmitterLayer on iOS, Choreographer-driven Canvas particles on Android).
 - **`'solid'`**: opaque rectangle covering the text (Discord-style).
