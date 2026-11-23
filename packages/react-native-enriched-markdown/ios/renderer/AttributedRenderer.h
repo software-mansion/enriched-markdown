@@ -16,6 +16,14 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSMutableAttributedString *)renderNodes:(NSArray<MarkdownASTNode *> *)nodes
                                    context:(RenderContext *)context
                                      block:(nullable ENRMBlockquoteTextRenderer *)block;
+// The same, appended to `output`, which may already hold text. `onBlockStart` runs before each
+// node renders: between top-level nodes the context is back at its baseline, so rendering can
+// resume at any of them (see ENRMTextRenderCache).
+- (void)renderNodes:(NSArray<MarkdownASTNode *> *)nodes
+               into:(NSMutableAttributedString *)output
+            context:(RenderContext *)context
+              block:(nullable ENRMBlockquoteTextRenderer *)block
+       onBlockStart:(nullable void (^)(NSUInteger index))onBlockStart;
 - (CGFloat)getLastElementMarginBottom;
 - (void)setAllowTrailingMargin:(BOOL)allow;
 @end

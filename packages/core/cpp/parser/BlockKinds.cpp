@@ -276,7 +276,7 @@ size_t titleEnd(std::string_view text, size_t i, char open) {
 
 } // namespace
 
-size_t destinationEnd(std::string_view text, size_t openParen, size_t *stop) {
+size_t destinationEnd(std::string_view text, size_t openParen) {
   const size_t n = text.size();
   const size_t npos = std::string_view::npos;
   size_t i = openParen + 1;
@@ -317,11 +317,8 @@ size_t destinationEnd(std::string_view text, size_t openParen, size_t *stop) {
   if (text[i] == ')')
     return i;
   // A title needs whitespace before it and one of three delimiters.
-  if (i == afterDestination || (text[i] != '"' && text[i] != '\'' && text[i] != '(')) {
-    if (stop != nullptr)
-      *stop = i;
+  if (i == afterDestination || (text[i] != '"' && text[i] != '\'' && text[i] != '('))
     return kInvalid;
-  }
   i = titleEnd(text, i, text[i]);
   if (i == npos)
     return npos; // `[a](u "t` still typing the title
@@ -331,8 +328,6 @@ size_t destinationEnd(std::string_view text, size_t openParen, size_t *stop) {
     return npos;
   if (text[i] == ')')
     return i;
-  if (stop != nullptr)
-    *stop = i;
   return kInvalid;
 }
 

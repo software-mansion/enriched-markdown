@@ -10,9 +10,11 @@ import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayMode
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
+import com.swmansion.enriched.markdown.utils.text.view.OnSelectionCopy
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
 
@@ -39,6 +41,10 @@ class DynamicBlockProps {
   var copyAsMarkdownLabel: String = ""
   var onCopyPress: ((code: String, language: String) -> Unit)? = null
   var onCodeBlockPress: ((code: String, language: String) -> Unit)? = null
+
+  // The one draw-time prop here: views read it when they are created, and the root also pushes a
+  // change into the existing ones (EnrichedMarkdown.spoilerOverlay), since the tree is not rebuilt.
+  var spoilerOverlay: SpoilerOverlayMode = SpoilerOverlayMode.PARTICLES
 }
 
 /**
@@ -72,6 +78,7 @@ data class SegmentViewConfig(
   val onTaskListItemPress: ((taskIndex: Int, checked: Boolean, itemText: String) -> Unit)?,
   val onContextMenuItemPress: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)?,
   val onLatexError: LatexErrorReporter? = null,
+  val onSelectionCopy: OnSelectionCopy? = null,
 )
 
 /**
@@ -99,12 +106,18 @@ object SegmentViewCreators {
         justificationMode = Layout.JUSTIFICATION_MODE_INTER_WORD
       }
       lastElementMarginBottom = segment.lastElementMarginBottom
-      applyStyledText(segment.styledText)
-      segment.imageSpans.forEach { it.registerTextView(this) }
+      spoilerOverlay = config.dynamicProps.spoilerOverlay
+      // A patch alone can't start a view: it stays empty until the host's next full render.
+      segment.styledText?.let {
+        applyStyledText(it)
+        renderedRevision = segment.revision
+        segment.imageSpans.forEach { span -> span.registerTextView(this) }
+      }
 
       onTaskListItemPressCallback = { taskIndex, checked, itemText ->
         config.onTaskListItemPress?.invoke(taskIndex, checked, itemText)
       }
+      onSelectionCopyCallback = config.onSelectionCopy
 
       if (config.contextMenuItemTexts.isNotEmpty()) {
         val onPress = config.onContextMenuItemPress
@@ -123,9 +136,33 @@ object SegmentViewCreators {
     segment: RenderedSegment.Text,
   ) {
     view.lastElementMarginBottom = segment.lastElementMarginBottom
-    view.applyStyledText(segment.styledText)
-    segment.imageSpans.forEach { it.registerTextView(view) }
+    val patch = segment.patch
+    if (patch != null && view.renderedRevision == patch.baseRevision && view.applyStyledTextPatch(patch.start, patch.tail)) {
+      patch.tailImageSpans.forEach { it.registerTextView(view) }
+    } else {
+      // A patch to text this view doesn't show leaves it as it is, for the host's next full render.
+      val styledText = segment.styledText ?: return
+      view.applyStyledText(styledText)
+      segment.imageSpans.forEach { it.registerTextView(view) }
+    }
+    view.renderedRevision = segment.revision
   }
+
+  /**
+   * After reconciling [segments] into [views]: a kept view takes its segment's revision. Returns
+   * the indices of the views that missed a patch ([updateTextView] left them as they were).
+   */
+  fun syncTextRevisions(
+    segments: List<RenderedSegment>,
+    views: List<View>,
+  ): List<Int> =
+    segments.indices.filter { index ->
+      val segment = segments[index] as? RenderedSegment.Text
+      val view = views.getOrNull(index) as? EnrichedMarkdownInternalText
+      if (segment == null || view == null || view.renderedRevision == segment.revision) return@filter false
+      if (segment.styledText != null) view.renderedRevision = segment.revision
+      segment.styledText == null
+    }
 
   fun createTableView(
     segment: RenderedSegment.Table,

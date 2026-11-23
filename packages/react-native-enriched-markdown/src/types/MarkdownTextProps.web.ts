@@ -1,3 +1,5 @@
+import type { MarkdownStream } from '../markdownStream';
+import type { AdmonitionTitles } from './admonitionTitles';
 import type { LinkRecognition } from './linkRecognition';
 import type {
   MarkdownImageOccurrence,
@@ -25,10 +27,16 @@ export interface EnrichedMarkdownTextProps extends Omit<
    */
   testID?: string;
   /**
-   * Markdown content to render.
+   * Markdown content to render. Ignored while `stream` is set.
    * @platform ios, android, web
    */
-  markdown: string;
+  markdown?: string;
+  /**
+   * Markdown arriving in pieces, from `createMarkdownStream()`. Shown instead of
+   * `markdown` and updated about every other frame without re-rendering your component.
+   * @platform ios, android, web
+   */
+  stream?: MarkdownStream;
   /**
    * Style configuration for markdown elements.
    * @platform ios, android, web
@@ -146,6 +154,12 @@ export interface EnrichedMarkdownTextProps extends Omit<
    * @platform web
    */
   dir?: 'ltr' | 'rtl' | 'auto';
+  /**
+   * Admonition header titles by type. Omitted types keep the English title;
+   * an empty string shows the icon only.
+   * @platform ios, android, macos, web
+   */
+  admonitionTitles?: AdmonitionTitles;
   /**
    * React replacements for blocks, keyed by kind: a paragraph whose only
    * content is an image or a link, `<video>` blocks and code blocks, directly

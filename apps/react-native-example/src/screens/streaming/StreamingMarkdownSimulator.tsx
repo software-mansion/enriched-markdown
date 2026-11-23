@@ -151,7 +151,7 @@ export default function StreamingMarkdownSimulator() {
           markdown={markdown}
           markdownStyle={markdownStyle}
           md4cFlags={{ latexMath: true }}
-          streamingAnimation
+          streaming={!isComplete}
           streamingConfig={{
             tableMode: 'progressive',
           }}

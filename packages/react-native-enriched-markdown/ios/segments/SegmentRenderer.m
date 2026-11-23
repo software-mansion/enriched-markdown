@@ -1,8 +1,10 @@
 #import "SegmentRenderer.h"
 #import "ENRMFeatureFlags.h"
+#import "ENRMTextRenderCache.h"
 #import "ENRMTextRenderer.h"
 #import "MarkdownASTNode.h"
 #import "ParagraphStyleUtils.h"
+#import "RenderContext.h"
 #import "RenderedMarkdownSegment.h"
 #import "StyleConfig.h"
 
@@ -35,6 +37,28 @@ static uint64_t ENRMMixImageSourceOverrides(uint64_t hash, NSArray<MarkdownASTNo
     hash = ENRMMixImageSourceOverrides(hash, node.children, overrides);
   }
   return hash;
+}
+
+// Mixes the first task index into the signature, so a segment re-renders when earlier tasks change.
+static uint64_t ENRMMixTaskIndexOffset(uint64_t signature, NSInteger taskIndexOffset)
+{
+  uint64_t value = (uint64_t)taskIndexOffset;
+  for (int byte = 0; byte < 8; byte++) {
+    signature ^= (value >> (byte * 8)) & 0xFF;
+    signature *= 1099511628211ULL;
+  }
+  return signature;
+}
+
+// Counts task items as ListItemRenderer does: a quote's children render later, in its own view.
+static NSInteger ENRMCountTaskItems(MarkdownASTNode *node)
+{
+  NSInteger count =
+      (node.type == MarkdownNodeTypeListItem && [node.attributes[@"isTask"] isEqualToString:@"true"]) ? 1 : 0;
+  for (MarkdownASTNode *child in node.children) {
+    count += ENRMCountTaskItems(child);
+  }
+  return count;
 }
 
 static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root)
@@ -113,15 +137,77 @@ static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root)
   return segments;
 }
 
-NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, StyleConfig *config,
-                                                          BOOL allowTrailingMargin, BOOL allowFontScaling,
-                                                          CGFloat maxFontSizeMultiplier,
-                                                          NSLineBreakStrategy lineBreakStrategy, BOOL blockquoteContent)
+static const uint64_t kTextKindSalt = 0x7465787400000000ULL; // "text"
+
+static uint64_t ENRMTextSignature(uint64_t nodesSignature, NSArray<MarkdownASTNode *> *nodes, StyleConfig *config,
+                                  NSInteger taskIndexOffset, NSInteger taskItemCount)
+{
+  uint64_t signature = nodesSignature ^ kTextKindSalt;
+  if (config.imageSourceOverrides.count > 0) {
+    signature = ENRMMixImageSourceOverrides(signature, nodes, config.imageSourceOverrides);
+  }
+  if (taskItemCount > 0) {
+    signature = ENRMMixTaskIndexOffset(signature, taskIndexOffset);
+  }
+  return signature;
+}
+
+// The text segment for `nodes`, through `cache` when there is one (ENRMTextRenderCache).
+static ENRMRenderedSegment *ENRMRenderTextSegment(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config,
+                                                  BOOL allowTrailingMargin, BOOL allowFontScaling,
+                                                  CGFloat maxFontSizeMultiplier, NSLineBreakStrategy lineBreakStrategy,
+                                                  BOOL blockquoteContent, ENRMWritingDirectionMode writingDirectionMode,
+                                                  NSWritingDirection layoutDirection, BOOL isLast,
+                                                  NSInteger taskIndexOffset, NSInteger taskItemCount,
+                                                  ENRMTextRenderCache *cache)
+{
+  ENRMRenderResult * (^render)(void) = ^ENRMRenderResult *
+  {
+    return blockquoteContent ? ENRMRenderBlockquoteContentNodes(nodes, config, allowFontScaling, maxFontSizeMultiplier,
+                                                                lineBreakStrategy, taskIndexOffset)
+                             : ENRMRenderASTNodes(nodes, config, allowTrailingMargin, allowFontScaling,
+                                                  maxFontSizeMultiplier, lineBreakStrategy, taskIndexOffset);
+  };
+  if (!cache) {
+    return [ENRMRenderedSegment textSegmentWithResult:render()
+                                            signature:ENRMTextSignature(ENRMSignatureForNodes(nodes), nodes, config,
+                                                                        taskIndexOffset, taskItemCount)];
+  }
+  return [cache segmentForNodes:nodes
+      isLast:isLast
+      signature:^uint64_t(uint64_t nodesSignature) {
+        return ENRMTextSignature(nodesSignature, nodes, config, taskIndexOffset, taskItemCount);
+      }
+      render:^ENRMRenderResult * {
+        ENRMRenderResult *result = render();
+        ENRMApplyWritingDirectionMode(result.attributedText, writingDirectionMode, layoutDirection);
+        return result;
+      }
+      resume:^ENRMRenderResult *(NSUInteger from, ENRMRenderResult *previous) {
+        // The previous render's task indices hold only if it started from the same one.
+        if (previous.blockTaskStarts.firstObject.integerValue != taskIndexOffset) {
+          return nil;
+        }
+        return ENRMRenderASTNodesResuming(nodes, from, previous, config, allowTrailingMargin, allowFontScaling,
+                                          maxFontSizeMultiplier, lineBreakStrategy, writingDirectionMode,
+                                          layoutDirection);
+      }];
+}
+
+static NSArray<ENRMRenderedSegment *> *
+ENRMRenderSegments(MarkdownASTNode *ast, StyleConfig *config, BOOL allowTrailingMargin, BOOL allowFontScaling,
+                   CGFloat maxFontSizeMultiplier, NSLineBreakStrategy lineBreakStrategy, BOOL blockquoteContent,
+                   NSInteger startingTaskIndex, ENRMWritingDirectionMode writingDirectionMode,
+                   NSWritingDirection layoutDirection, ENRMTextRenderCache *cache)
 {
   NSArray *segments = ENRMSplitASTIntoSegments(ast);
+  NSUInteger lastTextIndex = [segments indexOfObjectWithOptions:NSEnumerationReverse
+                                                    passingTest:^BOOL(id segment, NSUInteger index, BOOL *stop) {
+                                                      return [segment isKindOfClass:[ENRMTextSegment class]];
+                                                    }];
   NSMutableArray<ENRMRenderedSegment *> *renderedSegments = [NSMutableArray array];
+  NSInteger taskIndexOffset = startingTaskIndex;
 
-  static const uint64_t kTextKindSalt = 0x7465787400000000ULL;       // "text"
   static const uint64_t kTableKindSalt = 0x7461626C00000000ULL;      // "tabl"
   static const uint64_t kMathKindSalt = 0x6D61746800000000ULL;       // "math"
   static const uint64_t kCodeBlockKindSalt = 0x63626C6B00000000ULL;  // "cblk"
@@ -130,19 +216,19 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
   static const uint64_t kBlockSlotKindSalt = 0x626C736C00000000ULL;  // "blsl"
   NSDictionary<NSString *, ENRMImageSourceOverride *> *imageSourceOverrides = config.imageSourceOverrides;
 
-  for (id segment in segments) {
+  for (NSUInteger segmentIndex = 0; segmentIndex < segments.count; segmentIndex++) {
+    id segment = segments[segmentIndex];
     if ([segment isKindOfClass:[ENRMTextSegment class]]) {
-      ENRMTextSegment *textSegment = (ENRMTextSegment *)segment;
-      ENRMRenderResult *rendered = blockquoteContent
-                                       ? ENRMRenderBlockquoteContentNodes(textSegment.nodes, config, allowFontScaling,
-                                                                          maxFontSizeMultiplier, lineBreakStrategy)
-                                       : ENRMRenderASTNodes(textSegment.nodes, config, allowTrailingMargin,
-                                                            allowFontScaling, maxFontSizeMultiplier, lineBreakStrategy);
-      uint64_t signature = ENRMSignatureForNodes(textSegment.nodes) ^ kTextKindSalt;
-      if (imageSourceOverrides.count > 0) {
-        signature = ENRMMixImageSourceOverrides(signature, textSegment.nodes, imageSourceOverrides);
+      NSArray<MarkdownASTNode *> *nodes = ((ENRMTextSegment *)segment).nodes;
+      NSInteger taskItemCount = 0;
+      for (MarkdownASTNode *node in nodes) {
+        taskItemCount += ENRMCountTaskItems(node);
       }
-      [renderedSegments addObject:[ENRMRenderedSegment textSegmentWithResult:rendered signature:signature]];
+      [renderedSegments
+          addObject:ENRMRenderTextSegment(nodes, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
+                                          lineBreakStrategy, blockquoteContent, writingDirectionMode, layoutDirection,
+                                          segmentIndex == lastTextIndex, taskIndexOffset, taskItemCount, cache)];
+      taskIndexOffset += taskItemCount;
     } else if ([segment isKindOfClass:[ENRMTableSegment class]]) {
       ENRMTableSegment *tableSegment = (ENRMTableSegment *)segment;
       uint64_t signature = ENRMSignatureForNode(tableSegment.tableNode) ^ kTableKindSalt;
@@ -175,6 +261,12 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
       if (imageSourceOverrides.count > 0) {
         signature = ENRMMixImageSourceOverrides(signature, @[ blockquoteSegment.blockquoteNode ], imageSourceOverrides);
       }
+      NSInteger taskItemCount = ENRMCountTaskItems(blockquoteSegment.blockquoteNode);
+      if (taskItemCount > 0) {
+        signature = ENRMMixTaskIndexOffset(signature, taskIndexOffset);
+      }
+      blockquoteSegment.taskIndexOffset = taskIndexOffset;
+      taskIndexOffset += taskItemCount;
       [renderedSegments addObject:[ENRMRenderedSegment blockquoteSegmentWithSegment:blockquoteSegment
                                                                           signature:signature]];
     }
@@ -199,4 +291,38 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
   }
 
   return renderedSegments;
+}
+
+NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, StyleConfig *config,
+                                                          BOOL allowTrailingMargin, BOOL allowFontScaling,
+                                                          CGFloat maxFontSizeMultiplier,
+                                                          NSLineBreakStrategy lineBreakStrategy, BOOL blockquoteContent,
+                                                          NSInteger startingTaskIndex)
+{
+  return ENRMRenderSegments(ast, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
+                            lineBreakStrategy, blockquoteContent, startingTaskIndex,
+                            ENRMWritingDirectionModeFirstStrong, NSWritingDirectionNatural, /*cache*/ nil);
+}
+
+NSArray<ENRMRenderedSegment *> *
+ENRMRenderSegmentsFromASTCached(MarkdownASTNode *ast, StyleConfig *config, BOOL allowTrailingMargin,
+                                BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
+                                NSLineBreakStrategy lineBreakStrategy, ENRMWritingDirectionMode writingDirectionMode,
+                                NSWritingDirection layoutDirection, ENRMTextRenderCache *cache)
+{
+  return ENRMRenderSegments(ast, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
+                            lineBreakStrategy, /*blockquoteContent*/ NO, /*startingTaskIndex*/ 0, writingDirectionMode,
+                            layoutDirection, cache);
+}
+
+ENRMRenderResult *ENRMRenderTextCached(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config, BOOL allowTrailingMargin,
+                                       BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
+                                       NSLineBreakStrategy lineBreakStrategy,
+                                       ENRMWritingDirectionMode writingDirectionMode,
+                                       NSWritingDirection layoutDirection, ENRMTextRenderCache *cache)
+{
+  return ENRMRenderTextSegment(nodes, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
+                               lineBreakStrategy, /*blockquoteContent*/ NO, writingDirectionMode, layoutDirection,
+                               /*isLast*/ YES, /*taskIndexOffset*/ 0, /*taskItemCount*/ 0, cache)
+      .textResult;
 }

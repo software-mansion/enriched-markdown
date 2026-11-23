@@ -178,7 +178,7 @@ An admonition is still a blockquote, so it holds any block content - more paragr
 > - your `enriched-markdown` config block
 ```
 
-Admonitions reuse the blockquote's geometry and override only its colors, so they are styled through [`markdownStyle.blockquote.admonitions`](/react-native/api-reference/style-properties#admonitions) - one color pair per type, on top of the `blockquote` box itself.
+Admonitions reuse the blockquote's geometry and override only its colors, so they are styled through [`markdownStyle.blockquote.admonitions`](/react-native/api-reference/style-properties#admonitions) - one color pair per type, on top of the `blockquote` box itself. The header titles are set with [`admonitionTitles`](/react-native/api-reference/enriched-markdown-text#admonitiontitles).
 
 :::note
 Requires both [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) and the [`md4cFlags.admonitions`](/react-native/api-reference/enriched-markdown-text#admonitions) flag. The flag is on by default, but it is forced off under `flavor="commonmark"`, where `> [!NOTE]` renders as a plain blockquote with the marker as text.
@@ -189,7 +189,7 @@ Requires both [`flavor="github"`](/react-native/api-reference/enriched-markdown-
 Images are automatically detected as block or inline based on context:
 
 - **Block images** use block-level spacing and sit on their own line.
-- **Inline images** align with the text baseline inside the surrounding run of text.
+- **Inline images** sit inside the surrounding run of text, centred on its cap height, in a square of `inlineImage.size`. The image is scaled up or down to fit inside that square, keeping its proportions, so it is never distorted or cropped.
 
 You don't need to specify which type - the renderer determines it from the image's position. Note that a single newline does not split a paragraph, so an image on its own source line directly below text is still inline; separate it with a blank line to make it a block image.
 

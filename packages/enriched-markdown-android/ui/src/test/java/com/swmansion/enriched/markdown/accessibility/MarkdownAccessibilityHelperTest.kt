@@ -12,9 +12,14 @@ import android.widget.TextView
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.swmansion.enriched.markdown.AdmonitionTitles
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.plugin.PluginInlineSpan
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
+import com.swmansion.enriched.markdown.renderer.Renderer
+import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
+import com.swmansion.enriched.markdown.test.TestAstFactory.admonition
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.link
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
@@ -89,6 +94,25 @@ class MarkdownAccessibilityHelperTest {
       listOf("Energy", "Math: E equals m c squared", "is famous"),
       nodes(text, 3).map { it.contentDescription.toString() },
     )
+  }
+
+  @Test
+  fun admonitionReadsItsTitleAndSkipsAnEmptyOne() {
+    val renderer = Renderer()
+    renderer.configure(
+      MarkdownRenderTestSupport.defaultStyle,
+      ApplicationProvider.getApplicationContext(),
+      plugins = PluginSnapshot.EMPTY,
+      admonitionTitles = AdmonitionTitles(note = "Uwaga", tip = ""),
+    )
+    val text =
+      renderer.renderDocument(
+        document(admonition("note", paragraph(text("A"))), admonition("tip", paragraph(text("B")))),
+        null,
+        null,
+      )
+
+    assertEquals(listOf("Uwaga", "A", "B"), nodes(text, 3).map { it.contentDescription.toString() })
   }
 
   @Test

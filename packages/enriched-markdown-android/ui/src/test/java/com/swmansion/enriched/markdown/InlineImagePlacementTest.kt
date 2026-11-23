@@ -58,18 +58,42 @@ class InlineImagePlacementTest {
     assertEquals(placement.capCenter, placement.imageCenter, 1f)
   }
 
+  // A 2:1 image spans the square's width and half its height (contain).
+  @Test
+  fun aWideInlineImageFitsInsideItsSquare() {
+    val size = MarkdownRenderTestSupport.defaultStyle.paragraphStyle.fontSize * 2
+    val placement =
+      placeInlineImage(
+        MarkdownRenderTestSupport.styleWithInlineImage(InlineImageStyle(size)),
+        imageWidth = 64,
+        imageHeight = 32,
+      )
+
+    assertEquals(size, placement.imageColumns.count().toFloat(), 1f)
+    assertEquals(size / 2, placement.imageRows.count().toFloat(), 1f)
+    assertEquals(placement.capCenter, placement.imageCenter, 1f)
+  }
+
   private class Placement(
     val layout: Layout,
     val imageRows: IntRange,
+    val imageColumns: IntRange,
     val capCenter: Float,
   ) {
     val imageCenter: Float get() = (imageRows.first + imageRows.last + 1) / 2f
   }
 
-  /** Draws a red inline image between text and finds the rows it painted. */
-  private fun placeInlineImage(style: StyleConfig): Placement {
-    val url = "test://inline-image-placement"
-    ImageCache.putOriginal(url, Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) })
+  /** Draws a red inline image between text and finds the rows and columns it painted. */
+  private fun placeInlineImage(
+    style: StyleConfig,
+    imageWidth: Int = 32,
+    imageHeight: Int = 32,
+  ): Placement {
+    val url = "test://inline-image-placement-${imageWidth}x$imageHeight"
+    ImageCache.putOriginal(
+      url,
+      Bitmap.createBitmap(imageWidth, imageHeight, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) },
+    )
     val rendered = render(document(paragraph(text("Inline "), image(url), text(" image"))), style)
     val textView = TextView(context)
     textView.setTextSize(TypedValue.COMPLEX_UNIT_PX, style.paragraphStyle.fontSize)
@@ -84,17 +108,21 @@ class InlineImagePlacementTest {
 
     val bitmap = Bitmap.createBitmap(400, textView.height, Bitmap.Config.ARGB_8888)
     layout.draw(Canvas(bitmap))
-    val redRows =
-      (0 until bitmap.height).filter { y ->
-        (0 until bitmap.width).any { x ->
-          val pixel = bitmap.getPixel(x, y)
-          Color.alpha(pixel) > 0 && Color.red(pixel) > 128 && Color.green(pixel) < 64
-        }
-      }
+
+    fun isRed(
+      x: Int,
+      y: Int,
+    ): Boolean {
+      val pixel = bitmap.getPixel(x, y)
+      return Color.alpha(pixel) > 0 && Color.red(pixel) > 128 && Color.green(pixel) < 64
+    }
+
+    val redRows = (0 until bitmap.height).filter { y -> (0 until bitmap.width).any { x -> isRed(x, y) } }
+    val redColumns = (0 until bitmap.width).filter { x -> (0 until bitmap.height).any { y -> isRed(x, y) } }
 
     val capBounds = Rect()
     textView.paint.getTextBounds("H", 0, 1, capBounds)
     val capCenter = layout.getLineBaseline(0) - capBounds.height() / 2f
-    return Placement(layout, redRows.first()..redRows.last(), capCenter)
+    return Placement(layout, redRows.first()..redRows.last(), redColumns.first()..redColumns.last(), capCenter)
   }
 }

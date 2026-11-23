@@ -20,15 +20,17 @@ import android.text.style.ReplacementSpan
 import android.view.View
 import android.widget.TextView
 import com.swmansion.enriched.markdown.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.spoiler.isConcealedBySpoiler
+import com.swmansion.enriched.markdown.spoiler.spoilerTextAlpha
 import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.styles.LinkPillStyle
 import com.swmansion.enriched.markdown.styles.LinkVariantEntry
 import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
+import com.swmansion.enriched.markdown.utils.text.view.repaintSpan
 import java.lang.ref.WeakReference
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * Draws an atomic visual over the original link text, without changing stored characters.
@@ -186,7 +188,7 @@ class LinkPillSpan(
   }
 
   private fun invalidateViews() {
-    withHosts { hosts -> hosts.forEach { reflowIn(it) } }
+    withHosts { hosts -> hosts.forEach { repaintIn(it) } }
   }
 
   /** Hands the registered views, once, to [action] on the main thread. */
@@ -202,6 +204,7 @@ class LinkPillSpan(
    * longer shows this span.
    */
   private fun reflowIn(view: View): Boolean {
+    TextBackgroundDrawer.noteReflow()
     val text = (view as? TextView)?.text as? Spannable
     val start = text?.getSpanStart(this) ?: -1
     if (text != null && start >= 0) {
@@ -210,6 +213,11 @@ class LinkPillSpan(
     }
     view.invalidate()
     return false
+  }
+
+  /** Redraws a pill whose size did not change, without laying the text out again. */
+  private fun repaintIn(view: View) {
+    ((view as? TextView)?.text as? Spannable)?.repaintSpan(this) ?: view.invalidate()
   }
 
   private fun TextPaint.applyLabelStyle(source: Paint): TextPaint {
@@ -274,9 +282,10 @@ class LinkPillSpan(
     bottom: Int,
     paint: Paint,
   ) {
-    // The spoiler overlay only covers the text's glyph box, so a pill drawn under it
-    // would outline the hidden link with its padding and border.
-    if (text is Spanned && text.isConcealedBySpoiler(start, end)) return
+    // A spoiler conceals text through the paint, which a replacement span's paint never gets, and
+    // a pill under it would outline the hidden link: it fades in with the text instead.
+    val visibility = (text as? Spanned)?.spoilerTextAlpha(start, end) ?: 1f
+    if (visibility <= 0f) return
     if (!startsPill(text, start)) return
 
     val labelPaint = drawLabelPaint.applyLabelStyle(paint)
@@ -285,6 +294,7 @@ class LinkPillSpan(
     val reservedWidth = uiState.reservedWidth
     val pillWidth = if (reservedWidth > 0) reservedWidth.toFloat() else width(labelPaint)
     rect.set(x, y + metrics.ascent - inset, x + pillWidth, y + metrics.descent + inset)
+    val layer = if (visibility < 1f) canvas.saveLayerAlpha(rect, (visibility * 255f).roundToInt()) else NO_LAYER
     shapePaint.style = Paint.Style.FILL
     shapePaint.color = variant.backgroundColor
     canvas.drawRoundRect(rect, pill.borderRadius, pill.borderRadius, shapePaint)
@@ -314,6 +324,7 @@ class LinkPillSpan(
     }
     canvas.drawText(displayedLabel(labelPaint, max(0f, right - left)), left, y.toFloat(), labelPaint)
     canvas.restoreToCount(save)
+    if (layer != NO_LAYER) canvas.restoreToCount(layer)
   }
 
   private fun displayedLabel(
@@ -330,6 +341,7 @@ class LinkPillSpan(
   companion object {
     // The icon occupies a square of the label's font size plus a quarter of it as a gap.
     private const val ICON_SLOT_RATIO = 1.25f
+    private const val NO_LAYER = -1
 
     // Drawing happens on the main thread only, so all pills share these scratch objects
     // instead of allocating native paints per pill.
@@ -366,16 +378,6 @@ class LinkPillSpan(
     ) {
       val spanned = text as? Spanned ?: return
       spanned.getSpans(0, spanned.length, LinkPillSpan::class.java).forEach { it.registerView(view, onSlotReleased) }
-    }
-
-    /** Redraws the pills in `[start, end)`, which skipped drawing while a spoiler concealed them. */
-    fun redraw(
-      view: TextView,
-      start: Int,
-      end: Int,
-    ) {
-      val spanned = view.text as? Spanned ?: return
-      spanned.getSpans(start, end, LinkPillSpan::class.java).forEach { it.reflowIn(view) }
     }
   }
 }

@@ -181,6 +181,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   // Per-admonition-type colors keyed by type ("note"/"tip"/…). Empty until set.
   NSDictionary<NSString *, RCTUIColor *> *_admonitionColors;
   NSDictionary<NSString *, RCTUIColor *> *_admonitionBackgroundColors;
+  NSDictionary<NSString *, NSString *> *_admonitionTitles;
   ENRMFontSlot *_blockquoteFont;
   // List style properties (combined for both ordered and unordered lists)
   CGFloat _listStyleFontSize;
@@ -308,6 +309,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   ];
   _admonitionColors = @{};
   _admonitionBackgroundColors = @{};
+  _admonitionTitles = @{};
   return self;
 }
 
@@ -480,6 +482,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   copy->_blockquotePadding = _blockquotePadding;
   copy->_admonitionColors = [_admonitionColors copy];
   copy->_admonitionBackgroundColors = [_admonitionBackgroundColors copy];
+  copy->_admonitionTitles = [_admonitionTitles copy];
   copy->_listStyleFontSize = _listStyleFontSize;
   copy->_listStyleFontFamily = [_listStyleFontFamily copy];
   copy->_listStyleFontWeight = [_listStyleFontWeight copy];
@@ -1718,6 +1721,11 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   _inlineImageSize = newValue;
 }
 
+- (CGFloat)scaledInlineImageSize
+{
+  return _inlineImageSize * [self effectiveScaleMultiplierForFontSize:_inlineImageSize];
+}
+
 // Blockquote properties
 - (CGFloat)blockquoteFontSize
 {
@@ -1890,6 +1898,17 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 {
   RCTUIColor *color = _admonitionBackgroundColors[type];
   return color ?: [RCTUIColor clearColor];
+}
+
+- (void)setAdmonitionTitles:(NSDictionary<NSString *, NSString *> *)titles
+{
+  _admonitionTitles = [titles copy];
+}
+
+// Empty until the titles arrive, like the codegen default.
+- (NSString *)admonitionTitleForType:(NSString *)type
+{
+  return _admonitionTitles[type] ?: @"";
 }
 
 // List style properties (combined for both ordered and unordered lists)

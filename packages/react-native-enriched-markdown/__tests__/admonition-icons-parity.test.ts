@@ -1,10 +1,10 @@
 /**
  * Cross-platform parity guard for the GitHub admonition/alert header assets.
  *
- * The octicon `d` path strings, the header titles and the icon viewBox are
- * duplicated verbatim in three renderers because each runtime parses them with
- * its own API (iOS CGPath, Android PathParser, web SVG DOM) and there is no
- * shared runtime between them. The web file is the single source of truth; this
+ * The octicon `d` path strings and the icon viewBox are duplicated verbatim in
+ * three renderers because each runtime parses them with its own API (iOS
+ * CGPath, Android PathParser, web SVG DOM) and there is no shared runtime
+ * between them. The web file is the single source of truth; this
  * test reads the iOS and Android sources as text and asserts they stay
  * byte-identical to it, so a one-sided edit or typo fails CI instead of shipping
  * a mismatched glyph.
@@ -21,7 +21,6 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
   ADMONITION_ICON_PATHS,
-  ADMONITION_TITLES,
   ADMONITION_ICON_VIEWBOX,
 } from '../src/web/renderers/admonitionIcons';
 
@@ -82,7 +81,6 @@ function parseObjC(src: string) {
   const literalRe = /@"([^"]*)"/g;
   return {
     paths: parseEntries(slice(src, 'data = @{', '};'), entryRe, literalRe),
-    titles: parseEntries(slice(src, 'titles = @{', '};'), entryRe, literalRe),
     viewBox: num(src, /ENRMAdmonitionIconViewBox\s*=\s*([\d.]+)/),
   };
 }
@@ -92,12 +90,7 @@ function parseKotlin(src: string) {
   const literalRe = /"([^"]*)"/g;
   return {
     paths: parseEntries(
-      slice(src, 'PATH_DATA =', 'TITLES'),
-      entryRe,
-      literalRe
-    ),
-    titles: parseEntries(
-      slice(src, 'TITLES =', 'fun path'),
+      slice(src, 'PATH_DATA =', 'val TYPES'),
       entryRe,
       literalRe
     ),
@@ -116,12 +109,6 @@ describe('admonition icon assets stay in sync across platforms', () => {
     expect(android.paths[key]).toBe(web);
   });
 
-  it.each(KEYS)('title "%s" is identical web/iOS/Android', (key) => {
-    const web = ADMONITION_TITLES[key];
-    expect(ios.titles[key]).toBe(web);
-    expect(android.titles[key]).toBe(web);
-  });
-
   it('viewBox is identical web/iOS/Android', () => {
     expect(ios.viewBox).toBe(ADMONITION_ICON_VIEWBOX);
     expect(android.viewBox).toBe(ADMONITION_ICON_VIEWBOX);
@@ -132,7 +119,5 @@ describe('admonition icon assets stay in sync across platforms', () => {
     expect(Object.keys(ADMONITION_ICON_PATHS).sort()).toEqual(expected);
     expect(Object.keys(ios.paths).sort()).toEqual(expected);
     expect(Object.keys(android.paths).sort()).toEqual(expected);
-    expect(Object.keys(ios.titles).sort()).toEqual(expected);
-    expect(Object.keys(android.titles).sort()).toEqual(expected);
   });
 });

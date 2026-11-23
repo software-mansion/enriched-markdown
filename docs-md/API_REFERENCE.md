@@ -6,11 +6,25 @@
 
 ### `markdown`
 
-The Markdown content to render.
+The Markdown content to render. Ignored while `stream` is set.
 
 | Type     | Default Value | Platform |
 | -------- | ------------- | -------- |
-| `string` | Required      | Both     |
+| `string` | `''`          | Both     |
+
+### `stream`
+
+Markdown arriving in pieces, from `createMarkdownStream()`: an alternative to `markdown` for text that grows, such as an LLM answer. Appending doesn't re-render your component; the view updates once per frame, and on iOS and Android only each chunk crosses from JavaScript. The view streams until `end()`; an explicit `streaming` prop takes precedence.
+
+- `append(chunk)` adds to the end of the text; ignored after `end()` or `dispose()`, with a warning in development.
+- `getText()` returns the text appended so far; empty after `dispose()`, even while a view still shows it.
+- `end()` marks the text complete: the view stops streaming and shows everything.
+- `reset(text?)` replaces the text and streams again.
+- `dispose()` ends the stream, if `end()` wasn't called, and frees the text once no view shows it.
+
+| Type             | Default Value | Platform  |
+| ---------------- | ------------- | --------- |
+| `MarkdownStream` | -             | Both, Web |
 
 ### `markdownStyle`
 
@@ -206,6 +220,25 @@ Only fires when `flavor="github"` — the copy button is part of the GitHub flav
 />
 ```
 
+### `onSelectionCopy`
+
+Callback after a text selection is copied, from the selection menu's **Copy**, **Copy as Markdown**, or **Copy Image URL** item, the keyboard shortcut (⌘C / Ctrl+C), or TalkBack's copy action. Receives `text` (the copied plain text), `format` (`'plain'`, also used by keyboard and TalkBack copies, `'markdown'`, or `'imageUrls'`), and `selection` (`{ start, end }` in the rendered text; with `flavor="github"`, they restart at each block that renders as its own view, such as a table, code block or quote, so consecutive paragraphs count as one run of text). Code block copies are reported by `onCopyPress` instead.
+
+| Type                                    | Default Value | Platform    |
+| --------------------------------------- | ------------- | ----------- |
+| `(event: SelectionCopyEvent) => void`   | -             | Both, macOS |
+
+**Example:**
+
+```tsx
+<EnrichedMarkdownText
+  markdown="Select some of this **text** and copy it."
+  onSelectionCopy={({ text, format }) => {
+    console.log(`Copied ${format}:`, text);
+  }}
+/>
+```
+
 ### `onLatexError`
 
 Callback when a math expression cannot be parsed or rendered by the LaTeX engine. Receives `source` (the raw LaTeX of the failing expression, without `$`/`$$` delimiters), `message` (the engine's error message, or `undefined` when the engine provides none), and `displayMode` (`false` for inline `$...$`, `true` for block `$$...$$`).
@@ -231,6 +264,14 @@ Fires **at most once per distinct failing expression** per component instance - 
   }}
 />
 ```
+
+### `onStreamingEnd`
+
+Callback when the view stops streaming: once `streaming` turns `false` or the `stream` ends, and with `streamingConfig.smooth`, once the last words have appeared. It fires after the final render shows the whole text, so a handler can scroll to the end or measure. Fires once per stream, and not when the view unmounts while streaming.
+
+| Type         | Default Value | Platform     |
+| ------------ | ------------- | ------------ |
+| `() => void` | -             | iOS, Android |
 
 ### `onCodeBlockPress`
 
@@ -492,9 +533,9 @@ Markdown flavor. Set to `'github'` to enable GitHub Flavored Markdown features: 
 >
 > With `'github'`, a blockquote also renders as a dedicated component — a recursive container that draws its own box (padding, `backgroundColor`, and accent border with `borderRadius`) and splits its own content into segments. A code block, table, or math block quoted inside therefore becomes a real nested block component, and each nesting level is its own box. Long-pressing a blockquote or admonition opens the Copy / Copy as Markdown menu. With `'commonmark'`, blockquotes stay inside the single TextView, styled via spans.
 
-### `streamingAnimation`
+### `streaming`
 
-When `true`, newly appended content fades in during streaming updates. Only the tail (new characters beyond the previous content) is animated. Recommended for LLM streaming use cases.
+Set to `true` while `markdown` is still arriving (an LLM answer streaming in). Incomplete syntax at the end is held back or repaired instead of rendering as raw markdown, and new content fades in. Set it back to `false` when the stream ends: the final render shows everything. Replaces `streamingAnimation`, which still works but is deprecated; when both are set, `streaming` wins.
 
 | Type      | Default Value | Platform |
 | --------- | ------------- | -------- |
@@ -502,24 +543,24 @@ When `true`, newly appended content fades in during streaming updates. Only the 
 
 ### `streamingConfig`
 
-Configuration for streaming behavior. Controls how incomplete tables and fenced code blocks are handled during streaming with `flavor="github"`. Both settings only take effect when `streamingAnimation` is `true`.
+Configuration for streaming behavior. Controls how incomplete tables, fenced code blocks and media are handled during streaming, in both flavors (tables exist only in `github`). The settings only take effect when `streaming` is `true`.
 
 | Type                                        | Default Value                                          | Platform |
 | ------------------------------------------- | ------------------------------------------------------ | -------- |
-| `StreamingConfig` (`{ tableMode?: 'hidden' \| 'progressive'; codeBlockMode?: 'hidden' \| 'progressive' }`) | `{ tableMode: 'progressive', codeBlockMode: 'progressive' }` | Both     |
+| `StreamingConfig` (`{ tableMode?: 'hidden' \| 'progressive'; codeBlockMode?: 'hidden' \| 'progressive'; mediaMode?: 'hidden' \| 'progressive'; animation?: StreamingAnimation; smooth?: boolean }`) | `{ tableMode: 'progressive', codeBlockMode: 'progressive', mediaMode: 'progressive', animation: 'fade', smooth: false }` | Both     |
 
 #### `tableMode`
 
 Controls how incomplete (still-streaming) tables are rendered:
 
-- **`'progressive'`** (default): The table is rendered row-by-row as content arrives. Requires at least a header row and separator line before anything is shown. Incomplete trailing rows (missing closing `|` or fewer columns than the header) are trimmed. New rows fade in with animation when `streamingAnimation` is also enabled.
+- **`'progressive'`** (default): The table is rendered row-by-row as content arrives. Requires at least a header row and separator line before anything is shown. Incomplete trailing rows (missing closing `|` or fewer columns than the header) are trimmed. New rows fade in unless `animation` is `'none'`.
 - **`'hidden'`**: The entire table is hidden until it is complete (followed by a blank line). This prevents visual jank from partially formed tables.
 
 ```tsx
 <EnrichedMarkdownText
   markdown={streamingMarkdown}
   flavor="github"
-  streamingAnimation
+  streaming
   streamingConfig={{ tableMode: 'hidden' }}
 />
 ```
@@ -528,8 +569,29 @@ Controls how incomplete (still-streaming) tables are rendered:
 
 Controls how a fenced code block whose closing fence has not arrived yet is rendered:
 
-- **`'progressive'`** (default): The code streams in line-by-line with its header (language label + copy button) visible but non-interactive — copying is disabled until the block completes. Syntax highlighting is deferred until the closing fence arrives, so it applies once instead of flickering on every token.
+- **`'progressive'`** (default): The code streams in line-by-line; with `flavor="github"` its header (language label + copy button) is visible but non-interactive — copying is disabled until the block completes. Syntax highlighting is deferred until the closing fence arrives, so it applies once instead of flickering on every token.
 - **`'hidden'`**: The entire code block is hidden until its closing fence arrives, then it appears complete (the same all-or-nothing behavior block math uses).
+
+#### `mediaMode`
+
+Controls how a trailing image paragraph, link paragraph or `<video>` block is rendered while it streams:
+
+- **`'progressive'`** (default): The block is shown as soon as its syntax is complete (the closing `)` or `>`); until then the partial line is withheld instead of rendering as text. A bare URL on its own line can always grow, so it is withheld until the next line arrives.
+- **`'hidden'`**: The block is withheld until a blank line or another block follows it, like `tableMode: 'hidden'`, so it never appears before the content after it. Applies to native images and to blocks drawn by `renderers` alike.
+
+An unterminated block-math (`$$`) block is always withheld until its closing `$$` arrives; that behavior has no key.
+
+#### `animation`
+
+Controls how newly arrived content appears while `streaming` is `true`. Reduce Motion turns it off.
+
+- **`'fade'`** (default): each new word fades in over its own 200 ms; new blocks and table rows fade in, and blocks drawn by `renderers` grow into place. `{ type: 'fade', duration }` sets the text's time in milliseconds; blocks and table rows keep a 200 ms fade.
+- **`'gradient'`**: the last 20 characters run from their own color to transparent, following the end of the text. `{ type: 'gradient', length, startColor, endColor }` sets how many characters it covers and its colors.
+- **`'none'`**: new content appears at once, as with a `duration` or `length` of 0.
+
+#### `smooth`
+
+Reveals new text word by word at a steady pace instead of in the bursts it arrives in, with any `animation`: the view shows the text revealed so far, so its layout and blocks grow with the words. Each chunk spreads over the time until the next one, at most a second behind. Reduce Motion keeps the pacing and turns off only the animation. Defaults to `false`.
 
 ### `spoilerOverlay`
 
@@ -737,6 +799,31 @@ See [COPY_OPTIONS.md](./COPY_OPTIONS.md#localizing-menu-labels) for details.
 
 ---
 
+### `admonitionTitles`
+
+Header titles for GitHub admonitions/alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`), keyed by type, to localize or rename them. A type left out keeps its English title (`DEFAULT_ADMONITION_TITLES`); an empty string shows the icon alone. The header is one line high, so a title wider than the callout ends in an ellipsis. The title is laid out in its own direction, so a right-to-left title reads correctly in a left-to-right callout.
+
+| Type               | Default Value                                    | Platform           |
+| ------------------ | ------------------------------------------------ | ------------------ |
+| `AdmonitionTitles` | `Note`, `Tip`, `Important`, `Warning`, `Caution` | iOS, Android, macOS, Web |
+
+```ts
+type AdmonitionType = 'note' | 'tip' | 'important' | 'warning' | 'caution';
+type AdmonitionTitles = Partial<Record<AdmonitionType, string>>;
+```
+
+**Example:**
+
+```tsx
+<EnrichedMarkdownText
+  flavor="github"
+  markdown={content}
+  admonitionTitles={{ note: 'Uwaga', warning: 'Ostrzeżenie' }}
+/>
+```
+
+---
+
 ### `accessibilityLabels`
 
 Translates every string spoken by VoiceOver (iOS) and TalkBack (Android) when navigating the rendered markdown. All fields are optional; omitted fields fall back to the English defaults defined in `accessibilityLabelDefaults.ts`. See the [Accessibility guide](ACCESSIBILITY.md#translating-announcements--accessibilitylabels) for the full defaults table and placeholder syntax.
@@ -906,7 +993,7 @@ Style configuration for formatted text in the input.
 | -------------------- | ------------- | -------- |
 | `MarkdownTextInputStyle` | `{}`          | Both     |
 
-On web, the [experimental web editor](WEB_INPUT.md#styling) honors every key except `linkVariants`.
+On web, the [web editor](WEB_INPUT.md#styling) honors every key except `linkVariants`.
 
 **Properties:**
 
@@ -1016,7 +1103,7 @@ interface StyleState {
 
 ### `onChangeHistoryState`
 
-Fires when whether [`undo()`](#undo) or [`redo()`](#redo) has a step to take changes. It fires only when one of the two values flips, not on every edit, so it is cheap to drive toolbar buttons from. Web-only for now, part of the [experimental web editor](WEB_INPUT.md): iOS and Android never call it.
+Fires when whether [`undo()`](#undo) or [`redo()`](#redo) has a step to take changes. It fires only when one of the two values flips, not on every edit, so it is cheap to drive toolbar buttons from. Web-only for now, part of the [web editor](WEB_INPUT.md): iOS and Android never call it.
 
 | Type                                                         | Default Value | Platform |
 | ------------------------------------------------------------ | ------------- | -------- |
@@ -1092,7 +1179,7 @@ The input participates in React Native's text-input focus tracking (`TextInput.S
 
 ### `onPress`, `onPressIn`, `onPressOut`
 
-Fire for taps on the input, like React Native `TextInput`. The input claims the JS touch responder, so a tap that focuses it does not also fire the `onPress` of an ancestor `Pressable`. After `onPress` runs, the input focuses itself (unless `editable` is `false`) without changing the current selection. As on `TextInput`, responder props passed through `ViewProps` (`onStartShouldSetResponder`, `onResponderGrant`, and the rest) are overridden by the input's press handling.
+Fire for taps on the input, like React Native `TextInput`. The input claims the JS touch responder, so a tap that focuses it does not also fire the `onPress` of an ancestor `Pressable`. A tap focuses the input, unless `editable` is `false`. On Android the input focuses after `onPress` runs, without changing the current selection. On iOS a tap on the padding or the `hitSlop` area also moves the caret, and a drag does not focus the input, so a scroll that starts on it leaves the keyboard dismissed. As on `TextInput`, responder props passed through `ViewProps` (`onStartShouldSetResponder`, `onResponderGrant`, and the rest) are overridden by the input's press handling.
 
 | Type                                        | Default Value | Platform |
 | ------------------------------------------- | ------------- | -------- |
@@ -1389,11 +1476,11 @@ On iOS, macOS and Android the clipboard receives both plain text and the Markdow
 
 ### `undo()`
 
-Steps back over the last edit: typing up to a pause or a caret move, a single Backspace run, a paste, a cut, a newline, an IME composition, or one formatting command. Text, formatting and selection all return to how they were before it. Web-only for now, part of the [experimental web editor](WEB_INPUT.md): a no-op on iOS and Android. On web, **Cmd+Z** / **Ctrl+Z** and the browser's Edit menu do the same.
+Steps back over the last edit: typing up to a pause or a caret move, a single Backspace run, a paste, a cut, a newline, an IME composition, or one formatting command. Text, formatting and selection all return to how they were before it. Web-only for now, part of the [web editor](WEB_INPUT.md): a no-op on iOS and Android. On web, **Cmd+Z** / **Ctrl+Z** and the browser's Edit menu do the same.
 
 ### `redo()`
 
-Re-applies the last step `undo()` took back. Any new edit clears what is left to redo. Web-only for now, part of the [experimental web editor](WEB_INPUT.md): a no-op on iOS and Android. On web, **Cmd+Shift+Z** / **Ctrl+Shift+Z** / **Ctrl+Y** and the browser's Edit menu do the same.
+Re-applies the last step `undo()` took back. Any new edit clears what is left to redo. Web-only for now, part of the [web editor](WEB_INPUT.md): a no-op on iOS and Android. On web, **Cmd+Shift+Z** / **Ctrl+Shift+Z** / **Ctrl+Y** and the browser's Edit menu do the same.
 
 ### `startMention(indicator: string)`
 

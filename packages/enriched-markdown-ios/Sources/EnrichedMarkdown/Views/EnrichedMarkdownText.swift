@@ -20,6 +20,7 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.markdownTaskListItemToggleEnabled) private var isTaskListToggleEnabled
     @Environment(\.markdownSpoilerOverlay) private var spoilerOverlay
     @Environment(\.markdownAccessibilityLabels) private var accessibilityLabels
+    @Environment(\.markdownAdmonitionTitles) private var admonitionTitles
     @Environment(\.markdownWritingDirection) private var writingDirection
     @Environment(\.markdownCodeBlockLayout) private var codeBlockLayout
     @Environment(\.markdownCodeBlockCopyHandler) private var onCodeBlockCopy
@@ -56,7 +57,8 @@ public struct EnrichedMarkdownText: View {
             plugins: RenderPluginList(values: renderPlugins),
             writingDirection: writingDirection,
             layoutDirection: layoutDirection,
-            codeBlockLayout: codeBlockLayout
+            codeBlockLayout: codeBlockLayout,
+            admonitionTitles: admonitionTitles
         )
         return MarkdownTextViewRepresentable(
             attributedText: renderStore.attributedText,

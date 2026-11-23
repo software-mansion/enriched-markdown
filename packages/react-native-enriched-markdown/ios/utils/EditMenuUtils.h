@@ -6,6 +6,14 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+/// `format` values of a selection copy, as the JS `onSelectionCopy` event reports them.
+static NSString *const ENRMSelectionCopyFormatPlain = @"plain";
+static NSString *const ENRMSelectionCopyFormatMarkdown = @"markdown";
+static NSString *const ENRMSelectionCopyFormatImageURLs = @"imageUrls";
+
+/// Reports a selection copy: the plain text written to the pasteboard, its format, and the copied range.
+typedef void (^ENRMSelectionCopyHandler)(NSString *text, NSString *format, NSRange range);
+
 typedef struct {
   BOOL copyAsMarkdown;
   BOOL copyImageURL;
@@ -90,13 +98,24 @@ extern "C" {
 UIMenu *buildEditMenuForSelection(NSAttributedString *attributedText, NSRange range, NSString *_Nullable cachedMarkdown,
                                   StyleConfig *styleConfig, NSArray<UIMenuElement *> *suggestedActions,
                                   NSArray<UIAction *> *_Nullable customActions,
-                                  ENRMSelectionMenuConfig selectionMenuConfig) API_AVAILABLE(ios(16.0));
+                                  ENRMSelectionMenuConfig selectionMenuConfig,
+                                  ENRMSelectionCopyHandler _Nullable onSelectionCopy) API_AVAILABLE(ios(16.0));
 #else
 NSMenu *_Nullable buildEditMenuForSelection(NSAttributedString *attributedText, NSRange range,
                                             NSString *_Nullable cachedMarkdown, StyleConfig *styleConfig,
                                             NSArray *suggestedActions, NSArray<NSMenuItem *> *_Nullable customItems,
-                                            ENRMSelectionMenuConfig selectionMenuConfig);
+                                            ENRMSelectionMenuConfig selectionMenuConfig,
+                                            ENRMSelectionCopyHandler _Nullable onSelectionCopy);
 #endif
+
+/// Copies `selectedText` (the text in `range`) the way the menu Copy does and reports it to `onSelectionCopy`.
+/// Shared by the menu Copy and the Copy key command (⌘C), which bypasses the menu.
+void ENRMCopySelection(NSAttributedString *selectedText, NSRange range, NSString *_Nullable markdown,
+                       StyleConfig *_Nullable styleConfig, ENRMSelectionCopyHandler _Nullable onSelectionCopy);
+
+/// Copies `text` as plain text only and reports it to `onSelectionCopy` as `format`.
+void ENRMCopySelectionString(NSString *text, NSString *format, NSRange range,
+                             ENRMSelectionCopyHandler _Nullable onSelectionCopy);
 
 #ifdef __cplusplus
 }

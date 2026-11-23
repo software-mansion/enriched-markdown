@@ -2,13 +2,25 @@ package com.swmansion.enriched.markdown
 
 import android.graphics.Color
 import android.text.Layout
+import android.text.Spannable
 import android.text.SpannableString
-import com.facebook.react.bridge.JavaOnlyMap
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.widget.TextView
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport
+import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
+import com.swmansion.enriched.markdown.test.TestAstFactory.orderedList
+import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
+import com.swmansion.enriched.markdown.test.TestAstFactory.taskListItem
+import com.swmansion.enriched.markdown.test.TestAstFactory.text
+import com.swmansion.enriched.markdown.test.TestAstFactory.unorderedList
 import com.swmansion.enriched.markdown.utils.common.serialization.MarkdownASTSerializer
 import com.swmansion.enriched.markdown.utils.text.conversion.HTMLGenerator
+import com.swmansion.enriched.markdown.utils.text.conversion.MarkdownExtractor
+import com.swmansion.enriched.markdown.utils.text.interaction.TaskListTapUtils
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -70,104 +82,178 @@ class ClipboardExportTest {
     assertEquals("**\$x_1\$**", MarkdownASTSerializer.serializeChildren(nestedCell))
   }
 
-  private fun style(): StyleConfig {
-    com.facebook.react.uimanager.DisplayMetricsHolder
-      .initDisplayMetricsIfNotInitialized(context)
-
-    fun element() =
-      JavaOnlyMap().apply {
-        listOf(
-          "aspectRatio",
-          "bulletSize",
-          "checkboxBorderRadius",
-          "checkboxSize",
-          "height",
-          "itemSpacing",
-          "markerMinWidth",
-          "maxHeight",
-          "cellPaddingHorizontal",
-          "cellPaddingVertical",
-          "horizontalOverflow",
-          "lineHeight",
-          "marginTop",
-          "marginBottom",
-          "padding",
-          "borderRadius",
-          "borderWidth",
-          "gapWidth",
-          "marginLeft",
-        ).forEach {
-          putDouble(it, 0.0)
-        }
-        listOf(
-          "bulletColor",
-          "checkedColor",
-          "checkedTextColor",
-          "checkmarkColor",
-          "headerBackgroundColor",
-          "headerTextColor",
-          "markerColor",
-          "rowEvenBackgroundColor",
-          "rowOddBackgroundColor",
-          "color",
-          "borderColor",
-        ).forEach {
-          putInt(it, Color.BLACK)
-        }
-        putString("resizeMode", "contain")
-        putString("fontFamily", "")
-        putString("fontWeight", "normal")
-        putDouble("fontSize", 16.0)
-        putDouble("fontScale", 0.8)
-        putDouble("baselineOffsetScale", 0.5)
-        putBoolean("underline", false)
-        putInt("backgroundColor", Color.TRANSPARENT)
-      }
-    val style = JavaOnlyMap()
-    listOf(
-      "table",
-      "paragraph",
-      "codeBlock",
-      "code",
-      "blockquote",
-      "list",
-      "link",
-      "strong",
-      "em",
-      "strikethrough",
-      "underline",
-      "highlight",
-      "image",
-      "superscript",
-      "subscript",
-    ).forEach { style.putMap(it, element()) }
-    style.putMap(
-      "spoiler",
-      element().apply {
-        putMap("particles", JavaOnlyMap.of("density", 0.5, "speed", 1.0))
-        putMap("solid", JavaOnlyMap.of("borderRadius", 0.0))
-      },
-    )
-    for (level in 1..6) style.putMap("h$level", element())
-    style.putMap(
-      "taskList",
-      JavaOnlyMap.of(
-        "checkedColor",
-        Color.BLACK,
-        "borderColor",
-        Color.BLACK,
-        "checkmarkColor",
-        Color.BLACK,
-        "checkedTextColor",
-        Color.BLACK,
-        "checkboxSize",
-        16.0,
-        "checkboxBorderRadius",
-        0.0,
-        "checkedStrikethrough",
-        false,
-      ),
-    )
-    return StyleConfig(style, context, false, 0f)
+  @Test
+  fun codeBlockAfterItemTextIsFencedUnderTheItem() {
+    val markdown =
+      exportMarkdown(
+        unorderedList(
+          listItem(paragraph(text("Item")), codeBlock("first line\nlast line\n")),
+          listItem(paragraph(text("Next"))),
+        ),
+      )
+    assertEquals("- Item\n  ```\n  first line\n  last line\n  ```\n- Next", markdown)
   }
+
+  @Test
+  fun itemOpeningWithCodeBlockKeepsItsMarker() {
+    val markdown =
+      exportMarkdown(
+        unorderedList(
+          listItem(codeBlock("val x = 1\n"), paragraph(text("After code"))),
+          listItem(paragraph(text("Next"))),
+        ),
+      )
+    assertEquals("- ```\n  val x = 1\n  ```\n  After code\n- Next", markdown)
+  }
+
+  @Test
+  fun orderedItemCodeBlockLinesUpUnderItsText() {
+    val markdown =
+      exportMarkdown(
+        orderedList(
+          listItem(paragraph(text("Item")), codeBlock("val x = 1\n"), paragraph(text("After code"))),
+          listItem(paragraph(text("Next"))),
+        ),
+      )
+    assertEquals("1. Item\n   ```\n   val x = 1\n   ```\n   After code\n2. Next", markdown)
+  }
+
+  @Test
+  fun codeBlockInNestedItemFollowsTheInnerItem() {
+    val markdown =
+      exportMarkdown(
+        unorderedList(
+          listItem(
+            paragraph(text("Outer")),
+            unorderedList(listItem(paragraph(text("Inner")), codeBlock("val x = 1\n"))),
+          ),
+          listItem(paragraph(text("Next"))),
+        ),
+      )
+    assertEquals("- Outer\n  - Inner\n    ```\n    val x = 1\n    ```\n- Next", markdown)
+  }
+
+  @Test
+  fun secondCodeBlockInItemOpenedByCodeContinuesTheItem() {
+    val markdown =
+      exportMarkdown(
+        unorderedList(
+          listItem(codeBlock("first\n"), paragraph(text("Between")), codeBlock("second\n")),
+          listItem(paragraph(text("Next"))),
+        ),
+      )
+    assertEquals("- ```\n  first\n  ```\n  Between\n  ```\n  second\n  ```\n- Next", markdown)
+  }
+
+  @Test
+  fun selectionStartingInsideItemCodeKeepsOneIndentAcrossSpans() {
+    val spannable =
+      render(
+        unorderedList(
+          listItem(paragraph(text("Item")), codeBlock("first\nsecond\nthird\n")),
+          listItem(paragraph(text("Next"))),
+        ),
+      )
+    val text = spannable.toString()
+    // A syntax-highlighting span splits the block into several segments.
+    val token = text.indexOf("ec")
+    spannable.setSpan(ForegroundColorSpan(Color.RED), token, token + "ec".length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+
+    val fromInside = MarkdownExtractor.extractFromSpannable(spannable, text.indexOf("irst"), text.indexOf("third") + "third\n".length)
+    assertEquals("```\nirst\nsecond\nthird\n```\n", fromInside)
+
+    val fromBlockStart = MarkdownExtractor.extractFromSpannable(spannable, text.indexOf("first"), text.indexOf("third") + "third\n".length)
+    assertEquals("```\nfirst\nsecond\nthird\n```\n", fromBlockStart)
+  }
+
+  @Test
+  fun toggledTaskOpeningWithCodeKeepsItsCurrentMarker() {
+    val textView = TextView(context)
+    textView.setText(
+      render(
+        unorderedList(
+          taskListItem(false, codeBlock("val x = 1\n"), paragraph(text("After code"))),
+          listItem(paragraph(text("Next"))),
+        ),
+      ),
+      TextView.BufferType.SPANNABLE,
+    )
+    assertTrue(TaskListTapUtils.updateTaskListItemCheckedState(textView, 0, true, style()))
+
+    val spannable = textView.text as Spannable
+    val end = spannable.indexOf("After code") + "After code".length
+    assertEquals("- [x] ```\n  val x = 1\n  ```\n  After code", MarkdownExtractor.extractFromSpannable(spannable, 0, end))
+  }
+
+  @Test
+  fun highlightedCodeBlockStaysOneFencedBlock() {
+    // Token spans leave the newline between them as a segment of its own.
+    val betweenTokens = render(codeBlock("first\nsecond\n"), paragraph(text("After")))
+    highlight(betweenTokens, "first", "second")
+    assertEquals("```\nfirst\nsecond\n```\n\nAfter", extractAll(betweenTokens))
+
+    // A token at a line start ends the previous segment with a newline.
+    val tokenAtLineStart = render(codeBlock("first\nsecond\n"), paragraph(text("After")))
+    highlight(tokenAtLineStart, "second")
+    assertEquals("```\nfirst\nsecond\n```\n\nAfter", extractAll(tokenAtLineStart))
+  }
+
+  @Test
+  fun highlightedCodeBlockInItemStaysUnderTheItem() {
+    val spannable =
+      render(
+        unorderedList(
+          listItem(paragraph(text("Item")), codeBlock("first\nsecond\n")),
+          listItem(paragraph(text("Next"))),
+        ),
+      )
+    highlight(spannable, "first", "second")
+    assertEquals("- Item\n  ```\n  first\n  second\n  ```\n- Next", extractAll(spannable))
+  }
+
+  @Test
+  fun lastCodeBlockInDocumentIsClosed() {
+    assertEquals("Before\n\n```\nval x = 1\n```", exportMarkdown(paragraph(text("Before")), codeBlock("val x = 1\n")))
+  }
+
+  @Test
+  fun selectionEndingInsideCodeClosesTheFence() {
+    val spannable = render(codeBlock("first\nsecond\n"), paragraph(text("After")))
+    val end = spannable.indexOf("second") + "sec".length
+    assertEquals("```\nfirst\nsec\n```\n", MarkdownExtractor.extractFromSpannable(spannable, 0, end))
+  }
+
+  private fun highlight(
+    spannable: Spannable,
+    vararg tokens: String,
+  ) {
+    for (token in tokens) {
+      val start = spannable.indexOf(token)
+      spannable.setSpan(ForegroundColorSpan(Color.RED), start, start + token.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+  }
+
+  private fun extractAll(spannable: Spannable): String =
+    MarkdownExtractor.extractFromSpannable(spannable, 0, spannable.length).trimEnd('\n')
+
+  private fun codeBlock(code: String) =
+    MarkdownASTNode(
+      MarkdownASTNode.NodeType.CodeBlock,
+      content = code,
+      children = listOf(text(code)),
+    )
+
+  /** A full selection with no container, so the markdown is rebuilt from spans. */
+  private fun exportMarkdown(vararg blocks: MarkdownASTNode): String {
+    val spannable = render(*blocks)
+    return MarkdownExtractor.extractFromSpannable(spannable, 0, spannable.length).trimEnd('\n')
+  }
+
+  private fun render(vararg blocks: MarkdownASTNode): Spannable {
+    val renderer = Renderer()
+    renderer.configure(style(), context)
+    return renderer.renderContent(blocks.toList())
+  }
+
+  private fun style() = StyleConfig(MarkdownRenderTestSupport.exportStyleMap(), context, false, 0f)
 }

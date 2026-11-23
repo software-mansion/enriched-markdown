@@ -1,5 +1,5 @@
 #import "ENRMInputBlockType.h"
-#import <Foundation/Foundation.h>
+#import "ENRMUIKit.h"
 
 @class ENRMBlockStore;
 @class ENRMFormattingStore;

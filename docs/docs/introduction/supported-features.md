@@ -19,8 +19,8 @@ and by how each feature is enabled.
   in the editor tables. See [iOS](/ios/basics/installation) and
   [Android](/android/basics/installation) installation.
 - The **Web** column is the same package's web build, a plain React renderer
-  that emits semantic HTML. In the editor tables it is the experimental web
-  editor. See the [Web support](/react-native/guides/web-support) and
+  that emits semantic HTML. In the editor tables it is the web editor. See the
+  [Web support](/react-native/guides/web-support) and
   [Web editor](/react-native/guides/web-editor) guides.
 
 **Yes** means the feature renders with no extra work beyond the switch named in
@@ -154,9 +154,10 @@ Each has its own page - under **Rich text formatting**, or under the React Nativ
 
 LaTeX math on web needs the optional `katex` peer dependency; without it the
 formula falls back to its raw `$...$` source. Code-block highlighting on web
-renders a plain, uncolored `<pre><code>`. The two streaming props are stripped
-on web. Link pills are drawn by the native text stack, so on web those links
-render as ordinary links with the variant's colors; custom link menus are an
+renders a plain, uncolored `<pre><code>`. `streaming` and `streamingConfig` are
+stripped on web; a `stream` still shows its text as it grows. Link pills are
+drawn by the native text stack, so on web those links render as ordinary links
+with the variant's colors; custom link menus are an
 iOS 17+ feature, and a long press on web is the `contextmenu` event delivered
 to `onLinkLongPress`.
 
@@ -187,9 +188,9 @@ On the standalone SDKs, the advanced features that render are optional add-ons:
 The editor - produces a Markdown string as the user types.
 
 :::important
-The editor runs on iOS, Android and macOS. Its web build is
-<ExperimentalBadge /> and covers less: no Markdown shortcuts, link or mention
-commands, auto-link detection or `markdownStyle.linkVariants`. See
+The editor runs on iOS, Android and macOS. Its web build covers less: no
+Markdown shortcuts, link or mention commands, auto-link detection or
+`markdownStyle.linkVariants`. See
 [Web editor](/react-native/guides/web-editor).
 :::
 

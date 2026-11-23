@@ -23,7 +23,7 @@ let package = Package(
         .target(
             name: "EnrichedMarkdownCore",
             path: "core",
-            sources: ["enrmrkd", "parser", "highlight", "latex"],
+            sources: ["enrmrkd", "parser", "repair", "highlight", "latex"],
             publicHeadersPath: "parser",
             cSettings: [
                 .define("ENRMRKD_USE_UTF8", to: "1")
@@ -31,6 +31,7 @@ let package = Package(
             cxxSettings: [
                 .headerSearchPath("enrmrkd"),
                 .headerSearchPath("parser"),
+                .headerSearchPath("repair"),
                 .headerSearchPath("latex")
             ]
         ),

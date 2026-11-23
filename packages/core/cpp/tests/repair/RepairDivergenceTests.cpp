@@ -151,11 +151,11 @@ TEST_CASE("erase paths stop at a block boundary") {
   CHECK(repair("<video src=\"x\n\nmore") == "<video src=\"x\n\nmore");
   CHECK(repair("<a\n\n<video src=\"x") == "<a");
   CHECK(repair("[a](http://x\n\n[b") == "[a](http://x\n\n[b](streamdown:incomplete-link)");
-  CHECK(repair("[a](http://x\nmore") ==
-        "[a](streamdown:incomplete-link)"); // same paragraph: still the reference's rule
+  CHECK(repair("[a](http://x\nmore") == "[a](http://x\nmore"); // text after the destination: prose, as parsed
   RepairOptions o;
   o.linkMode = LinkMode::TextOnly;
   CHECK(repair("[a\n\n[b", o) == "[a\n\nb");
+  CHECK(repair("para [x\n<div>raw</div>", o) == "para [x\n<div>raw</div>"); // an HTML block ends the paragraph
   CHECK(repair("[a](http://x\n\nmore", o) == "[a](http://x\n\nmore");
 }
 
@@ -219,4 +219,14 @@ TEST_CASE("inline code parity ignores backticks inside a closed fence") {
 TEST_CASE("a setext `=` underline ends the paragraph") {
   CHECK(repair("**a\n===") == "**a\n===");
   CHECK(repair("**a\n=\nb") == "**a\n=\nb");
+}
+
+// A `[` left open far behind is a stray bracket in prose, not a link label.
+TEST_CASE("an open label far from the end is prose") {
+  RepairOptions o;
+  o.linkMode = LinkMode::TextOnly;
+  const std::string stray = "Note [1 " + std::string(600, 'x');
+  CHECK(repair(stray, o) == stray);
+  CHECK(repair(stray + " [docs", o) == stray + " docs");
+  CHECK(repair("Note [1 " + std::string(100, 'x'), o) == "Note 1 " + std::string(100, 'x'));
 }

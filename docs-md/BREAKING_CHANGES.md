@@ -5,6 +5,49 @@ This file tracks breaking changes and how to migrate for each. Entries are newes
 
 ## Unreleased
 
+### `streamingAnimation` is deprecated in favor of `streaming`, and no longer only animates
+
+`streamingAnimation` still works as an alias of `streaming` and logs a warning in development. Like
+`streaming`, while it is on it holds back trailing blocks that have not finished arriving and repairs
+half-written inline syntax, as well as fading new text in. Set `streaming` while the text arrives and turn
+it off when the stream ends: a view that leaves it on renders a finished message with that handling.
+
+`streamingConfig` now applies under `flavor="commonmark"` too; before, it took effect only with
+`flavor="github"`. A `commonmark` view with `streamingAnimation` on therefore now holds back unfinished code
+blocks, images, videos, links and block math while the text streams.
+
+**Migrate:** replace `streamingAnimation` with `streaming`, and turn it off when the stream ends.
+
+Before:
+
+```tsx
+<EnrichedMarkdownText markdown={partialMarkdown} streamingAnimation />
+```
+
+After:
+
+```tsx
+<EnrichedMarkdownText markdown={partialMarkdown} streaming={isStreaming} />
+```
+
+`react-native-streamdown` is no longer needed: streaming is built into `react-native-enriched-markdown`,
+including repair of incomplete Markdown, with no Worklets setup. See
+[Migrating from react-native-streamdown](./MARKDOWN_STREAMING.md#migrating-from-react-native-streamdown)
+for the steps.
+
+### `markdown` is optional in `EnrichedMarkdownTextProps`
+
+A view now takes its text from `markdown` or from `stream`, so `markdown` is typed `string | undefined`.
+TypeScript code that reads `props.markdown` as a `string`, in a wrapper that takes
+`EnrichedMarkdownTextProps`, no longer compiles under `strict`.
+
+**Migrate:** handle `undefined` where you read it, for example `props.markdown ?? ''`.
+
+## v1.2.0
+
+No breaking changes. v1.2.0 is additive over v1.1.1 - every public prop, method, event and style key
+from v1.1.1 keeps its name and behaviour, and no deprecation was introduced or removed.
+
 ## v1.1.1
 
 No breaking changes. v1.1.1 is a patch release over v1.1.0 - every public prop, method, event and style
@@ -92,7 +135,7 @@ workspace root — so put it in the root `package.json` to skip a download for t
 > [!CAUTION]
 > In 1.0.2 through 1.1.1 the download opt-out is read from the workspace root **only**: a block in a
 > workspace app's `package.json` disables the feature at build time but does not stop the install-time
-> download. Later releases also read the workspace members that depend on the package, so an app-level
+> download. 1.2.0 and later also read the workspace members that depend on the package, so an app-level
 > block is enough when every consuming app opts out. See
 > [Which `package.json`?](./NATIVE_ASSETS.md#skipping-the-download-opt-out).
 

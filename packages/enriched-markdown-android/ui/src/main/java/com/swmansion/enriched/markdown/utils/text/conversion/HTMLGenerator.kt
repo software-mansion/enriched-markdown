@@ -11,7 +11,6 @@ import android.text.style.UnderlineSpan
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.plugin.PluginInlineSpan
 import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
-import com.swmansion.enriched.markdown.spans.AdmonitionIcons
 import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.BlockquoteSpan
 import com.swmansion.enriched.markdown.spans.CodeBlockSpan
@@ -21,6 +20,7 @@ import com.swmansion.enriched.markdown.spans.HeadingSpan
 import com.swmansion.enriched.markdown.spans.HighlightSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
+import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.spans.StrongSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
@@ -277,6 +277,7 @@ object HTMLGenerator {
      * carries no text of its own — it becomes the header row and tints the box it opens.
      */
     val admonitionType: String? = null,
+    val admonitionTitle: String = "",
     val isTaskChecked: Boolean = false,
     /** The number an ordered list item draws; the item that opens an `<ol>` sets its `start`. */
     val itemNumber: Int = 1,
@@ -333,6 +334,21 @@ object HTMLGenerator {
     if (paraText.isEmpty() && para.type == TYPE_NORMAL) {
       closeAllBlockquotes(html, state)
       state.previousWasBlockquote = false
+      return
+    }
+
+    // A block's bottom-margin line inside a list item or a quote holds no content of its own, but it
+    // still ends a code block, and in a quote that opens with code it is the first line to open the quote.
+    // A root quote's own margin line sits outside its span, so outside a quote this line ends any open one.
+    if (paraText.isEmpty() && text.getSpans(para.start, para.start + 1, MarginBottomSpan::class.java).isNotEmpty()) {
+      closeCodeBlockIfOpen(html, state, styles)
+      if (para.type == TYPE_BLOCKQUOTE) {
+        openBlockquotesTo(html, para, styles, state)
+        state.previousWasBlockquote = true
+      } else {
+        closeAllBlockquotes(html, state)
+        state.previousWasBlockquote = false
+      }
       return
     }
 
@@ -395,15 +411,13 @@ object HTMLGenerator {
     html.append("</code></pre>")
   }
 
-  private fun handleBlockquote(
+  /** Closes and opens quotes until as many are open as [para] is deep. */
+  private fun openBlockquotesTo(
     html: StringBuilder,
-    content: String,
     para: ParagraphInfo,
     styles: CachedStyles,
     state: GeneratorState,
   ) {
-    closeCodeBlockIfOpen(html, state, styles)
-
     val depth = para.depth
 
     // Reset if coming from non-blockquote content
@@ -455,11 +469,28 @@ object HTMLGenerator {
           .append(";\">")
       }
     }
+  }
+
+  private fun handleBlockquote(
+    html: StringBuilder,
+    content: String,
+    para: ParagraphInfo,
+    styles: CachedStyles,
+    state: GeneratorState,
+  ) {
+    closeCodeBlockIfOpen(html, state, styles)
+
+    openBlockquotesTo(html, para, styles, state)
 
     // The spacer paragraph that opens an admonition holds no text of its own: it becomes the
     // header row rather than an empty <p>. The octicon is left out — a tinted bold title carries
-    // the meaning without embedding an SVG in copied HTML.
+    // the meaning without embedding an SVG in copied HTML. An empty title leaves no row at all.
     if (para.admonitionType != null) {
+      if (para.admonitionTitle.isEmpty()) {
+        state.previousWasBlockquote = true
+        state.previousWasCodeBlock = false
+        return
+      }
       html
         .append("<p style=\"margin: ")
         .append(styles.blockquoteParagraphMargin)
@@ -467,9 +498,9 @@ object HTMLGenerator {
         .append(styles.admonitionColor(para.admonitionType))
         .append("; font-size: ")
         .append(styles.blockquoteFontSize)
-        .append("px; font-weight: 700;\">")
-      escapeHTMLTo(html, AdmonitionIcons.title(para.admonitionType))
-      html.append("</p>")
+        .append("px; font-weight: 700;\"><bdi>")
+      escapeHTMLTo(html, para.admonitionTitle)
+      html.append("</bdi></p>")
 
       state.previousWasBlockquote = true
       state.previousWasCodeBlock = false
@@ -939,11 +970,11 @@ object HTMLGenerator {
       val listSpan = innermostListSpan(text, currentIndex)
       val type = getParagraphType(text, currentIndex, listSpan)
       val depth = getDepthForType(text, currentIndex, type, listSpan)
-      val admonitionType =
+      val admonitionHeader =
         text
           .getSpans(currentIndex, minOf(currentIndex + 1, text.length), AdmonitionHeaderSpan::class.java)
           .firstOrNull()
-          ?.type
+      val admonitionType = admonitionHeader?.type
       val isTaskChecked = type == TYPE_TASK_LIST && (listSpan as? TaskListSpan)?.isChecked == true
 
       paragraphs.add(
@@ -953,6 +984,7 @@ object HTMLGenerator {
           type = type,
           depth = depth,
           admonitionType = admonitionType,
+          admonitionTitle = admonitionHeader?.title.orEmpty(),
           isTaskChecked = isTaskChecked,
           itemNumber = (listSpan as? OrderedListSpan)?.itemNumber ?: 1,
         ),

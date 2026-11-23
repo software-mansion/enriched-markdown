@@ -206,8 +206,8 @@ Each heading level (`h1`-`h6`) and `paragraph` is styled by its own key. Give ea
 
 | Property          | Type     | Default   | Description                              |
 | ----------------- | -------- | --------- | ---------------------------------------- |
-| `borderColor`     | `string` | `#D1D5DB` | Left border color                        |
-| `borderWidth`     | `number` | `3`       | Left border width                        |
+| `borderColor`     | `string` | `#D1D5DB` | Accent bar color                         |
+| `borderWidth`     | `number` | `3`       | Accent bar width                         |
 | `gapWidth`        | `number` | `16`      | Gap between border and text              |
 | `backgroundColor` | `string` | `#F9FAFB` | Background color                         |
 | `borderRadius`    | `number` | `0`       | Corner radius of the blockquote box      |
@@ -217,7 +217,7 @@ Each heading level (`h1`-`h6`) and `paragraph` is styled by its own key. Give ea
 
 ### Admonitions {#admonitions}
 
-A blockquote opening with `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, or `> [!CAUTION]` renders as a themed callout with an icon and title header. Admonitions nest under `blockquote` because they **inherit its geometry** - `borderWidth`, `gapWidth`, `padding`, `borderRadius`, font, and spacing all come from the blockquote style above - and override only the colors below.
+A blockquote opening with `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, or `> [!CAUTION]` renders as a themed callout with an icon and title header. Admonitions nest under `blockquote` because they **inherit its geometry** - `borderWidth`, `gapWidth`, `padding`, `borderRadius`, font, and spacing all come from the blockquote style above - and override only the colors below. The title text is not a style: set it with the [`admonitionTitles`](/react-native/api-reference/enriched-markdown-text#admonitiontitles) prop.
 
 | Property                                             | Type               | Default                       | Description              |
 | ---------------------------------------------------- | ------------------ | ----------------------------- | ------------------------ |
@@ -452,9 +452,9 @@ On native, requires [`flavor="github"`](/react-native/api-reference/enriched-mar
 
 ### Inline image-specific
 
-| Property | Type     | Default | Description         |
-| -------- | -------- | ------- | ------------------- |
-| `size`   | `number` | `20`    | Image size (square) |
+| Property | Type     | Default | Description                                                                                                               |
+| -------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `size`   | `number` | `20`    | Side length of the square the image is drawn in. The image is scaled up or down to fit inside it, keeping its proportions |
 
 <LivePreview src={InlineImageSrc} />
 

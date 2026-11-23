@@ -99,13 +99,12 @@ static NSCharacterSet *whitespaceSet(void)
   return set;
 }
 
-/// Split formatting ranges at paragraph breaks (\n\n) so each segment gets
-/// its own delimiters — CommonMark delimiters can't span paragraphs.
-/// NOTE: This only handles inline styles (bold, italic, etc.). Block-level
-/// elements (lists, blockquotes, headings) are prefix-based and will need
-/// a separate serialization path.
-static NSArray<ENRMFormattingRange *> *splitRangesAtParagraphBreaks(NSArray<ENRMFormattingRange *> *ranges,
-                                                                    NSString *text)
+/// Split formatting ranges at every line break so each line gets its own
+/// delimiters. Block prefixes ("- ", "# ") attach per line, so a span that
+/// crosses a newline crosses a block boundary: "- **One\n- Two**" re-parses as
+/// two items with literal asterisks. Inside a single paragraph the split is
+/// harmless — "**a**\n**b**" renders the same as "**a\nb**".
+static NSArray<ENRMFormattingRange *> *splitRangesAtLineBreaks(NSArray<ENRMFormattingRange *> *ranges, NSString *text)
 {
   NSMutableArray<ENRMFormattingRange *> *result = [NSMutableArray arrayWithCapacity:ranges.count];
 
@@ -117,14 +116,10 @@ static NSArray<ENRMFormattingRange *> *splitRangesAtParagraphBreaks(NSArray<ENRM
 
     NSUInteger segStart = rangeStart;
     while (segStart < rangeEnd) {
-      NSUInteger segEnd = segStart;
-      while (segEnd < rangeEnd) {
-        if (segEnd + 1 < rangeEnd && [text characterAtIndex:segEnd] == '\n' &&
-            [text characterAtIndex:segEnd + 1] == '\n') {
-          break;
-        }
-        segEnd++;
-      }
+      NSRange newline = [text rangeOfString:@"\n"
+                                    options:NSLiteralSearch
+                                      range:NSMakeRange(segStart, rangeEnd - segStart)];
+      NSUInteger segEnd = newline.location == NSNotFound ? rangeEnd : newline.location;
 
       if (segEnd > segStart) {
         [result addObject:[ENRMFormattingRange rangeWithType:formattingRange.type
@@ -132,10 +127,7 @@ static NSArray<ENRMFormattingRange *> *splitRangesAtParagraphBreaks(NSArray<ENRM
                                                          url:formattingRange.url]];
       }
 
-      segStart = (segEnd < rangeEnd && segEnd + 1 < rangeEnd && [text characterAtIndex:segEnd] == '\n' &&
-                  [text characterAtIndex:segEnd + 1] == '\n')
-                     ? segEnd + 2
-                     : segEnd;
+      segStart = segEnd + 1;
     }
   }
 
@@ -150,7 +142,7 @@ static NSArray<ENRMFormattingRange *> *splitRangesAtParagraphBreaks(NSArray<ENRM
     return text;
   }
 
-  NSArray<ENRMFormattingRange *> *splitRanges = splitRangesAtParagraphBreaks(ranges, text);
+  NSArray<ENRMFormattingRange *> *splitRanges = splitRangesAtLineBreaks(ranges, text);
 
   NSUInteger textLength = text.length;
   NSUInteger eventCount = splitRanges.count * 2;
@@ -237,7 +229,8 @@ static NSArray<ENRMFormattingRange *> *splitRangesAtParagraphBreaks(NSArray<ENRM
   NSArray<NSString *> *plainLines = [text componentsSeparatedByString:@"\n"];
   NSMutableArray<NSString *> *markdownLines = [[inlineMarkdown componentsSeparatedByString:@"\n"] mutableCopy];
 
-  // Inline delimiters never cross a newline, so the line partition is preserved.
+  // Inline ranges are split at every newline, so delimiters never cross one and
+  // the line partition is preserved.
   // If this ever breaks, prefixes would land on the wrong lines. Contract on
   // both platforms: assert in debug, log and fall back to inline-only output in
   // release — a library must not crash the host app over lost block prefixes.

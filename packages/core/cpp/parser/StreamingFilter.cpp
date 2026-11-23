@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <cctype>
 #include <string_view>
-#include <unordered_set>
 #include <vector>
 
 namespace Markdown {
@@ -18,6 +17,7 @@ struct Line {
   std::string_view text;
   size_t offset; // of its first character in the document
   bool code;     // inside a fenced code block, fence lines included
+  bool opensFence = false;
 };
 using Lines = std::vector<Line>;
 
@@ -27,6 +27,8 @@ using Lines = std::vector<Line>;
 struct Document {
   std::string_view text;
   Lines lines;
+  // Shown after `text`: a table's delimiter row while its own is still arriving.
+  std::string appended;
 
   void cutAtLine(size_t index) {
     size_t offset = lines[index].offset;
@@ -126,45 +128,30 @@ size_t listMarkerWidth(std::string_view body) {
   return content;
 }
 
-bool isAtxHeading(std::string_view body) {
-  size_t indent = leadingSpaces(body);
-  if (indent > 3)
-    return false;
-  std::string_view text = body.substr(indent);
-  size_t hashes = 0;
-  while (hashes < text.size() && text[hashes] == '#')
-    hashes++;
-  return hashes >= 1 && hashes <= 6 && (hashes == text.size() || text[hashes] == ' ');
-}
-
-bool startsOwnBlock(std::string_view body) {
-  return listMarkerWidth(body) != 0 || isAtxHeading(body);
-}
-
-// A setext underline (`===`, `---`) or a thematic break (`***`, `- - -`): it
-// ends the block above it, and the line after it starts a new one.
-bool isUnderlineOrBreak(std::string_view body) {
-  if (leadingSpaces(body) > 3)
-    return false;
-  std::string_view text = trim(body);
-  if (text.empty())
-    return false;
-  char ch = text[0];
-  if ((ch == '=' || ch == '-') && text.find_first_not_of(ch) == npos)
-    return true;
-  if (ch != '*' && ch != '-' && ch != '_')
-    return false;
-  size_t marks = 0;
-  for (char c : text) {
-    if (c == ch)
-      marks++;
-    else if (!isWhitespace(c))
-      return false;
+size_t indentColumns(std::string_view text) {
+  size_t columns = 0;
+  for (char ch : text) {
+    if (ch == ' ')
+      columns++;
+    else if (ch == '\t')
+      columns += 4 - columns % 4;
+    else
+      break;
   }
-  return marks >= 3;
+  return columns;
 }
 
-// ---- fenced code and reference definitions, in one forward scan
+std::string_view afterIndent(std::string_view text, size_t columns) {
+  size_t column = 0;
+  size_t i = 0;
+  while (i < text.size() && column < columns && (text[i] == ' ' || text[i] == '\t')) {
+    column += text[i] == '\t' ? 4 - column % 4 : 1;
+    i++;
+  }
+  return text.substr(i);
+}
+
+// ---- fenced code, in one forward scan
 
 struct FenceMarker {
   char ch = 0;
@@ -195,43 +182,12 @@ bool parseFenceMarker(std::string_view line, FenceMarker &out) {
   return true;
 }
 
-// Reference labels match case-insensitively with whitespace runs collapsed.
-std::string normalizeLabel(std::string_view label) {
-  std::string normalized;
-  bool space = false;
-  for (char ch : trim(label)) {
-    if (isWhitespace(ch) || ch == '\n') {
-      space = true;
-      continue;
-    }
-    if (space && !normalized.empty())
-      normalized += ' ';
-    space = false;
-    normalized += static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-  }
-  return normalized;
-}
-
-void recordDefinition(std::string_view content, std::unordered_set<std::string> &definitions) {
-  std::string_view text = content.substr(std::min(leadingSpaces(content), content.size()));
-  if (text.empty() || text[0] != '[' || startsWith(text, "[^"))
-    return;
-  size_t close = text.find("]:");
-  if (close == npos || close == 1)
-    return;
-  definitions.insert(normalizeLabel(text.substr(1, close - 1)));
-}
-
-struct BlockScan {
-  size_t openFence = npos; // the opening line of a fence still open at the end
-  std::unordered_set<std::string> definitions;
-};
-
-// Marks the fenced code lines and finds the open fence and the reference
-// definitions. Fences inside blockquotes and list items count: a quoted fence
-// closes with its quote, a listed one when a line leaves the item's indent.
-BlockScan scanBlocks(Lines &lines) {
-  BlockScan scan;
+// Marks the fenced code lines and returns the opening line of a fence still
+// open at the end, or npos. Fences inside blockquotes and list items count: a
+// quoted fence closes with its quote, a listed one when a line leaves the
+// item's indent.
+size_t scanFences(Lines &lines) {
+  size_t openFence = npos;
   struct {
     char ch = 0;
     size_t length = 0;
@@ -244,7 +200,7 @@ BlockScan scanBlocks(Lines &lines) {
     Quoted quoted = stripQuotes(lines[i].text);
     std::string_view body = quoted.body;
     bool blank = isBlank(body);
-    size_t lead = leadingSpaces(body);
+    size_t lead = indentColumns(body);
     if (inFence) {
       // A blank last line has not streamed its quote markers in yet, so it cannot
       // end a quoted fence.
@@ -253,7 +209,7 @@ BlockScan scanBlocks(Lines &lines) {
       if (!containerEnded) {
         lines[i].code = true;
         FenceMarker marker;
-        if (!blank && parseFenceMarker(body.substr(fence.indent), marker) && marker.ch == fence.ch &&
+        if (!blank && parseFenceMarker(afterIndent(body, fence.indent), marker) && marker.ch == fence.ch &&
             marker.length >= fence.length && isBlank(marker.info))
           inFence = false;
         continue;
@@ -267,25 +223,23 @@ BlockScan scanBlocks(Lines &lines) {
     if (size_t marker = listMarkerWidth(body)) {
       listIndent = marker;
       indent = marker;
+      content = body.substr(marker);
     } else if (listIndent != 0 && lead >= listIndent) {
       indent = listIndent;
+      content = afterIndent(body, listIndent);
     } else {
       listIndent = 0;
     }
-    content = body.substr(indent);
     FenceMarker marker;
     if (parseFenceMarker(content, marker)) {
       inFence = true;
       fence = {marker.ch, marker.length, quoted.depth, indent};
       lines[i].code = true;
-      scan.openFence = i;
-      continue;
+      lines[i].opensFence = true;
+      openFence = i;
     }
-    recordDefinition(content, scan.definitions);
   }
-  if (!inFence)
-    scan.openFence = npos;
-  return scan;
+  return inFence ? openFence : npos;
 }
 
 // ---- the trailing block
@@ -373,7 +327,13 @@ size_t pipeCount(std::string_view row) {
   return count;
 }
 
-void cutPendingTable(Document &doc, StreamingBlockMode mode) {
+// What a delimiter row may hold before its last cell arrives.
+bool isPartialDelimiterRow(std::string_view row, size_t headerCells) {
+  return row.find_first_not_of("|-: \t") == npos && tableCells(row).size() <= headerCells;
+}
+
+void cutPendingTable(Document &doc, const StreamingFilterOptions &options, bool terminated) {
+  StreamingBlockMode mode = options.tableMode;
   const Lines &lines = doc.lines;
   size_t last = lastNonBlankLine(lines);
   if (!trailingBlockIsOpen(lines, last))
@@ -394,6 +354,30 @@ void cutPendingTable(Document &doc, StreamingBlockMode mode) {
   if (!piped && (!hasDelimiter || header.find('|') == npos))
     return;
 
+  // A finished row of pipes shows as a table header while its delimiter row arrives: while the
+  // delimiter row is still arriving too, not once it has ended without being one. Not without
+  // tables, in indented code, or for a row of spoilers (`||text||`).
+  std::string_view headerLine = lines[start].text;
+  std::string_view indent = headerLine.substr(0, headerLine.find('|'));
+  size_t lastQuote = indent.rfind('>');
+  std::string_view lineIndent = indent.substr(lastQuote == npos ? 0 : lastQuote + 1);
+  bool indentedCode = lineIndent.size() >= 4 || lineIndent.find('\t') != npos;
+  size_t headerCells = tableCells(header).size();
+  bool headerEnded = lineCount == 1 ? last + 1 < lines.size()
+                                    : lineCount == 2 && last + 1 == lines.size() &&
+                                          isPartialDelimiterRow(tableRow(lines[last]), headerCells);
+  // Pipes inside code spans or spoilers (`||text||`) make the cell count uncertain until the
+  // delimiter row says it.
+  bool uncertainCells = header.find('`') != npos || header.find("||") != npos;
+  if (mode == StreamingBlockMode::Progressive && options.tables && !hasDelimiter && piped && !terminated &&
+      headerEnded && !indentedCode && !uncertainCells && header.size() > 1 && header.back() == '|' &&
+      !InlineSyntax::isEscaped(header, header.size() - 1)) {
+    doc.cutAtLine(start + 1);
+    doc.appended.assign(headerLine.substr(0, headerLine.find('|'))).append("|");
+    for (size_t i = 0; i < headerCells; i++)
+      doc.appended.append(" --- |");
+    return;
+  }
   if (mode == StreamingBlockMode::Hidden || !hasDelimiter) {
     doc.cutAtLine(start);
     return;
@@ -407,16 +391,153 @@ void cutPendingTable(Document &doc, StreamingBlockMode mode) {
 
 // ---- media and inline syntax
 
-// HTML blocks whose content is raw: nothing in them is Markdown to cut.
+bool equalsIgnoringCase(char a, char b) {
+  return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+}
+
+// HTML blocks that may hold blank lines, so the filter leaves them whole. Tag names compare as md4c
+// does, ignoring case and ending at a space, `>` or the line's end.
 bool startsRawHtmlBlock(std::string_view body) {
-  static const char *const kOpeners[] = {"<!--",   "<pre",    "<script",  "<style", "<div", "<details", "<summary",
-                                         "<table", "<figure", "<section", "<p>",    "<p ",  "<center"};
-  for (const char *opener : kOpeners) {
-    if (startsWith(body, opener))
+  if (startsWith(body, "<!--"))
+    return true;
+  static const std::string_view kTags[] = {"pre",   "script", "style",   "div", "details", "summary",
+                                           "table", "figure", "section", "p",   "center"};
+  if (body.empty() || body[0] != '<')
+    return false;
+  for (std::string_view tag : kTags) {
+    size_t after = tag.size() + 1;
+    if (body.size() >= after && std::equal(tag.begin(), tag.end(), body.begin() + 1, equalsIgnoringCase) &&
+        (after == body.size() || body[after] == ' ' || body[after] == '\t' || body[after] == '>'))
       return true;
   }
   return false;
 }
+
+bool containsIgnoringCase(std::string_view text, std::string_view needle) {
+  return std::search(text.begin(), text.end(), needle.begin(), needle.end(), equalsIgnoringCase) != text.end();
+}
+
+// HTML blocks that may hold blank lines (CommonMark types 1-5) end at a closing text, not at a blank
+// line: the text that closes the one `body` opens, empty when it opens none.
+std::string_view htmlBlockCloser(std::string_view body) {
+  std::string_view text = body.substr(std::min(leadingSpaces(body), body.size()));
+  if (startsWith(text, "<!--"))
+    return "-->";
+  if (startsWith(text, "<![CDATA["))
+    return "]]>";
+  if (startsWith(text, "<?"))
+    return "?>";
+  if (text.size() > 2 && startsWith(text, "<!") && std::isalpha(static_cast<unsigned char>(text[2])))
+    return ">";
+  static const std::string_view kRawTags[][2] = {
+      {"pre", "</pre>"}, {"script", "</script>"}, {"style", "</style>"}, {"textarea", "</textarea>"}};
+  for (const auto &tag : kRawTags) {
+    std::string_view name = tag[0];
+    if (text.size() <= name.size() || text[0] != '<' ||
+        !std::equal(name.begin(), name.end(), text.begin() + 1, equalsIgnoringCase))
+      continue;
+    size_t after = name.size() + 1;
+    if (after == text.size() || text[after] == ' ' || text[after] == '\t' || text[after] == '>')
+      return tag[1];
+  }
+  return {};
+}
+
+} // namespace
+
+bool startsTopLevelBlock(std::string_view line) {
+  if (line.empty())
+    return false;
+  char ch = line[0];
+  return !(isWhitespace(ch) || ch == '-' || ch == '*' || ch == '+' || ch == '[' || ch == '<' ||
+           std::isdigit(static_cast<unsigned char>(ch)));
+}
+
+namespace {
+
+size_t countRun(std::string_view line, size_t from, char ch) {
+  size_t end = from;
+  while (end < line.size() && line[end] == ch)
+    end++;
+  return end - from;
+}
+
+} // namespace
+
+bool mayDefineLinkReference(std::string_view markdown) {
+  // CommonMark's limit for a label, with room for its brackets and escapes.
+  constexpr size_t kMaxLinkLabel = 2048;
+  // The lines of a fence that starts a line, outside any container, are code and skipped. A fence
+  // line this scan can't follow (indented, inside a quote or list item), raw HTML, display math, or a
+  // fence right after a table row turns the tracking off: every later line is checked, only slower.
+  char fence = 0;
+  size_t fenceLength = 0;
+  bool fencesOpen = true;
+  bool afterTableRow = false;
+  size_t lineStart = 0;
+  while (lineStart < markdown.size()) {
+    size_t lineEnd = markdown.find('\n', lineStart);
+    if (lineEnd == npos)
+      lineEnd = markdown.size();
+    std::string_view line = markdown.substr(lineStart, lineEnd - lineStart);
+    if (fence != 0) {
+      size_t indent = 0;
+      while (indent < 3 && indent < line.size() && line[indent] == ' ')
+        indent++;
+      size_t run = countRun(line, indent, fence);
+      if (run >= fenceLength && isBlankFrom(line, indent + run))
+        fence = 0;
+      lineStart = lineEnd + 1;
+      continue;
+    }
+    if (fencesOpen && !line.empty() && (line[0] == '`' || line[0] == '~')) {
+      size_t run = countRun(line, 0, line[0]);
+      if (run >= 3 && afterTableRow) {
+        fencesOpen = false;
+      } else if (run >= 3 && (line[0] == '~' || line.find('`', run) == npos)) {
+        fence = line[0];
+        fenceLength = run;
+        lineStart = lineEnd + 1;
+        continue;
+      }
+    }
+    if (fencesOpen) {
+      size_t indent = 0;
+      while (indent < 3 && indent < line.size() && line[indent] == ' ')
+        indent++;
+      std::string_view rest = line.substr(indent);
+      if (startsWith(rest, "<") || startsWith(rest, "$$"))
+        fencesOpen = false;
+      afterTableRow = line.find('|') != npos;
+    }
+    // Past any indent, quote markers and list markers, a definition starts with its label.
+    size_t i = lineStart;
+    while (i < lineEnd && (isWhitespace(markdown[i]) || markdown[i] == '>' || markdown[i] == '-' ||
+                           markdown[i] == '+' || markdown[i] == '*' || markdown[i] == '.' || markdown[i] == ')' ||
+                           std::isdigit(static_cast<unsigned char>(markdown[i]))))
+      i++;
+    if (fencesOpen && i > lineStart && i < lineEnd && (markdown[i] == '`' || markdown[i] == '~') &&
+        countRun(line, i - lineStart, markdown[i]) >= 3)
+      fencesOpen = false;
+    if (i < lineEnd && markdown[i] == '[') {
+      // The label runs to the first `]` not escaped, on this line or a later one.
+      size_t labelEnd = std::min(markdown.size(), i + kMaxLinkLabel);
+      for (size_t j = i + 1; j < labelEnd; j++) {
+        if (markdown[j] == '\\') {
+          j++;
+        } else if (markdown[j] == ']') {
+          if (j + 1 < markdown.size() && markdown[j + 1] == ':')
+            return true;
+          break;
+        }
+      }
+    }
+    lineStart = lineEnd + 1;
+  }
+  return false;
+}
+
+namespace {
 
 // Whether the line is a block a slot can replace (one of kBlockKinds) and
 // whether its syntax has closed.
@@ -429,118 +550,9 @@ BlockLineState classifyMediaLine(std::string_view body) {
   return BlockLineState::None;
 }
 
-// A label still typed this far past its `[` is prose with a stray bracket, not
-// a link: it stops withholding the rest of the paragraph.
-constexpr size_t kMaxOpenLabel = 512;
-
-// Where an inline image or link whose syntax is still open starts in the
-// paragraph (`![alt](https://`, `[label](ur`, or a `[label]` the `(` may still
-// follow), or npos when it ends cleanly. One pass: escapes and code spans are
-// prose, brackets nest, and a label followed by a defined reference is a
-// complete link.
-size_t openInlineSyntaxStart(std::string_view text, const std::unordered_set<std::string> &definitions) {
-  InlineSyntax::CodeSpans spans(text);
-  InlineSyntax::CodeSpans::Cursor code(spans);
-  std::vector<size_t> openers;
-  // Where the last destination found to be prose gave up. A `](` before it
-  // sits inside that destination and would rescan the same text to the same
-  // end, which makes `[x](` repeated quadratic.
-  size_t proseUntil = 0;
-  // The outermost construct still open when `innermost` is: the earliest
-  // opener within kMaxOpenLabel of the end, the `!` of an image included.
-  auto openFrom = [&](size_t innermost) {
-    size_t window = text.size() > kMaxOpenLabel ? text.size() - kMaxOpenLabel : 0;
-    auto outer = std::lower_bound(openers.begin(), openers.end(), window);
-    size_t start = outer != openers.end() ? *outer : innermost;
-    if (start < window)
-      return npos;
-    // An escaped `!` is literal text; the link after it is still a link.
-    bool image = start > 0 && text[start - 1] == '!' && !InlineSyntax::isEscaped(text, start - 1);
-    return image ? start - 1 : start;
-  };
-  for (size_t i = 0; i < text.size(); i++) {
-    size_t codeEnd = code.spanEndAt(i);
-    if (codeEnd != npos) {
-      i = codeEnd - 1;
-      continue;
-    }
-    char ch = text[i];
-    if (ch == '\\') {
-      i++;
-      continue;
-    }
-    if (ch == '[') {
-      openers.push_back(i);
-      continue;
-    }
-    if (ch != ']' || openers.empty())
-      continue;
-    size_t opener = openers.back();
-    openers.pop_back();
-    size_t after = i + 1;
-    if (isBlankFrom(text, after))
-      return openFrom(opener); // `[label]`: the `(` may be next
-    if (text[after] == '(') {
-      if (after < proseUntil)
-        continue;
-      size_t stop = npos;
-      size_t end = InlineSyntax::destinationEnd(text, after, &stop);
-      if (end == npos)
-        return openFrom(opener);
-      if (end == InlineSyntax::kInvalid)
-        proseUntil = stop;
-      else
-        i = end;
-      continue;
-    }
-    if (text[after] == '[') {
-      size_t refEnd = text.find(']', after + 1);
-      if (refEnd != npos) {
-        std::string_view ref = text.substr(after + 1, refEnd - after - 1);
-        if (ref.empty())
-          ref = text.substr(opener + 1, i - opener - 1);
-        if (definitions.count(normalizeLabel(ref)) != 0)
-          i = refEnd;
-      }
-    }
-  }
-  return openers.empty() ? npos : openFrom(openers.back());
-}
-
-// The first line of the paragraph that ends at `last`. A line that opens its
-// own block (a list item, a heading, a deeper quote, an HTML block) starts it;
-// one that cannot continue (a heading, an underline, a break) ends the block
-// before it.
-size_t paragraphStart(const Lines &lines, size_t start, size_t last) {
-  size_t line = last;
-  while (line > start) {
-    Quoted current = stripQuotes(lines[line].text);
-    Quoted previous = stripQuotes(lines[line - 1].text);
-    std::string_view content = current.body.substr(std::min(leadingSpaces(current.body), current.body.size()));
-    if (startsOwnBlock(current.body) || isUnderlineOrBreak(current.body) || startsRawHtmlBlock(content) ||
-        current.depth > previous.depth || isAtxHeading(previous.body) || isUnderlineOrBreak(previous.body))
-      break;
-    line--;
-  }
-  return line;
-}
-
-// The paragraph ends in an image or link still being typed: cut that syntax so
-// it never shows as literal text.
-void cutOpenInlineSyntax(Document &doc, size_t start, size_t last, const BlockScan &scan) {
-  size_t paragraph = paragraphStart(doc.lines, start, last);
-  std::string_view body = stripQuotes(doc.lines[paragraph].text).body;
-  if (startsRawHtmlBlock(body.substr(std::min(leadingSpaces(body), body.size()))))
-    return;
-  size_t offset = doc.lines[paragraph].offset;
-  size_t open = openInlineSyntaxStart(doc.text.substr(offset), scan.definitions);
-  if (open != npos)
-    doc.text = doc.text.substr(0, offset + open);
-}
-
 // `terminated` says another block (an open code fence) follows the text, which
 // closes a trailing paragraph the way a blank line does.
-void cutPendingMedia(Document &doc, StreamingBlockMode mode, bool terminated, const BlockScan &scan) {
+void cutPendingMedia(Document &doc, StreamingBlockMode mode, bool terminated) {
   const Lines &lines = doc.lines;
   size_t last = lastNonBlankLine(lines);
   if (!trailingBlockIsOpen(lines, last) || lines[last].code)
@@ -563,48 +575,211 @@ void cutPendingMedia(Document &doc, StreamingBlockMode mode, bool terminated, co
     cutOffset = lines[start].offset;
   }
 
-  if (state == BlockLineState::None) {
-    if (!terminated)
-      cutOpenInlineSyntax(doc, start, last, scan);
-    return;
-  }
+  if (state == BlockLineState::None)
+    return; // prose; repair handles inline syntax still being typed
   if (state == BlockLineState::Complete && (mode == StreamingBlockMode::Progressive || terminated))
     return;
   doc.text = doc.text.substr(0, cutOffset);
 }
 
-std::string_view removePendingBlocks(Document doc, const StreamingFilterOptions &options, bool terminated,
-                                     const BlockScan &scan) {
-  cutPendingMath(doc);
-  cutPendingTable(doc, options.tableMode);
-  cutPendingMedia(doc, options.mediaMode, terminated, scan);
-  return doc.text;
+StreamingFilterResult removePendingBlocks(Document doc, const StreamingFilterOptions &options, bool terminated,
+                                          bool latexMath) {
+  if (latexMath)
+    cutPendingMath(doc);
+  cutPendingTable(doc, options, terminated);
+  cutPendingMedia(doc, options.mediaMode, terminated);
+  return {std::string(doc.text).append(doc.appended), false, doc.appended.size()};
 }
 
 } // namespace
 
-StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown,
-                                                     const StreamingFilterOptions &options) {
+StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown, const StreamingFilterOptions &options,
+                                                     bool latexMath) {
   std::string_view text(markdown);
   Lines lines = splitLines(text);
-  BlockScan scan = scanBlocks(lines);
-  if (scan.openFence == npos)
-    return {std::string(removePendingBlocks({text, std::move(lines)}, options, false, scan)), false};
+  size_t openFence = scanFences(lines);
+  if (openFence == npos)
+    return removePendingBlocks({text, std::move(lines)}, options, false, latexMath);
 
   // The fence terminates whatever paragraph precedes it, shown or not. Until its
   // opening line ends the info string may still grow, so the fence waits for it
   // and its language never changes while it shows.
-  bool openerEnded = scan.openFence + 1 < lines.size();
+  bool openerEnded = openFence + 1 < lines.size();
   Document head{text, std::move(lines)};
-  size_t fenceOffset = head.lines[scan.openFence].offset;
-  head.cutAtLine(scan.openFence);
-  std::string_view kept = removePendingBlocks(std::move(head), options, true, scan);
+  size_t fenceOffset = head.lines[openFence].offset;
+  head.cutAtLine(openFence);
+  // Before a fence the table is terminated, so nothing was added.
+  std::string kept = removePendingBlocks(std::move(head), options, true, latexMath).markdown;
   if (options.codeBlockMode == StreamingBlockMode::Hidden || !openerEnded)
-    return {std::string(kept), false};
+    return {std::move(kept), false, 0};
   std::string result;
   result.reserve(kept.size() + text.size() - fenceOffset);
   result.append(kept).append(text.substr(fenceOffset));
-  return {std::move(result), true};
+  return {std::move(result), true, 0};
+}
+
+size_t finishedBlocksEnd(std::string_view markdown, bool latexMath) {
+  Lines lines = splitLines(markdown);
+  scanFences(lines);
+  size_t end = 0;
+  bool openMath = false;
+  // While an HTML block that may hold blank lines is open, what closes it.
+  std::string_view htmlCloser;
+  for (size_t i = 0; i < lines.size(); i++) {
+    const Line &line = lines[i];
+    if (line.code)
+      continue;
+    std::string_view body = stripQuotes(line.text).body;
+    if (!htmlCloser.empty()) {
+      if (containsIgnoringCase(body, htmlCloser))
+        htmlCloser = {};
+      continue;
+    }
+    if (std::string_view closer = htmlBlockCloser(body); !closer.empty()) {
+      if (!containsIgnoringCase(body.substr(body.find('<') + 2), closer))
+        htmlCloser = closer;
+      continue;
+    }
+    bool startsBlock =
+        i > 0 && !openMath && isBlank(lines[i - 1].text) && !lines[i - 1].code && startsTopLevelBlock(line.text);
+    // A line still arriving can start the tail once its first character rules
+    // out a fence and `$$`, the kinds a later character could still make.
+    char first = startsBlock ? line.text[0] : 0;
+    if (startsBlock && (i + 1 < lines.size() || (first != '`' && first != '~' && (first != '$' || !latexMath))))
+      end = line.offset;
+    if (latexMath && trim(body) == "$$")
+      openMath = !openMath;
+  }
+  return end;
+}
+
+namespace {
+
+bool isThematicBreak(std::string_view body) {
+  char mark = 0;
+  size_t count = 0;
+  for (char ch : body) {
+    if (isWhitespace(ch))
+      continue;
+    if (mark == 0 && ch != '-' && ch != '*' && ch != '_')
+      return false;
+    if (mark != 0 && ch != mark)
+      return false;
+    mark = ch;
+    count++;
+  }
+  return count >= 3;
+}
+
+bool isAtxHeading(std::string_view content) {
+  size_t level = 0;
+  while (level < content.size() && content[level] == '#')
+    level++;
+  return level >= 1 && level <= 6 && (level == content.size() || isWhitespace(content[level]));
+}
+
+size_t topLevelItemMarkerEnd(std::string_view body) {
+  if (body.empty() || isWhitespace(body[0]) || listMarkerWidth(body) == 0 || isThematicBreak(body))
+    return 0;
+  size_t end = 0;
+  while (std::isdigit(static_cast<unsigned char>(body[end])))
+    end++;
+  return end + 1;
+}
+
+size_t itemContentColumn(std::string_view body, size_t markerEnd) {
+  size_t columns = indentColumns(std::string(markerEnd, ' ').append(body.substr(markerEnd))) - markerEnd;
+  return markerEnd + std::min<size_t>(std::max<size_t>(columns, 1), 4);
+}
+
+bool staysListItem(std::string_view body, size_t markerEnd) {
+  char kind = body[markerEnd - 1];
+  for (size_t i = markerEnd; i < body.size(); i++) {
+    if (!isWhitespace(body[i]) && body[i] != kind)
+      return true;
+  }
+  return false;
+}
+
+} // namespace
+
+FinishedListItems finishedListItems(std::string_view markdown, bool latexMath) {
+  Lines lines = splitLines(markdown);
+  scanFences(lines);
+  FinishedListItems items;
+  size_t itemStart = 0;
+  char listKind = 0;
+  size_t contentColumn = 0;
+  bool itemIsEmpty = false;
+  bool afterBlock = true;
+  bool fenceInItem = false;
+  bool openMath = false;
+  bool htmlUntilBlank = false;
+  std::string_view htmlCloser;
+  for (size_t i = 0; i < lines.size(); i++) {
+    const Line &line = lines[i];
+    std::string_view body = line.text;
+    if (line.code && !line.opensFence) {
+      afterBlock = !fenceInItem;
+      continue;
+    }
+    if (!htmlCloser.empty()) {
+      if (containsIgnoringCase(body, htmlCloser))
+        htmlCloser = {};
+      continue;
+    }
+    if (isBlank(body)) {
+      if (itemIsEmpty)
+        listKind = 0;
+      itemIsEmpty = false;
+      htmlUntilBlank = false;
+      afterBlock = true;
+      continue;
+    }
+    bool wasAfterBlock = afterBlock;
+    afterBlock = false;
+    if (latexMath && trim(stripQuotes(body).body) == "$$") {
+      openMath = !openMath;
+      listKind = 0;
+      continue;
+    }
+    if (openMath)
+      continue;
+    if (listKind != 0 && indentColumns(body) >= contentColumn) {
+      itemIsEmpty = false;
+      if (line.opensFence)
+        fenceInItem = true;
+      continue;
+    }
+    size_t markerEnd = htmlUntilBlank ? 0 : topLevelItemMarkerEnd(body);
+    if (line.opensFence)
+      fenceInItem = markerEnd != 0;
+    if (markerEnd != 0) {
+      char kind = body[markerEnd - 1];
+      if (kind != listKind)
+        listKind = wasAfterBlock ? kind : 0;
+      else if (i + 1 < lines.size() || staysListItem(body, markerEnd))
+        items = {line.offset, itemStart};
+      itemStart = line.offset;
+      contentColumn = itemContentColumn(body, markerEnd);
+      itemIsEmpty = isBlankFrom(body, markerEnd);
+      continue;
+    }
+    listKind = 0;
+    if (htmlUntilBlank || line.opensFence)
+      continue;
+    if (std::string_view closer = htmlBlockCloser(body); !closer.empty()) {
+      if (!containsIgnoringCase(body.substr(body.find('<') + 2), closer))
+        htmlCloser = closer;
+      continue;
+    }
+    std::string_view content = body.substr(std::min(body.find_first_not_of(" \t"), body.size()));
+    if (startsWith(content, "<"))
+      htmlUntilBlank = true;
+    else if (indentColumns(body) < 4 && (isThematicBreak(body) || isAtxHeading(content)))
+      afterBlock = true;
+  }
+  return items;
 }
 
 StreamingBlockMode streamingBlockModeFromName(const std::string &name) {
