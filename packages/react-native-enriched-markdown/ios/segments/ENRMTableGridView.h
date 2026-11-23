@@ -3,7 +3,10 @@
 #include <TargetConditionals.h>
 #if TARGET_OS_OSX
 
+#import "ENRMSpoilerOverlayView.h"
 #import "ENRMUIKit.h"
+
+@class StyleConfig;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -19,6 +22,9 @@ NS_ASSUME_NONNULL_BEGIN
 @interface ENRMTableGridView : NSView
 
 @property (nonatomic, copy, nullable) NSMenu *_Nullable (^menuProvider)(void);
+
+@property (nonatomic, strong, nullable) StyleConfig *spoilerConfig;
+@property (nonatomic, assign) ENRMSpoilerOverlay spoilerOverlay;
 
 - (void)updateWithRows:(NSArray<ENRMMacOSTableRowData *> *)rows
              columnWidths:(NSArray<NSNumber *> *)columnWidths
