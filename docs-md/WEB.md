@@ -18,7 +18,7 @@ Most `EnrichedMarkdownText` features are supported on web (see [Not supported on
 - Full GFM: tables (with horizontal scroll), task lists (with checkbox interaction), strikethrough, links, images (block and inline), code blocks, LaTeX math (block and inline), admonitions (`> [!NOTE]` and the other GitHub alerts)
 - Videos: `<video src>` renders as a `<video>` element with the browser's controls
 - Most `markdownStyle` customisation options. Accepted but ignored on web: `codeBlock.syntaxColors`, `spoiler.particles`, `list.bulletColor`, `list.bulletSize`, `list.markerMinWidth`, `list.markerColor`, `list.markerFontWeight`, `list.gapWidth`, `table.horizontalOverflow`, `linkVariants[pattern].pill`, `taskList.borderColor` and `taskList.checkmarkColor`
-- Spoilers (`||text||`), concealed by a solid cover and revealed by a click or Enter/Space; links inside stay inert until then, and a spoiler conceals again only when its own text changes
+- Spoilers (`||text||`), concealed by a solid cover and revealed by a click or Enter/Space; links and images inside stay inert until then. A revealed spoiler stays revealed while more Markdown streams in after it, but conceals again when its own text, or the structure of the Markdown before it, changes
 - `onLinkPress`, `onLinkLongPress` (mapped to `contextmenu` event), `onImagePress`, `onTaskListItemPress`, `onCodeBlockPress` callbacks
 - `onImagePress` — makes rendered images focusable and keyboard-activatable (Enter/Space) with a button role; the browser's right-click menu is preserved
 - `onCodeBlockPress` — makes fenced code blocks clickable and keyboard-activatable (Enter/Space) with a button role, receiving the block's `code` and `language`; clicking while code text is selected does not fire
@@ -35,7 +35,7 @@ Most `EnrichedMarkdownText` features are supported on web (see [Not supported on
 - Code blocks: `aria-label` with language when available (e.g. `"Code block: python"`)
 - Math (KaTeX fallback): `role="math"` and `aria-label` with the expression content
 - Task list checkboxes: `aria-label` with the task text (e.g. `"Task: Buy groceries"`)
-- Spoilers: a concealed spoiler is a `role="button"` named by its own text, so screen readers still read the text (as on native) and announce that it can be revealed; it is reachable with Tab, keeps focus after Enter/Space reveals it, and a click that ends a text selection does not reveal it
+- Spoilers: a concealed spoiler is a `role="button"` named by its own text (or an image's alt text), so screen readers still read it (as on native) and announce that it can be revealed; it is reachable with Tab and keeps focus after Enter/Space reveals it (inside a link, focus moves to the link, so the next Enter follows it), and a click does not reveal it while text on the page is selected, so ending a drag-selection on it does not either
 - Videos: `aria-label` from the alt text, then `title`, then `"Video"`
 
 ### Web props
@@ -86,5 +86,6 @@ exception: it is mapped to `data-testid`.
 
 - Editor features — see [Web Editor](WEB_INPUT.md#not-supported-on-web) for what `EnrichedMarkdownTextInput` does not support on web.
 - Particle spoilers — every spoiler uses the solid cover.
+- Inline images inside formatting — an image next to text renders inline only as a direct child of its paragraph. Inside a spoiler, link or emphasis it renders as a block image, and a spoiler holding one becomes a full-width block.
 - Configurable link `target` — all links open in a new tab (`target="_blank"`). Use `onLinkPress` for custom navigation.
 - Link pills — `linkVariants[pattern].pill` is ignored; such links render as ordinary links with the variant's colors and font.

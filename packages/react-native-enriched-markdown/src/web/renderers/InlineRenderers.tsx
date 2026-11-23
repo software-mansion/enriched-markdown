@@ -1,6 +1,6 @@
 import { useContext, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react';
-import type { RendererProps, RendererMap } from '../types';
+import type { ASTNode, RendererProps, RendererMap } from '../types';
 import { extractNodeText, hasBlockImage, hasNonImageContent } from '../utils';
 import { KaTeXRenderer } from './KaTeXRenderer';
 import {
@@ -82,6 +82,13 @@ function SpoilerRenderer({ node, styles, renderChildren }: RendererProps) {
     event.preventDefault();
     event.stopPropagation();
     setIsRevealed(true);
+    if (event.currentTarget instanceof HTMLElement) {
+      event.currentTarget.closest('a')?.focus();
+    }
+  };
+
+  const handleContextMenu = (event: MouseEvent) => {
+    event.stopPropagation();
   };
 
   const isActive = !isRevealed && !isAncestorConcealed;
@@ -105,6 +112,7 @@ function SpoilerRenderer({ node, styles, renderChildren }: RendererProps) {
       tabIndex={isActive ? 0 : isRevealed ? -1 : undefined}
       onClick={isActive ? handleClick : undefined}
       onKeyDown={isActive ? handleKeyDown : undefined}
+      onContextMenu={isActive ? handleContextMenu : undefined}
     >
       <span
         className={ENRM_SPOILER_CONTENT_CLASS}
@@ -156,6 +164,22 @@ function LinkRenderer({
     }
   };
 
+  const isLabelAllSpoilers = !hasContentOutsideSpoilers(node);
+  const handleKeyDown = (event: KeyboardEvent<HTMLAnchorElement>) => {
+    if (event.key !== 'Enter' || !isLabelAllSpoilers) return;
+    if (event.target !== event.currentTarget) return;
+    const concealed = event.currentTarget.querySelectorAll<HTMLElement>(
+      `.${ENRM_SPOILER_CLASS}:not([data-revealed])`
+    );
+    if (concealed.length === 0) return;
+    event.preventDefault();
+    concealed.forEach((spoiler) =>
+      spoiler.dispatchEvent(
+        new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+      )
+    );
+  };
+
   const handleContextMenu = (event: MouseEvent) => {
     if (callbacks.onLinkLongPress) {
       event.preventDefault();
@@ -170,6 +194,7 @@ function LinkRenderer({
       target="_blank"
       rel="noopener noreferrer"
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       onContextMenu={handleContextMenu}
     >
       <InsideLinkContext.Provider value={true}>
@@ -177,6 +202,14 @@ function LinkRenderer({
       </InsideLinkContext.Provider>
     </a>
   );
+}
+
+function hasContentOutsideSpoilers(node: ASTNode): boolean {
+  if (node.type === 'Spoiler') return false;
+  if (!node.children?.length) {
+    return node.type !== 'Text' || (node.content ?? '').trim() !== '';
+  }
+  return node.children.some(hasContentOutsideSpoilers);
 }
 
 function LatexMathInlineRenderer({
