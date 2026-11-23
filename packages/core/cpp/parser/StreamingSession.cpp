@@ -58,4 +58,14 @@ StreamingSnapshot streamingSnapshot(const std::string &source, const StreamingOp
   return snapshot;
 }
 
+FinishedListItems streamingListItems(const std::string &source, const StreamingSnapshot &snapshot,
+                                     const StreamingOptions &options) {
+  size_t finished = snapshot.finishedBytes;
+  std::string_view unfinished = std::string_view(source).substr(finished);
+  FinishedListItems items = finishedListItems(unfinished, options.flags.latexMath);
+  if (items.end == 0 || snapshot.markdown.compare(finished, items.end, unfinished, 0, items.end) != 0)
+    return {finished, finished};
+  return {finished + items.end, finished + items.lastItem};
+}
+
 } // namespace Markdown

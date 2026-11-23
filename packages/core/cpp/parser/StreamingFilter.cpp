@@ -17,6 +17,7 @@ struct Line {
   std::string_view text;
   size_t offset; // of its first character in the document
   bool code;     // inside a fenced code block, fence lines included
+  bool opensFence = false;
 };
 using Lines = std::vector<Line>;
 
@@ -127,6 +128,29 @@ size_t listMarkerWidth(std::string_view body) {
   return content;
 }
 
+size_t indentColumns(std::string_view text) {
+  size_t columns = 0;
+  for (char ch : text) {
+    if (ch == ' ')
+      columns++;
+    else if (ch == '\t')
+      columns += 4 - columns % 4;
+    else
+      break;
+  }
+  return columns;
+}
+
+std::string_view afterIndent(std::string_view text, size_t columns) {
+  size_t column = 0;
+  size_t i = 0;
+  while (i < text.size() && column < columns && (text[i] == ' ' || text[i] == '\t')) {
+    column += text[i] == '\t' ? 4 - column % 4 : 1;
+    i++;
+  }
+  return text.substr(i);
+}
+
 // ---- fenced code, in one forward scan
 
 struct FenceMarker {
@@ -176,7 +200,7 @@ size_t scanFences(Lines &lines) {
     Quoted quoted = stripQuotes(lines[i].text);
     std::string_view body = quoted.body;
     bool blank = isBlank(body);
-    size_t lead = leadingSpaces(body);
+    size_t lead = indentColumns(body);
     if (inFence) {
       // A blank last line has not streamed its quote markers in yet, so it cannot
       // end a quoted fence.
@@ -185,7 +209,7 @@ size_t scanFences(Lines &lines) {
       if (!containerEnded) {
         lines[i].code = true;
         FenceMarker marker;
-        if (!blank && parseFenceMarker(body.substr(fence.indent), marker) && marker.ch == fence.ch &&
+        if (!blank && parseFenceMarker(afterIndent(body, fence.indent), marker) && marker.ch == fence.ch &&
             marker.length >= fence.length && isBlank(marker.info))
           inFence = false;
         continue;
@@ -199,17 +223,19 @@ size_t scanFences(Lines &lines) {
     if (size_t marker = listMarkerWidth(body)) {
       listIndent = marker;
       indent = marker;
+      content = body.substr(marker);
     } else if (listIndent != 0 && lead >= listIndent) {
       indent = listIndent;
+      content = afterIndent(body, listIndent);
     } else {
       listIndent = 0;
     }
-    content = body.substr(indent);
     FenceMarker marker;
     if (parseFenceMarker(content, marker)) {
       inFence = true;
       fence = {marker.ch, marker.length, quoted.depth, indent};
       lines[i].code = true;
+      lines[i].opensFence = true;
       openFence = i;
     }
   }
@@ -625,6 +651,135 @@ size_t finishedBlocksEnd(std::string_view markdown, bool latexMath) {
       openMath = !openMath;
   }
   return end;
+}
+
+namespace {
+
+bool isThematicBreak(std::string_view body) {
+  char mark = 0;
+  size_t count = 0;
+  for (char ch : body) {
+    if (isWhitespace(ch))
+      continue;
+    if (mark == 0 && ch != '-' && ch != '*' && ch != '_')
+      return false;
+    if (mark != 0 && ch != mark)
+      return false;
+    mark = ch;
+    count++;
+  }
+  return count >= 3;
+}
+
+bool isAtxHeading(std::string_view content) {
+  size_t level = 0;
+  while (level < content.size() && content[level] == '#')
+    level++;
+  return level >= 1 && level <= 6 && (level == content.size() || isWhitespace(content[level]));
+}
+
+size_t topLevelItemMarkerEnd(std::string_view body) {
+  if (body.empty() || isWhitespace(body[0]) || listMarkerWidth(body) == 0 || isThematicBreak(body))
+    return 0;
+  size_t end = 0;
+  while (std::isdigit(static_cast<unsigned char>(body[end])))
+    end++;
+  return end + 1;
+}
+
+size_t itemContentColumn(std::string_view body, size_t markerEnd) {
+  size_t columns = indentColumns(std::string(markerEnd, ' ').append(body.substr(markerEnd))) - markerEnd;
+  return markerEnd + std::min<size_t>(std::max<size_t>(columns, 1), 4);
+}
+
+bool staysListItem(std::string_view body, size_t markerEnd) {
+  char kind = body[markerEnd - 1];
+  for (size_t i = markerEnd; i < body.size(); i++) {
+    if (!isWhitespace(body[i]) && body[i] != kind)
+      return true;
+  }
+  return false;
+}
+
+} // namespace
+
+FinishedListItems finishedListItems(std::string_view markdown, bool latexMath) {
+  Lines lines = splitLines(markdown);
+  scanFences(lines);
+  FinishedListItems items;
+  size_t itemStart = 0;
+  char listKind = 0;
+  size_t contentColumn = 0;
+  bool itemIsEmpty = false;
+  bool afterBlock = true;
+  bool fenceInItem = false;
+  bool openMath = false;
+  bool htmlUntilBlank = false;
+  std::string_view htmlCloser;
+  for (size_t i = 0; i < lines.size(); i++) {
+    const Line &line = lines[i];
+    std::string_view body = line.text;
+    if (line.code && !line.opensFence) {
+      afterBlock = !fenceInItem;
+      continue;
+    }
+    if (!htmlCloser.empty()) {
+      if (containsIgnoringCase(body, htmlCloser))
+        htmlCloser = {};
+      continue;
+    }
+    if (isBlank(body)) {
+      if (itemIsEmpty)
+        listKind = 0;
+      itemIsEmpty = false;
+      htmlUntilBlank = false;
+      afterBlock = true;
+      continue;
+    }
+    bool wasAfterBlock = afterBlock;
+    afterBlock = false;
+    if (latexMath && trim(stripQuotes(body).body) == "$$") {
+      openMath = !openMath;
+      listKind = 0;
+      continue;
+    }
+    if (openMath)
+      continue;
+    if (listKind != 0 && indentColumns(body) >= contentColumn) {
+      itemIsEmpty = false;
+      if (line.opensFence)
+        fenceInItem = true;
+      continue;
+    }
+    size_t markerEnd = htmlUntilBlank ? 0 : topLevelItemMarkerEnd(body);
+    if (line.opensFence)
+      fenceInItem = markerEnd != 0;
+    if (markerEnd != 0) {
+      char kind = body[markerEnd - 1];
+      if (kind != listKind)
+        listKind = wasAfterBlock ? kind : 0;
+      else if (i + 1 < lines.size() || staysListItem(body, markerEnd))
+        items = {line.offset, itemStart};
+      itemStart = line.offset;
+      contentColumn = itemContentColumn(body, markerEnd);
+      itemIsEmpty = isBlankFrom(body, markerEnd);
+      continue;
+    }
+    listKind = 0;
+    if (htmlUntilBlank || line.opensFence)
+      continue;
+    if (std::string_view closer = htmlBlockCloser(body); !closer.empty()) {
+      if (!containsIgnoringCase(body.substr(body.find('<') + 2), closer))
+        htmlCloser = closer;
+      continue;
+    }
+    std::string_view content = body.substr(std::min(body.find_first_not_of(" \t"), body.size()));
+    if (startsWith(content, "<"))
+      htmlUntilBlank = true;
+    else if (indentColumns(body) < 4 && (isThematicBreak(body) || isAtxHeading(content)))
+      afterBlock = true;
+  }
+  return items;
 }
 
 StreamingBlockMode streamingBlockModeFromName(const std::string &name) {
