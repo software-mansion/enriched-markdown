@@ -49,6 +49,7 @@ jobs:
               - 'packages/react-native-enriched-markdown/**'
               - 'packages/core/**'
               - 'vendor/**'
+              - 'scripts/prepare-npm-publish.sh'
               - 'apps/react-native-example/**'
               - 'apps/react-native-web-example/**'
               - 'apps/react-native-spm-example/**'
@@ -180,6 +181,25 @@ jobs:
 
       - name: Build package
         run: yarn prepare
+
+      - name: Pack the package
+        working-directory: packages/react-native-enriched-markdown
+        run: npm pack --pack-destination "$RUNNER_TEMP"
+
+      - name: Install the packed package
+        working-directory: ${{ runner.temp }}
+        run: |
+          mkdir consumer
+          cd consumer
+          npm install --legacy-peer-deps "$RUNNER_TEMP"/react-native-enriched-markdown-*.tgz
+
+      - name: Check the installed package
+        working-directory: ${{ runner.temp }}/consumer/node_modules/react-native-enriched-markdown
+        run: |
+          test -f lib/module/index.js
+          test -f lib/typescript/src/index.d.ts
+          test -f ios/vendor/.stamp
+          test -f cpp/highlight/vendor/grammars/.stamp
 
   rn-build-android:
     needs: changes
