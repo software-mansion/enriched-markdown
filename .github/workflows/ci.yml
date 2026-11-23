@@ -44,8 +44,10 @@ jobs:
             react-native:
               - 'packages/react-native-enriched-markdown/**'
               - 'packages/core/**'
+              - 'vendor/**'
               - 'apps/react-native-example/**'
               - 'apps/react-native-web-example/**'
+              - 'apps/react-native-spm-example/**'
               - 'package.json'
               - 'yarn.lock'
               - '.nvmrc'
@@ -430,6 +432,82 @@ jobs:
       - name: Run RN iOS unit tests
         run: yarn test:ios --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
+  rn-ios-spm-build:
+    needs: changes
+    if: needs.changes.outputs.react-native == 'true'
+    runs-on: macos-latest-xlarge
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [default, reduced]
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 2G
+    defaults:
+      run:
+        working-directory: apps/react-native-spm-example
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Build library
+        run: yarn prepare
+        working-directory: .
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: '26.3'
+
+      - name: Turn optional features off
+        if: matrix.config == 'reduced'
+        run: |
+          jq '. + {"enriched-markdown": {"enableMath": false, "enableVideo": false, "codeHighlightLanguages": ["swift"]}}' \
+            package.json > package.json.tmp
+          mv package.json.tmp package.json
+
+      - name: Cache React Native prebuilts
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/Library/Caches/ReactNative/*.tar.gz
+          key: ${{ runner.os }}-rn-spm-prebuilts-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-rn-spm-prebuilts-
+
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+        with:
+          key: rn-ios-spm-${{ matrix.config }}
+          max-size: 2G
+          save: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Point Xcode at ccache
+        run: |
+          ccache=$(command -v ccache)
+          conf=$PWD/node_modules/react-native/scripts/xcode/ccache.conf
+          printf '#!/bin/sh\nexport CCACHE_CONFIGPATH=%s\nexport CCACHE_DIR=%s\nexport CCACHE_MAXSIZE=%s\nexec %s clang "$@"\n' "$conf" "$CCACHE_DIR" "$CCACHE_MAXSIZE" "$ccache" > "$RUNNER_TEMP/ccache-clang"
+          chmod +x "$RUNNER_TEMP/ccache-clang"
+          printf 'CC = %s\n' "$RUNNER_TEMP/ccache-clang" > "$RUNNER_TEMP/ccache.xcconfig"
+          echo "XCODE_XCCONFIG_FILE=$RUNNER_TEMP/ccache.xcconfig" >> $GITHUB_ENV
+
+      - name: Sync Swift packages
+        run: npx react-native spm
+
+      - name: Build
+        run: |
+          xcodebuild build \
+            -project ios/EnrichedMarkdownSpmExample.xcodeproj \
+            -scheme EnrichedMarkdownSpmExample \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -quiet \
+            CODE_SIGNING_ALLOWED=NO \
+            ARCHS=arm64
+
   android-build:
     needs: changes
     if: needs.changes.outputs.android == 'true'
@@ -744,6 +822,7 @@ jobs:
       - rn-build-android
       - rn-android-unit-tests
       - rn-ios-build-and-tests
+      - rn-ios-spm-build
       - android-build
       - android-unit-tests
       - android-kotlin-lint
@@ -766,6 +845,7 @@ jobs:
           RN_BUILD_ANDROID: ${{ needs.rn-build-android.result }}
           RN_ANDROID_UNIT_TESTS: ${{ needs.rn-android-unit-tests.result }}
           RN_IOS_BUILD_AND_TESTS: ${{ needs.rn-ios-build-and-tests.result }}
+          RN_IOS_SPM_BUILD: ${{ needs.rn-ios-spm-build.result }}
           ANDROID_BUILD: ${{ needs.android-build.result }}
           ANDROID_UNIT_TESTS: ${{ needs.android-unit-tests.result }}
           ANDROID_KOTLIN_LINT: ${{ needs.android-kotlin-lint.result }}
@@ -808,6 +888,7 @@ jobs:
           check_required "$REACT_NATIVE" "$RN_BUILD_ANDROID" "rn-build-android"
           check_required "$REACT_NATIVE" "$RN_ANDROID_UNIT_TESTS" "rn-android-unit-tests"
           check_required "$REACT_NATIVE" "$RN_IOS_BUILD_AND_TESTS" "rn-ios-build-and-tests" "$RN_IOS_BUILD_AND_TESTS_CACHE"
+          check_required "$REACT_NATIVE" "$RN_IOS_SPM_BUILD" "rn-ios-spm-build"
           check_required "$ANDROID" "$ANDROID_BUILD" "android-build"
           check_required "$ANDROID" "$ANDROID_UNIT_TESTS" "android-unit-tests"
           check_required "$ANDROID" "$ANDROID_KOTLIN_LINT" "android-kotlin-lint"
