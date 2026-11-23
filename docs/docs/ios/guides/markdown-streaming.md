@@ -63,7 +63,7 @@ What a table shows while it is still arriving.
 
 | Mode | While the table arrives |
 | --- | --- |
-| `.progressive` | It appears once its header and delimiter rows are in, then grows row by row. A half-written row waits. |
+| `.progressive` | It appears once its header row is in, then grows row by row. A half-written row waits. |
 | `.hidden` | It stays hidden until a blank line follows it. |
 
 #### `codeBlocks`

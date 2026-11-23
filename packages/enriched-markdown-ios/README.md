@@ -900,7 +900,7 @@ extension View {
 
 | Parameter | `.progressive` (default) | `.hidden` |
 |-----------|--------------------------|-----------|
-| `tables` | Shows the table once its header and delimiter rows are in, then adds rows as they complete | Hides the table until a blank line follows it |
+| `tables` | Shows the table once its header row is in, then adds rows as they complete | Hides the table until a blank line follows it |
 | `codeBlocks` | Shows the code line by line; copy actions and highlighting wait for the closing fence | Hides the block until its closing fence arrives |
 | `media` | Shows an image on its own line once its syntax is complete | Hides it until a blank line follows it |
 
