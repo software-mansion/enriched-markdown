@@ -152,10 +152,20 @@ struct AttributedTextDiff: Equatable {
         if let lhsCode = lhs as? CodeBlockAttachment, let rhsCode = rhs as? CodeBlockAttachment {
             return lhsCode.isEquivalent(to: rhsCode)
         }
+        if let lhsRule = lhs as? ThematicBreakAttachment, let rhsRule = rhs as? ThematicBreakAttachment {
+            return lhsRule.isEquivalent(to: rhsRule)
+        }
         if let lhsPlugin = lhs as? any MarkdownPluginAttachment, let rhsPlugin = rhs as? any MarkdownPluginAttachment {
             return lhsPlugin.markdownText() == rhsPlugin.markdownText()
         }
         return lhs.bounds == rhs.bounds
+    }
+}
+
+private extension ThematicBreakAttachment {
+    func isEquivalent(to other: ThematicBreakAttachment) -> Bool {
+        lineColor == other.lineColor && lineHeight == other.lineHeight
+            && marginTop == other.marginTop && marginBottom == other.marginBottom
     }
 }
 

@@ -30,7 +30,7 @@ extension TrailingSpacing {
         let attributes = output.attributes(at: lastVisible.location, effectiveRange: nil)
         if let rule = attributes[.attachment] as? ThematicBreakAttachment {
             spacing.margin = max(spacing.margin, rule.marginBottom)
-            rule.marginBottom = 0
+            output.addAttribute(.attachment, value: rule.withoutMarginBottom(), range: lastVisible)
         }
         if MarkdownAttributeValue.boolValue(from: attributes[MarkdownAttribute.codeBlock]) {
             spacing.padding = codeBlockPadding

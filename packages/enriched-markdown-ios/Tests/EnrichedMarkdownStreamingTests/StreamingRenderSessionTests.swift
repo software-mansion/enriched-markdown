@@ -222,6 +222,16 @@ final class StreamingRenderSessionTests: XCTestCase {
         assertEveryPrefixRendersWhole("* * *\n-\n- **b\n\n\n   ```sh\n- # head", sizes: [2])
     }
 
+    func testAFrozenRuleKeepsItsBottomMargin() {
+        assertEveryPrefixRendersWhole("---\n\n|---|---|\n```sh\ncode\n```\n\nEnd", sizes: [1])
+    }
+
+    func testNeighbouringRunsKeepTheirOwnSourceRanges() {
+        for markdown in ["- one\n- two\n- ``code`` first\n", "a\n\n**a**b\n\nend"] {
+            assertEveryPrefixRendersWhole(markdown, sizes: [1])
+        }
+    }
+
     func testAQuotedFenceRendersInEveryPrefixAsInTheWholeDocument() {
         let markdown = "First.\n\nSecond.\n\n> ```js\n> let a = 1\n> ```\n\nAfter the quote."
         let session = StreamingFixtures.session()

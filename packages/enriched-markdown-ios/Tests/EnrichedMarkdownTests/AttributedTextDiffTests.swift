@@ -36,6 +36,14 @@ final class AttributedTextDiffTests: XCTestCase {
         XCTAssertFalse(AttributedTextDiff.isEquivalent(first, changed))
     }
 
+    func testARuleDiffersFromTheSameRuleWithoutItsBottomMargin() {
+        let rule = ThematicBreakAttachment()
+        rule.marginBottom = 16
+        let trimmed = NSAttributedString(attachment: rule.withoutMarginBottom())
+        XCTAssertFalse(AttributedTextDiff.isEquivalent(NSAttributedString(attachment: rule), trimmed))
+        XCTAssertTrue(AttributedTextDiff.isEquivalent(NSAttributedString(attachment: rule.withoutMarginBottom()), trimmed))
+    }
+
     func testPendingCodeBlockDiffersFromItsClosedForm() {
         let style = CodeBlockAttachmentStyle(config: .baseline())
         let code = CodeBlockAttachment.attributedCode("let x = 1", style: style)

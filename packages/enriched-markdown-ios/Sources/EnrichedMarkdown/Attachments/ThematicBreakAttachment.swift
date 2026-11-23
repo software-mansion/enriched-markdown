@@ -6,6 +6,14 @@ final class ThematicBreakAttachment: NSTextAttachment {
     var marginTop: CGFloat = 0
     var marginBottom: CGFloat = 0
 
+    func withoutMarginBottom() -> ThematicBreakAttachment {
+        let copy = ThematicBreakAttachment()
+        copy.lineColor = lineColor
+        copy.lineHeight = lineHeight
+        copy.marginTop = marginTop
+        return copy
+    }
+
     override func attachmentBounds(
         for textContainer: NSTextContainer?,
         proposedLineFragment lineFrag: CGRect,

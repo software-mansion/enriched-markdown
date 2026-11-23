@@ -328,10 +328,13 @@ final class StreamingRenderSession: MarkdownStreamingSession {
     }
 
     private static func shiftSourceRanges(in output: NSMutableAttributedString, range: NSRange, by offset: Int) {
+        var runs: [(range: NSRange, source: NSRange)] = []
         output.enumerateAttribute(MarkdownAttribute.sourceRange, in: range) { value, runRange, _ in
             guard let sourceRange = (value as? NSValue)?.rangeValue else { return }
-            let shifted = NSRange(location: sourceRange.location + offset, length: sourceRange.length)
-            output.addAttribute(MarkdownAttribute.sourceRange, value: NSValue(range: shifted), range: runRange)
+            runs.append((runRange, NSRange(location: sourceRange.location + offset, length: sourceRange.length)))
+        }
+        for run in runs {
+            output.addAttribute(MarkdownAttribute.sourceRange, value: NSValue(range: run.source), range: run.range)
         }
     }
 }
