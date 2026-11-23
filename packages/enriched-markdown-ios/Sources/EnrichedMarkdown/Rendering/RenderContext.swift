@@ -75,6 +75,14 @@ package enum MarkdownAttribute {
     static let trailingSpacing = NSAttributedString.Key("EnrichedMarkdownTrailingSpacing")
 }
 
+struct ListContinuation {
+    let type: ListType
+    let itemNumber: Int
+    let markerWidth: CGFloat
+    let blockType: BlockType
+    let blockStyle: BlockStyle?
+}
+
 package final class RenderContext {
     private(set) var currentBlockType: BlockType = .none
     private(set) var currentBlockStyle: BlockStyle?
@@ -93,6 +101,10 @@ package final class RenderContext {
     /// Extra marker width of the list item whose children are rendering.
     var listItemMarkerExtra: CGFloat = 0
     var taskItemIndex = 0
+    var openList: ListContinuation?
+    var listContinuation: ListContinuation?
+    package var listContinuedByNext = false
+    package var listRestartRequested = false
     var rendersBlockImage = false
     /// Set once a superscript or subscript run is rendered, so the post-pass
     /// that scales them runs only on documents that have any.
@@ -106,16 +118,18 @@ package final class RenderContext {
         let blockType: BlockType
         let blockStyle: BlockStyle?
         let taskItemIndex: Int
+        let openList: ListContinuation?
     }
 
     package var boundaryState: BoundaryState {
-        BoundaryState(blockType: currentBlockType, blockStyle: currentBlockStyle, taskItemIndex: taskItemIndex)
+        BoundaryState(blockType: currentBlockType, blockStyle: currentBlockStyle, taskItemIndex: taskItemIndex, openList: openList)
     }
 
     package func restore(_ state: BoundaryState) {
         currentBlockType = state.blockType
         currentBlockStyle = state.blockStyle
         taskItemIndex = state.taskItemIndex
+        openList = state.openList
     }
 
     func setBlockStyle(
@@ -126,6 +140,15 @@ package final class RenderContext {
     ) {
         currentBlockType = blockType
         currentBlockStyle = BlockStyle(font: font, color: color, headingLevel: headingLevel)
+    }
+
+    package func continueOpenList() {
+        listContinuation = openList
+    }
+
+    func setBlockStyle(_ style: BlockStyle?, blockType: BlockType) {
+        currentBlockType = blockType
+        currentBlockStyle = style
     }
 
     func enterBlockquote(admonition: AdmonitionType?) {

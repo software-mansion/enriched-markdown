@@ -3,6 +3,8 @@ import EnrichedMarkdownCppShim
 
 struct StreamingSnapshot {
     let finishedBytes: Int
+    let finishedItemsBytes: Int
+    let lastItemBytes: Int
     let tail: String
     let endsInsideOpenCodeFence: Bool
     let mayDefineLinkReference: Bool
@@ -25,6 +27,8 @@ struct StreamingSnapshot {
             return raw.tail == nil ? String(cString: start + offset) : nil
         }
         finishedBytes = raw.tail == nil ? 0 : Int(raw.finishedBytes)
+        finishedItemsBytes = raw.tail == nil ? 0 : Int(raw.finishedItemsBytes)
+        lastItemBytes = raw.tail == nil ? 0 : Int(raw.lastItemBytes)
         tail = raw.tail.map { String(cString: $0) } ?? unprepared ?? ""
         endsInsideOpenCodeFence = raw.endsInsideOpenCodeFence != 0
         mayDefineLinkReference = raw.mayDefineLinkReference != 0

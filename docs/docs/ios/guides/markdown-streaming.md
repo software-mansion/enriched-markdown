@@ -104,7 +104,7 @@ To animate it your own way, see [Custom transitions](#custom-transitions).
 
 ## While the answer arrives
 
-- **Finished text stays put.** Each update re-renders only the unfinished end of the answer, such as the paragraph, list or code block still being written. The text above it keeps its layout and selection, and tables and code blocks keep their scroll position. Inside a scroll view only the text near the visible area is laid out and drawn.
+- **Finished text stays put.** Each update re-renders only the unfinished end of the answer, such as the paragraph, list item or code block still being written. The text above it keeps its layout and selection, and tables and code blocks keep their scroll position. Inside a scroll view only the text near the visible area is laid out and drawn. A numbered list is rendered again when a wider number widens its marker column.
 - **Unfinished syntax never shows raw.** `**bold` and `` `code`` render as if they were already closed. A lone `**` at the very end waits for the next token. The rules follow [remend](https://www.npmjs.com/package/remend). A link still being typed, such as `[text](ur`, shows its text until it closes. An image waits until it closes.
 - **Unfinished blocks wait**, as set by [`tables`](#tables), [`codeBlocks`](#codeblocks) and [`media`](#media). With [LaTeX math](/ios/guides/latex-math) on, a `$$` block and a formula inside a line stay hidden until they close. A `$` next to a digit or a space is a price, not math.
 - **New text animates in**, as set by [`transition`](#transition). Selection and VoiceOver are not affected. With Reduce Motion on, new text appears at once.

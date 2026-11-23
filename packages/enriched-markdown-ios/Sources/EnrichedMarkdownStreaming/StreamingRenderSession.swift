@@ -3,10 +3,29 @@ import UIKit
 import os
 
 final class StreamingRenderSession: MarkdownStreamingSession {
+    private struct Part {
+        var blocks: [MarkdownASTNode] = []
+        var sourceOffset: Int = 0
+    }
+
+    private struct Item {
+        let source: String
+        let node: MarkdownASTNode
+    }
+
     private struct Update {
-        let snapshot: StreamingSnapshot
-        let finished: String
-        let finishedBlocks: [MarkdownASTNode]
+        let source: String
+        var finished: String = ""
+        var finishedPart = Part()
+        var tailPart = Part()
+        var openItem: Item?
+    }
+
+    private struct ListAnchor {
+        let sourceBytes: Int
+        let outputLength: Int
+        let boundary: RenderContext.BoundaryState?
+        let openItem: Item?
     }
 
     private static let nextID = OSAllocatedUnfairLock<UInt64>(initialState: 0)
@@ -20,7 +39,11 @@ final class StreamingRenderSession: MarkdownStreamingSession {
     private var stableSource: String = ""
     private let stableOutput = NSMutableAttributedString()
     private var boundary: RenderContext.BoundaryState?
+    private var openItem: Item?
+    private var listAnchor: ListAnchor?
     private var splitsBlocks: Bool = true
+    private var splitsItems: Bool = true
+    private var unsplitItemsEnd: Int?
 
     init(inputs: MarkdownRenderInputs) {
         key = inputs.sessionKey
@@ -38,78 +61,142 @@ final class StreamingRenderSession: MarkdownStreamingSession {
         if !Self.hasPrefix(markdown, stableSource) {
             id = Self.makeID()
             splitsBlocks = true
+            splitsItems = true
             resetStableBlocks()
         }
-        let update = prepare(markdown, options: options)
-        let stableBytes = stableSource.utf8.count
-        let finishedBytes = stableBytes + update.finished.utf8.count
-        let snapshotEnd = stableBytes + update.snapshot.finishedBytes
+        return render(markdown, options: options, splittingItems: true)
+    }
 
+    private func render(_ markdown: String, options: MarkdownStreamingOptions, splittingItems: Bool) -> StreamingRenderResult {
+        let update = prepare(markdown, options: options, splittingItems: splittingItems)
+        let continuesList = update.openItem != nil
         let text = NSMutableAttributedString(attributedString: stableOutput)
         let context = renderer.makeRootContext()
         if let boundary {
             context.restore(boundary)
         }
+        if openItem != nil {
+            context.continueOpenList()
+        }
         let stableLength = text.length
-        render(update.finishedBlocks, into: text, context: context, byteOffset: stableBytes)
+        render(update.finishedPart, into: text, context: context, continuedByNext: continuesList)
         let finishedEnd = text.length
         let state = context.boundaryState
-
-        let tail = Self.text(of: markdown, in: finishedBytes..<snapshotEnd) + update.snapshot.tail
-        if !tail.isEmpty {
-            var root = MarkdownRenderer.parse(tail, options: parsingOptions)
-            if update.snapshot.endsInsideOpenCodeFence,
-               let marked = Self.markingPendingCodeBlock(root, tailEnd: Self.trimmingTrailingWhitespace(tail)).marked {
-                root = marked
+        if continuesList {
+            context.continueOpenList()
+        }
+        render(update.tailPart, into: text, context: context)
+        let leavesListOpen = continuesList && update.tailPart.blocks.first.map(Self.isList) != true
+        if context.listRestartRequested || leavesListOpen, splittingItems {
+            if context.listRestartRequested {
+                unsplitItemsEnd = stableSource.utf8.count + update.finished.utf8.count
             }
-            render(root.children, into: text, context: context, byteOffset: finishedBytes)
+            if let listAnchor {
+                restore(listAnchor)
+            }
+            return render(markdown, options: options, splittingItems: false)
         }
         renderer.finishBlocks(in: text, range: NSRange(location: stableLength, length: text.length - stableLength), context: context)
 
         if !update.finished.isEmpty, Self.hasVisibleContent(text, in: NSRange(location: finishedEnd, length: text.length - finishedEnd)) {
+            if update.openItem == nil {
+                listAnchor = nil
+            } else if listAnchor == nil || update.finishedPart.blocks.count != 1 {
+                listAnchor = ListAnchor(sourceBytes: stableSource.utf8.count, outputLength: stableLength, boundary: boundary, openItem: openItem)
+            }
             stableOutput.append(text.attributedSubstring(from: NSRange(location: stableLength, length: finishedEnd - stableLength)))
             InlineBackground.carryBorderRoom(from: text, to: stableOutput)
             stableSource += update.finished
             boundary = state
+            openItem = update.openItem
         }
         TrailingSpacing.strip(from: text, codeBlockPadding: key.config.codeBlock.padding ?? 0)
         return StreamingRenderResult(
             text: text,
-            source: Self.text(of: markdown, in: 0..<snapshotEnd) + update.snapshot.tail,
+            source: update.source,
             lineage: StreamingLineage(session: id, stableLength: unchangedLength(of: text))
         )
     }
 
-    private func prepare(_ markdown: String, options: MarkdownStreamingOptions) -> Update {
+    private func prepare(_ markdown: String, options: MarkdownStreamingOptions, splittingItems: Bool) -> Update {
         let stableBytes = stableSource.utf8.count
         let snapshot = StreamingSnapshot(of: markdown, from: stableBytes, parsing: parsingOptions, streaming: options)
+        let blocksEnd = stableBytes + snapshot.finishedBytes
+        let source = Self.text(of: markdown, in: 0..<blocksEnd) + snapshot.tail
         if splitsBlocks, !parsingOptions.preserveBlankLines, !snapshot.mayDefineLinkReference {
-            let finished = Self.text(of: markdown, in: stableBytes..<stableBytes + snapshot.finishedBytes)
-            if let blocks = finishedBlocks(of: finished) {
-                return Update(snapshot: snapshot, finished: finished, finishedBlocks: blocks)
+            let itemsEnd = stableBytes + snapshot.finishedItemsBytes
+            let rest = snapshot.tail.utf8.dropFirst(itemsEnd - blocksEnd)
+            if splittingItems, splitsItems, itemsEnd > blocksEnd, itemsEnd != unsplitItemsEnd, !rest.allSatisfy(Self.isWhitespace) {
+                let lastItem = Self.text(of: markdown, in: stableBytes + snapshot.lastItemBytes..<itemsEnd)
+                if let update = split(markdown, at: itemsEnd, lastItem: lastItem, snapshot: snapshot, source: source) {
+                    return update
+                }
+                splitsItems = false
+            }
+            if let update = split(markdown, at: blocksEnd, lastItem: nil, snapshot: snapshot, source: source) {
+                return update
             }
             splitsBlocks = false
         }
-        guard stableBytes > 0 else { return Update(snapshot: snapshot, finished: "", finishedBlocks: []) }
+        guard stableBytes > 0 else {
+            return Update(source: source, tailPart: Part(blocks: tailBlocks(of: source, snapshot: snapshot)))
+        }
         resetStableBlocks()
-        let whole = StreamingSnapshot(of: markdown, from: 0, parsing: parsingOptions, streaming: options)
-        return Update(snapshot: whole, finished: "", finishedBlocks: [])
+        return prepare(markdown, options: options, splittingItems: splittingItems)
     }
 
-    private func finishedBlocks(of markdown: String) -> [MarkdownASTNode]? {
+    private func split(
+        _ markdown: String,
+        at end: Int,
+        lastItem: String?,
+        snapshot: StreamingSnapshot,
+        source: String
+    ) -> Update? {
+        let stableBytes = stableSource.utf8.count
+        var update = Update(source: source, finished: Self.text(of: markdown, in: stableBytes..<end))
+        if update.finished.isEmpty {
+            update.openItem = openItem
+        } else {
+            let context = openItem?.source ?? ""
+            let probe = lastItem == nil ? Self.probe : Self.marker(of: markdown, at: end) + " " + Self.probe
+            var blocks = MarkdownRenderer.parse(context + update.finished + probe + "\n", options: parsingOptions).children
+            guard lastItem == nil ? Self.droppingProbeParagraph(&blocks) : Self.droppingProbeItem(&blocks),
+                  Self.droppingFirstItem(&blocks, matching: openItem)
+            else { return nil }
+            if let lastItem {
+                guard let node = blocks.last?.children.last, !node.children.isEmpty else { return nil }
+                update.openItem = Item(source: lastItem, node: node)
+            }
+            update.finishedPart = Part(blocks: blocks, sourceOffset: stableBytes - context.utf8.count)
+        }
+        let context = update.openItem?.source ?? ""
+        var blocks = tailBlocks(of: context + Self.text(of: source, in: end..<source.utf8.count), snapshot: snapshot)
+        guard Self.droppingFirstItem(&blocks, matching: update.openItem) else { return nil }
+        update.tailPart = Part(blocks: blocks, sourceOffset: end - context.utf8.count)
+        return update
+    }
+
+    private func tailBlocks(of markdown: String, snapshot: StreamingSnapshot) -> [MarkdownASTNode] {
         guard !markdown.isEmpty else { return [] }
-        let root = MarkdownRenderer.parse(markdown + Self.probe + "\n", options: parsingOptions)
-        guard let last = root.children.last, last.type == .paragraph, last.children.count == 1,
-              last.children[0].type == .text, last.children[0].content == Self.probe
-        else { return nil }
-        return Array(root.children.dropLast())
+        let root = MarkdownRenderer.parse(markdown, options: parsingOptions)
+        guard snapshot.endsInsideOpenCodeFence,
+              let marked = Self.markingPendingCodeBlock(root, tailEnd: Self.trimmingTrailingWhitespace(markdown)).marked
+        else { return root.children }
+        return marked.children
     }
 
-    private func render(_ blocks: [MarkdownASTNode], into text: NSMutableAttributedString, context: RenderContext, byteOffset: Int) {
+    private func render(_ part: Part, into text: NSMutableAttributedString, context: RenderContext, continuedByNext: Bool = false) {
         let start = text.length
-        renderer.renderBlocks(blocks, into: text, context: context)
-        if byteOffset > 0 {
-            Self.shiftSourceRanges(in: text, range: NSRange(location: start, length: text.length - start), by: byteOffset)
+        if continuedByNext, let last = part.blocks.last {
+            renderer.renderBlocks(Array(part.blocks.dropLast()), into: text, context: context)
+            context.listContinuedByNext = true
+            renderer.renderBlocks([last], into: text, context: context)
+            context.listContinuedByNext = false
+        } else {
+            renderer.renderBlocks(part.blocks, into: text, context: context)
+        }
+        if part.sourceOffset > 0 {
+            Self.shiftSourceRanges(in: text, range: NSRange(location: start, length: text.length - start), by: part.sourceOffset)
         }
     }
 
@@ -117,12 +204,73 @@ final class StreamingRenderSession: MarkdownStreamingSession {
         stableSource = ""
         stableOutput.setAttributedString(NSAttributedString())
         boundary = nil
+        openItem = nil
+        listAnchor = nil
+        unsplitItemsEnd = nil
+    }
+
+    private func restore(_ anchor: ListAnchor) {
+        stableSource = Self.text(of: stableSource, in: 0..<anchor.sourceBytes)
+        stableOutput.deleteCharacters(in: NSRange(location: anchor.outputLength, length: stableOutput.length - anchor.outputLength))
+        boundary = anchor.boundary
+        openItem = anchor.openItem
+        listAnchor = nil
     }
 
     private func unchangedLength(of text: NSMutableAttributedString) -> Int {
         guard text.length <= stableOutput.length else { return stableOutput.length }
         guard text.length > 0 else { return 0 }
         return text.mutableString.paragraphRange(for: NSRange(location: text.length - 1, length: 0)).location
+    }
+
+    private static func droppingProbeParagraph(_ blocks: inout [MarkdownASTNode]) -> Bool {
+        guard let last = blocks.last, isProbe(last) else { return false }
+        blocks.removeLast()
+        return true
+    }
+
+    private static func droppingProbeItem(_ blocks: inout [MarkdownASTNode]) -> Bool {
+        guard let list = blocks.last, isList(list), list.children.count >= 2, let item = list.children.last,
+              item.children.count == 1, isProbe(item.children[0])
+        else { return false }
+        blocks[blocks.count - 1] = replacingChildren(of: list, with: Array(list.children.dropLast()))
+        return true
+    }
+
+    private static func droppingFirstItem(_ blocks: inout [MarkdownASTNode], matching item: Item?) -> Bool {
+        guard let item else { return true }
+        guard let list = blocks.first, isList(list), let first = list.children.first, matches(first, item.node) else { return false }
+        if list.children.count == 1 {
+            blocks.removeFirst()
+        } else {
+            blocks[0] = replacingChildren(of: list, with: Array(list.children.dropFirst()))
+        }
+        return true
+    }
+
+    private static func matches(_ lhs: MarkdownASTNode, _ rhs: MarkdownASTNode) -> Bool {
+        lhs.type == rhs.type && lhs.content == rhs.content && lhs.children.count == rhs.children.count
+            && zip(lhs.children, rhs.children).allSatisfy(matches)
+    }
+
+    private static func isProbe(_ node: MarkdownASTNode) -> Bool {
+        node.type == .paragraph && node.children.count == 1 && node.children[0].type == .text && node.children[0].content == probe
+    }
+
+    private static func isList(_ node: MarkdownASTNode) -> Bool {
+        node.type == .orderedList || node.type == .unorderedList
+    }
+
+    private static func replacingChildren(of node: MarkdownASTNode, with children: [MarkdownASTNode]) -> MarkdownASTNode {
+        MarkdownASTNode(type: node.type, content: node.content, attributes: node.attributes, children: children)
+    }
+
+    private static func marker(of markdown: String, at offset: Int) -> String {
+        String(markdown.utf8.dropFirst(offset).prefix { !isWhitespace($0) }) ?? ""
+    }
+
+    private static func isWhitespace(_ byte: UInt8) -> Bool {
+        byte == UInt8(ascii: " ") || byte == UInt8(ascii: "\t") || byte == UInt8(ascii: "\n") || byte == UInt8(ascii: "\r")
     }
 
     private static func markingPendingCodeBlock(_ node: MarkdownASTNode, tailEnd: String) -> (found: Bool, marked: MarkdownASTNode?) {
@@ -138,7 +286,7 @@ final class StreamingRenderSession: MarkdownStreamingSession {
             guard result.found else { continue }
             guard let marked = result.marked else { return (true, nil) }
             children[index] = marked
-            return (true, MarkdownASTNode(type: node.type, content: node.content, attributes: node.attributes, children: children))
+            return (true, replacingChildren(of: node, with: children))
         }
         return (false, nil)
     }

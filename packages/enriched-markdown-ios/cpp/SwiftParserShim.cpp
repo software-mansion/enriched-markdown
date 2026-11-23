@@ -179,8 +179,12 @@ void em_streaming_snapshot(const char *markdown, int latexMath, int superscript,
   options.flags.subscript = subscript != 0;
   options.flags.highlight = highlight != 0;
   try {
-    Markdown::StreamingSnapshot result = Markdown::streamingSnapshot(markdown, options);
+    const std::string source(markdown);
+    Markdown::StreamingSnapshot result = Markdown::streamingSnapshot(source, options);
+    Markdown::FinishedListItems items = Markdown::streamingListItems(source, result, options);
     snapshot->finishedBytes = result.finishedBytes;
+    snapshot->finishedItemsBytes = items.end;
+    snapshot->lastItemBytes = items.lastItem;
     snapshot->endsInsideOpenCodeFence = result.endsInsideOpenCodeFence ? 1 : 0;
     snapshot->mayDefineLinkReference = Markdown::mayDefineLinkReference(result.markdown) ? 1 : 0;
     snapshot->tail = strdup(result.markdown.c_str() + result.finishedBytes);

@@ -37,11 +37,12 @@ final class StreamingRenderSessionTests: XCTestCase {
         _ markdown: String,
         options: MarkdownParsingOptions = .commonMark,
         codeBlockLayout: MarkdownCodeBlockLayout = .wrapping,
+        sizes: [Int] = [3, 7, 4, 11, 5, 2, 9],
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
         let session = StreamingFixtures.session(options: options, codeBlockLayout: codeBlockLayout)
-        for prefix in StreamingFixtures.chunks(of: markdown) {
+        for prefix in StreamingFixtures.chunks(of: markdown, sizes: sizes) {
             let result = session.render(prefix, options: MarkdownStreamingOptions(codeBlocks: .hidden))
             assertEquivalent(
                 result.text,
@@ -50,6 +51,13 @@ final class StreamingRenderSessionTests: XCTestCase {
                 file: file,
                 line: line
             )
+        }
+    }
+
+    private func stableLengths(streaming markdown: String) -> [Int] {
+        let session = StreamingFixtures.session()
+        return StreamingFixtures.chunks(of: markdown, sizes: [17, 9, 23]).map {
+            session.render($0, options: streaming).lineage.stableLength
         }
     }
 
@@ -143,14 +151,75 @@ final class StreamingRenderSessionTests: XCTestCase {
         XCTAssertFalse(attachments(of: MarkdownImageAttachment.self, in: complete).isEmpty)
     }
 
-    func testAListStaysUnfinishedUntilAnotherBlockFollowsIt() {
-        let session = StreamingFixtures.session()
-        let list = "Intro\n\n- First item\n- Second item"
-        XCTAssertEqual(session.render(list, options: streaming).lineage.stableLength, 0, "a list can still grow")
-        let followed = session.render(list + "\n\nAfter the list.", options: streaming)
-        let stable = (followed.text.string as NSString).substring(to: followed.lineage.stableLength)
-        XCTAssertTrue(stable.contains("Second item"), "the paragraph after the list finishes it")
-        XCTAssertFalse(stable.contains("After"))
+    func testLongListsFreezeTheirFinishedItems() {
+        let items = (1...30).map { "- Item \($0) of a long bullet list" }.joined(separator: "\n")
+        let markdown = "Intro\n\n" + items + "\n\nAfter the list."
+        assertEveryPrefixRendersWhole(markdown)
+        let stableLengths = stableLengths(streaming: markdown)
+        XCTAssertEqual(stableLengths, stableLengths.sorted())
+        XCTAssertGreaterThan(Set(stableLengths).count, 10, "the frozen part grows item by item")
+    }
+
+    func testNumberedListsRealignWhenAWiderNumberArrives() {
+        let items = (1...12).map { "\($0). Step \($0) of the recipe" }.joined(separator: "\n")
+        let markdown = "Intro\n\n" + items + "\n\nDone."
+        assertEveryPrefixRendersWhole(markdown)
+        let stableLengths = stableLengths(streaming: markdown)
+        XCTAssertNotEqual(stableLengths, stableLengths.sorted(), "the list is rendered again once its marker column widens")
+        XCTAssertGreaterThan(Set(stableLengths).count, 5)
+    }
+
+    func testListsOfEveryShapeRenderInEveryPrefixAsInTheWholeDocument() {
+        let lists = [
+            "Intro\n\n- First\n\n- Second\n\n- Third\n\nAfter a loose list.",
+            "- First\n- Second\n\n- Third after a blank line\n- Fourth",
+            "1. Install it\n2. Configure it:\n   ```json\n   { \"a\": 1 }\n   ```\n3. Run it\n   - with flags\n   - without\n4. Done",
+            "- A point that wraps\n  onto a second line\n- Another\n\n  with a second paragraph\n"
+                + "- [ ] An open task\n- [x] A finished task\n- > A quote\n- Last",
+            "- Bullets\n- end here\n\n1. Numbers\n2. start here\n\n* Stars\n* follow",
+            "# Steps\n1. One\n2. Two\n3. Three\n\n## More\n- Four\n- Five\n- - -\n- Six\n- Seven",
+            "- One\nlazy line\n- Two\n- Three\n\n\n  indented after two blank lines\n- Four",
+            "-\n- Second after an empty item\n- Third\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n- After a table\n- again"
+        ]
+        for markdown in lists {
+            assertEveryPrefixRendersWhole(markdown, sizes: [1])
+            assertEveryPrefixRendersWhole(markdown)
+        }
+    }
+
+    func testItemLinesTheParserReadsAsCodeRenderAsInTheWholeDocument() {
+        let documents = [
+            "- - -\n  ```\n- one\n- two\n- three\n",
+            "<div>\n```\n\n```\ntext\n\n- one\n- two\n- three\n",
+            "-\n\n  text\n\n  ```\n- one\n- two\n- three\n"
+        ]
+        for markdown in documents {
+            assertEveryPrefixRendersWhole(markdown, sizes: [1])
+        }
+    }
+
+    func testFrozenItemsCloseTheirListWhenTheRestIsWithheld() {
+        for markdown in ["- one\n- two\n- ```\n  fenced\n  ```\n- three\n", "- one\n- \n1. two\n"] {
+            assertEveryPrefixRendersWhole(markdown, sizes: [1])
+        }
+    }
+
+    func testItemsAfterAQuoteOrCodeInAnItemRenderAsInTheWholeDocument() {
+        let lists = [
+            "- Intro\n  > quoted\n- After the quote\n\n  with a second paragraph\n- Last\n",
+            "1. Run:\n   ```sh\n   npm i\n   ```\n2. Next step\n\n   with a second paragraph\n3. Last\n"
+        ]
+        for markdown in lists {
+            assertEveryPrefixRendersWhole(markdown, sizes: [1])
+        }
+    }
+
+    func testAnItemTheParserReadsAsTwoIsNotRenderedTwice() {
+        assertEveryPrefixRendersWhole("- a\n  - n\n   ```\n- b\n  ```\n- c\n- d\n", sizes: [1])
+    }
+
+    func testAnEmptyItemIsNotTheLastFrozenItem() {
+        assertEveryPrefixRendersWhole("* * *\n-\n- **b\n\n\n   ```sh\n- # head", sizes: [2])
     }
 
     func testAQuotedFenceRendersInEveryPrefixAsInTheWholeDocument() {

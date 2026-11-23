@@ -875,9 +875,9 @@ struct Answer: View {
 While `isStreaming` is true:
 
 - Only the unfinished end of the text re-renders, such as the paragraph,
-  list or code block still being written. The text above keeps its layout
-  and selection. Inside a scroll view, only the text near the visible area is
-  laid out and drawn.
+  list item or code block still being written. The text above keeps its
+  layout and selection. Inside a scroll view, only the text near the visible
+  area is laid out and drawn.
 - Unfinished syntax such as `**bold` renders as if closed, following the
   rules of [remend](https://www.npmjs.com/package/remend). A link still
   being typed shows its text until it closes; an image waits.

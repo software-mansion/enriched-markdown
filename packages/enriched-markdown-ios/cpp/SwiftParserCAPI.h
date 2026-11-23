@@ -35,6 +35,8 @@ void em_string_release(char *string);
 typedef struct {
   char *tail; // what follows the finished blocks; NULL when the snapshot failed
   size_t finishedBytes;
+  size_t finishedItemsBytes; // finishedBytes, or where the finished items of a list end
+  size_t lastItemBytes;      // where the last of those items starts
   int endsInsideOpenCodeFence;
   int mayDefineLinkReference;
 } EMCStreamingSnapshot;
