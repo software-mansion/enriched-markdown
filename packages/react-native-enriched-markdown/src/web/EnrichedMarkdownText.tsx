@@ -114,11 +114,9 @@ export const EnrichedMarkdownText = ({
     if (parserReady) return;
     let cancelled = false;
     // A load that succeeds flips `parserReady`, which supersedes `loadFailed`.
-    loadParser().catch((error) => {
+    // parseMarkdown logs the failure once for the page.
+    loadParser().catch(() => {
       if (cancelled) return;
-      if (isDev) {
-        console.error('[EnrichedMarkdownText] Parser failed to load:', error);
-      }
       setLoadFailed(true);
     });
     return () => {

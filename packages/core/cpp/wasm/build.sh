@@ -53,6 +53,17 @@ emcc \
   -c "$CPP_ROOT/enrmrkd/enrmrkd-entity.c" \
   -o "$WORK/enrmrkd-entity.o"
 
+# bob copies md4c.js into lib/module, whose package.json sets "type": "module",
+# so esbuild, Vite, webpack and Node load it as an ES module. The UMD footer
+# emscripten writes only assigns `module.exports`, which does not exist there:
+# `import('./wasm/md4c')` gets no default export and the parser never loads.
+# Metro ignores "type", which is why the Expo example works.
+#
+# EXPORT_ES6 would write `export default`, but it also reads `import.meta.url`,
+# which Metro and Jest cannot parse. Appending the export after the module keeps
+# the UMD footer for CommonJS loaders; under ESM that footer never runs.
+printf 'export default createMd4cModule;\n' >"$WORK/export.js"
+
 # Compile C++ sources and link everything together. em++, not emcc: emscripten
 # 6.0.6 turned DEFAULT_TO_CXX off, so emcc no longer links the C++ runtime.
 em++ \
@@ -79,6 +90,7 @@ em++ \
   -s MAXIMUM_MEMORY=512MB \
   -s ALLOW_MEMORY_GROWTH=1 \
   -s GROWABLE_ARRAYBUFFERS=0 \
+  --extern-post-js "$WORK/export.js" \
   -o "$OUT_DIR/md4c.js"
 
 echo "Done → $OUT_DIR/md4c.js"

@@ -14,6 +14,7 @@ export type {
   MeasureLayoutCallback,
 } from './EnrichedMarkdownTextInput.web';
 export type { EnrichedMarkdownTextProps } from './types/MarkdownTextProps.web';
+export type { MarkdownShortcutsConfig } from './normalizeMarkdownShortcuts';
 export type {
   MarkdownBlockPlacement,
   MarkdownSlotBlock,

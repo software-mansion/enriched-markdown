@@ -44,7 +44,10 @@ import type {
 } from 'react-native';
 import { Platform } from 'react-native';
 import { toHeadingLevel } from './headingLevel';
-import { normalizeMarkdownShortcuts } from './normalizeMarkdownShortcuts';
+import {
+  normalizeMarkdownShortcuts,
+  type MarkdownShortcutsConfig,
+} from './normalizeMarkdownShortcuts';
 import { normalizeMarkdownTextInputStyle } from './normalizeMarkdownTextInputStyle';
 import { normalizeMenuItem } from './normalizeMenuItem';
 import { toNativeRegexConfig } from './utils/regexParser';
@@ -119,18 +122,9 @@ export interface FormatMenuConfig {
   link?: MenuItem;
 }
 
-/**
- * Which typed markdown block prefixes convert into blocks. An omitted key is
- * off, so `{ heading: true }` enables headings and nothing else.
- */
-export interface MarkdownShortcutsConfig {
-  /** `#`–`######` + space. @default false */
-  heading?: boolean;
-  /** `-`/`*`/`+` + space. @default false */
-  unorderedList?: boolean;
-  /** `1.` or `1)` + space. @default false */
-  orderedList?: boolean;
-}
+// Defined next to its normalizer, which has no react-native import, so the web
+// input can share it.
+export type { MarkdownShortcutsConfig } from './normalizeMarkdownShortcuts';
 
 export interface EnrichedMarkdownTextInputProps
   extends

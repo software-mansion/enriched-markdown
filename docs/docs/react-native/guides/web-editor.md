@@ -203,12 +203,11 @@ rejects with `Error('Component unmounted')`, and commands do nothing.
 These props are stripped before the editor `<div>` renders, so they never reach
 the DOM or trigger React unknown-prop warnings:
 
-`markdownShortcuts`, `multiline`, `scrollEnabled`,
-`writingDirection`, `linkRegex`, `onLinkDetected`, `mentionIndicators`,
-`onStartMention`, `onChangeMention`, `onEndMention`, `contextMenuItems`,
-`selectionMenuConfig`, `formatMenuConfig`, `onCaretRectChange`, and the React
-Native press props (`onPress`, `onPressIn`, `onPressOut`,
-`rejectResponderTermination`, `hitSlop`).
+`multiline`, `scrollEnabled`, `writingDirection`, `linkRegex`,
+`onLinkDetected`, `mentionIndicators`, `onStartMention`, `onChangeMention`,
+`onEndMention`, `contextMenuItems`, `selectionMenuConfig`, `formatMenuConfig`,
+`onCaretRectChange`, and the React Native press props (`onPress`, `onPressIn`,
+`onPressOut`, `rejectResponderTermination`, `hitSlop`).
 
 :::caution
 `onKeyPress` and `autoCapitalize` are **not** stripped: they share a name with
@@ -222,8 +221,6 @@ input, so it is no replacement for the native event.
 - **Link and mention commands** - `setLink`, `insertLink`, `removeLink`,
   `insertMention`, `startMention` and `copyToClipboard` warn once and do
   nothing.
-- **Markdown shortcuts** - typing `# ` or `- ` does not turn the line into a
-  heading or list.
 - **Auto-link detection** - `linkRegex` and `onLinkDetected` are ignored.
 - **Mentions** - there is no mention flow, and the mention events never fire.
 - **Custom menus** - `contextMenuItems`, `selectionMenuConfig` and

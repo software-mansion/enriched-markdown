@@ -13,7 +13,14 @@
  * Usage:
  *   node scripts/test-web-bundle.mjs
  */
-import { readFileSync, readdirSync } from 'node:fs';
+import {
+  copyFileSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -86,8 +93,22 @@ if (fixtures.length === 0) {
   fail(`no fixtures in ${FIXTURES}`);
 }
 
-console.log('==> Loading the committed WASM bundle');
-const module = await import(pathToFileURL(BUNDLE).href);
+// The package ships this file in lib/module, whose package.json sets "type":
+// "module", so esbuild, Vite, webpack and Node load it as an ES module there.
+// Imported from src/ it can load as CommonJS instead, where emscripten's UMD
+// footer hides a missing ES export, so load a .mjs copy to get the same rules.
+console.log('==> Loading the committed WASM bundle as an ES module');
+const esmDir = mkdtempSync(join(tmpdir(), 'md4c-'));
+const esmCopy = join(esmDir, 'md4c.mjs');
+copyFileSync(BUNDLE, esmCopy);
+const module = await import(pathToFileURL(esmCopy).href);
+rmSync(esmDir, { recursive: true, force: true });
+if (typeof module.default !== 'function') {
+  fail(
+    'the bundle has no default export when loaded as an ES module, so ' +
+      "import('./wasm/md4c') in lib/module gets no parser"
+  );
+}
 const instance = await module.default();
 const parse = instance.cwrap('parseMarkdown', 'string', [
   'string',
