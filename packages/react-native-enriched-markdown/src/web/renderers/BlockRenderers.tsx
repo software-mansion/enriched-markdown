@@ -19,6 +19,7 @@ import {
 } from '../../admonitionDefaults';
 import {
   ENRM_ADMONITION_CLASS,
+  ENRM_SPOILER_IMAGE_CLASS,
   ENRM_SPOILER_IMAGE_COVER_CLASS,
 } from '../globalStyles';
 import {
@@ -279,10 +280,13 @@ function ImageRenderer({
   const alt = markdownAlt || title || filenameFromUrl(url) || 'Image';
   const isInline = node.attributes?.isInline === true;
   const baseStyle = isInline ? styles.inlineImage : styles.image;
-  const imgStyle: CSSProperties =
-    isInImageOnlySpoiler && isInline
-      ? { ...baseStyle, display: 'block', verticalAlign: undefined }
-      : baseStyle;
+  let imgStyle: CSSProperties = baseStyle;
+  if (isInImageOnlySpoiler) {
+    imgStyle = { ...imgStyle, opacity: isConcealed ? 0 : 1 };
+    if (isInline) {
+      imgStyle = { ...imgStyle, display: 'block', verticalAlign: undefined };
+    }
+  }
 
   const interactive =
     callbacks.onImagePress != null &&
@@ -291,7 +295,15 @@ function ImageRenderer({
     parentType !== 'TableCell' &&
     parentType !== 'TableHeaderCell';
   if (!interactive) {
-    const img = <img src={src} alt={alt} title={title} style={imgStyle} />;
+    const img = (
+      <img
+        src={src}
+        alt={alt}
+        title={title}
+        style={imgStyle}
+        className={isInImageOnlySpoiler ? ENRM_SPOILER_IMAGE_CLASS : undefined}
+      />
+    );
     return isInImageOnlySpoiler
       ? withSpoilerCover(img, baseStyle, isInline, isConcealed, styles)
       : img;
@@ -312,6 +324,7 @@ function ImageRenderer({
       alt={alt}
       title={title}
       style={imgStyle}
+      className={isInImageOnlySpoiler ? ENRM_SPOILER_IMAGE_CLASS : undefined}
       role="button"
       tabIndex={0}
       aria-label={alt}

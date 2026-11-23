@@ -213,6 +213,7 @@ it('covers an images-only spoiler with a layer the size of the image, which fade
   expect(cover.style.backgroundColor).toBe('rgb(1, 2, 3)');
   expect(cover.style.borderRadius).toBe('3px');
   expect(cover.style.opacity).toBe('1');
+  expect(img.style.opacity).toBe('0');
   expect(cover.getAttribute('aria-hidden')).toBe('true');
   expect(spoiler.style.backgroundColor).toBe('transparent');
   expect(spoiler.getAttribute('role')).toBe('button');
@@ -220,6 +221,7 @@ it('covers an images-only spoiler with a layer the size of the image, which fade
   press(img);
   expect(spoiler.hasAttribute('data-revealed')).toBe(true);
   expect(cover.style.opacity).toBe('0');
+  expect(img.style.opacity).toBe('1');
   expect(img.style.borderRadius).toBe('8px');
   const css = document.getElementById('enrm-spoiler-reveal')?.textContent ?? '';
   expect(css).toContain(

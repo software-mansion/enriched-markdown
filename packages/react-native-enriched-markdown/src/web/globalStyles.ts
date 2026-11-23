@@ -5,12 +5,15 @@ export const ENRM_ADMONITION_CLASS = 'enrm-admonition';
 export const ENRM_SELECTION_BG_VAR = '--enrm-selection-bg';
 export const ENRM_SPOILER_CLASS = 'enrm-spoiler';
 export const ENRM_SPOILER_CONTENT_CLASS = 'enrm-spoiler-content';
+export const ENRM_SPOILER_IMAGE_CLASS = 'enrm-spoiler-image';
 export const ENRM_SPOILER_IMAGE_COVER_CLASS = 'enrm-spoiler-image-cover';
 
 const SPOILER_REVEAL = '450ms cubic-bezier(0.5, 1, 0.89, 1)';
 const REVEALED_SPOILER = `.${ENRM_TEXT_CLASS} .${ENRM_SPOILER_CLASS}[data-revealed]`;
 const REVEALED_CONTENT = `${REVEALED_SPOILER} > .${ENRM_SPOILER_CONTENT_CLASS}`;
-const REVEALED_IMAGE_COVER = `${REVEALED_SPOILER} .${ENRM_SPOILER_IMAGE_COVER_CLASS}`;
+const REVEALED_IMAGE_LAYERS =
+  `${REVEALED_SPOILER} .${ENRM_SPOILER_IMAGE_COVER_CLASS}, ` +
+  `${REVEALED_SPOILER} .${ENRM_SPOILER_IMAGE_CLASS}`;
 
 const RULES: ReadonlyArray<readonly [id: string, css: string]> = [
   [
@@ -29,9 +32,9 @@ const RULES: ReadonlyArray<readonly [id: string, css: string]> = [
   [
     'enrm-spoiler-reveal',
     `${REVEALED_SPOILER} { transition: background-color ${SPOILER_REVEAL}; } ` +
-      `${REVEALED_CONTENT}, ${REVEALED_IMAGE_COVER} { transition: opacity ${SPOILER_REVEAL}; } ` +
+      `${REVEALED_CONTENT}, ${REVEALED_IMAGE_LAYERS} { transition: opacity ${SPOILER_REVEAL}; } ` +
       `@media (prefers-reduced-motion: reduce) { ` +
-      `${REVEALED_SPOILER}, ${REVEALED_CONTENT}, ${REVEALED_IMAGE_COVER} { transition: none; } }`,
+      `${REVEALED_SPOILER}, ${REVEALED_CONTENT}, ${REVEALED_IMAGE_LAYERS} { transition: none; } }`,
   ],
 ];
 
