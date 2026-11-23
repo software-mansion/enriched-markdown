@@ -18,7 +18,10 @@ import {
   type AdmonitionType,
 } from '../../admonitionDefaults';
 import { ENRM_ADMONITION_CLASS } from '../globalStyles';
-import { ConcealedSpoilerContext } from './ConcealedSpoilerContext';
+import {
+  ConcealedSpoilerContext,
+  InsideLinkContext,
+} from './ConcealedSpoilerContext';
 
 function ParagraphRenderer({
   node,
@@ -254,6 +257,7 @@ function ImageRenderer({
   capabilities,
 }: RendererProps) {
   const isConcealed = useContext(ConcealedSpoilerContext);
+  const isInsideLink = useContext(InsideLinkContext);
   const url = node.attributes?.url;
   if (!url) return null;
 
@@ -268,14 +272,23 @@ function ImageRenderer({
   const title = node.attributes?.title;
   const markdownAlt = extractNodeText(node).trim();
   const alt = markdownAlt || title || filenameFromUrl(url) || 'Image';
-  const imgStyle = node.attributes?.isInline
+  const baseStyle = node.attributes?.isInline
     ? styles.inlineImage
     : styles.image;
+
+  const imgStyle: CSSProperties = isConcealed
+    ? {
+        ...baseStyle,
+        backgroundColor: styles.spoiler.backgroundColor,
+        objectPosition: '-100000px 0',
+        color: 'transparent',
+      }
+    : baseStyle;
 
   const interactive =
     callbacks.onImagePress != null &&
     !isConcealed &&
-    parentType !== 'Link' &&
+    !isInsideLink &&
     parentType !== 'TableCell' &&
     parentType !== 'TableHeaderCell';
   if (!interactive) {

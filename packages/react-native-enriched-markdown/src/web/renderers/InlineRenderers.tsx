@@ -1,9 +1,12 @@
 import { useContext, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react';
 import type { RendererProps, RendererMap } from '../types';
-import { extractNodeText } from '../utils';
+import { extractNodeText, hasBlockImage, hasNonImageContent } from '../utils';
 import { KaTeXRenderer } from './KaTeXRenderer';
-import { ConcealedSpoilerContext } from './ConcealedSpoilerContext';
+import {
+  ConcealedSpoilerContext,
+  InsideLinkContext,
+} from './ConcealedSpoilerContext';
 import { linkStyleForUrl } from '../styles';
 import {
   ENRM_SPOILER_CLASS,
@@ -57,6 +60,7 @@ function HighlightRenderer({ node, styles, renderChildren }: RendererProps) {
 const CONCEALED_CONTENT_STYLE: CSSProperties = { opacity: 0 };
 
 function SpoilerRenderer({ node, styles, renderChildren }: RendererProps) {
+  const isAncestorConcealed = useContext(ConcealedSpoilerContext);
   const text = extractNodeText(node);
   const [isRevealed, setIsRevealed] = useState(false);
   const [seenText, setSeenText] = useState(text);
@@ -79,21 +83,35 @@ function SpoilerRenderer({ node, styles, renderChildren }: RendererProps) {
     setIsRevealed(true);
   };
 
+  const isActive = !isRevealed && !isAncestorConcealed;
+  const isImageOnly = !hasNonImageContent(node);
+  const baseCoverStyle = isRevealed
+    ? styles.spoilerRevealed
+    : isImageOnly
+      ? { ...styles.spoilerRevealed, cursor: 'pointer' }
+      : styles.spoiler;
+  const coverStyle =
+    !isImageOnly && hasBlockImage(node)
+      ? { ...baseCoverStyle, display: 'block' }
+      : baseCoverStyle;
+
   return (
     <span
       className={ENRM_SPOILER_CLASS}
-      style={isRevealed ? styles.spoilerRevealed : styles.spoiler}
+      style={coverStyle}
       data-revealed={isRevealed ? '' : undefined}
-      role={isRevealed ? undefined : 'button'}
-      tabIndex={isRevealed ? -1 : 0}
-      onClick={isRevealed ? undefined : handleClick}
-      onKeyDown={isRevealed ? undefined : handleKeyDown}
+      role={isActive ? 'button' : undefined}
+      tabIndex={isActive ? 0 : isRevealed ? -1 : undefined}
+      onClick={isActive ? handleClick : undefined}
+      onKeyDown={isActive ? handleKeyDown : undefined}
     >
       <span
         className={ENRM_SPOILER_CONTENT_CLASS}
-        style={isRevealed ? undefined : CONCEALED_CONTENT_STYLE}
+        style={isRevealed || isImageOnly ? undefined : CONCEALED_CONTENT_STYLE}
       >
-        <ConcealedSpoilerContext.Provider value={!isRevealed}>
+        <ConcealedSpoilerContext.Provider
+          value={isAncestorConcealed || !isRevealed}
+        >
           {renderChildren(node)}
         </ConcealedSpoilerContext.Provider>
       </span>
@@ -120,7 +138,11 @@ function LinkRenderer({
 
   if (isConcealed) {
     return (
-      <span style={linkStyleForUrl(style, url)}>{renderChildren(node)}</span>
+      <span style={linkStyleForUrl(style, url)}>
+        <InsideLinkContext.Provider value={true}>
+          {renderChildren(node)}
+        </InsideLinkContext.Provider>
+      </span>
     );
   }
 
@@ -147,7 +169,9 @@ function LinkRenderer({
       onClick={handleClick}
       onContextMenu={handleContextMenu}
     >
-      {renderChildren(node)}
+      <InsideLinkContext.Provider value={true}>
+        {renderChildren(node)}
+      </InsideLinkContext.Provider>
     </a>
   );
 }

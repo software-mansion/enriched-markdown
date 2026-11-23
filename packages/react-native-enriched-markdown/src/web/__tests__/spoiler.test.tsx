@@ -169,6 +169,92 @@ it('keeps an image inside a concealed spoiler from being pressable until reveale
   expect(container.querySelector('img')?.getAttribute('role')).toBe('button');
 });
 
+it('turns a spoiler mixing text and a block image into a block, so its cover spans the image', () => {
+  render({
+    markdown: '||photo ![a](https://example.com/a.png) here||',
+    markdownStyle: { spoiler: { color: 'rgb(1, 2, 3)' } },
+  });
+
+  const spoiler = onlySpoiler();
+  expect(container.querySelector('img')!.style.display).toBe('block');
+  expect(spoiler.style.display).toBe('block');
+  expect(spoiler.style.backgroundColor).toBe('rgb(1, 2, 3)');
+  expect(isConcealed(spoiler)).toBe(true);
+
+  press(spoiler);
+  expect(spoiler.style.display).toBe('block');
+  expect(isConcealed(spoiler)).toBe(false);
+});
+
+it('keeps a spoiler without a block image inline', () => {
+  render({ markdown: 'a ||photo|| ![a](https://example.com/a.png) b' });
+  expect(onlySpoiler().style.display).toBe('');
+});
+
+it('covers a concealed image with its own box, so a block image is covered whole', () => {
+  render({
+    markdown: '||![a](https://example.com/a.png)||',
+    markdownStyle: { spoiler: { color: 'rgb(1, 2, 3)' } },
+  });
+
+  const spoiler = onlySpoiler();
+  const img = container.querySelector('img')!;
+  expect(img.style.display).toBe('block');
+  expect(img.style.backgroundColor).toBe('rgb(1, 2, 3)');
+  expect(img.style.objectPosition).not.toBe('');
+  expect(spoiler.style.backgroundColor).toBe('transparent');
+  expect(isConcealed(spoiler)).toBe(false);
+  expect(spoiler.getAttribute('role')).toBe('button');
+
+  press(img);
+  expect(spoiler.hasAttribute('data-revealed')).toBe(true);
+  expect(img.style.backgroundColor).toBe('');
+  expect(img.style.objectPosition).toBe('');
+});
+
+it('keeps a revealed image inside a link as link content', () => {
+  const onImagePress = jest.fn();
+  const onLinkPress = jest.fn();
+  render({
+    markdown:
+      '[||![tree](https://example.com/tree.png)||](https://example.com)',
+    onImagePress,
+    onLinkPress,
+  });
+
+  press(onlySpoiler());
+  const img = container.querySelector('img')!;
+  expect(img.hasAttribute('role')).toBe(false);
+  press(img);
+  expect(onImagePress).not.toHaveBeenCalled();
+  expect(onLinkPress).toHaveBeenCalledTimes(1);
+});
+
+it('keeps a spoiler inside a concealed one inert until the outer one is revealed', () => {
+  const onLinkPress = jest.fn();
+  render({
+    markdown: '||outer [||inner||](https://example.com) tail||',
+    onLinkPress,
+  });
+
+  const [outer, inner] = spoilers();
+  expect(outer!.getAttribute('role')).toBe('button');
+  expect(inner!.hasAttribute('role')).toBe(false);
+  expect(inner!.hasAttribute('tabindex')).toBe(false);
+
+  press(inner!);
+  expect(isConcealed(outer!)).toBe(false);
+  expect(isConcealed(inner!)).toBe(true);
+  expect(onLinkPress).not.toHaveBeenCalled();
+
+  const [, innerAfter] = spoilers();
+  expect(innerAfter!.getAttribute('role')).toBe('button');
+  expect(innerAfter!.getAttribute('tabindex')).toBe('0');
+  press(innerAfter!);
+  expect(isConcealed(innerAfter!)).toBe(false);
+  expect(onLinkPress).not.toHaveBeenCalled();
+});
+
 it('reveals a spoiler inside a link instead of following the link', () => {
   const onLinkPress = jest.fn();
   render({
