@@ -17,9 +17,13 @@ import {
   DEFAULT_ADMONITION_TITLES,
   type AdmonitionType,
 } from '../../admonitionDefaults';
-import { ENRM_ADMONITION_CLASS } from '../globalStyles';
+import {
+  ENRM_ADMONITION_CLASS,
+  ENRM_SPOILER_IMAGE_COVER_CLASS,
+} from '../globalStyles';
 import {
   ConcealedSpoilerContext,
+  ImageOnlySpoilerContext,
   InsideLinkContext,
 } from './ConcealedSpoilerContext';
 
@@ -258,6 +262,7 @@ function ImageRenderer({
 }: RendererProps) {
   const isConcealed = useContext(ConcealedSpoilerContext);
   const isInsideLink = useContext(InsideLinkContext);
+  const isInImageOnlySpoiler = useContext(ImageOnlySpoilerContext);
   const url = node.attributes?.url;
   if (!url) return null;
 
@@ -272,18 +277,12 @@ function ImageRenderer({
   const title = node.attributes?.title;
   const markdownAlt = extractNodeText(node).trim();
   const alt = markdownAlt || title || filenameFromUrl(url) || 'Image';
-  const baseStyle = node.attributes?.isInline
-    ? styles.inlineImage
-    : styles.image;
-
-  const imgStyle: CSSProperties = isConcealed
-    ? {
-        ...baseStyle,
-        backgroundColor: styles.spoiler.backgroundColor,
-        objectPosition: '-100000px 0',
-        color: 'transparent',
-      }
-    : baseStyle;
+  const isInline = node.attributes?.isInline === true;
+  const baseStyle = isInline ? styles.inlineImage : styles.image;
+  const imgStyle: CSSProperties =
+    isInImageOnlySpoiler && isInline
+      ? { ...baseStyle, display: 'block', verticalAlign: undefined }
+      : baseStyle;
 
   const interactive =
     callbacks.onImagePress != null &&
@@ -292,7 +291,10 @@ function ImageRenderer({
     parentType !== 'TableCell' &&
     parentType !== 'TableHeaderCell';
   if (!interactive) {
-    return <img src={src} alt={alt} title={title} style={imgStyle} />;
+    const img = <img src={src} alt={alt} title={title} style={imgStyle} />;
+    return isInImageOnlySpoiler
+      ? withSpoilerCover(img, baseStyle, isInline, isConcealed, styles)
+      : img;
   }
 
   const press = () => callbacks.onImagePress?.({ url, altText: markdownAlt });
@@ -304,7 +306,7 @@ function ImageRenderer({
     }
   };
 
-  return (
+  const img = (
     <img
       src={src}
       alt={alt}
@@ -316,6 +318,49 @@ function ImageRenderer({
       onClick={press}
       onKeyDown={handleKeyDown}
     />
+  );
+  return isInImageOnlySpoiler
+    ? withSpoilerCover(img, baseStyle, isInline, isConcealed, styles)
+    : img;
+}
+
+function withSpoilerCover(
+  img: ReactNode,
+  imgStyle: CSSProperties,
+  isInline: boolean,
+  isConcealed: boolean,
+  styles: RendererProps['styles']
+): ReactNode {
+  const boxStyle: CSSProperties = isInline
+    ? {
+        position: 'relative',
+        display: 'inline-block',
+        verticalAlign: imgStyle.verticalAlign,
+        lineHeight: 0,
+      }
+    : {
+        position: 'relative',
+        display: 'block',
+        width: imgStyle.width === '100%' ? '100%' : 'fit-content',
+        maxWidth: '100%',
+      };
+  const coverStyle: CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: styles.spoiler.backgroundColor,
+    borderRadius: styles.spoiler.borderRadius,
+    opacity: isConcealed ? 1 : 0,
+    pointerEvents: 'none',
+  };
+  return (
+    <span style={boxStyle}>
+      {img}
+      <span
+        className={ENRM_SPOILER_IMAGE_COVER_CLASS}
+        style={coverStyle}
+        aria-hidden
+      />
+    </span>
   );
 }
 

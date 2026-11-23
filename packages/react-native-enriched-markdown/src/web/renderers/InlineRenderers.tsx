@@ -5,6 +5,7 @@ import { extractNodeText, hasBlockImage, hasNonImageContent } from '../utils';
 import { KaTeXRenderer } from './KaTeXRenderer';
 import {
   ConcealedSpoilerContext,
+  ImageOnlySpoilerContext,
   InsideLinkContext,
 } from './ConcealedSpoilerContext';
 import { linkStyleForUrl } from '../styles';
@@ -112,7 +113,9 @@ function SpoilerRenderer({ node, styles, renderChildren }: RendererProps) {
         <ConcealedSpoilerContext.Provider
           value={isAncestorConcealed || !isRevealed}
         >
-          {renderChildren(node)}
+          <ImageOnlySpoilerContext.Provider value={isImageOnly}>
+            {renderChildren(node)}
+          </ImageOnlySpoilerContext.Provider>
         </ConcealedSpoilerContext.Provider>
       </span>
     </span>

@@ -191,25 +191,40 @@ it('keeps a spoiler without a block image inline', () => {
   expect(onlySpoiler().style.display).toBe('');
 });
 
-it('covers a concealed image with its own box, so a block image is covered whole', () => {
+it('covers an images-only spoiler with a layer the size of the image, which fades out on reveal', () => {
   render({
     markdown: '||![a](https://example.com/a.png)||',
-    markdownStyle: { spoiler: { color: 'rgb(1, 2, 3)' } },
+    markdownStyle: {
+      image: { borderRadius: 8 },
+      spoiler: { color: 'rgb(1, 2, 3)', solid: { borderRadius: 3 } },
+    },
   });
 
   const spoiler = onlySpoiler();
   const img = container.querySelector('img')!;
+  const cover = spoiler.querySelector<HTMLElement>(
+    '.enrm-spoiler-image-cover'
+  )!;
+  const box = img.parentElement!;
   expect(img.style.display).toBe('block');
-  expect(img.style.backgroundColor).toBe('rgb(1, 2, 3)');
-  expect(img.style.objectPosition).not.toBe('');
+  expect(box.style.position).toBe('relative');
+  expect(cover.parentElement).toBe(box);
+  expect(cover.style.inset).toBe('0');
+  expect(cover.style.backgroundColor).toBe('rgb(1, 2, 3)');
+  expect(cover.style.borderRadius).toBe('3px');
+  expect(cover.style.opacity).toBe('1');
+  expect(cover.getAttribute('aria-hidden')).toBe('true');
   expect(spoiler.style.backgroundColor).toBe('transparent');
-  expect(isConcealed(spoiler)).toBe(false);
   expect(spoiler.getAttribute('role')).toBe('button');
 
   press(img);
   expect(spoiler.hasAttribute('data-revealed')).toBe(true);
-  expect(img.style.backgroundColor).toBe('');
-  expect(img.style.objectPosition).toBe('');
+  expect(cover.style.opacity).toBe('0');
+  expect(img.style.borderRadius).toBe('8px');
+  const css = document.getElementById('enrm-spoiler-reveal')?.textContent ?? '';
+  expect(css).toContain(
+    '.enrm-spoiler[data-revealed] .enrm-spoiler-image-cover'
+  );
 });
 
 it('keeps a revealed image inside a link as link content', () => {
