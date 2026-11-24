@@ -21,6 +21,8 @@
     ["- a\n   - b\n9) c","- a\n  - b\n1. c"],
     ["* a\n* b","- a\n- b"],
     ["  \n  a","  a"],
+    ["[docs]\n\n[docs]:\n  https://x.dev","[docs](https://x.dev)"],
+    ["[docs](\n\thttps://x.dev)","[docs](https://x.dev)"],
     ["1) x\n2) y","1. x\n2. y"]
   ]
 }

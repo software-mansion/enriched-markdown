@@ -459,6 +459,12 @@ ParseResult parse(std::u16string_view markdown) {
     if (ast && parseResultFromAst(*ast, result)) {
       if (standIns) {
         restoreLeadingWhitespace(result.plainText, *standIns);
+        // A link destination can sit on an indented line.
+        for (FormattingRange &range : result.formattingRanges) {
+          range.url.erase(std::remove_if(range.url.begin(), range.url.end(),
+                                         [&](char16_t c) { return c == standIns->tab || c == standIns->space; }),
+                          range.url.end());
+        }
       }
       normalizeListMetadata(result.blockRanges);
       return result;
