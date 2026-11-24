@@ -29,14 +29,19 @@ fun parseTextHighlights(value: ReadableArray?): List<TextHighlight> {
   if (value == null) return emptyList()
   val result = ArrayList<TextHighlight>(value.size())
   for (i in 0 until value.size()) {
-    val item = value.getMap(i) ?: continue
+    val item = value.getMap(i)
+    if (item == null) {
+      result += TextHighlight(start = 0, end = 0, color = 0, borderRadius = 0f, padding = 0f)
+      continue
+    }
     val start = item.getInt("start")
     val end = item.getInt("end")
-    if (start < 0 || end <= start) continue
+    // An empty range draws nothing but keeps the later entries at their index.
+    val valid = start >= 0 && end > start
     result +=
       TextHighlight(
-        start = start,
-        end = end,
+        start = if (valid) start else 0,
+        end = if (valid) end else 0,
         color = item.getInt("color"),
         borderRadius = PixelUtil.toPixelFromDIP(item.getDouble("borderRadius")).coerceAtLeast(0f),
         padding = PixelUtil.toPixelFromDIP(item.getDouble("padding")),

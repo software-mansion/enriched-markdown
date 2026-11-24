@@ -201,6 +201,14 @@ type NativeTextHighlight = {
   padding: number;
 };
 
+const IGNORED_HIGHLIGHT: NativeTextHighlight = {
+  start: 0,
+  end: 0,
+  color: 0,
+  borderRadius: 0,
+  padding: 0,
+};
+
 // Colors go to native as signed 32-bit ARGB, the same on iOS and Android.
 const toNativeHighlights = (
   highlights: ReadonlyArray<TextHighlight> | undefined
@@ -215,6 +223,8 @@ const toNativeHighlights = (
           `[EnrichedMarkdownText] Ignoring highlight ${start}-${end}: its color is not a plain color.`
         );
       }
+      // An empty range keeps the later entries at their index in `highlights`.
+      result.push(IGNORED_HIGHLIGHT);
       continue;
     }
     result.push({

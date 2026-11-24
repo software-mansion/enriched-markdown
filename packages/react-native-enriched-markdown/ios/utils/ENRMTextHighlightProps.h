@@ -12,10 +12,10 @@ inline NSArray<ENRMTextHighlight *> *ENRMTextHighlightsFromProps(const std::vect
 {
   NSMutableArray<ENRMTextHighlight *> *result = [NSMutableArray arrayWithCapacity:items.size()];
   for (const auto &item : items) {
-    if (item.start < 0 || item.end <= item.start) {
-      continue;
-    }
-    NSRange range = NSMakeRange((NSUInteger)item.start, (NSUInteger)(item.end - item.start));
+    // An empty range draws nothing but keeps the later entries at their index.
+    NSRange range = item.start < 0 || item.end <= item.start
+                        ? NSMakeRange(0, 0)
+                        : NSMakeRange((NSUInteger)item.start, (NSUInteger)(item.end - item.start));
     [result addObject:[[ENRMTextHighlight alloc] initWithRange:range
                                                          color:ENRMColorFromARGB(item.color)
                                                   borderRadius:item.borderRadius

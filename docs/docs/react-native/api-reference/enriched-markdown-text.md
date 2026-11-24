@@ -860,6 +860,7 @@ Ranges of the rendered text to paint behind the glyphs, such as the sentence and
 
 - **Drawn, not styled:** selection, copy, measuring and accessibility do not change, and a change of `highlights` does not render the Markdown again, so moving a highlight word by word is cheap.
 - **Colors:** use translucent colors so the selection shows through. `PlatformColor` and `DynamicColorIOS` are not supported.
+- **Ignored entries:** an entry with an empty range or a color that is not supported draws nothing. It still counts, so the entries after it keep their index in [`onHighlightLayout`](#onhighlightlayout).
 - **Code blocks and tables:** with `flavor="github"`, the whole block is tinted.
 - **Renders:** a render keeps the offsets. When the text changes, map them again from the new `onRenderedTextChange` text.
 
