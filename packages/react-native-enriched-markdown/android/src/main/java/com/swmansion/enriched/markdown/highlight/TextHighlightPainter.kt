@@ -3,6 +3,7 @@ package com.swmansion.enriched.markdown.highlight
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PathMeasure
 import android.graphics.RectF
 import android.text.Layout
 import android.text.Spanned
@@ -30,6 +31,8 @@ class TextHighlightPainter(
 
   private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
   private val path = Path()
+  private val run = Path()
+  private val measure = PathMeasure()
   private val rect = RectF()
 
   fun draw(canvas: Canvas) {
@@ -81,7 +84,9 @@ class TextHighlightPainter(
     return union
   }
 
-  // Each line's box, tight to its glyphs: a paragraph's spacing below stays out.
+  // Each line's boxes, tight to its glyphs: a paragraph's spacing below stays out.
+  // The selection path holds one rect per directional run, and each gets its own box,
+  // so in mixed-direction text the unselected glyphs between runs stay clear.
   private inline fun forEachLineRect(
     layout: Layout,
     highlight: TextHighlight,
@@ -98,14 +103,21 @@ class TextHighlightPainter(
       var lineEnd = minOf(end, layout.getLineEnd(line))
       while (lineEnd > lineStart && text[lineEnd - 1] == '\n') lineEnd--
       if (lineEnd <= lineStart) continue
+      val top = layout.getLineTop(line).toFloat()
+      val bottom = lineBottomWithoutSpacing(layout, line).toFloat()
       path.reset()
       layout.getSelectionPath(lineStart, lineEnd, path)
-      path.computeBounds(rect, true)
-      if (rect.width() <= 0f) continue
-      rect.top = layout.getLineTop(line).toFloat()
-      rect.bottom = lineBottomWithoutSpacing(layout, line).toFloat()
-      rect.inset(-highlight.padding, -highlight.padding)
-      block(rect)
+      measure.setPath(path, false)
+      do {
+        run.reset()
+        if (!measure.getSegment(0f, measure.length, run, true)) continue
+        run.computeBounds(rect, true)
+        if (rect.width() <= 0f) continue
+        rect.top = top
+        rect.bottom = bottom
+        rect.inset(-highlight.padding, -highlight.padding)
+        block(rect)
+      } while (measure.nextContour())
     }
   }
 
