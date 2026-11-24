@@ -262,31 +262,26 @@ static char kDrawingTimeKey;
     for (ENRMTextHighlight *highlight in list) {
       NSRange range = NSIntersectionRange(highlight.range, NSMakeRange(0, length));
       if (range.length > 0) {
-        [self invalidateDisplayForCharacterRange:[self displayRangeForHighlightRange:range padding:highlight.padding]];
+        [self invalidateDisplayForCharacterRange:[self displayRangeForHighlight:highlight range:range]];
       }
     }
   }
 }
 
-// Padding can reach the lines above and below, so those redraw too.
-- (NSRange)displayRangeForHighlightRange:(NSRange)range padding:(CGFloat)padding
+// Padding can reach past the highlight's own lines, so every line the padded
+// box covers redraws too.
+- (NSRange)displayRangeForHighlight:(ENRMTextHighlight *)highlight range:(NSRange)range
 {
-  if (padding <= 0) {
+  NSTextContainer *container = self.textContainers.firstObject;
+  if (highlight.padding <= 0 || container == nil) {
     return range;
   }
-  NSRange glyphs = [self glyphRangeForCharacterRange:range actualCharacterRange:NULL];
-  NSUInteger glyphCount = self.numberOfGlyphs;
-  if (glyphs.length == 0 || glyphCount == 0) {
+  CGRect area = ENRMTextHighlightBounds([highlight highlightWithRange:range], self);
+  if (CGRectIsNull(area)) {
     return range;
   }
-  NSUInteger first = glyphs.location > 0 ? glyphs.location - 1 : glyphs.location;
-  NSUInteger last = MIN(NSMaxRange(glyphs), glyphCount - 1);
-  NSRange firstLine = NSMakeRange(first, 0);
-  NSRange lastLine = NSMakeRange(last, 0);
-  [self lineFragmentRectForGlyphAtIndex:first effectiveRange:&firstLine];
-  [self lineFragmentRectForGlyphAtIndex:last effectiveRange:&lastLine];
-  NSRange lines = NSUnionRange(firstLine, lastLine);
-  return [self characterRangeForGlyphRange:lines actualGlyphRange:NULL];
+  NSRange glyphs = [self glyphRangeForBoundingRect:area inTextContainer:container];
+  return NSUnionRange(range, [self characterRangeForGlyphRange:glyphs actualGlyphRange:NULL]);
 }
 
 #pragma mark - Configuration
