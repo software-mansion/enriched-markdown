@@ -206,6 +206,7 @@ function LinkRenderer({
 
 function hasContentOutsideSpoilers(node: ASTNode): boolean {
   if (node.type === 'Spoiler') return false;
+  if (node.type === 'SoftBreak' || node.type === 'LineBreak') return false;
   if (!node.children?.length) {
     return node.type !== 'Text' || (node.content ?? '').trim() !== '';
   }

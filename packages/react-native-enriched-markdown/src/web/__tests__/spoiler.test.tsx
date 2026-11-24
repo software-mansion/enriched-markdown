@@ -223,8 +223,9 @@ it('handles a spoiler inside a partly visible link', () => {
 it.each([
   '[||secret||](https://example.com)',
   '[**||secret||**](https://example.com)',
+  '[||first||\n||second||](https://example.com)',
 ])(
-  'reveals the hidden label of %s on Enter, even with text selected elsewhere',
+  'reveals the hidden label of %p on Enter, even with text selected elsewhere',
   (link) => {
     const onLinkPress = jest.fn();
     render({ markdown: `other text\n\n${link}`, onLinkPress });
@@ -232,7 +233,7 @@ it.each([
     const anchor = container.querySelector('a')!;
 
     expect(keyDown(anchor, 'Enter').defaultPrevented).toBe(true);
-    expect(isConcealed(onlySpoiler())).toBe(false);
+    expect(spoilers().map(isConcealed)).not.toContain(true);
     expect(onLinkPress).not.toHaveBeenCalled();
     // Revealed, the link follows as usual.
     expect(keyDown(anchor, 'Enter').defaultPrevented).toBe(false);
