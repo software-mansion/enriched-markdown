@@ -53,9 +53,34 @@ static BOOL ENRMTextHasSpoiler(NSAttributedString *text)
   return found;
 }
 
+static NSArray<NSValue *> *ENRMSpoilerRanges(NSAttributedString *text)
+{
+  NSMutableArray<NSValue *> *ranges = [NSMutableArray array];
+  [text enumerateAttribute:SpoilerAttributeName
+                   inRange:NSMakeRange(0, text.length)
+                   options:0
+                usingBlock:^(id value, NSRange range, BOOL *stop) {
+                  if (value)
+                    [ranges addObject:[NSValue valueWithRange:range]];
+                }];
+  return ranges;
+}
+
+NSArray<NSNumber *> *ENRMTableOffsets(NSArray<NSNumber *> *sizes)
+{
+  NSMutableArray<NSNumber *> *offsets = [NSMutableArray arrayWithCapacity:sizes.count];
+  CGFloat offset = 0;
+  for (NSNumber *size in sizes) {
+    [offsets addObject:@(offset)];
+    offset += size.doubleValue;
+  }
+  return offsets;
+}
+
 @interface ENRMTableSpoilerCell : NSObject <ENRMSpoilerTextLayout>
 @property (nonatomic, strong) NSMutableAttributedString *cellText;
 @property (nonatomic, copy) NSString *cellString;
+@property (nonatomic, copy) NSArray<NSValue *> *spoilerRanges;
 @property (nonatomic, strong) NSMutableArray<NSValue *> *revealedRanges;
 @property (nonatomic, strong) NSTextStorage *textStorage;
 @property (nonatomic, strong) NSLayoutManager *layoutManager;
@@ -73,6 +98,7 @@ static BOOL ENRMTextHasSpoiler(NSAttributedString *text)
   if (self = [super init]) {
     _cellText = text;
     _cellString = [text.string copy];
+    _spoilerRanges = ENRMSpoilerRanges(text);
     _revealedRanges = [NSMutableArray array];
     _textStorage = [[NSTextStorage alloc] initWithAttributedString:text];
     _layoutManager = [[NSLayoutManager alloc] init];
@@ -85,6 +111,11 @@ static BOOL ENRMTextHasSpoiler(NSAttributedString *text)
     _manager = [[ENRMSpoilerOverlayManager alloc] initWithLayout:self config:config];
   }
   return self;
+}
+
+- (BOOL)showsText:(NSAttributedString *)text
+{
+  return [_cellString isEqualToString:text.string] && [_spoilerRanges isEqualToArray:ENRMSpoilerRanges(text)];
 }
 
 - (void)adoptText:(NSMutableAttributedString *)text host:(RCTUIView *)host
@@ -214,17 +245,19 @@ static BOOL ENRMTextHasSpoiler(NSAttributedString *text)
     NSArray<NSAttributedString *> *rowTexts = texts[r];
     for (NSUInteger c = 0; c < rowTexts.count; c++) {
       NSAttributedString *text = rowTexts[c];
-      if (!host || ![text isKindOfClass:[NSMutableAttributedString class]] || !ENRMTextHasSpoiler(text))
+      if (!host || ![text isKindOfClass:[NSMutableAttributedString class]])
         continue;
       NSIndexPath *key = [NSIndexPath indexPathWithIndexes:(NSUInteger[]){r, c} length:2];
       ENRMTableSpoilerCell *cell = _cells[key];
-      if (cell.cellText != text && [cell.cellString isEqualToString:text.string]) {
+      if (cell && cell.cellText == text) {
+      } else if (cell && [cell showsText:text]) {
         [cell adoptText:(NSMutableAttributedString *)text host:host];
-      } else if (cell.cellText != text) {
-        [cell removeOverlays];
+      } else if (ENRMTextHasSpoiler(text)) {
         cell = [[ENRMTableSpoilerCell alloc] initWithText:(NSMutableAttributedString *)text host:host config:_config];
         cell.spoilerBackgroundColor = r < backgrounds.count ? backgrounds[r] : nil;
         cell.manager.spoilerOverlay = _spoilerOverlay;
+      } else {
+        continue;
       }
       cells[key] = cell;
     }

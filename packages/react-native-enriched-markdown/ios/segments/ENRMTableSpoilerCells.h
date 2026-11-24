@@ -7,6 +7,16 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+NSArray<NSNumber *> *ENRMTableOffsets(NSArray<NSNumber *> *sizes);
+
+#ifdef __cplusplus
+}
+#endif
+
 typedef CGRect (^ENRMTableCellTextRect)(NSUInteger row, NSUInteger column, CGRect *cellRect);
 
 @interface ENRMTableSpoilerCells : NSObject

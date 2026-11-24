@@ -147,15 +147,13 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
 {
   BOOL widthsAnimate = _shownColumnWidths.count == _columnWidths.count;
   NSArray<NSNumber *> *shownWidths = widthsAnimate ? _shownColumnWidths : _columnWidths;
+  NSArray<NSNumber *> *rowTops = ENRMTableOffsets(_rowHeights);
+  NSArray<NSNumber *> *columnLefts = ENRMTableOffsets(shownWidths);
   [_spoilers layoutWithTextRect:^CGRect(NSUInteger r, NSUInteger c, CGRect *cellRect) {
-    if (r >= self->_rowHeights.count || c >= self->_columnWidths.count)
+    if (r >= rowTops.count || c >= columnLefts.count || c >= self->_columnWidths.count)
       return CGRectZero;
-    CGFloat y = 0;
-    for (NSUInteger i = 0; i < r; i++)
-      y += [self->_rowHeights[i] doubleValue];
-    CGFloat x = 0;
-    for (NSUInteger i = 0; i < c; i++)
-      x += [shownWidths[i] doubleValue];
+    CGFloat y = rowTops[r].doubleValue;
+    CGFloat x = columnLefts[c].doubleValue;
     CGFloat laidOutWidth = [self->_columnWidths[c] doubleValue];
     NSAttributedString *text = self->_tableRows[r].cellTexts[c];
     CGFloat shift = ([shownWidths[c] doubleValue] - laidOutWidth) * ENRMTableTextAnchor(text);

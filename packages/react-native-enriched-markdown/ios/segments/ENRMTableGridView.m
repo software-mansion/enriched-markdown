@@ -72,15 +72,13 @@
   }
   _spoilers.config = _spoilerConfig;
   [_spoilers syncWithTexts:texts backgrounds:backgrounds];
+  NSArray<NSNumber *> *rowTops = ENRMTableOffsets(_rowHeights);
+  NSArray<NSNumber *> *columnLefts = ENRMTableOffsets(_columnWidths);
   [_spoilers layoutWithTextRect:^CGRect(NSUInteger r, NSUInteger c, CGRect *cellRect) {
-    if (r >= self->_rowHeights.count || c >= self->_columnWidths.count)
+    if (r >= rowTops.count || c >= columnLefts.count)
       return CGRectZero;
-    CGFloat y = 0;
-    for (NSUInteger i = 0; i < r; i++)
-      y += [self->_rowHeights[i] doubleValue];
-    CGFloat x = 0;
-    for (NSUInteger i = 0; i < c; i++)
-      x += [self->_columnWidths[i] doubleValue];
+    CGFloat y = rowTops[r].doubleValue;
+    CGFloat x = columnLefts[c].doubleValue;
     CGFloat inset = self->_borderWidth;
     *cellRect = NSMakeRect(x + inset, y + inset, [self->_columnWidths[c] doubleValue] - inset,
                            [self->_rowHeights[r] doubleValue] - inset);
