@@ -31,9 +31,15 @@ What changes in how markdown is read:
 
 - An unclosed `*`, `_`, `~~`, `||` or `[` stays literal text. It used to be closed automatically, and an unclosed
   `[` dropped the rest of its block. `## Title [wip` followed by a paragraph now loads as both.
-- Quotes, code spans, code blocks, tables and rules lose their markers and keep their content as plain lines
-  (`> quote` loads as `quote`). iOS used to keep the raw characters as text, so they survived a save; they no
-  longer do.
+- Markdown the input has no formatting for is not kept as written. iOS used to keep the raw characters as text,
+  so they survived a save; they no longer do:
+  - Quotes, code spans, code blocks and rules lose their markers and keep their content as plain lines
+    (`> quote` loads as `quote`).
+  - A table loses its markers and the text of its cells runs together (`| a | b |` above `| 1 | 2 |` loads as
+    `ab12`).
+  - An image keeps only its alt text (`![logo](a.png)` loads as `logo`).
+  - An HTML block is dropped. HTML inside a line stays as text.
+  - A task list item loses its checkbox (`- [x] done` loads as `- done`).
 - A list item with no text is kept (`- a`, `- `, `- c` loads as three items) instead of being dropped.
 - Blank lines between blocks are kept as empty lines, one per blank line.
 
