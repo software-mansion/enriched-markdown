@@ -6,7 +6,6 @@ import TextScreen from './screens/text/TextScreen';
 import InputScreen from './screens/input/InputScreen';
 import StreamingMarkdownSimulator from './screens/streaming/StreamingMarkdownSimulator';
 import StorybookScreen from './screens/storybook/StorybookScreen';
-import HighlightScreen from './screens/highlight/HighlightScreen';
 
 export default function App() {
   return (
@@ -48,11 +47,6 @@ export default function App() {
           name="Stream"
           component={StreamingMarkdownSimulator}
           options={{ title: 'Stream' }}
-        />
-        <Stack.Screen
-          name="Highlight"
-          component={HighlightScreen}
-          options={{ title: 'Highlight' }}
         />
         <Stack.Screen
           name="Storybook"
