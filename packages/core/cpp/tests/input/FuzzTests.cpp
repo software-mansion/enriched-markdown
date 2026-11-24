@@ -372,8 +372,8 @@ TEST_CASE("fuzz: styles anywhere never change the text or blocks and never add a
   for (uint32_t seed = 1; seed <= kModelSeeds; seed++) {
     const Model model = makeModel(seed, true);
     const std::u16string markdown = serialize(model.text, model.ranges, model.blocks);
-    // Known limitation: bold and italic meeting at one point give a run of four
-    // or more "*" that md4c can't pair back.
+    // Known limitation (see known-limitations.json): bold and italic meeting at
+    // one point give a run of four or more "*" that md4c can't pair back.
     if (markdown.find(u"****") != std::u16string::npos) {
       skipped++;
       continue;
