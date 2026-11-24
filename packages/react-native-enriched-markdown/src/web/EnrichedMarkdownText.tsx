@@ -69,6 +69,7 @@ export const EnrichedMarkdownText = ({
   dir,
   selectionColor,
   testID,
+  className,
   ...rest
 }: EnrichedMarkdownTextProps) => {
   const streamSnapshot = useMarkdownStreamSnapshot(stream);
@@ -261,11 +262,14 @@ export const EnrichedMarkdownText = ({
   );
 
   const domProps = filterNativeOnlyProps(rest);
+  const rootClassName = className
+    ? `${ENRM_TEXT_CLASS} ${className}`
+    : ENRM_TEXT_CLASS;
 
   if (parsed ? !parsed.ast : loadFailed) {
     return (
       <div
-        className={ENRM_TEXT_CLASS}
+        className={rootClassName}
         style={wrapperStyle}
         dir={dir}
         data-testid={testID}
@@ -283,7 +287,7 @@ export const EnrichedMarkdownText = ({
 
   return (
     <div
-      className={ENRM_TEXT_CLASS}
+      className={rootClassName}
       style={wrapperStyle}
       dir={dir}
       data-testid={testID}

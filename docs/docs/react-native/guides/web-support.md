@@ -304,10 +304,8 @@ Most of `markdownStyle` applies, but these keys are accepted and ignored:
 | --- | --- |
 | `codeBlock.syntaxColors` | Code blocks are not syntax-highlighted on web, so per-token colors have nothing to color |
 | all of `spoiler` | Spoilers are not rendered at all - see [Not supported on web](#not-supported-on-web) |
-| `list.bulletColor`, `list.bulletSize`, `list.markerMinWidth`, `list.markerColor`, `list.markerFontWeight`, `list.gapWidth` | Web leaves list markers to the browser's `::marker`. Of the `list` keys only `fontSize`, `fontFamily`, `fontWeight`, `color`, `lineHeight`, `marginTop`, `marginBottom`, `marginLeft` and `itemSpacing` are read |
-| `table.horizontalOverflow` | Web tables are always `overflow-x: auto` |
+| `list.bulletSize`, `list.markerMinWidth`, `list.gapWidth` | Web leaves list markers to the browser's `::marker`, which can be colored and weighted (`bulletColor`, `markerColor`, `markerFontWeight`) but not sized or spaced |
 | `linkVariants[pattern].pill` | [Link pills](/react-native/guides/link-pills) are native-only; such links render as ordinary links with the variant's colors |
-| `taskList.borderColor`, `taskList.checkmarkColor` | The checkbox is the browser's native control, tinted through `accentColor` (`checkedColor`) only |
 
 ### Accessibility
 

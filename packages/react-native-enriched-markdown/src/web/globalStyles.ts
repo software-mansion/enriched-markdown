@@ -3,6 +3,12 @@ import { injectStyleOnce } from './injectStyle';
 export const ENRM_TEXT_CLASS = 'enrm-text';
 export const ENRM_ADMONITION_CLASS = 'enrm-admonition';
 export const ENRM_SELECTION_BG_VAR = '--enrm-selection-bg';
+export const ENRM_BULLET_COLOR_VAR = '--enrm-bullet-color';
+export const ENRM_MARKER_COLOR_VAR = '--enrm-marker-color';
+export const ENRM_MARKER_WEIGHT_VAR = '--enrm-marker-weight';
+export const ENRM_TASK_CHECKBOX_CLASS = 'enrm-task-checkbox';
+export const ENRM_CHECKMARK_COLOR_VAR = '--enrm-checkmark-color';
+export const ENRM_CHECKMARK_MASK_VAR = '--enrm-checkmark-mask';
 
 const RULES: ReadonlyArray<readonly [id: string, css: string]> = [
   [
@@ -17,6 +23,25 @@ const RULES: ReadonlyArray<readonly [id: string, css: string]> = [
     'enrm-blockquote-trailing-margin',
     `.${ENRM_TEXT_CLASS} blockquote > *:last-child, ` +
       `.${ENRM_TEXT_CLASS} .${ENRM_ADMONITION_CLASS} > *:last-child { margin-bottom: 0 !important; }`,
+  ],
+  [
+    'enrm-list-markers',
+    `.${ENRM_TEXT_CLASS} ul > li::marker { color: var(${ENRM_BULLET_COLOR_VAR}); } ` +
+      `.${ENRM_TEXT_CLASS} ol > li::marker { color: var(${ENRM_MARKER_COLOR_VAR}); font-weight: var(${ENRM_MARKER_WEIGHT_VAR}); }`,
+  ],
+  [
+    'enrm-task-checkmark',
+    `.${ENRM_TEXT_CLASS} .${ENRM_TASK_CHECKBOX_CLASS}:checked::before { ` +
+      'content: ""; position: absolute; inset: 0; ' +
+      `background-color: var(${ENRM_CHECKMARK_COLOR_VAR}); ` +
+      `-webkit-mask: var(${ENRM_CHECKMARK_MASK_VAR}) center / 100% 100% no-repeat; ` +
+      `mask: var(${ENRM_CHECKMARK_MASK_VAR}) center / 100% 100% no-repeat; }`,
+  ],
+  [
+    'enrm-task-checkbox-forced-colors',
+    '@media (forced-colors: active) { ' +
+      `.${ENRM_TEXT_CLASS} .${ENRM_TASK_CHECKBOX_CLASS}:checked { background-color: CanvasText !important; } ` +
+      `.${ENRM_TEXT_CLASS} .${ENRM_TASK_CHECKBOX_CLASS}:checked::before { background-color: Canvas; } }`,
   ],
 ];
 

@@ -52,7 +52,7 @@ it('keeps table columns from shrinking, so a wide table scrolls', async () => {
   });
   const [table] = find(root, 'table');
   if (!table) throw new Error('No table was rendered');
-  const scroller = table.parent!;
+  const scroller = table.parent!.parent!;
   expect(scroller.props.style.overflowX).toBe('auto');
   expect(scroller.props.style.overflowWrap).toBe('normal');
 });
