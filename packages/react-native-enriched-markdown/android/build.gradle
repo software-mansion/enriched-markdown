@@ -186,7 +186,7 @@ def hostInputCoreCppRoot = [
 tasks.register("buildHostInputCore", Exec) {
   group = "verification"
   description = "Builds the input core's JNI library for the host, for the JVM unit tests."
-  onlyIf { hostInputCoreCppRoot != null }
+  onlyIf { hostInputCoreCppRoot != null && file("src/test/host-input-core/build.sh").exists() }
   if (hostInputCoreCppRoot != null) {
     inputs.files(fileTree(hostInputCoreCppRoot) { include "input/**", "parser/**", "enrmrkd/**", "repair/UnicodeTables.hpp" })
   }
