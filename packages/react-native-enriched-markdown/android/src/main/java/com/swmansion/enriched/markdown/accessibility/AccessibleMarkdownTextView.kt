@@ -45,11 +45,11 @@ abstract class AccessibleMarkdownTextView
       keepScroll = false
       val drawer = textBackgrounds ?: TextBackgroundDrawer().also { textBackgrounds = it }
       drawer.draw(canvas, this)
-      // Highlights go over the text backgrounds and under the text and the selection,
-      // which TextView draws next.
-      highlightPainter.draw(canvas)
+      // Spannable text draws its highlights through a line background span, over the
+      // backgrounds above and a code block's; other text draws them here. Either way they
+      // go under the text and the selection, which TextView draws next.
+      if (!highlightPainter.isAttached) highlightPainter.draw(canvas)
       super.onDraw(canvas)
-      highlightPainter.drawOverBackgrounds(canvas)
     }
 
     // The selection menu's Copy ends up here, and Ctrl+C (and TalkBack's copy action) call this directly.
@@ -72,6 +72,9 @@ abstract class AccessibleMarkdownTextView
       prepareSpans(text)
       textBackgrounds?.invalidateFrom(0)
       super.setText(text, type)
+      // The TextView constructor sets text before the painter exists.
+      @Suppress("SENSELESS_COMPARISON")
+      if (highlightPainter != null) highlightPainter.attach()
     }
 
     /**
