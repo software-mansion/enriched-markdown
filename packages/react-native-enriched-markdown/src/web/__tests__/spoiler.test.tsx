@@ -241,6 +241,17 @@ it.each([
   }
 );
 
+it('follows a link on Enter once part of its hidden label is revealed', () => {
+  render({ markdown: '[||first||\n||second||](https://example.com)' });
+  const [first, second] = spoilers();
+  press(first!);
+
+  expect(keyDown(container.querySelector('a')!, 'Enter').defaultPrevented).toBe(
+    false
+  );
+  expect(isConcealed(second!)).toBe(true);
+});
+
 it('moves focus to the link when Enter reveals a spoiler inside it', () => {
   render({ markdown: '[see ||the ending||](https://example.com)' });
   onlySpoiler().focus();

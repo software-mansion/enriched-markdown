@@ -168,8 +168,10 @@ function LinkRenderer({
   const handleKeyDown = (event: KeyboardEvent<HTMLAnchorElement>) => {
     if (event.key !== 'Enter' || !isLabelAllSpoilers) return;
     if (event.target !== event.currentTarget) return;
-    const concealed = event.currentTarget.querySelectorAll<HTMLElement>(
-      `.${ENRM_SPOILER_CLASS}:not([data-revealed])`
+    const link = event.currentTarget;
+    if (link.querySelector(`.${ENRM_SPOILER_CLASS}[data-revealed]`)) return;
+    const concealed = link.querySelectorAll<HTMLElement>(
+      `.${ENRM_SPOILER_CLASS}`
     );
     if (concealed.length === 0) return;
     event.preventDefault();
