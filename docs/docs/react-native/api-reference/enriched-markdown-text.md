@@ -892,7 +892,7 @@ iOS and Android only.
 
 ### `onRenderedTextChange`
 
-Callback fired after each render with the text as the view shows it, which [`highlights`](#highlights) offsets index into. It differs from the Markdown source (list markers, quotes and code fences are not in it) and can differ between iOS and Android, so read it on each platform rather than computing it. Blocks are joined with `\n`; a table's cells are joined with tabs and its rows with newlines.
+Callback fired with the text as the view shows it: once after the first render, then whenever a render changes that text or its blocks. A render that keeps both, such as `**Hello**` becoming `Hello`, does not fire it. The text is what [`highlights`](#highlights) offsets index into. It differs from the Markdown source (list markers, quotes and code fences are not in it) and can differ between iOS and Android, so read it on each platform rather than computing it. Blocks are joined with `\n`; a table's cells are joined with tabs and its rows with newlines.
 
 With `flavor="commonmark"` there is one block, and [`onTextPress`](#ontextpress) indexes into the same text. With `flavor="github"`, `onTextPress` indexes into one block's text; add that block's `start`.
 

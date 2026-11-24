@@ -351,8 +351,9 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   highlights?: ReadonlyArray<TextHighlight>;
   /**
-   * Called after each render with the rendered text that `highlights`
-   * offsets index into, and its blocks. Use it to map a range of the
+   * Called with the rendered text that `highlights` offsets index into, and
+   * its blocks: once after the first render, then whenever a render changes
+   * them. Use it to map a range of the
    * Markdown source, or of text you send to a speech engine, to a highlight.
    * @platform ios, android
    */
