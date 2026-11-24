@@ -1,6 +1,4 @@
 appId: swmansion.enriched.markdown.example
-# Not run yet: written for a later worker to run on the Android emulator.
-# (The Set Raw Markdown modal isn't visible to Maestro on non-CI emulators.)
 tags:
   - input
   - roundtrip
