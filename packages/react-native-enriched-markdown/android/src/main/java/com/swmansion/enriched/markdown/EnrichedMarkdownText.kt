@@ -533,9 +533,19 @@ class EnrichedMarkdownText
       scheduleRender()
     }
 
+    // A failed render leaves the view empty, and the rendered text reported for highlights must say so.
     private fun clearText() {
       text = ""
       renderedRevision = 0L
+      updateHighlightBlocks()
+    }
+
+    private fun updateHighlightBlocks() {
+      if (highlightCoordinator.setBlockViews(listOf(this)) && renderedTextChangeEnabled) {
+        emitRenderedTextChange(highlightCoordinator)
+      }
+      // The new text is laid out on the next pass.
+      post { highlightCoordinator.reportLayout() }
     }
 
     private fun applyRenderedText(
@@ -602,11 +612,7 @@ class EnrichedMarkdownText
       applySelectionColors(selectionColor, selectionHandleColor)
 
       hasRendered = true
-      if (highlightCoordinator.setBlockViews(listOf(this)) && renderedTextChangeEnabled) {
-        emitRenderedTextChange(highlightCoordinator)
-      }
-      // The new text is laid out on the next pass.
-      post { highlightCoordinator.reportLayout() }
+      updateHighlightBlocks()
     }
 
     // Trailing bottom margin included in the shadow-node measurement — must be
