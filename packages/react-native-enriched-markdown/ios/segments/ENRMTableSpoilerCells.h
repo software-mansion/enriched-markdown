@@ -22,7 +22,7 @@ typedef CGRect (^ENRMTableCellTextRect)(NSUInteger row, NSUInteger column, CGRec
 
 - (void)layoutWithTextRect:(ENRMTableCellTextRect)textRect;
 
-- (void)setOpacity:(CGFloat)opacity forRow:(NSUInteger)row;
+- (void)setOpacityOfRows:(CGFloat (^)(NSUInteger row))opacityOfRow;
 
 - (BOOL)revealAtPoint:(CGPoint)point;
 

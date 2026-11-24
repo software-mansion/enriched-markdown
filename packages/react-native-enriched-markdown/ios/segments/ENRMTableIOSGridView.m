@@ -139,9 +139,7 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
 - (void)fadeSpoilers
 {
   CFTimeInterval now = CACurrentMediaTime();
-  for (NSUInteger r = 0; r < _tableRows.count; r++) {
-    [_spoilers setOpacity:[self opacityOfRow:r at:now] forRow:r];
-  }
+  [_spoilers setOpacityOfRows:^CGFloat(NSUInteger row) { return [self opacityOfRow:row at:now]; }];
 }
 
 // Places each spoiler cell's text where drawRect: draws it.
