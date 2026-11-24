@@ -63,16 +63,29 @@ it('sends highlights with colors as signed 32-bit ARGB', () => {
   ]);
 });
 
-it('drops a highlight whose color cannot be processed', () => {
+it('sends an empty range for a highlight whose color cannot be processed', () => {
   const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
   const { view } = renderNative(
     <EnrichedMarkdownText
       markdown="Hello"
-      highlights={[{ start: 0, end: 5, color: 'not-a-color' }]}
+      highlights={[
+        { start: 0, end: 5, color: 'not-a-color' },
+        { start: 1, end: 3, color: 'red' },
+      ]}
     />
   );
 
-  expect(view().props.highlights).toEqual([]);
+  // The empty range draws nothing and keeps the next entry at index 1.
+  const highlights = view().props.highlights;
+  expect(highlights).toHaveLength(2);
+  expect(highlights[0]).toEqual({
+    start: 0,
+    end: 0,
+    color: 0,
+    borderRadius: 0,
+    padding: 0,
+  });
+  expect(highlights[1]).toMatchObject({ start: 1, end: 3 });
   warn.mockRestore();
 });
 
