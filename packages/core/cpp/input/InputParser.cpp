@@ -53,6 +53,7 @@ bool isBlockNodeType(NodeType type) {
     case NodeType::Paragraph:
     case NodeType::Heading:
     case NodeType::Blockquote:
+    case NodeType::Admonition:
     case NodeType::UnorderedList:
     case NodeType::OrderedList:
     case NodeType::ListItem:

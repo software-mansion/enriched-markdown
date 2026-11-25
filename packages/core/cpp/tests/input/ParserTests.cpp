@@ -353,6 +353,7 @@ TEST_CASE("parse: blank lines are empty lines") {
 TEST_CASE("parse: syntax the input has no model for loses its markers") {
   CHECK(textOf("> quote") == "quote");
   CHECK(textOf("> quote\n> more") == "quote\nmore");
+  CHECK(textOf("# Title\n> [!WARNING]\n> Careful") == "Title\nCareful");
   CHECK(textOf("| a | b |\n| - | - |\n| 1 | 2 |") == "ab12");
   CHECK(textOf("---") == "");
   CHECK(textOf("a\n\n---\n\nb") == "a\n\n\n\nb");

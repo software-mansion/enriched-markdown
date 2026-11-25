@@ -3,6 +3,10 @@
   "cases": [
     ["> quote","quote"],
     ["> quote\n> more","quote\nmore"],
+    ["> [!WARNING]\n> Careful","Careful"],
+    ["# Title\n> [!WARNING]\n> Careful","# Title\nCareful"],
+    ["a\n\n> [!NOTE]\n> x\n\nb","a\n\nx\n\nb"],
+    ["- a\n  > [!TIP]\n  > t\n- b","- a\nt\n- b"],
     ["| a | b |\n| - | - |\n| 1 | 2 |","ab12"],
     ["---",""],
     ["a\n\n---\n\nb","a\n\n\n\nb"],
