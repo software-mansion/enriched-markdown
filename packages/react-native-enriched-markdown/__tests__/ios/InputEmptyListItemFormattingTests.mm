@@ -2,6 +2,7 @@
 #import "../../ios/input/ENRMInputBlockType.h"
 #import "../../ios/input/ENRMInputFormatter.h"
 #import "../../ios/input/ENRMInputFormatterStyle.h"
+#import "../../ios/input/ENRMInputLayoutManager.h"
 #import "../../ios/input/ENRMInputParser.h"
 #import <XCTest/XCTest.h>
 
@@ -15,6 +16,7 @@
 @end
 
 @implementation ENRMInputEmptyListItemFormattingTests {
+  NSTextStorage *_textStorage;
   UITextView *_textView;
   ENRMInputFormatter *_formatter;
   ENRMInputFormatterStyle *_style;
@@ -23,7 +25,18 @@
 - (void)setUp
 {
   [super setUp];
-  _textView = [[UITextView alloc] initWithFrame:CGRectMake(0, 0, 320, 480)];
+  ENRMInputLayoutManager *layoutManager = [[ENRMInputLayoutManager alloc] init];
+  layoutManager.usesFontLeading = NO;
+  NSTextContainer *textContainer = [[NSTextContainer alloc] initWithSize:CGSizeMake(0, CGFLOAT_MAX)];
+  textContainer.widthTracksTextView = YES;
+  textContainer.lineFragmentPadding = 0;
+  [layoutManager addTextContainer:textContainer];
+  _textStorage = [[NSTextStorage alloc] init];
+  [_textStorage addLayoutManager:layoutManager];
+  _textView = [[UITextView alloc] initWithFrame:CGRectMake(0, 0, 320, 480) textContainer:textContainer];
+  _textView.textContainerInset = UIEdgeInsetsZero;
+  _textView.overrideUserInterfaceStyle = UIUserInterfaceStyleLight;
+  _textView.backgroundColor = [UIColor whiteColor];
   _formatter = [[ENRMInputFormatter alloc] init];
   _style = [[ENRMInputFormatterStyle alloc] init];
   _style.baseFont = [UIFont systemFontOfSize:16];
@@ -54,6 +67,65 @@
                                                          atIndex:index
                                                   effectiveRange:NULL];
   return paragraph.headIndent;
+}
+
+- (NSArray<NSNumber *> *)drawnMarkerCenters
+{
+  [_textView layoutIfNeeded];
+  UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat preferredFormat];
+  format.scale = 4;
+  format.opaque = YES;
+  UITextView *textView = _textView;
+  UIImage *image = [[[UIGraphicsImageRenderer alloc] initWithSize:textView.bounds.size format:format]
+      imageWithActions:^(UIGraphicsImageRendererContext *context) {
+        [textView.layer renderInContext:context.CGContext];
+      }];
+
+  size_t width = CGImageGetWidth(image.CGImage);
+  size_t height = CGImageGetHeight(image.CGImage);
+  NSMutableData *pixels = [NSMutableData dataWithLength:width * height * 4];
+  CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+  CGContextRef bitmap = CGBitmapContextCreate(pixels.mutableBytes, width, height, 8, width * 4, colorSpace,
+                                              (CGBitmapInfo)kCGImageAlphaPremultipliedLast);
+  CGContextDrawImage(bitmap, CGRectMake(0, 0, width, height), image.CGImage);
+  CGContextRelease(bitmap);
+  CGColorSpaceRelease(colorSpace);
+
+  const uint8_t *bytes = (const uint8_t *)pixels.bytes;
+  size_t markerColumns = (size_t)(([self headIndentAtIndex:0] - 1) * format.scale);
+  NSMutableArray<NSNumber *> *centers = [NSMutableArray array];
+  NSInteger firstDarkRow = -1;
+  for (size_t row = 0; row <= height; row++) {
+    BOOL dark = NO;
+    for (size_t column = 0; row < height && column < markerColumns && !dark; column++) {
+      const uint8_t *pixel = bytes + (row * width + column) * 4;
+      dark = pixel[0] + pixel[1] + pixel[2] < 3 * 128;
+    }
+    if (dark && firstDarkRow < 0) {
+      firstDarkRow = (NSInteger)row;
+    } else if (!dark && firstDarkRow >= 0) {
+      [centers addObject:@((firstDarkRow + row) / 2.0 / format.scale)];
+      firstDarkRow = -1;
+    }
+  }
+  return centers;
+}
+
+- (void)testTheMarkerOfAnEmptyItemIsLevelWithTheMarkerOfItsText
+{
+  for (NSNumber *lineHeight in @[ @0, @26 ]) {
+    _style.baseLineHeight = lineHeight.doubleValue;
+    [self importMarkdown:@"- A\n- A\n- \n- B"];
+    NSArray<NSNumber *> *empty = [self drawnMarkerCenters];
+    [self importMarkdown:@"- A\n- A\n- C\n- B"];
+    NSArray<NSNumber *> *typed = [self drawnMarkerCenters];
+
+    XCTAssertEqual(empty.count, 4u, @"line height %@", lineHeight);
+    XCTAssertEqual(typed.count, 4u, @"line height %@", lineHeight);
+    if (empty.count == 4 && typed.count == 4) {
+      XCTAssertEqualWithAccuracy(empty[2].doubleValue, typed[2].doubleValue, 0.5, @"line height %@", lineHeight);
+    }
+  }
 }
 
 - (void)testAnEmptyItemBetweenItemsIsStampedOnItsLine
