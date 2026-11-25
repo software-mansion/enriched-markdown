@@ -149,7 +149,11 @@ void normalizeListMetadata(std::vector<BlockRange> &blockRanges) {
       counters.fill(0);
       counterTypes.fill(std::nullopt);
     }
-    const int maxDepth = std::min(adjacent ? prevDepth + 1 : 0, static_cast<int>(kMaxListDepth));
+    // A list's opening item may sit one level in, unless a list sits above it
+    // with no heading between: markdown reads an indented item there as part
+    // of that list.
+    const int openingDepth = prevDepth >= 0 ? 0 : 1;
+    const int maxDepth = std::min(adjacent ? prevDepth + 1 : openingDepth, static_cast<int>(kMaxListDepth));
     if (range.level > maxDepth) {
       range.level = static_cast<uint8_t>(maxDepth);
     }

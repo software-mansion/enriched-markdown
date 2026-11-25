@@ -686,6 +686,8 @@ Same as above for numbered items. Numbering derives from each item's position am
 
 Nests the current item one level deeper, up to a maximum depth of 5. On a non-list paragraph it starts a bullet list. Equivalent to **Tab** on a hardware keyboard.
 
+An item nests at most one level below the item above it. The first item of a list can move one level in, unless another list sits above it with no heading in between: Markdown would read an indented item there as part of that list. The indent is saved as leading spaces on the item's line and comes back when the Markdown is loaded again.
+
 <LivePreview src={IndentOutdentSrc} />
 
 ### `outdentList()`

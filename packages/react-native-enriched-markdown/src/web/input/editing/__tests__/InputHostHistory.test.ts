@@ -174,10 +174,13 @@ describe('InputHost history', () => {
     host.toggleUnorderedList();
     host.undo();
     host.toggleUnorderedList();
-    // The first item cannot indent past the list it starts.
+    pressTab(root);
+    // The first item cannot indent past one level, so this Tab changes nothing.
     pressTab(root);
     host.undo();
 
+    expect(host.getMarkdown()).toBe('- a');
+    host.undo();
     expect(host.getMarkdown()).toBe('a');
   });
 

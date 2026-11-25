@@ -169,7 +169,8 @@ class BlockStore {
    * duplicates. On an empty line an anchored block (heading, list item)
    * persists as a zero-length anchor; any other collapsed range is dropped.
    * List depths are clamped so an item nests at most one level under the
-   * previous adjacent item (CommonMark cannot represent orphan nesting).
+   * previous adjacent item. A list's opening item may sit one level in when no
+   * list item comes before it since the last heading.
    * Call after [adjustForEdit] once [text] is final. Idempotent.
    */
   fun normalizeToLineBounds(text: CharSequence) {
@@ -198,8 +199,9 @@ class BlockStore {
 
   /**
    * Clamps list depths to valid ancestry (an item nests at most one level under
-   * the previous adjacent list item — CommonMark cannot represent orphan nesting)
-   * and renumbers ordered items among their adjacent same-depth, same-type run.
+   * the previous adjacent list item; a list's opening item at most one level in,
+   * and only with no list item above it since the last heading) and renumbers
+   * ordered items among their adjacent same-depth, same-type run.
    */
   private fun recomputeListMetadata() {
     var prevEnd = -2
@@ -216,7 +218,9 @@ class BlockStore {
         counters.fill(0)
         counterTypes.fill(null)
       }
-      val maxDepth = if (adjacent) prevDepth + 1 else 0
+      // An indented opening item below another list would read as part of it.
+      val openingDepth = if (prevDepth >= 0) 0 else 1
+      val maxDepth = if (adjacent) prevDepth + 1 else openingDepth
       if (range.level > maxDepth) range.level = maxDepth
       val depth = range.level
       for (i in depth + 1..MAX_LIST_DEPTH + 1) {

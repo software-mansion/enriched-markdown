@@ -16,6 +16,7 @@
     ["- a\n   - b\n      - c","- a\n  - b\n    - c"],
     ["- stack\n   - review\n   1. merge","- stack\n  - review\n  1. merge"],
     ["9. a\n   - b","1. a\n   - b"],
+    ["  - a\n  - b","   - a\n   - b"],
     ["## Title [wip","## Title \\[wip"],
     ["- a\n- b\n- c [","- a\n- b\n- c \\["],
     ["- a\n   - b\n9) c","- a\n  - b\n1. c"],

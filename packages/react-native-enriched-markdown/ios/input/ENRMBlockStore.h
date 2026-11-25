@@ -46,9 +46,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// Absorbs edge-typed chars, clips split ranges to first line, drops
 /// duplicates. On an empty line a heading persists as a zero-length anchor;
 /// any other collapsed range is dropped. List depths are clamped so an item
-/// nests at most one level under the previous adjacent item (CommonMark cannot
-/// represent orphan nesting). Call after adjustForEditAtLocation: once text is
-/// final. Idempotent.
+/// nests at most one level under the previous adjacent item. A list's opening
+/// item may sit one level in when no list item comes before it since the last
+/// heading. Call after adjustForEditAtLocation: once text is final. Idempotent.
 - (void)normalizeToLineBoundsInText:(NSString *)text;
 
 @end

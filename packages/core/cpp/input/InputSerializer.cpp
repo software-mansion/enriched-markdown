@@ -516,15 +516,23 @@ std::u16string serialize(std::u16string_view plainText, const std::vector<Format
       return line == 0 || lineEnd(line - 1) == lineStarts[line - 1] || lineDepths[line - 1] >= depth;
     };
 
-    // Content column of the last item at each depth, or -1.
+    // Content column of the last item at each depth in the current list, or -1.
     std::array<int, kMaxListDepth + 1> listContentColumns;
     listContentColumns.fill(-1);
+    // End of the last list item, or -2 after any other block.
+    int64_t previousItemEnd = -2;
     // First line of the last block given a marker.
     size_t cursor = 0;
 
     for (const BlockRange &block : blockRanges) {
       const bool item = isListItem(block.type);
       const int depth = item ? std::min<int>(block.level, kMaxListDepth) : 0;
+      // An item not right below another opens a list: an indented opening item
+      // must not take the column of an earlier list, which can be four wide.
+      if (item && static_cast<int64_t>(block.start) != previousItemEnd + 1) {
+        listContentColumns.fill(-1);
+      }
+      previousItemEnd = item ? static_cast<int64_t>(block.end) : -2;
       const std::u16string prefix = markdownLinePrefix(block, depth == 0 ? 0 : listContentColumns[depth - 1]);
       if (item) {
         listContentColumns[depth] = static_cast<int>(prefix.size());

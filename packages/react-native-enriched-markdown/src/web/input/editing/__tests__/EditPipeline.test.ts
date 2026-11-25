@@ -173,24 +173,27 @@ describe('EditPipeline', () => {
 
     // The list metadata pass must not run between the prune and the
     // normalize: "ab" is still only "a" wide then, so "c" is not adjacent to
-    // it and its depth gets clamped to 0 for good.
+    // it and its depth gets clamped to a list's opening depth for good.
     it('keeps the depth of the nested item after a merged one', () => {
-      // "a\nb\nc": "- a" with "b" and "c" nested; Delete at the end of "a".
+      // "x\na\nb\nc": "- x", "a" under it, "b" and "c" under "a"; Delete at
+      // the end of "a".
       const blocks = new BlockStore();
       blocks.setRanges([
         block('unordered-list-item', 0, 1, 0),
         block('unordered-list-item', 2, 3, 1),
-        block('unordered-list-item', 4, 5, 1),
+        block('unordered-list-item', 4, 5, 2),
+        block('unordered-list-item', 6, 7, 2),
       ]);
 
       new EditPipeline(new FormattingStore(), blocks).processTextChange(
-        'ab\nc',
-        context({ editStart: 1, deletedText: '\n' })
+        'x\nab\nc',
+        context({ editStart: 3, deletedText: '\n' })
       );
 
       expect(blocks.allRanges.map((r) => [r.start, r.end, r.level])).toEqual([
-        [0, 2, 0],
-        [3, 4, 1],
+        [0, 1, 0],
+        [2, 4, 1],
+        [5, 6, 2],
       ]);
     });
 
@@ -226,26 +229,28 @@ describe('EditPipeline', () => {
 
 describe('EditPipeline on enter', () => {
   it('keeps nested items nested when a list continues above them', () => {
-    // "- stack\n   - review": press Enter at the end of "stack".
+    // "- x\n  - stack\n    - review": press Enter at the end of "stack".
     const blocks = new BlockStore();
     blocks.setRanges([
-      block('unordered-list-item', 0, 5, 0),
-      block('unordered-list-item', 6, 12, 1),
+      block('unordered-list-item', 0, 1, 0),
+      block('unordered-list-item', 2, 7, 1),
+      block('unordered-list-item', 8, 14, 2),
     ]);
     const pipeline = new EditPipeline(new FormattingStore(), blocks);
 
     pipeline.processTextChange(
-      'stack\n\nreview',
-      context({ editStart: 5, insertedText: '\n' })
+      'x\nstack\n\nreview',
+      context({ editStart: 7, insertedText: '\n' })
     );
 
-    // The fresh empty line continues the outer list and "review" below it
-    // stays at depth 1: continuation must precede normalization, or the
-    // depth clamp sees a gap and flattens it.
+    // The fresh empty line continues the list at "stack"'s depth and "review"
+    // below it stays at depth 2: continuation must precede normalization, or
+    // the depth clamp sees a gap and flattens it.
     expect(blocks.allRanges.map((b) => [b.start, b.level])).toEqual([
       [0, 0],
-      [6, 0],
-      [7, 1],
+      [2, 1],
+      [8, 1],
+      [9, 2],
     ]);
   });
 
