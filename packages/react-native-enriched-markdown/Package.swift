@@ -174,6 +174,7 @@ let headerSearchPaths: [String] = [
     "cpp/enrmrkd",
     "cpp/parser",
     "cpp/repair",
+    "cpp/input",
     "cpp/highlight",
     "cpp/latex",
 ]
@@ -239,7 +240,7 @@ let package = Package(
             exclude: notSources + ["ios/math/ENRMRaTeXBridge.swift"],
             sources: [
                 "ios", "common",
-                "cpp/enrmrkd", "cpp/parser", "cpp/repair", "cpp/latex",
+                "cpp/enrmrkd", "cpp/parser", "cpp/repair", "cpp/input", "cpp/latex",
                 "cpp/highlight/CodeBlockHighlighter.cpp", "cpp/highlight/CodeBlockLanguages.cpp",
             ] + highlightSources,
             publicHeadersPath: "ios/include",
