@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "ios": "react-native run-ios",
-    "start": "react-native start"
+    "start": "react-native start",
+    "build:ios-spm": "react-native spm && xcodebuild build -project ios/EnrichedMarkdownSpmExample.xcodeproj -scheme EnrichedMarkdownSpmExample -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build/DerivedData -quiet CODE_SIGNING_ALLOWED=NO ARCHS=arm64"
   },
   "dependencies": {
     "react": "19.3.0",
