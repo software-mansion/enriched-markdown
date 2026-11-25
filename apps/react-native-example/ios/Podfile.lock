@@ -1469,6 +1469,29 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - react-native-webgpu (0.21.0):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-bridging
+    - React-Core
+    - React-Core-prebuilt
+    - React-cxxstableapi
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - React-NativeModulesApple (0.88.0):
     - hermes-engine
     - React-bridging
@@ -1885,6 +1908,130 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - RNAudioAPI (0.13.6):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-bridging
+    - React-Core
+    - React-Core-prebuilt
+    - React-cxxstableapi
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - RNAudioAPI/audioapi (= 0.13.6)
+    - RNWorklets
+    - Yoga
+  - RNAudioAPI/audioapi (0.13.6):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-bridging
+    - React-Core
+    - React-Core-prebuilt
+    - React-cxxstableapi
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - RNAudioAPI/audioapi/audioapi_dsp (= 0.13.6)
+    - RNAudioAPI/audioapi/ios (= 0.13.6)
+    - RNAudioAPI/audioapi/miniaudio_impl (= 0.13.6)
+    - RNWorklets
+    - Yoga
+  - RNAudioAPI/audioapi/audioapi_dsp (0.13.6):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-bridging
+    - React-Core
+    - React-Core-prebuilt
+    - React-cxxstableapi
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - RNWorklets
+    - Yoga
+  - RNAudioAPI/audioapi/ios (0.13.6):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-bridging
+    - React-Core
+    - React-Core-prebuilt
+    - React-cxxstableapi
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - RNWorklets
+    - Yoga
+  - RNAudioAPI/audioapi/miniaudio_impl (0.13.6):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-bridging
+    - React-Core
+    - React-Core-prebuilt
+    - React-cxxstableapi
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - RNWorklets
+    - Yoga
   - RNCAsyncStorage (1.23.1):
     - hermes-engine
     - RCTRequired
@@ -1954,7 +2101,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNReanimated (4.7.1):
+  - RNReanimated (4.8.0):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1977,37 +2124,12 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-    - RNReanimated/apple (= 4.7.1)
-    - RNReanimated/common (= 4.7.1)
-    - RNReanimated/view (= 4.7.1)
+    - RNReanimated/apple (= 4.8.0)
+    - RNReanimated/common (= 4.8.0)
+    - RNReanimated/view (= 4.8.0)
     - RNWorklets
     - Yoga
-  - RNReanimated/apple (4.7.1):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-bridging
-    - React-Core
-    - React-Core-prebuilt
-    - React-cxxstableapi
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-hermes
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - RNWorklets
-    - Yoga
-  - RNReanimated/common (4.7.1):
+  - RNReanimated/apple (4.8.0):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2032,7 +2154,32 @@ PODS:
     - ReactNativeDependencies
     - RNWorklets
     - Yoga
-  - RNReanimated/view (4.7.1):
+  - RNReanimated/common (4.8.0):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-bridging
+    - React-Core
+    - React-Core-prebuilt
+    - React-cxxstableapi
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - RNWorklets
+    - Yoga
+  - RNReanimated/view (4.8.0):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2153,7 +2300,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNWorklets (0.13.0):
+  - RNWorklets (0.14.0):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2176,10 +2323,10 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-    - RNWorklets/apple (= 0.13.0)
-    - RNWorklets/common (= 0.13.0)
+    - RNWorklets/apple (= 0.14.0)
+    - RNWorklets/common (= 0.14.0)
     - Yoga
-  - RNWorklets/apple (0.13.0):
+  - RNWorklets/apple (0.14.0):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2203,7 +2350,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNWorklets/common (0.13.0):
+  - RNWorklets/common (0.14.0):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2284,6 +2431,7 @@ DEPENDENCIES:
   - React-mutationobservernativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - "react-native-slider (from `../node_modules/@react-native-community/slider`)"
+  - react-native-webgpu (from `../node_modules/react-native-webgpu`)
   - React-NativeModulesApple (from `../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
   - React-networking (from `../node_modules/react-native/ReactCommon/react/networking`)
   - React-oscompat (from `../node_modules/react-native/ReactCommon/oscompat`)
@@ -2322,6 +2470,7 @@ DEPENDENCIES:
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - ReactNativeDependencies (from `../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
   - ReactNativeEnrichedMarkdown (from `../../../packages/react-native-enriched-markdown`)
+  - RNAudioAPI (from `../node_modules/react-native-audio-api`)
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - "RNDateTimePicker (from `../node_modules/@react-native-community/datetimepicker`)"
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
@@ -2434,6 +2583,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-safe-area-context"
   react-native-slider:
     :path: "../node_modules/@react-native-community/slider"
+  react-native-webgpu:
+    :path: "../node_modules/react-native-webgpu"
   React-NativeModulesApple:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios"
   React-networking:
@@ -2510,6 +2661,8 @@ EXTERNAL SOURCES:
     :podspec: "../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
   ReactNativeEnrichedMarkdown:
     :path: "../../../packages/react-native-enriched-markdown"
+  RNAudioAPI:
+    :path: "../node_modules/react-native-audio-api"
   RNCAsyncStorage:
     :path: "../node_modules/@react-native-async-storage/async-storage"
   RNDateTimePicker:
@@ -2580,6 +2733,7 @@ SPEC CHECKSUMS:
   React-mutationobservernativemodule: 11d77d3f7360578f07847843544ada23cc473049
   react-native-safe-area-context: b1c9f15a36e597e9cef4c5526e209ef2645bc2e0
   react-native-slider: dd9f3467045ed79403b3edb9e8460c27f2e3049f
+  react-native-webgpu: 5d8b988f9c0bbf13b0ba5aca5dc105f1bca6c8e1
   React-NativeModulesApple: 52f3def085f129de1307e3eb78e26729ff70f421
   React-networking: 1e6441349ac72bfd4f7a79c300c3dd76993a7058
   React-oscompat: e64123dd8199f9e99cede19fa542c3da3445481e
@@ -2614,20 +2768,21 @@ SPEC CHECKSUMS:
   React-viewtransitionnativemodule: 8505b253586f792c6c722869a664889797ecae3e
   React-webperformancenativemodule: 67f32fde92ed7e8470ee1c669bdb7c2fcb760141
   ReactAppDependencyProvider: 782ee9546c9cd3b53b73f1e9e3dd728540085fc7
-  ReactCodegen: 7b71f4464442e9b6eae41094d11076d56c51c0e3
+  ReactCodegen: c08350fd2a8a61d5faf2b6e447f9281543e3b162
   ReactCommon: 145a14b942b19fc2fe38927f261955ada56978aa
   ReactNativeDependencies: d3b7423ba1e52525e42085c8470109abde583d2e
-  ReactNativeEnrichedMarkdown: 47c216230b174cf75e305f54feb5e41c865a8478
+  ReactNativeEnrichedMarkdown: d783d9060aa0f7e24b25afe4552b79243af76ce0
+  RNAudioAPI: 71118200a813c37c53dca6d8f7471a2854a2e4e3
   RNCAsyncStorage: 3a34af458c28403fc907178ac44bee8f6960ced1
   RNDateTimePicker: b541d17d1cc0b28b52063d455a0e347e52282e1e
   RNGestureHandler: 0124c0b5117c1376f013aaac888ed4134ca88b58
-  RNReanimated: 3018727dbf272754d0f31ef73f619e49ade7baf0
+  RNReanimated: f6f17eb8da75d961c133c3e1ca5796e1ec5cce17
   RNScreens: 6d0d3b7819284dbf9f222899eb819f069fce4b8b
   RNSVG: 2763b18e0405296e97c651358716e997ce041b1f
-  RNWorklets: 488806637a21eb17812a48dadca7cb8c698c8cfd
+  RNWorklets: 2beaf608a368e5894d578ac8c4e3c2b0c9b77e08
   SocketRocket: 37aec555668fb852ec12e3c0de59a86ca58f0871
   Yoga: d1c536142c5ff8ec8cd856ab2a7c227a1d875c8e
 
 PODFILE CHECKSUM: fb41a03a6aaff1d1c19af83951ec8d5cdebbbedc
 
-COCOAPODS: 1.15.2
+COCOAPODS: 1.16.2

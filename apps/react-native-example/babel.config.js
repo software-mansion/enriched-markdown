@@ -10,7 +10,13 @@ const root = path.resolve(
 module.exports = getConfig(
   {
     presets: ['module:@react-native/babel-preset'],
-    plugins: ['react-native-worklets/plugin'],
+    plugins: [
+      './babel/exportNamespaceAs.cjs',
+      '@babel/plugin-transform-export-namespace-from',
+      '@babel/plugin-transform-class-static-block',
+      'unplugin-typegpu/babel',
+      'react-native-worklets/plugin',
+    ],
   },
   { root, pkg }
 );

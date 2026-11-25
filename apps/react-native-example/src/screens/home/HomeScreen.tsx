@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { ScrollView, Text, StyleSheet } from 'react-native';
 import { HomeScreenButton } from './HomeScreenButton';
 import type {
   RootStackParamList,
@@ -8,7 +8,7 @@ import type {
 type Props = RootStackScreenProps<'Home'>;
 
 type ScreenItem = {
-  route: Exclude<keyof RootStackParamList, 'Home'>;
+  route: Exclude<keyof RootStackParamList, 'Home' | 'MovementPart'>;
   label: string;
   subtext: string;
   testID: string;
@@ -59,11 +59,11 @@ const SCREENS: ScreenItem[] = [
     color: '#C8442C',
   },
   {
-    route: 'JournalStatic',
+    route: 'JournalSource',
     label: 'Kyoto Journal',
-    subtext: 'custom renderers, no stream',
-    testID: 'home-block-journal-static',
-    color: '#8C6A4E',
+    subtext: 'markdown ⇄ components',
+    testID: 'home-block-journal-source',
+    color: '#2A211B',
   },
   {
     route: 'LinerNotes',
@@ -72,11 +72,50 @@ const SCREENS: ScreenItem[] = [
     testID: 'home-block-liner-notes',
     color: '#D9A441',
   },
+  {
+    route: 'FlightJournal',
+    label: 'Apollo 11 Flight Journal',
+    subtext: 'the landing, card by card',
+    testID: 'home-block-flight-journal',
+    color: '#E5482F',
+  },
+  {
+    route: 'Solids',
+    label: 'Solids',
+    subtext: 'TypeGPU code blocks, raymarched',
+    testID: 'home-block-solids',
+    color: '#7C5CFF',
+  },
+  {
+    route: 'Blues',
+    label: 'Blues Lesson',
+    subtext: 'a lesson you can hear and play',
+    testID: 'home-block-blues',
+    color: '#E8B04B',
+  },
+  {
+    route: 'NeonPhone',
+    label: 'Neon Phone',
+    subtext: 'a crime-game phone, all markdown',
+    testID: 'home-block-neon-phone',
+    color: '#FF4FA3',
+  },
+  {
+    route: 'Movement',
+    label: 'The Movement',
+    subtext: 'shared element transitions, in markdown',
+    testID: 'home-block-movement',
+    color: '#2B4C9B',
+  },
 ];
 
 export default function HomeScreen({ navigation }: Props) {
   return (
-    <View style={styles.container} testID="home-screen">
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.container}
+      testID="home-screen"
+    >
       <Text style={styles.title}>Enriched Markdown Examples</Text>
       <Text style={styles.subtitle}>
         Explore different markdown rendering and input capabilities
@@ -96,17 +135,20 @@ export default function HomeScreen({ navigation }: Props) {
           }
         />
       ))}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scroll: {
     flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  container: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#f5f5f5',
   },
   title: {
     fontSize: 28,

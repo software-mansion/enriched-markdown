@@ -64,3 +64,18 @@ export function jitter(seed: string) {
   }
   return ((hash % 1000) + 1000) / 1000 - 1;
 }
+
+// Each renderer's colour, shared by its tag on the Duo's source page.
+const RENDERER_ACCENTS: Record<string, string> = {
+  TrainTicket: '#3F8F7A',
+  RailLine: '#2B5DAA',
+  FilmClip: '#4F5D75',
+  Polaroid: '#8A6A4A',
+  Mermaid: '#C2477A',
+  MapCard: '#B07A2A',
+  TempleSeal: VERMILION,
+};
+
+export function accentFor(renderer: string) {
+  return RENDERER_ACCENTS[renderer] ?? INK_SOFT;
+}

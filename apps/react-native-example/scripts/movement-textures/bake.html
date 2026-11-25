@@ -1,0 +1,1028 @@
+<!doctype html>
+<meta charset="utf-8" />
+<pre id="out"></pre>
+<script>
+  // Geometry shared with src/screens/movement/works.tsx. Keep in step.
+  const SIZE = 320;
+  const C = SIZE / 2;
+  const TAU = Math.PI * 2;
+  const TRAIN = (() => {
+    const a = { cx: 112, cy: 196, teeth: 36, pitch: 76 };
+    const mesh = (from, teeth, direction) => {
+      const pitch = (from.pitch / from.teeth) * teeth;
+      const reach = from.pitch + pitch;
+      return {
+        cx: from.cx + reach * Math.cos(direction),
+        cy: from.cy + reach * Math.sin(direction),
+        teeth,
+        pitch,
+      };
+    };
+    const b = mesh(a, 24, -0.95);
+    return [a, b, mesh(b, 15, 0.75)];
+  })();
+  const gearBox = (pitch, teeth) => Math.ceil((pitch + (2 * pitch) / teeth + 2) * 2);
+  const ESCAPE_BOX = 148;
+  const FORK_BOX = 200;
+  const BALANCE_BOX = 236;
+  const HAND_BOX = 260;
+  const TRACE_PERIOD = 96;
+
+  const BRASS = ['#F8E7B4', '#CFA95C', '#6F5626'];
+  const STEEL = ['#F7F8FA', '#B4B9C2', '#555A63'];
+  const DISC = '#101114';
+  const INK = '#1B1C1F';
+
+  // The lamp is up and to the left of every layer.
+  let seed = 7;
+  const rnd = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+
+  function canvas(w, h, S) {
+    const c = document.createElement('canvas');
+    c.width = Math.round(w * S);
+    c.height = Math.round(h * S);
+    const x = c.getContext('2d');
+    x.scale(S, S);
+    return [c, x];
+  }
+
+  // Paints `source` (pixel space) onto `x` regardless of its transform.
+  function stamp(x, source, filter, alpha = 1, dx = 0, dy = 0) {
+    x.save();
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    x.globalAlpha = alpha;
+    if (filter) x.filter = filter;
+    x.drawImage(source, dx, dy);
+    x.restore();
+  }
+
+  function tint(mask, color) {
+    const c = document.createElement('canvas');
+    c.width = mask.width;
+    c.height = mask.height;
+    const x = c.getContext('2d');
+    x.drawImage(mask, 0, 0);
+    x.globalCompositeOperation = 'source-in';
+    x.fillStyle = color;
+    x.fillRect(0, 0, c.width, c.height);
+    return c;
+  }
+
+  // The edge of `mask` that faces (dx, dy): what a chamfer catches.
+  function band(mask, dx, dy, color) {
+    const c = document.createElement('canvas');
+    c.width = mask.width;
+    c.height = mask.height;
+    const x = c.getContext('2d');
+    x.drawImage(mask, 0, 0);
+    x.globalCompositeOperation = 'destination-out';
+    x.drawImage(mask, dx, dy);
+    return tint(c, color);
+  }
+
+  function shadow(x, mask, S, dx, dy, blur, alpha) {
+    stamp(x, tint(mask, '#000'), `blur(${blur * S}px)`, alpha, dx * S, dy * S);
+  }
+
+  // A metal part: base tone, anisotropic sheen, grain, chamfered edges.
+  function metal(w, h, S, drawMask, opts) {
+    const { cx = w / 2, cy = h / 2, pal = BRASS, lobes = 4, grain = 'radial' } = opts;
+    const { bevel = 1.3, sheen = 1, detail } = opts;
+    const [m, mx] = canvas(w, h, S);
+    mx.fillStyle = '#fff';
+    mx.strokeStyle = '#fff';
+    drawMask(mx);
+    const [c, x] = canvas(w, h, S);
+    const base = x.createLinearGradient(0, 0, w, h);
+    base.addColorStop(0, pal[0]);
+    base.addColorStop(0.45, pal[1]);
+    base.addColorStop(1, pal[2]);
+    x.fillStyle = base;
+    x.fillRect(0, 0, w, h);
+    x.globalCompositeOperation = 'overlay';
+    if (lobes > 0) {
+      const conic = x.createConicGradient(-2.2, cx, cy);
+      for (let i = 0; i <= lobes * 2; i++) {
+        conic.addColorStop(
+          i / (lobes * 2),
+          i % 2 ? `rgba(0,0,0,${0.34 * sheen})` : `rgba(255,255,255,${0.5 * sheen})`
+        );
+      }
+      x.fillStyle = conic;
+      x.fillRect(0, 0, w, h);
+    }
+    x.lineWidth = 0.3;
+    for (let i = 0; i < (grain ? 1100 : 0); i++) {
+      x.strokeStyle =
+        rnd() < 0.5 ? `rgba(255,255,255,${rnd() * 0.26})` : `rgba(0,0,0,${rnd() * 0.24})`;
+      x.beginPath();
+      if (grain === 'radial') {
+        const a = rnd() * TAU;
+        x.moveTo(cx + Math.cos(a) * 3, cy + Math.sin(a) * 3);
+        x.lineTo(cx + Math.cos(a) * w, cy + Math.sin(a) * w);
+      } else {
+        const y = rnd() * h;
+        x.moveTo(0, y);
+        x.lineTo(w, y + (rnd() - 0.5) * 3);
+      }
+      x.stroke();
+    }
+    x.globalCompositeOperation = 'source-over';
+    if (detail) detail(x);
+    stamp(x, band(m, bevel * S, bevel * S, 'rgba(255,255,255,0.9)'), `blur(${0.35 * S}px)`);
+    stamp(x, band(m, -bevel * S, -bevel * S, 'rgba(0,0,0,0.6)'), `blur(${0.35 * S}px)`);
+    x.globalCompositeOperation = 'destination-in';
+    stamp(x, m);
+    x.globalCompositeOperation = 'source-over';
+    return { image: c, mask: m };
+  }
+
+  const polar = (cx, cy, r, a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+
+  function gearOutline(x, c, teeth, pitch) {
+    const module = (2 * pitch) / teeth;
+    const tip = pitch + module * 0.95;
+    const root = pitch - module * 1.1;
+    const step = TAU / teeth;
+    x.beginPath();
+    for (let k = 0; k < teeth; k++) {
+      const a = k * step;
+      x.lineTo(...polar(c, c, root, a - 0.5 * step));
+      x.lineTo(...polar(c, c, root, a - 0.27 * step));
+      x.lineTo(...polar(c, c, tip, a - 0.12 * step));
+      x.lineTo(...polar(c, c, tip, a + 0.12 * step));
+      x.lineTo(...polar(c, c, root, a + 0.27 * step));
+    }
+    x.closePath();
+    x.fill();
+    return root;
+  }
+
+  // Cuts `n` crossings between a hub and a rim, leaving spokes of even width.
+  function crossings(x, c, n, hub, rim, spoke) {
+    x.save();
+    x.globalCompositeOperation = 'destination-out';
+    for (let k = 0; k < n; k++) {
+      const a0 = (k * TAU) / n;
+      const a1 = ((k + 1) * TAU) / n;
+      const outer = Math.asin(spoke / 2 / rim);
+      const inner = Math.asin(spoke / 2 / hub);
+      x.beginPath();
+      x.arc(c, c, rim, a0 + outer, a1 - outer);
+      x.arc(c, c, hub, a1 - inner, a0 + inner, true);
+      x.closePath();
+      x.fill();
+    }
+    x.restore();
+  }
+
+  function ring(x, cx, cy, r, color, width) {
+    x.beginPath();
+    x.arc(cx, cy, r, 0, TAU);
+    x.strokeStyle = color;
+    x.lineWidth = width;
+    x.stroke();
+  }
+
+  function wheel({ teeth, pitch }, spokes, pal) {
+    const box = gearBox(pitch, teeth);
+    const c = box / 2;
+    const hub = Math.max(7, pitch * 0.2) + 3;
+    let root = 0;
+    return metal(
+      box,
+      box,
+      3,
+      (m) => {
+        root = gearOutline(m, c, teeth, pitch);
+        if (spokes) crossings(m, c, spokes, hub + 3, root - pitch * 0.16, pitch * 0.13);
+      },
+      {
+        pal,
+        lobes: 4,
+        detail: (x) => {
+          ring(x, c, c, root - pitch * 0.07, 'rgba(0,0,0,0.3)', 0.7);
+          ring(x, c, c, root - pitch * 0.07 - 0.8, 'rgba(255,255,255,0.35)', 0.5);
+          ring(x, c, c, hub - 1.5, 'rgba(0,0,0,0.35)', 0.8);
+        },
+      }
+    ).image;
+  }
+
+  function spiral(x, cx, cy, inner, outer, turns, width, dark, light) {
+    const steps = Math.ceil(turns * 140);
+    const at = (i) => {
+      const p = i / steps;
+      return polar(cx, cy, inner + (outer - inner) * p, p * turns * TAU);
+    };
+    x.lineCap = 'round';
+    x.lineJoin = 'round';
+    x.strokeStyle = dark;
+    x.lineWidth = width;
+    x.beginPath();
+    for (let i = 0; i <= steps; i++) x.lineTo(...at(i));
+    x.stroke();
+    if (!light) return;
+    // The coil's face catches the lamp where its tangent runs across it.
+    x.lineCap = 'butt';
+    x.lineWidth = width * 0.5;
+    for (let i = 0; i < steps; i++) {
+      const a = (i / steps) * turns * TAU;
+      const lit = Math.max(0, Math.cos(a + Math.PI / 2 + 2.2)) ** 2;
+      x.strokeStyle = light.replace('A', (0.18 + 0.82 * lit).toFixed(3));
+      x.beginPath();
+      x.moveTo(...at(i));
+      x.lineTo(...at(i + 1.15));
+      x.stroke();
+    }
+  }
+
+  function jewel(x, cx, cy, r) {
+    x.save();
+    x.fillStyle = 'rgba(0,0,0,0.6)';
+    x.filter = 'blur(2.4px)';
+    x.beginPath();
+    x.arc(cx + 1, cy + 1.6, r + 4.6, 0, TAU);
+    x.fill();
+    x.filter = 'none';
+    const gold = x.createConicGradient(-2.4, cx, cy);
+    ['#FFF3CC', '#B98F3F', '#F1D58D', '#6F5626', '#FFF3CC'].forEach((color, i) =>
+      gold.addColorStop(i / 4, color)
+    );
+    x.fillStyle = gold;
+    x.beginPath();
+    x.arc(cx, cy, r + 2.8, 0, TAU);
+    x.fill();
+    ring(x, cx, cy, r + 0.5, 'rgba(60,30,10,0.7)', 0.9);
+    const dome = x.createRadialGradient(cx - r * 0.35, cy - r * 0.4, r * 0.1, cx, cy, r);
+    dome.addColorStop(0, '#FFB4C6');
+    dome.addColorStop(0.35, '#E2406B');
+    dome.addColorStop(1, '#5A0C26');
+    x.fillStyle = dome;
+    x.beginPath();
+    x.arc(cx, cy, r, 0, TAU);
+    x.fill();
+    x.fillStyle = 'rgba(20,4,10,0.85)';
+    x.beginPath();
+    x.arc(cx, cy, r * 0.24, 0, TAU);
+    x.fill();
+    x.fillStyle = 'rgba(255,255,255,0.95)';
+    x.filter = 'blur(0.3px)';
+    x.beginPath();
+    x.ellipse(cx - r * 0.38, cy - r * 0.44, r * 0.26, r * 0.16, -0.7, 0, TAU);
+    x.fill();
+    x.strokeStyle = 'rgba(255,170,190,0.55)';
+    x.lineWidth = r * 0.14;
+    x.beginPath();
+    x.arc(cx, cy, r * 0.74, 0.3, 1.3);
+    x.stroke();
+    x.restore();
+  }
+
+  function screw(x, cx, cy, turn, r = 6) {
+    x.save();
+    x.fillStyle = 'rgba(0,0,0,0.65)';
+    x.filter = 'blur(1.8px)';
+    x.beginPath();
+    x.arc(cx + 0.8, cy + 1.2, r + 2, 0, TAU);
+    x.fill();
+    x.filter = 'none';
+    const head = x.createRadialGradient(cx - r * 0.4, cy - r * 0.45, r * 0.1, cx, cy, r);
+    head.addColorStop(0, '#9DB7FF');
+    head.addColorStop(0.4, '#3F6BDD');
+    head.addColorStop(1, '#152A66');
+    x.fillStyle = head;
+    x.beginPath();
+    x.arc(cx, cy, r, 0, TAU);
+    x.fill();
+    ring(x, cx, cy, r - 0.4, 'rgba(180,200,255,0.5)', 0.5);
+    x.translate(cx, cy);
+    x.rotate((turn * Math.PI) / 180);
+    x.fillStyle = '#05070D';
+    x.fillRect(-r, -0.95, r * 2, 1.9);
+    x.fillStyle = 'rgba(190,210,255,0.6)';
+    x.fillRect(-r, 0.95, r * 2, 0.4);
+    x.restore();
+  }
+
+  // The light caught along the lamp side of a rim, and lost on the far side.
+  function rimLight(x, cx, cy, r, width = 1.4) {
+    x.save();
+    x.lineCap = 'round';
+    x.filter = 'blur(0.5px)';
+    x.strokeStyle = 'rgba(255,255,255,0.75)';
+    x.lineWidth = width;
+    x.beginPath();
+    x.arc(cx, cy, r, -2.9, -1.5);
+    x.stroke();
+    x.strokeStyle = 'rgba(0,0,0,0.5)';
+    x.beginPath();
+    x.arc(cx, cy, r, 0.3, 1.6);
+    x.stroke();
+    x.restore();
+  }
+
+  function shadowDisc(x, cx, cy, r, S) {
+    x.save();
+    x.shadowColor = 'rgba(0,0,0,0.85)';
+    x.shadowBlur = 9 * S;
+    x.shadowOffsetX = (5 + 4000) * S;
+    x.shadowOffsetY = 7 * S;
+    x.beginPath();
+    x.arc(cx - 4000, cy, r, 0, TAU);
+    x.fill();
+    x.restore();
+  }
+
+  function arcText(x, text, r, at, size, color) {
+    x.save();
+    x.font = `${size}px DMMono`;
+    x.fillStyle = color;
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    const step = (size * 0.86) / r;
+    [...text].forEach((ch, i) => {
+      // Along the bottom of the plate, read left to right.
+      const a = at - (i - (text.length - 1) / 2) * step;
+      x.save();
+      x.translate(...polar(C, C, r, a));
+      x.rotate(a - Math.PI / 2);
+      x.fillText(ch, 0, 0);
+      x.restore();
+    });
+    x.restore();
+  }
+
+  // The plate under an instrument: striped, engraved, darker towards the rim.
+  function bed(draw, legend) {
+    const S = 2.5;
+    const [c, x] = canvas(SIZE, SIZE, S);
+    x.beginPath();
+    x.arc(C, C, C, 0, TAU);
+    x.clip();
+    const base = x.createRadialGradient(C - 50, C - 60, 20, C, C, C);
+    base.addColorStop(0, '#24262C');
+    base.addColorStop(1, '#0C0D10');
+    x.fillStyle = base;
+    x.fillRect(0, 0, SIZE, SIZE);
+    // Geneva stripes: each band lit along one edge, grained along its length.
+    x.save();
+    x.translate(C, C);
+    x.rotate(0.42);
+    for (let k = -8; k < 8; k++) {
+      const stripe = x.createLinearGradient(k * 30, 0, k * 30 + 30, 0);
+      stripe.addColorStop(0, 'rgba(255,255,255,0.075)');
+      stripe.addColorStop(0.55, 'rgba(255,255,255,0.01)');
+      stripe.addColorStop(1, 'rgba(0,0,0,0.16)');
+      x.fillStyle = stripe;
+      x.fillRect(k * 30, -SIZE, 30, SIZE * 2);
+    }
+    x.lineWidth = 0.25;
+    for (let i = 0; i < 1500; i++) {
+      const at = (rnd() - 0.5) * SIZE * 1.5;
+      x.strokeStyle = `rgba(255,255,255,${rnd() * 0.05})`;
+      x.beginPath();
+      x.moveTo(at, -SIZE);
+      x.lineTo(at + (rnd() - 0.5) * 2, SIZE);
+      x.stroke();
+    }
+    x.restore();
+    ring(x, C, C, C - 9, 'rgba(0,0,0,0.6)', 1.2);
+    ring(x, C + 0.5, C + 0.6, C - 9, 'rgba(255,255,255,0.12)', 0.6);
+    if (legend) arcText(x, legend, C - 20, Math.PI / 2, 6.2, 'rgba(205,168,94,0.4)');
+    x.fillStyle = '#000';
+    draw(x, S);
+    const vignette = x.createRadialGradient(C, C, C * 0.55, C, C, C);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.62)');
+    x.fillStyle = vignette;
+    x.fillRect(0, 0, SIZE, SIZE);
+    return c;
+  }
+
+  // A steel bridge standing over the works, anglage along its edges.
+  function bridge(x, S, points, width) {
+    const part = metal(
+      SIZE,
+      SIZE,
+      S,
+      (m) => {
+        m.lineWidth = width;
+        m.lineCap = 'round';
+        m.lineJoin = 'round';
+        m.beginPath();
+        points.forEach(([px, py], i) => (i ? m.lineTo(px, py) : m.moveTo(px, py)));
+        m.stroke();
+      },
+      { pal: STEEL, lobes: 0, grain: 'linear', bevel: 1.5 }
+    );
+    shadow(x, part.mask, S, 4, 6, 4, 0.6);
+    stamp(x, part.image);
+  }
+
+  function overlay(draw) {
+    const S = 2.5;
+    const [c, x] = canvas(SIZE, SIZE, S);
+    x.beginPath();
+    x.arc(C, C, C, 0, TAU);
+    x.clip();
+    draw(x, S);
+    return c;
+  }
+
+  const layers = {};
+
+  function barrel() {
+    const pitch = 112;
+    const teeth = 54;
+    const box = gearBox(pitch, teeth);
+    const c = box / 2;
+    layers.barrel_bed = bed((x, S) => {
+      shadowDisc(x, C, C, 118, S);
+      // The power reserve, engraved on the rim.
+      const from = (200 * Math.PI) / 180;
+      const to = (290 * Math.PI) / 180;
+      x.strokeStyle = 'rgba(205,190,150,0.6)';
+      x.lineWidth = 0.9;
+      x.beginPath();
+      x.arc(C, C, 142, from, to);
+      for (let k = 0; k <= 12; k++) {
+        const a = from + ((to - from) * k) / 12;
+        x.moveTo(...polar(C, C, k % 4 === 0 ? 132 : 137, a));
+        x.lineTo(...polar(C, C, 142, a));
+      }
+      x.stroke();
+      const at = from + (to - from) * 0.7;
+      x.fillStyle = '#E2406B';
+      x.beginPath();
+      x.moveTo(...polar(C, C, 128, at));
+      x.lineTo(...polar(C, C, 138, at - 0.035));
+      x.lineTo(...polar(C, C, 138, at + 0.035));
+      x.fill();
+      screw(x, C - 104, C + 96, 30);
+      screw(x, C + 104, C - 96, -50);
+    }, 'CAL. 18000 · MAINSPRING BARREL');
+    let root = 0;
+    layers.barrel_wheel = metal(
+      box,
+      box,
+      3,
+      (m) => {
+        root = gearOutline(m, c, teeth, pitch);
+      },
+      {
+        lobes: 8,
+        sheen: 1.15,
+        detail: (x) => {
+          ring(x, c, c, root - 6, 'rgba(0,0,0,0.3)', 0.8);
+          ring(x, c, c, root - 6.8, 'rgba(255,255,255,0.4)', 0.5);
+          ring(x, c, c, 80, 'rgba(0,0,0,0.22)', 0.6);
+          // The well the spring sits in, sunk into the drum.
+          const well = x.createRadialGradient(c - 12, c - 14, 8, c, c, 64);
+          well.addColorStop(0, '#1B1D22');
+          well.addColorStop(0.8, '#0A0B0D');
+          well.addColorStop(1, '#000');
+          x.fillStyle = well;
+          x.beginPath();
+          x.arc(c, c, 64, 0, TAU);
+          x.fill();
+          ring(x, c, c, 65, '#E9CF8F', 1.6);
+          ring(x, c, c, 66.6, 'rgba(60,40,10,0.7)', 0.8);
+        },
+      }
+    ).image;
+    const [coil, cx] = canvas(120, 120, 3);
+    spiral(cx, 60, 60, 12, 56, 6.5, 2.5, '#5B6068', 'rgba(255,255,255,A)');
+    layers.barrel_spring = coil;
+    layers.barrel_top = overlay((x) => {
+      rimLight(x, C, C, 108, 1.6);
+      rimLight(x, C, C, 65, 1.4);
+      x.fillStyle = 'rgba(0,0,0,0.6)';
+      x.filter = 'blur(2.5px)';
+      x.beginPath();
+      x.arc(C + 2, C + 3, 13, 0, TAU);
+      x.fill();
+      x.filter = 'none';
+      const arbor = x.createConicGradient(-2.4, C, C);
+      ['#FFF3CC', '#A27C33', '#F1D58D', '#6F5626', '#FFF3CC'].forEach((color, i) =>
+        arbor.addColorStop(i / 4, color)
+      );
+      x.fillStyle = arbor;
+      x.beginPath();
+      x.arc(C, C, 11, 0, TAU);
+      x.fill();
+      ring(x, C, C, 10.6, 'rgba(60,40,10,0.8)', 0.8);
+      x.fillStyle = '#060709';
+      x.fillRect(C - 4.6, C - 4.6, 9.2, 9.2);
+      x.fillStyle = 'rgba(255,240,200,0.7)';
+      x.fillRect(C - 4.6, C + 4.6, 9.2, 0.6);
+    });
+  }
+
+  function train() {
+    layers.train_bed = bed((x, S) => {
+      TRAIN.forEach((w) => shadowDisc(x, w.cx, w.cy, w.pitch + 3, S));
+      screw(x, C + 92, C + 96, 20);
+      screw(x, C - 118, C - 70, -35);
+    }, 'CAL. 18000 · GOING TRAIN');
+    layers.train_a = wheel(TRAIN[0], 5, BRASS);
+    layers.train_b = wheel(TRAIN[1], 4, BRASS);
+    layers.train_c = wheel(TRAIN[2], 0, STEEL);
+    layers.train_top = overlay((x, S) => {
+      const [a, b, c] = TRAIN;
+      TRAIN.forEach((w) => rimLight(x, w.cx, w.cy, w.pitch * 0.86));
+      // One bridge carries the two fast wheels, footed at the plate's edge.
+      bridge(x, S, [[b.cx, b.cy], [c.cx, c.cy], [c.cx + 34, c.cy - 52]], 17);
+      screw(x, c.cx + 34, c.cy - 52, 70, 5);
+      jewel(x, b.cx, b.cy, 4.6);
+      jewel(x, c.cx, c.cy, 3.6);
+      jewel(x, a.cx, a.cy, 5.4);
+    });
+  }
+
+  function escapement() {
+    layers.escapement_bed = bed((x, S) => {
+      shadowDisc(x, C, 118, 68, S);
+      ring(x, C, 118, 82, 'rgba(0,0,0,0.55)', 1);
+      ring(x, C + 0.5, 118.6, 82, 'rgba(255,255,255,0.1)', 0.5);
+      screw(x, C - 96, C + 70, 64);
+      screw(x, C + 96, C + 70, -18);
+    }, 'CAL. 18000 · SWISS LEVER');
+    const box = ESCAPE_BOX;
+    const c = box / 2;
+    const step = TAU / 15;
+    layers.escapement_wheel = metal(
+      box,
+      box,
+      3,
+      (m) => {
+        m.beginPath();
+        for (let k = 0; k < 15; k++) {
+          const a = k * step;
+          m.lineTo(...polar(c, c, 44, a - 0.5 * step));
+          m.lineTo(...polar(c, c, 44, a - 0.1 * step));
+          m.lineTo(...polar(c, c, 66, a + 0.2 * step));
+          m.lineTo(...polar(c, c, 70, a + 0.42 * step));
+          m.lineTo(...polar(c, c, 62, a + 0.46 * step));
+        }
+        m.closePath();
+        m.fill();
+        crossings(m, c, 5, 14, 37, 7);
+      },
+      {
+        lobes: 4,
+        detail: (x) => {
+          ring(x, c, c, 40.5, 'rgba(0,0,0,0.3)', 0.7);
+          ring(x, c, c, 11, 'rgba(0,0,0,0.35)', 0.8);
+        },
+      }
+    ).image;
+    const f = FORK_BOX / 2;
+    const body = [
+      [f - 6, f + 78], [f - 3, f + 8], [f - 44, f - 34], [f - 50, f - 60], [f - 38, f - 62],
+      [f - 34, f - 42], [f, f - 12], [f + 34, f - 42], [f + 38, f - 62], [f + 50, f - 60],
+      [f + 44, f - 34], [f + 3, f + 8], [f + 6, f + 78], [f + 13, f + 92], [f + 5, f + 92],
+      [f, f + 84], [f - 5, f + 92], [f - 13, f + 92],
+    ];
+    const lever = metal(
+      FORK_BOX,
+      FORK_BOX,
+      3,
+      (m) => {
+        m.beginPath();
+        body.forEach(([px, py], i) => (i ? m.lineTo(px, py) : m.moveTo(px, py)));
+        m.closePath();
+        m.fill();
+      },
+      { pal: STEEL, lobes: 0, grain: 'linear', bevel: 1.2 }
+    );
+    const [fork, fx] = canvas(FORK_BOX, FORK_BOX, 3);
+    shadow(fx, lever.mask, 3, 3, 5, 3, 0.55);
+    stamp(fx, lever.image);
+    [f - 52, f + 37].forEach((px) => {
+      const stone = fx.createLinearGradient(px, f - 70, px + 15, f - 58);
+      stone.addColorStop(0, '#FFB4C6');
+      stone.addColorStop(0.4, '#E2406B');
+      stone.addColorStop(1, '#6E1030');
+      fx.fillStyle = stone;
+      fx.fillRect(px, f - 70, 15, 12);
+      fx.fillStyle = 'rgba(255,255,255,0.8)';
+      fx.fillRect(px + 1.5, f - 68.6, 8, 1.4);
+    });
+    jewel(fx, f, f, 3.8);
+    layers.escapement_fork = fork;
+    layers.escapement_top = overlay((x, S) => {
+      rimLight(x, C, 118, 41);
+      // The escape wheel's cock, from the plate's rim to its pivot.
+      bridge(x, S, [[C, 118], [C + 62, 60]], 14);
+      screw(x, C + 62, 60, 25, 4.6);
+      jewel(x, C, 118, 4.2);
+    });
+  }
+
+  function balance() {
+    const c = BALANCE_BOX / 2;
+    layers.balance_bed = bed((x, S) => {
+      shadowDisc(x, C, C, 108, S);
+    }, 'CAL. 18000 · 18,000 VPH');
+    const rim = metal(
+      BALANCE_BOX,
+      BALANCE_BOX,
+      3,
+      (m) => {
+        m.beginPath();
+        m.arc(c, c, 103.5, 0, TAU);
+        m.arc(c, c, 92.5, 0, TAU, true);
+        m.fill();
+        m.beginPath();
+        [[-94, -5], [-12, -8], [12, -8], [94, -5], [94, 5], [12, 8], [-12, 8], [-94, 5]].forEach(
+          ([px, py], i) => (i ? m.lineTo(c + px, c + py) : m.moveTo(c + px, c + py))
+        );
+        m.closePath();
+        m.fill();
+      },
+      { lobes: 2, sheen: 1.1, bevel: 1.5 }
+    );
+    const [wheelCanvas, x] = canvas(BALANCE_BOX, BALANCE_BOX, 3);
+    stamp(x, rim.image);
+    // Fourteen gold timing screws round the rim, each with its slot.
+    for (let k = 0; k < 14; k++) {
+      const a = (k + 0.5) * (TAU / 14);
+      const [sx, sy] = polar(c, c, 109, a);
+      const head = x.createRadialGradient(sx - 1.6, sy - 1.8, 0.4, sx, sy, 5);
+      head.addColorStop(0, '#FFF6D8');
+      head.addColorStop(0.5, '#D9B564');
+      head.addColorStop(1, '#6F5626');
+      x.fillStyle = head;
+      x.beginPath();
+      x.arc(sx, sy, 5, 0, TAU);
+      x.fill();
+      x.strokeStyle = 'rgba(40,25,5,0.85)';
+      x.lineWidth = 1;
+      x.beginPath();
+      x.moveTo(...polar(c, c, 105, a));
+      x.lineTo(...polar(c, c, 113, a));
+      x.stroke();
+    }
+    jewel(x, c, c + 34, 3.4);
+    layers.balance_wheel = wheelCanvas;
+    const [coil, cx] = canvas(104, 104, 3);
+    cx.save();
+    cx.filter = 'blur(3px)';
+    spiral(cx, 52, 52, 7, 48, 7, 3.4, 'rgba(63,107,221,0.4)', null);
+    cx.restore();
+    spiral(cx, 52, 52, 7, 48, 7, 1.5, '#27469B', 'rgba(190,212,255,A)');
+    layers.balance_spring = coil;
+    layers.balance_top = overlay((x, S) => {
+      rimLight(x, C, C, 103.5, 1.6);
+      // The balance cock, and the regulator on it.
+      bridge(x, S, [[C, C], [C, C - 132]], 20);
+      screw(x, C, C - 132, 12, 5.4);
+      x.strokeStyle = 'rgba(30,34,44,0.7)';
+      x.lineWidth = 0.7;
+      for (let k = -3; k <= 3; k++) {
+        x.beginPath();
+        x.moveTo(C + k * 2.2, C - 100);
+        x.lineTo(C + k * 2.2, C - (k === 0 ? 92 : 95));
+        x.stroke();
+      }
+      ring(x, C, C, 12.5, '#E9CF8F', 2);
+      ring(x, C, C, 14, 'rgba(60,40,10,0.7)', 0.7);
+      jewel(x, C, C, 5);
+    });
+  }
+
+  function rate() {
+    const S = 2.5;
+    const [c, x] = canvas(SIZE, SIZE, S);
+    x.beginPath();
+    x.arc(C, C, C, 0, TAU);
+    x.clip();
+    const tube = x.createRadialGradient(C, C, 20, C, C, C);
+    tube.addColorStop(0, '#11161C');
+    tube.addColorStop(1, '#040507');
+    x.fillStyle = tube;
+    x.fillRect(0, 0, SIZE, SIZE);
+    // The graticule: fine, bold, and ticked along both axes.
+    for (let k = 1; k < 40; k++) {
+      const bold = k % 5 === 0;
+      x.strokeStyle = bold ? 'rgba(120,150,190,0.34)' : 'rgba(120,150,190,0.11)';
+      x.lineWidth = bold ? 0.7 : 0.4;
+      x.beginPath();
+      x.moveTo(0, k * 8);
+      x.lineTo(SIZE, k * 8);
+      x.moveTo(k * 8, 0);
+      x.lineTo(k * 8, SIZE);
+      x.stroke();
+    }
+    x.strokeStyle = 'rgba(160,190,230,0.5)';
+    x.lineWidth = 0.6;
+    x.beginPath();
+    for (let k = 0; k <= 80; k++) {
+      x.moveTo(k * 4, C - (k % 5 ? 1.5 : 3));
+      x.lineTo(k * 4, C + (k % 5 ? 1.5 : 3));
+      x.moveTo(C - (k % 5 ? 1.5 : 3), k * 4);
+      x.lineTo(C + (k % 5 ? 1.5 : 3), k * 4);
+    }
+    x.stroke();
+    for (let y = 0; y < SIZE; y += 1.6) {
+      x.fillStyle = 'rgba(0,0,0,0.16)';
+      x.fillRect(0, y, SIZE, 0.6);
+    }
+    const curve = x.createRadialGradient(C, C, C * 0.5, C, C, C);
+    curve.addColorStop(0, 'rgba(0,0,0,0)');
+    curve.addColorStop(1, 'rgba(0,0,0,0.7)');
+    x.fillStyle = curve;
+    x.fillRect(0, 0, SIZE, SIZE);
+    layers.rate_bed = c;
+
+    const [paper, p] = canvas(TRACE_PERIOD * 6, SIZE, 2);
+    const row = (y, wave, core, glow) => {
+      for (const pass of [0, 1]) {
+        p.save();
+        p.shadowColor = glow;
+        p.shadowBlur = pass ? 4 : 18;
+        p.fillStyle = pass ? core : glow;
+        for (let k = 0; k < 72; k++) {
+          const px = (k + 0.5) * (TRACE_PERIOD / 12);
+          p.beginPath();
+          p.arc(px, y + Math.sin((k / 12) * TAU) * wave, pass ? 2.6 : 3.4, 0, TAU);
+          p.fill();
+        }
+        p.restore();
+      }
+    };
+    row(138, 2.2, '#FFE9B0', 'rgba(240,180,70,0.9)');
+    row(170, -1.32, '#C9DAFF', 'rgba(80,130,255,0.9)');
+    layers.rate_paper = paper;
+
+    layers.rate_top = overlay((t) => {
+      t.save();
+      t.shadowColor = 'rgba(226,64,107,0.9)';
+      t.shadowBlur = 10;
+      t.strokeStyle = '#FF7C9A';
+      t.lineWidth = 1.1;
+      t.beginPath();
+      t.moveTo(C + 86, 52);
+      t.lineTo(C + 86, SIZE - 52);
+      t.stroke();
+      t.restore();
+      const label = (text, value, y, color, glow) => {
+        t.font = '9px DMMono';
+        t.fillStyle = 'rgba(170,180,195,0.75)';
+        t.fillText(text, 58, y);
+        t.save();
+        t.shadowColor = glow;
+        t.shadowBlur = 12;
+        t.font = '17px DMMonoMedium';
+        t.fillStyle = color;
+        t.fillText(value, 58, y + 17);
+        t.restore();
+      };
+      label('R A T E', '+3 s/d', 70, '#FFE9B0', 'rgba(240,180,70,0.9)');
+      label('B E A T   E R R O R', '0.2 ms', 216, '#C9DAFF', 'rgba(80,130,255,0.9)');
+    });
+  }
+
+  function seconds() {
+    const S = 2.5;
+    const [c, x] = canvas(SIZE, SIZE, S);
+    x.beginPath();
+    x.arc(C, C, C, 0, TAU);
+    x.clip();
+    x.fillStyle = DISC;
+    x.fillRect(0, 0, SIZE, SIZE);
+    const R = C - 14;
+    const dial = x.createRadialGradient(C - 40, C - 50, 10, C, C, R);
+    dial.addColorStop(0, '#FCFAF4');
+    dial.addColorStop(0.6, '#ECE8DD');
+    dial.addColorStop(1, '#CFC7B4');
+    x.save();
+    x.beginPath();
+    x.arc(C, C, R, 0, TAU);
+    x.clip();
+    x.fillStyle = dial;
+    x.fillRect(0, 0, SIZE, SIZE);
+    // Sunburst lapping, then the finer turned rings of the inner dial.
+    x.lineWidth = 0.3;
+    for (let i = 0; i < 1400; i++) {
+      const a = rnd() * TAU;
+      x.strokeStyle =
+        rnd() < 0.5 ? `rgba(255,255,255,${rnd() * 0.5})` : `rgba(90,80,60,${rnd() * 0.14})`;
+      x.beginPath();
+      x.moveTo(C, C);
+      x.lineTo(...polar(C, C, R, a));
+      x.stroke();
+    }
+    const sweep = x.createConicGradient(-2.2, C, C);
+    for (let i = 0; i <= 8; i++) {
+      sweep.addColorStop(i / 8, i % 2 ? 'rgba(80,70,50,0.13)' : 'rgba(255,255,255,0.22)');
+    }
+    x.fillStyle = sweep;
+    x.fillRect(0, 0, SIZE, SIZE);
+    for (let r = 6; r < C - 64; r += 2.2) ring(x, C, C, r, 'rgba(70,60,40,0.1)', 0.5);
+    x.restore();
+    ring(x, C, C, R - 1, 'rgba(0,0,0,0.3)', 3);
+    ring(x, C + 0.8, C + 1, R - 3, 'rgba(255,255,255,0.5)', 1);
+    ring(x, C, C, C - 34, INK, 0.9);
+    ring(x, C, C, C - 62, 'rgba(27,28,31,0.4)', 0.6);
+    ring(x, C + 0.5, C + 0.6, C - 62, 'rgba(255,255,255,0.6)', 0.5);
+    for (let k = 0; k < 60; k++) {
+      const a = (k / 60) * TAU - Math.PI / 2;
+      if (k % 5 === 0) continue;
+      x.strokeStyle = INK;
+      x.lineWidth = 0.9;
+      x.beginPath();
+      x.moveTo(...polar(C, C, C - 46, a));
+      x.lineTo(...polar(C, C, C - 34, a));
+      x.stroke();
+    }
+    // Applied batons at the fives: polished steel, each with its shadow.
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * TAU - Math.PI / 2;
+      x.save();
+      x.translate(...polar(C, C, C - 47, a));
+      x.rotate(a);
+      x.fillStyle = 'rgba(40,30,10,0.4)';
+      x.filter = 'blur(1.2px)';
+      x.fillRect(-12 + 1.4, -1.6 + 2, 24, 3.4);
+      x.filter = 'none';
+      const baton = x.createLinearGradient(0, -1.8, 0, 1.8);
+      baton.addColorStop(0, '#FFFFFF');
+      baton.addColorStop(0.5, '#3B4048');
+      baton.addColorStop(1, '#15171B');
+      x.fillStyle = baton;
+      x.fillRect(-12, -1.7, 24, 3.4);
+      x.restore();
+    }
+    x.font = '17px DMMonoMedium';
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    ['60', '15', '30', '45'].forEach((label, k) => {
+      const px = C + 80 * Math.sin((k * Math.PI) / 2);
+      const py = C - 80 * Math.cos((k * Math.PI) / 2);
+      x.fillStyle = 'rgba(255,255,255,0.8)';
+      x.fillText(label, px + 0.5, py + 0.7);
+      x.fillStyle = INK;
+      x.fillText(label, px, py);
+    });
+    x.font = '6px DMMono';
+    x.fillStyle = 'rgba(27,28,31,0.6)';
+    x.fillText('C A L .  1 8 0 0 0', C, C + 46);
+    const vignette = x.createRadialGradient(C, C, C * 0.6, C, C, C);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.38)');
+    x.fillStyle = vignette;
+    x.fillRect(0, 0, SIZE, SIZE);
+    layers.seconds_bed = c;
+
+    const h = HAND_BOX / 2;
+    const [m, mx] = canvas(HAND_BOX, HAND_BOX, 3);
+    const shape = (g) => {
+      g.beginPath();
+      g.moveTo(h - 2.4, h + 34);
+      g.lineTo(h - 0.9, h - 112);
+      g.lineTo(h + 0.9, h - 112);
+      g.lineTo(h + 2.4, h + 34);
+      g.closePath();
+      g.fill();
+      g.beginPath();
+      g.arc(h, h + 40, 9, 0, TAU);
+      g.arc(h, h + 40, 4.5, 0, TAU, true);
+      g.fill();
+      g.beginPath();
+      g.arc(h, h, 7, 0, TAU);
+      g.fill();
+    };
+    mx.fillStyle = '#fff';
+    shape(mx);
+    const [hand, hx] = canvas(HAND_BOX, HAND_BOX, 3);
+    // Heat-blued steel, bevelled down its length: one flank lit, one dark.
+    const blue = hx.createLinearGradient(h - 9, 0, h + 9, 0);
+    blue.addColorStop(0, '#8FB0FF');
+    blue.addColorStop(0.45, '#3F6BDD');
+    blue.addColorStop(0.55, '#213F96');
+    blue.addColorStop(1, '#0F1F52');
+    hx.fillStyle = blue;
+    shape(hx);
+    stamp(hx, band(m, 3, 3, 'rgba(210,225,255,0.9)'), 'blur(0.8px)');
+    hx.globalCompositeOperation = 'destination-in';
+    stamp(hx, m);
+    hx.globalCompositeOperation = 'source-over';
+    const cap = hx.createRadialGradient(h - 1.2, h - 1.4, 0.3, h, h, 3.4);
+    cap.addColorStop(0, '#FFFFFF');
+    cap.addColorStop(1, '#6B7078');
+    hx.fillStyle = cap;
+    hx.beginPath();
+    hx.arc(h, h, 3.2, 0, TAU);
+    hx.fill();
+    layers.seconds_hand = hand;
+    const [cast, sx] = canvas(HAND_BOX, HAND_BOX, 1.5);
+    stamp(sx, m, 'blur(3px)', 0.34, 0, 0);
+    const [castSmall, cs] = canvas(HAND_BOX, HAND_BOX, 1.5);
+    cs.setTransform(1, 0, 0, 1, 0, 0);
+    cs.filter = 'blur(2.5px)';
+    cs.globalAlpha = 0.34;
+    cs.drawImage(tint(m, '#000'), 0, 0, castSmall.width, castSmall.height);
+    layers.seconds_shadow = castSmall;
+  }
+
+  function shared() {
+    const S = 2.5;
+    // The case round the works: a polished bezel, and the dark under its lip.
+    const [rim, x] = canvas(SIZE, SIZE, S);
+    const lip = x.createRadialGradient(C, C, C - 22, C, C, C);
+    lip.addColorStop(0, 'rgba(0,0,0,0)');
+    lip.addColorStop(1, 'rgba(0,0,0,0.55)');
+    x.fillStyle = lip;
+    x.beginPath();
+    x.arc(C, C, C, 0, TAU);
+    x.fill();
+    const bezel = x.createConicGradient(-2.3, C, C);
+    ['#FFF1C4', '#8F7238', '#E7C97F', '#4B3B1B', '#D9B564', '#6F5626', '#FFF1C4'].forEach(
+      (color, i) => bezel.addColorStop(i / 6, color)
+    );
+    ring(x, C, C, C - 2.2, bezel, 4.4);
+    ring(x, C, C, C - 4.6, 'rgba(0,0,0,0.75)', 0.8);
+    ring(x, C, C, C - 0.4, 'rgba(0,0,0,0.6)', 0.8);
+    layers.rim = rim;
+
+    // The crystal: one broad reflection, a thin one opposite, hairline wear.
+    const [glass, g] = canvas(SIZE, SIZE, S);
+    g.beginPath();
+    g.arc(C, C, C - 5, 0, TAU);
+    g.clip();
+    const streak = g.createLinearGradient(40, 20, 200, 200);
+    streak.addColorStop(0, 'rgba(255,255,255,0.2)');
+    streak.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = streak;
+    g.beginPath();
+    g.arc(C, C, 150, 3.35, 5.5);
+    g.arc(C + 96, C + 120, 250, 4.62, 3.86, true);
+    g.closePath();
+    g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.1)';
+    g.lineWidth = 2.2;
+    g.filter = 'blur(1.2px)';
+    g.beginPath();
+    g.arc(C, C, 146, 0.5, 1.25);
+    g.stroke();
+    g.filter = 'none';
+    g.lineWidth = 0.25;
+    for (let i = 0; i < 46; i++) {
+      const a = rnd() * TAU;
+      const r = rnd() * 130;
+      const len = 6 + rnd() * 26;
+      const dir = rnd() * TAU;
+      g.strokeStyle = `rgba(255,255,255,${0.03 + rnd() * 0.05})`;
+      g.beginPath();
+      g.moveTo(...polar(C, C, r, a));
+      g.lineTo(C + r * Math.cos(a) + len * Math.cos(dir), C + r * Math.sin(a) + len * Math.sin(dir));
+      g.stroke();
+    }
+    layers.glass = glass;
+
+    // A soft bar of lamp light that drifts across the works.
+    const [bar, b] = canvas(SIZE, SIZE, 1);
+    b.translate(C, C);
+    b.rotate(-0.5);
+    const light = b.createLinearGradient(-60, 0, 60, 0);
+    light.addColorStop(0, 'rgba(255,255,255,0)');
+    light.addColorStop(0.5, 'rgba(255,248,225,0.1)');
+    light.addColorStop(1, 'rgba(255,255,255,0)');
+    b.fillStyle = light;
+    b.fillRect(-60, -SIZE, 120, SIZE * 2);
+    layers.band = bar;
+  }
+
+  async function main() {
+    const fonts = '../../assets/fonts/';
+    for (const [family, file] of [['DMMono', 'DMMono-Regular.ttf'], ['DMMonoMedium', 'DMMono-Medium.ttf']]) {
+      const face = new FontFace(family, `url(${fonts}${file})`);
+      document.fonts.add(await face.load());
+    }
+    barrel();
+    train();
+    escapement();
+    balance();
+    rate();
+    seconds();
+    shared();
+    const out = {};
+    for (const [name, c] of Object.entries(layers)) out[name] = c.toDataURL('image/webp', 0.88);
+    return out;
+  }
+
+  // Headless Chrome stops waiting once no timer is pending: keep one alive
+  // until the fonts are in and the layers are drawn.
+  const alive = setInterval(() => {}, 50);
+  main()
+    .catch((error) => ({ error: String(error && error.stack ? error.stack : error) }))
+    .then((result) => {
+      document.getElementById('out').textContent = JSON.stringify(result);
+      clearInterval(alive);
+    });
+</script>

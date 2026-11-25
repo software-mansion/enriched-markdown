@@ -8,8 +8,14 @@ export type RootStackParamList = {
   Stream: undefined;
   Storybook: undefined;
   Journal: undefined;
-  JournalStatic: undefined;
+  JournalSource: undefined;
   LinerNotes: undefined;
+  FlightJournal: undefined;
+  Solids: undefined;
+  Blues: undefined;
+  NeonPhone: undefined;
+  Movement: undefined;
+  MovementPart: { part: string; night?: boolean };
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =

@@ -23,7 +23,7 @@ import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
 import { useDemoStream } from '../shared/useDemoStream';
 import type { TrackId } from './audio/harmony';
 import { DuoLinerNotes } from './duo/DuoLinerNotes';
-import { useHinge } from './hinge';
+import { useHinge } from '../shared/hinge';
 import { LINER_NOTES_MARKDOWN, PROMPT } from './linerNotesMarkdown';
 import { PlayerProvider, usePlayer, usePlayerState } from './player';
 import { linerNotesRenderers } from './renderers';

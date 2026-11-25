@@ -1,15 +1,13 @@
-import { memo, useEffect, useState, type ReactNode } from 'react';
+import { memo, useEffect, useState } from 'react';
 import {
   Image,
   Linking,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
   type ImageSourcePropType,
-  type StyleProp,
-  type ViewStyle,
 } from 'react-native';
 import Animated, {
   Easing,
@@ -25,12 +23,21 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
-import Svg, { Circle, Path } from 'react-native-svg';
-import type {
-  MarkdownImageBlock,
-  MarkdownLinkBlock,
-  MarkdownRenderers,
-  MarkdownVideoBlock,
+import Svg, {
+  Circle,
+  Defs,
+  LinearGradient,
+  Path,
+  Rect,
+  Stop,
+} from 'react-native-svg';
+import {
+  EnrichedMarkdownText,
+  type MarkdownImageBlock,
+  type MarkdownLinkBlock,
+  type MarkdownRenderers,
+  type MarkdownStyle,
+  type MarkdownVideoBlock,
 } from 'react-native-enriched-markdown';
 import {
   FONTS,
@@ -42,6 +49,11 @@ import {
   VERMILION,
   jitter,
 } from './theme';
+import { RailLine } from './diagrams/RailLine';
+import { LIGHTBOX_MARGIN, Lightbox } from './Lightbox';
+import { Tappable } from './Tappable';
+import { useInstant } from './source/face';
+import { Mermaid } from './mermaid/Mermaid';
 
 const PHOTOS: Record<string, ImageSourcePropType> = {
   'gion.jpg': require('../../assets/kyoto/gion.jpg'),
@@ -52,7 +64,24 @@ const PHOTOS: Record<string, ImageSourcePropType> = {
   'arashiyama-bamboo.mp4': require('../../assets/kyoto/bamboo.jpg'),
 };
 
+// Clips with real footage, played by the library's own video block.
+// Fushimi Inari, Senbon torii: Nesnad, CC BY-SA 4.0, Wikimedia Commons.
+const CLIPS: Record<string, number> = {
+  'fushimi-inari-gates.mp4': require('../../assets/kyoto/fushimi-inari-gates.mp4'),
+};
+
+// The footage plays edge to edge in the film window, under the strip's overlays.
+const FOOTAGE_STYLE: MarkdownStyle = {
+  video: {
+    aspectRatio: 16 / 9,
+    borderRadius: 0,
+    marginTop: 0,
+    marginBottom: 0,
+  },
+};
+
 const CLIP_CAPTIONS: Record<string, string> = {
+  'fushimi-inari-gates.mp4': 'the gates at 6:40 am',
   'fuji-from-the-train.mp4': 'Fuji, from seat 12E',
   'arashiyama-bamboo.mp4': 'the grove at 7 am',
 };
@@ -74,13 +103,18 @@ const OVERSHOOT = Easing.out(Easing.back(1.6));
 const DEVELOP = Easing.inOut(Easing.quad);
 
 function useEntrance(duration = 800, delay = 0, easing = SETTLE) {
-  const progress = useSharedValue(0);
+  const instant = useInstant();
+  const progress = useSharedValue(instant.current ? 1 : 0);
   useEffect(() => {
+    if (instant.current) {
+      progress.value = 1;
+      return;
+    }
     progress.value = withDelay(
       PLACEMENT_DELAY + delay,
       withTiming(1, { duration, easing })
     );
-  }, [progress, duration, delay, easing]);
+  }, [progress, duration, delay, easing, instant]);
   return progress;
 }
 
@@ -96,45 +130,12 @@ function replay(
   );
 }
 
-// Every card is a plain React component, so it can take taps like any other.
-function Tappable({
-  onPress,
-  label,
-  style,
-  children,
-}: {
-  onPress: () => void;
-  label: string;
-  style?: StyleProp<ViewStyle>;
-  children: ReactNode;
-}) {
-  const pressed = useSharedValue(0);
-  const pressStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 - pressed.value * 0.03 }],
-  }));
-  return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={() => {
-        pressed.value = withTiming(1, { duration: 90 });
-      }}
-      onPressOut={() => {
-        pressed.value = withTiming(0, { duration: 200 });
-      }}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={style}
-    >
-      <Animated.View style={pressStyle}>{children}</Animated.View>
-    </Pressable>
-  );
-}
-
 // A polaroid dropped onto the page that develops from dark to full colour.
 function Polaroid({ block }: { block: MarkdownImageBlock }) {
   const tilt = jitter(block.url) * 3;
   const drop = useEntrance(800);
   const develop = useEntrance(1800, 350, DEVELOP);
+  const sheen = useEntrance(1100, 1900, Easing.inOut(Easing.cubic));
 
   const cardStyle = useAnimatedStyle(() => ({
     opacity: drop.value,
@@ -146,6 +147,13 @@ function Polaroid({ block }: { block: MarkdownImageBlock }) {
   }));
   const developStyle = useAnimatedStyle(() => ({
     opacity: 1 - develop.value,
+  }));
+  const sheenStyle = useAnimatedStyle(() => ({
+    opacity: sheen.value > 0 && sheen.value < 1 ? 1 : 0,
+    transform: [
+      { translateX: interpolate(sheen.value, [0, 1], [-120, 320]) },
+      { rotate: '18deg' },
+    ],
   }));
   const [open, setOpen] = useState(false);
   const caption = block.title || block.altText;
@@ -171,6 +179,12 @@ function Polaroid({ block }: { block: MarkdownImageBlock }) {
               style={[styles.develop, developStyle]}
               pointerEvents="none"
             />
+            <Animated.View
+              style={[styles.sheen, sheenStyle]}
+              pointerEvents="none"
+            >
+              <Sheen />
+            </Animated.View>
           </View>
           <Text style={styles.polaroidCaption} numberOfLines={1}>
             {caption}
@@ -183,24 +197,32 @@ function Polaroid({ block }: { block: MarkdownImageBlock }) {
           />
         </Animated.View>
       </Tappable>
-      <Modal
-        visible={open}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setOpen(false)}
-      >
-        <Pressable
-          style={styles.lightbox}
-          onPress={() => setOpen(false)}
-          accessibilityLabel="Close photo"
-        >
-          {open && <Enlarged source={photoFor(block.url)} caption={caption} />}
-        </Pressable>
-      </Modal>
+      <Lightbox open={open} onClose={() => setOpen(false)} label="Close photo">
+        <Enlarged source={photoFor(block.url)} caption={caption} />
+      </Lightbox>
     </View>
   );
 }
+
+// The light off the glossy print, once it has come up.
+const Sheen = memo(function Sheen() {
+  return (
+    <Svg width="100%" height="100%">
+      <Defs>
+        <LinearGradient id="sheen" x1="0" y1="0" x2="1" y2="0">
+          <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0} />
+          <Stop offset="0.5" stopColor="#FFFFFF" stopOpacity={0.38} />
+          <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
+        </LinearGradient>
+      </Defs>
+      <Rect width="100%" height="100%" fill="url(#sheen)" />
+    </Svg>
+  );
+});
+
+const ENLARGED_PADDING = 14;
+// Everything on the lightbox but the photo: the frame, caption and hint.
+const LIGHTBOX_CHROME = 150;
 
 function Enlarged({
   source,
@@ -209,27 +231,20 @@ function Enlarged({
   source: ImageSourcePropType;
   caption: string;
 }) {
-  const lift = useSharedValue(0);
-  useEffect(() => {
-    lift.value = withTiming(1, { duration: 420, easing: OVERSHOOT });
-  }, [lift]);
-  const liftStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: interpolate(lift.value, [0, 1], [0.86, 1]) },
-      { rotate: `${interpolate(lift.value, [0, 1], [-4, 0])}deg` },
-    ],
-  }));
-
+  const window = useWindowDimensions();
+  // As wide as the screen allows, unless that would make the 4:3 photo and
+  // its caption taller than the screen, as on an unfolded Duo.
+  const width = Math.min(
+    window.width - LIGHTBOX_MARGIN * 2,
+    (window.height - LIGHTBOX_CHROME) * (4 / 3) + ENLARGED_PADDING * 2
+  );
   return (
-    <>
-      <Animated.View style={[styles.enlarged, liftStyle]}>
-        <View style={styles.photoFrame}>
-          <Image source={source} style={styles.photo} resizeMode="cover" />
-        </View>
-        <Text style={styles.enlargedCaption}>{caption}</Text>
-      </Animated.View>
-      <Text style={styles.lightboxHint}>tap to put it back</Text>
-    </>
+    <View style={[styles.enlarged, { width }]}>
+      <View style={styles.photoFrame}>
+        <Image source={source} style={styles.photo} resizeMode="cover" />
+      </View>
+      <Text style={styles.enlargedCaption}>{caption}</Text>
+    </View>
   );
 }
 
@@ -238,8 +253,46 @@ const FLICKER = [0.07, 0.02, 0.1, 0, 0.05, 0.01];
 const PAN_MS = 7000;
 const SWAY = Easing.inOut(Easing.sin);
 
-// A Super 8 strip playing a slow pan over the clip's still; a tap pauses it.
+// A Super 8 strip: real footage when the clip has it, otherwise a slow pan
+// over its still that a tap pauses.
 function FilmClip({ block }: { block: MarkdownVideoBlock }) {
+  const name = fileName(block.url);
+  const clip = CLIPS[name];
+  return clip ? (
+    <Footage source={clip} caption={CLIP_CAPTIONS[name] ?? name} />
+  ) : (
+    <PannedClip block={block} />
+  );
+}
+
+// The footage in the strip's window, its player's controls on top, so a tap
+// plays it.
+function Footage({ source, caption }: { source: number; caption: string }) {
+  const enter = useEntrance();
+  const stripStyle = useAnimatedStyle(() => ({
+    opacity: enter.value,
+    transform: [{ translateX: interpolate(enter.value, [0, 1], [60, 0]) }],
+  }));
+  const uri = Image.resolveAssetSource(source)?.uri ?? '';
+  return (
+    <Animated.View style={[styles.film, stripStyle]}>
+      <Sprockets />
+      <View style={styles.filmWindow}>
+        <EnrichedMarkdownText
+          flavor="github"
+          markdown={`<video src="${uri}"></video>`}
+          markdownStyle={FOOTAGE_STYLE}
+        />
+        <Text style={styles.filmCaption} pointerEvents="none">
+          {caption}
+        </Text>
+      </View>
+      <Sprockets />
+    </Animated.View>
+  );
+}
+
+function PannedClip({ block }: { block: MarkdownVideoBlock }) {
   const name = fileName(block.url);
   const enter = useEntrance();
   const pan = useSharedValue(0);
@@ -626,34 +679,83 @@ function MapCard({ block }: { block: MarkdownLinkBlock }) {
   );
 }
 
+// A seal comes down out of the air, presses into the paper with a little give,
+// and leaves its ink a shade lighter than the pad.
 function useThump(progress: SharedValue<number>, rotate: string) {
   return useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0, 0.4, 1], [0, 0.9, 0.86]),
+    opacity: interpolate(
+      progress.value,
+      [0, 0.55, 0.75, 1],
+      [0, 0.95, 0.92, 0.86],
+      'clamp'
+    ),
     transform: [
-      { scale: interpolate(progress.value, [0, 1], [1.7, 1]) },
+      {
+        scale: interpolate(
+          progress.value,
+          [0, 0.6, 0.78, 1],
+          [1.45, 1, 0.965, 1],
+          'clamp'
+        ),
+      },
       { rotate },
     ],
   }));
 }
 
-// A goshuin page: brush lettering, then the temple's red seals thump down.
-// A tap stamps them again.
+// The brush's pace, a character at a time, the right-hand column first.
+const BRUSH_MS = 85;
+const BRUSH_DELAY = 350;
+const STAMP_MS = 520;
+const PRESS = Easing.inOut(Easing.quad);
+
+// A goshuin page: the brush writes the columns right to left, then the
+// temple's red seals press down and the page gives under them. A tap stamps
+// them again.
 function TempleSeal({ block }: { block: MarkdownLinkBlock }) {
-  const page = useEntrance(700);
-  const seal = useEntrance(420, 700, OVERSHOOT);
-  const smallSeal = useEntrance(380, 1150, OVERSHOOT);
   const name = block.title || block.label;
+  const columns = ['奉拝', name, '令和八年十月十八日'];
+  const strokes = columns.reduce(
+    (sum, text) => sum + Array.from(text).length,
+    0
+  );
+  const written = BRUSH_DELAY + strokes * BRUSH_MS;
+
+  const page = useEntrance(700);
+  const brush = useEntrance(strokes * BRUSH_MS, BRUSH_DELAY, Easing.linear);
+  const seal = useEntrance(STAMP_MS, written + 150, PRESS);
+  const smallSeal = useEntrance(STAMP_MS - 60, written + 520, PRESS);
   const stampAgain = () => {
-    replay(seal, 420, 0, OVERSHOOT);
-    replay(smallSeal, 380, 450, OVERSHOOT);
+    replay(seal, STAMP_MS, 0, PRESS);
+    replay(smallSeal, STAMP_MS - 60, 380, PRESS);
   };
 
   const pageStyle = useAnimatedStyle(() => ({
     opacity: page.value,
     transform: [{ translateY: interpolate(page.value, [0, 1], [20, 0]) }],
   }));
+  // The page sinks a hair as each seal lands.
+  const giveStyle = useAnimatedStyle(() => {
+    const press = (p: number) =>
+      interpolate(p, [0.5, 0.65, 0.95], [0, 1, 0], 'clamp');
+    return {
+      transform: [
+        {
+          scale: 1 - (press(seal.value) + press(smallSeal.value) * 0.6) * 0.012,
+        },
+      ],
+    };
+  });
   const sealStyle = useThump(seal, '4deg');
   const smallSealStyle = useThump(smallSeal, '-8deg');
+
+  // Columns sit right to left, so the first written is drawn last.
+  let first = 0;
+  const placed = columns.map((text) => {
+    const column = { text, first };
+    first += Array.from(text).length;
+    return column;
+  });
 
   return (
     <Animated.View style={[styles.goshuinRow, pageStyle]}>
@@ -661,17 +763,27 @@ function TempleSeal({ block }: { block: MarkdownLinkBlock }) {
         onPress={stampAgain}
         label={`Stamp the ${block.label} seals again`}
       >
-        <View style={styles.goshuin}>
+        <Animated.View style={[styles.goshuin, giveStyle]}>
           <Animated.View style={[styles.sealSquare, sealStyle]}>
             <Text style={styles.sealSquareText}>佛法僧寶</Text>
           </Animated.View>
           <Animated.View style={[styles.sealRound, smallSealStyle]}>
             <Text style={styles.sealRoundText}>音羽</Text>
           </Animated.View>
-          <VerticalText text="令和八年十月十八日" style={styles.brushSmall} />
-          <VerticalText text={name} style={styles.brushLarge} />
-          <VerticalText text="奉拝" style={styles.brushSmall} />
-        </View>
+          {placed
+            .slice()
+            .reverse()
+            .map((column, i) => (
+              <VerticalText
+                key={column.text}
+                text={column.text}
+                first={column.first}
+                total={strokes}
+                brush={brush}
+                style={i === 1 ? styles.brushLarge : styles.brushSmall}
+              />
+            ))}
+        </Animated.View>
       </Tappable>
       <View style={styles.goshuinNote}>
         <Text style={styles.goshuinTitle}>{block.label}</Text>
@@ -686,28 +798,105 @@ function TempleSeal({ block }: { block: MarkdownLinkBlock }) {
   );
 }
 
-function VerticalText({ text, style }: { text: string; style: object }) {
+function VerticalText({
+  text,
+  first,
+  total,
+  brush,
+  style,
+}: {
+  text: string;
+  first: number;
+  total: number;
+  brush: SharedValue<number>;
+  style: object;
+}) {
   return (
     <View style={styles.vertical}>
       {Array.from(text).map((char, i) => (
-        <Text key={i} style={style}>
-          {char}
-        </Text>
+        <BrushStroke
+          key={i}
+          char={char}
+          index={first + i}
+          total={total}
+          brush={brush}
+          style={style}
+        />
       ))}
     </View>
   );
+}
+
+// One character soaking into the paper as the brush reaches it.
+function BrushStroke({
+  char,
+  index,
+  total,
+  brush,
+  style,
+}: {
+  char: string;
+  index: number;
+  total: number;
+  brush: SharedValue<number>;
+  style: object;
+}) {
+  const inkStyle = useAnimatedStyle(() => {
+    const k = Math.min(1, Math.max(0, brush.value * total - index));
+    return {
+      opacity: k,
+      transform: [{ scale: 1.12 - k * 0.12 }, { translateY: (1 - k) * -2 }],
+    };
+  });
+  return <Animated.Text style={[style, inkStyle]}>{char}</Animated.Text>;
+}
+
+// Named by hand: function names do not survive minification.
+const CODE_RENDERERS = {
+  rail: { name: 'RailLine', Renderer: RailLine },
+  mermaid: { name: 'Mermaid', Renderer: Mermaid },
+};
+
+type Language = keyof typeof CODE_RENDERERS;
+
+function isLanguage(language: string): language is Language {
+  return language in CODE_RENDERERS;
+}
+
+const LINK_RENDERERS = [
+  { host: 'smart-ex.jp', name: 'TrainTicket', Renderer: TrainTicket },
+  { host: 'maps.apple.com', name: 'MapCard', Renderer: MapCard },
+  { host: 'kiyomizudera', name: 'TempleSeal', Renderer: TempleSeal },
+];
+
+function linkRenderer(url: string) {
+  return LINK_RENDERERS.find(({ host }) => url.includes(host));
 }
 
 export const journalRenderers: MarkdownRenderers = {
   image: (block) => <Polaroid block={block} />,
   video: (block) => <FilmClip block={block} />,
   link: (block) => {
-    if (block.url.includes('smart-ex.jp')) return <TrainTicket block={block} />;
-    if (block.url.includes('maps.apple.com')) return <MapCard block={block} />;
-    if (block.url.includes('kiyomizudera')) return <TempleSeal block={block} />;
-    return undefined;
+    const Renderer = linkRenderer(block.url)?.Renderer;
+    return Renderer ? <Renderer block={block} /> : undefined;
+  },
+  code: (block) => {
+    if (!isLanguage(block.language)) return undefined;
+    const { Renderer } = CODE_RENDERERS[block.language];
+    return <Renderer block={block} />;
   },
 };
+
+// The component a line of the source becomes, by the same rules as above,
+// for the Duo's source page; null for a line that stays text.
+export function rendererFor(line: string) {
+  const fence = line.match(/^```(\w+)/)?.[1];
+  if (fence) return isLanguage(fence) ? CODE_RENDERERS[fence].name : null;
+  if (line.startsWith('![')) return 'Polaroid';
+  if (line.startsWith('<video')) return 'FilmClip';
+  const target = line.match(/^\[[^\]]*\]\(([^\s)]+)/)?.[1];
+  return target ? (linkRenderer(target)?.name ?? null) : null;
+}
 
 const styles = StyleSheet.create({
   // The markdown view clips its content, so cards keep their shadows inside it.
@@ -742,6 +931,13 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: '#3A3129',
   },
+  sheen: {
+    position: 'absolute',
+    top: '-30%',
+    bottom: '-30%',
+    left: 0,
+    width: 90,
+  },
   polaroidCaption: {
     fontFamily: FONTS.hand,
     fontSize: 25,
@@ -749,17 +945,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginLeft: 4,
   },
-  lightbox: {
-    flex: 1,
-    backgroundColor: 'rgba(23, 18, 15, 0.9)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 18,
-  },
   enlarged: {
-    width: '100%',
     backgroundColor: '#FFFDF8',
-    padding: 14,
+    padding: ENLARGED_PADDING,
     paddingBottom: 8,
     borderRadius: 2,
   },
@@ -769,13 +957,6 @@ const styles = StyleSheet.create({
     color: INK,
     marginTop: 6,
     marginLeft: 4,
-  },
-  lightboxHint: {
-    fontFamily: FONTS.mono,
-    fontSize: 12,
-    letterSpacing: 1,
-    color: '#C9B9A4',
-    marginTop: 18,
   },
   tape: {
     position: 'absolute',

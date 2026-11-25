@@ -14,7 +14,7 @@ import Animated, {
 import Svg, { Rect } from 'react-native-svg';
 import { jazzEngine } from '../audio/engine';
 import type { TrackId } from '../audio/harmony';
-import type { Hinge } from '../hinge';
+import type { Hinge } from '../../shared/hinge';
 import { Bars, NOW_PLAYING } from '../LinerNotesScreen';
 import { usePlayer, usePlayerState } from '../player';
 import { SETTLE, formatTime } from '../renderers/motion';

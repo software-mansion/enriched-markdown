@@ -26,7 +26,7 @@ import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
 import { useDemoStream } from '../../shared/useDemoStream';
 import { AnchorProvider } from '../anchors';
 import type { TrackId } from '../audio/harmony';
-import type { Hinge } from '../hinge';
+import type { Hinge } from '../../shared/hinge';
 import {
   FollowPill,
   LinerNotes,

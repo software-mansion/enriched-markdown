@@ -1,4 +1,4 @@
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
@@ -12,10 +12,16 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Pattern, Rect } from 'react-native-svg';
-import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
+import {
+  EnrichedMarkdownText,
+  type MarkdownRenderers,
+} from 'react-native-enriched-markdown';
+import { useHinge } from '../shared/hinge';
 import { useDemoStream } from '../shared/useDemoStream';
+import { DuoJournal } from './duo/DuoJournal';
 import { JOURNAL_MARKDOWN, PROMPT } from './journalMarkdown';
 import { journalRenderers } from './renderers';
+import { SourceSwitch, sourceRenderers } from './source/SourceSwitch';
 import {
   FONTS,
   INK,
@@ -26,8 +32,46 @@ import {
 } from './theme';
 
 export default function JournalScreen() {
+  const hinge = useHinge();
+  if (!hinge.known) return <View style={styles.root} />;
+  if (hinge.available) return <DuoJournal hinge={hinge} />;
+  return (
+    <SourceSwitch>
+      <KyotoJournal renderers={sourceRenderers} />
+    </SourceSwitch>
+  );
+}
+
+// Streams the answer, or with `written` shows it whole from the top, for a
+// page that shows the answer rather than writes it. Each code block lands
+// whole, so its card, component or markdown, never shows half a block.
+export function useJournal(startDelay?: number, written = false) {
+  const stream = useDemoStream(
+    JOURNAL_MARKDOWN,
+    written ? NEVER : startDelay,
+    !written,
+    'whole'
+  );
+  return written
+    ? {
+        ...stream,
+        markdown: JOURNAL_MARKDOWN,
+        streaming: false,
+        writing: false,
+      }
+    : stream;
+}
+
+// Longer than any timer will wait, so the stream never starts.
+const NEVER = 2 ** 31 - 1;
+
+export function KyotoJournal({ renderers }: { renderers?: MarkdownRenderers }) {
   const insets = useSafeAreaInsets();
-  const stream = useDemoStream(JOURNAL_MARKDOWN);
+  const stream = useJournal();
+  const contentStyle = useMemo(
+    () => [styles.content, { paddingBottom: insets.bottom + 120 }],
+    [insets.bottom]
+  );
 
   return (
     <View style={styles.root}>
@@ -48,44 +92,83 @@ export default function JournalScreen() {
       </View>
       <Animated.ScrollView
         {...stream.scrollProps}
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: insets.bottom + 120 },
-        ]}
+        contentContainerStyle={contentStyle}
       >
-        <View style={styles.prompt}>
-          <Text style={styles.promptLabel}>YOU</Text>
-          <Text style={styles.promptText}>{PROMPT}</Text>
-        </View>
-        <EnrichedMarkdownText
-          key={stream.run}
-          flavor="github"
+        <Prompt />
+        <Journal
           markdown={stream.markdown}
-          markdownStyle={journalMarkdownStyle}
-          renderers={journalRenderers}
-          streamingAnimation={stream.streaming}
+          run={stream.run}
+          streaming={stream.streaming}
+          signed={!stream.streaming}
+          renderers={renderers}
         />
-        {!stream.streaming && <SignOff />}
       </Animated.ScrollView>
-      {stream.streaming && stream.detached && (
-        <Animated.View
-          entering={FadeInDown.duration(220)}
-          exiting={FadeOutDown.duration(180)}
-          style={[styles.pillRow, { bottom: insets.bottom + 20 }]}
-          pointerEvents="box-none"
-        >
-          <Pressable
-            onPress={stream.follow}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Follow the answer"
-            style={styles.pill}
-          >
-            <Text style={styles.pillText}>↓ still writing</Text>
-          </Pressable>
-        </Animated.View>
-      )}
+      <View
+        style={[styles.pillRow, { bottom: insets.bottom + 76 }]}
+        pointerEvents="box-none"
+      >
+        {stream.streaming && stream.detached && (
+          <FollowPill onFollow={stream.follow} />
+        )}
+      </View>
     </View>
+  );
+}
+
+// The answer, or the part of it on one page, signed once it is all written.
+export function Journal({
+  markdown,
+  run,
+  streaming,
+  signed,
+  renderers = journalRenderers,
+}: {
+  markdown: string;
+  run: number;
+  streaming: boolean;
+  signed: boolean;
+  renderers?: MarkdownRenderers;
+}) {
+  return (
+    <>
+      <EnrichedMarkdownText
+        key={run}
+        flavor="github"
+        markdown={markdown}
+        markdownStyle={journalMarkdownStyle}
+        renderers={renderers}
+        streamingAnimation={streaming}
+      />
+      {signed && <SignOff />}
+    </>
+  );
+}
+
+export const Prompt = memo(function Prompt() {
+  return (
+    <View style={styles.prompt}>
+      <Text style={styles.promptLabel}>YOU</Text>
+      <Text style={styles.promptText}>{PROMPT}</Text>
+    </View>
+  );
+});
+
+export function FollowPill({ onFollow }: { onFollow: () => void }) {
+  return (
+    <Animated.View
+      entering={FadeInDown.duration(220)}
+      exiting={FadeOutDown.duration(180)}
+    >
+      <Pressable
+        onPress={onFollow}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Follow the answer"
+        style={styles.pill}
+      >
+        <Text style={styles.pillText}>↓ still writing</Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -127,7 +210,7 @@ function SignOff() {
   );
 }
 
-const DotGrid = memo(function DotGrid() {
+export const DotGrid = memo(function DotGrid() {
   return (
     <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
       <Defs>
