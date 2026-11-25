@@ -37,6 +37,7 @@
     "   - a\n     - b",
     "   1. a\n   2. b",
     "   - a\n- b",
+    "   - a\n   1. b",
     "para\n   - a",
     "1. a\n2. b\n3. c\n4. d\n5. e\n6. f\n7. g\n8. h\n9. i\n10. j\n# h\n   - x",
     "- a\n- \n- c",

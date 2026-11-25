@@ -345,9 +345,22 @@ TEST_CASE("parse: an item md4c already places is not moved by its indent") {
   const ParseResult second = parseUtf8("- a\n\npara\n\n   - b");
   REQUIRE(second.blockRanges.size() == 2);
   CHECK(second.blockRanges[1].level == 0);
-  // An empty item right below text is saved as a blank line, so it keeps no
-  // indent to come back to.
+  // An empty opening item right below a line of text stays where md4c puts
+  // it: the serializer writes it as a blank line, and an item nested under it
+  // would then be indented into a code block.
   CHECK(describe(parseUtf8("para\n   - 9. x").blockRanges) == "ul:5-5/0 ol:6-7/1 ");
+  CHECK(describe(parseUtf8("    - x\n   - 9. y").blockRanges) == "ul:4-4/0 ol:5-6/1 ");
+  // Elsewhere an empty opening item keeps its indent.
+  CHECK(describe(parseUtf8("   - \n   - b").blockRanges) == "ul:0-0/1 ul:1-2/1 ");
+}
+
+TEST_CASE("parse: a '#' line without a space is paragraph text when pairing list lines") {
+  // "2. x" continues the paragraph "#tag" rather than starting a list, so it
+  // must not be counted as a list line or the indented list below loses its
+  // indent.
+  const ParseResult result = parseUtf8("#tag\n2. x\n\n   - a");
+  REQUIRE(result.blockRanges.size() == 1);
+  CHECK(result.blockRanges[0].level == 1);
 }
 
 TEST_CASE("parse: ordered items are numbered from one, whatever the source says") {
