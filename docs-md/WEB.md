@@ -17,7 +17,7 @@ Most `EnrichedMarkdownText` features are supported on web (see [Not supported on
 
 - Full GFM: tables (with horizontal scroll), task lists (with checkbox interaction), strikethrough, links, images (block and inline), code blocks, LaTeX math (block and inline), admonitions (`> [!NOTE]` and the other GitHub alerts)
 - Videos: `<video src>` renders as a `<video>` element with the browser's controls
-- Most `markdownStyle` customisation options. Accepted but ignored on web: `codeBlock.syntaxColors`, `spoiler.particles`, `list.bulletSize`, `list.markerMinWidth`, `list.gapWidth` and `linkVariants[pattern].pill`
+- Most `markdownStyle` customisation options. Accepted but ignored on web: `codeBlock.syntaxColors`, `spoiler.particles` and `linkVariants[pattern].pill`
 - Spoilers (`||text||`), concealed by a solid cover and revealed by a click or Enter/Space. Links and images inside stay inert until then. A revealed spoiler stays revealed while more Markdown streams in after it, but conceals again when its own text, or the structure of the Markdown before it, changes
 - `onLinkPress`, `onLinkLongPress` (mapped to `contextmenu` event), `onImagePress`, `onTaskListItemPress`, `onCodeBlockPress` callbacks
 - `onImagePress` — makes rendered images focusable and keyboard-activatable (Enter/Space) with a button role; the browser's right-click menu is preserved

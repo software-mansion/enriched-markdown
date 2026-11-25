@@ -305,7 +305,6 @@ Most of `markdownStyle` applies, but these keys are accepted and ignored:
 | --- | --- |
 | `codeBlock.syntaxColors` | Code blocks are not syntax-highlighted on web, so per-token colors have nothing to color |
 | `spoiler.particles` | Web always draws the solid cover, so the particle preset has nothing to tune |
-| `list.bulletSize`, `list.markerMinWidth`, `list.gapWidth` | Web leaves list markers to the browser's `::marker`, which can be colored and weighted (`bulletColor`, `markerColor`, `markerFontWeight`) but not sized or spaced |
 | `linkVariants[pattern].pill` | [Link pills](/react-native/guides/link-pills) are native-only; such links render as ordinary links with the variant's colors |
 
 ### Accessibility

@@ -7,11 +7,17 @@
  * Intended for module-level invocation: `N` mounted components produce a
  * single `<style>` tag in the DOM.
  */
-export const injectStyleOnce = (id: string, css: string): void => {
-  if (typeof document === 'undefined') return;
-  if (document.getElementById(id) != null) return;
-  const style = document.createElement('style');
+export const injectStyleOnce = (
+  id: string,
+  css: string,
+  doc: Document | undefined = typeof document === 'undefined'
+    ? undefined
+    : document
+): void => {
+  if (!doc) return;
+  if (doc.getElementById(id) != null) return;
+  const style = doc.createElement('style');
   style.id = id;
   style.textContent = css;
-  document.head.appendChild(style);
+  doc.head.appendChild(style);
 };

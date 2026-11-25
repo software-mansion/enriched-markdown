@@ -4,11 +4,8 @@ import type {
   MarkdownStyleInternal,
 } from '../types/MarkdownStyleInternal';
 import {
-  ENRM_BULLET_COLOR_VAR,
   ENRM_CHECKMARK_COLOR_VAR,
   ENRM_CHECKMARK_SHAPE_VAR,
-  ENRM_MARKER_COLOR_VAR,
-  ENRM_MARKER_WEIGHT_VAR,
 } from './globalStyles';
 
 const normalizeFontFamily = (value: string): string | undefined =>
@@ -149,13 +146,10 @@ function blockquoteStyle(style: MarkdownStyleInternal): CSSProperties {
   };
 }
 
-function listStyle(
-  style: MarkdownStyleInternal,
-  isTaskList = false
-): CSSProperties {
+function listStyle(style: MarkdownStyleInternal): CSSProperties {
   const list = style.list;
   return {
-    listStylePosition: 'outside',
+    paddingInlineStart: 0,
     fontSize: list.fontSize,
     fontFamily: normalizeFontFamily(list.fontFamily),
     fontWeight: normalizeFontWeight(list.fontWeight),
@@ -163,11 +157,7 @@ function listStyle(
     lineHeight: `${list.lineHeight}px`,
     marginTop: list.marginTop,
     marginBottom: list.marginBottom,
-    paddingInlineStart: isTaskList ? 0 : list.marginLeft,
-    [ENRM_BULLET_COLOR_VAR]: list.bulletColor,
-    [ENRM_MARKER_COLOR_VAR]: list.markerColor,
-    [ENRM_MARKER_WEIGHT_VAR]: normalizeFontWeight(list.markerFontWeight),
-  } as CSSProperties;
+  };
 }
 
 function codeBlockStyle(style: MarkdownStyleInternal): CSSProperties {
@@ -471,17 +461,91 @@ function tableStyle(style: MarkdownStyleInternal): CSSProperties {
   };
 }
 
+const MIN_LIST_GAP = 4;
+
+export function listGap(style: MarkdownStyleInternal): number {
+  return Math.max(style.list.gapWidth, MIN_LIST_GAP);
+}
+
 export function listItemStyle(
   style: MarkdownStyleInternal,
   isTask: boolean,
-  isFirstChild: boolean
-): CSSProperties | undefined {
+  isFirstChild: boolean,
+  column: number
+): CSSProperties {
   const { itemSpacing } = style.list;
   const marginTop = !isFirstChild && itemSpacing > 0 ? itemSpacing : undefined;
   if (isTask) {
-    return { listStyle: 'none', marginTop };
+    return { marginTop, listStyleType: 'none' };
   }
-  return marginTop !== undefined ? { marginTop } : undefined;
+  return {
+    marginTop,
+    position: 'relative',
+    marginInlineStart: column + listGap(style),
+  };
+}
+
+export function listMarkerStyle(
+  style: MarkdownStyleInternal,
+  column: number,
+  top = 0
+): CSSProperties {
+  return {
+    position: 'absolute',
+    top,
+    insetInlineStart: -(column + listGap(style)),
+    width: column,
+    textAlign: 'end',
+    userSelect: 'none',
+  };
+}
+
+export function leadingCodeBlockMarkerTop(
+  style: MarkdownStyleInternal
+): number {
+  const { borderWidth, padding, lineHeight } = style.codeBlock;
+  return borderWidth + padding + (lineHeight - style.list.lineHeight) / 2;
+}
+
+export const ORDERED_MARKER_NUMBER_STYLE: CSSProperties = { gridArea: '1 / 1' };
+
+export const ORDERED_MARKER_SIZER_STYLE: CSSProperties = {
+  gridArea: '1 / 1',
+  visibility: 'hidden',
+};
+
+export function bulletStyle(
+  style: MarkdownStyleInternal,
+  depth: number
+): CSSProperties {
+  const { bulletSize: size, bulletColor: color } = style.list;
+  const shape: CSSProperties =
+    depth === 1
+      ? { border: `${Math.max(1, size * 0.15)}px solid ${color}` }
+      : { backgroundColor: color, borderRadius: depth === 0 ? '50%' : 0 };
+  return {
+    display: 'inline-block',
+    boxSizing: 'border-box',
+    width: size,
+    height: size,
+    borderRadius: '50%',
+    verticalAlign: 'middle',
+    marginInlineEnd: -size / 2,
+    ...shape,
+  };
+}
+
+export function orderedMarkerStyle(
+  style: MarkdownStyleInternal
+): CSSProperties {
+  const list = style.list;
+  return {
+    display: 'inline-grid',
+    justifyItems: 'end',
+    fontVariantNumeric: 'tabular-nums',
+    color: list.markerColor,
+    fontWeight: normalizeFontWeight(list.markerFontWeight),
+  };
 }
 
 export function checkedTaskTextStyle(
@@ -672,7 +736,6 @@ export interface Styles {
   blockquote: CSSProperties;
   list: CSSProperties;
   listNested: CSSProperties;
-  listTask: CSSProperties;
   codeBlock: CSSProperties;
   codeBlockFont: CSSProperties;
   thematicBreak: CSSProperties;
@@ -723,12 +786,11 @@ export function buildStyles(style: MarkdownStyleInternal): Styles {
     list: listStyle(style),
     listNested: {
       ...listStyle(style),
-      // A nested list sits directly under its parent item's text; itemSpacing
-      // (not the list's outer margins) controls that gap, like on native.
+      // itemSpacing (not the list's outer margins) sets the gap above a
+      // nested list, as on native.
       marginTop: Math.max(0, style.list.itemSpacing),
       marginBottom: 0,
     },
-    listTask: listStyle(style, true),
     codeBlock,
     codeBlockFont: { fontFamily: codeBlock.fontFamily },
     thematicBreak: thematicBreakStyle(style),

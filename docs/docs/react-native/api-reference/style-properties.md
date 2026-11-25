@@ -262,7 +262,7 @@ Requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#
 | `itemSpacing`      | `number` | `0`       | Vertical spacing added between consecutive list items (including nested ones). Adds no space above the first item or below the last |
 
 :::note
-On web, lists render with the browser's native bullets and numbers. `bulletColor`, `markerColor` and `markerFontWeight` style them, but `bulletSize`, `markerMinWidth` and `gapWidth` have no effect there. `marginLeft` and `itemSpacing` still apply on all platforms.
+On web, task items keep the checkbox in the text, so `markerMinWidth` and `gapWidth` do not apply to them.
 :::
 
 <LivePreview src={ListSrc} />

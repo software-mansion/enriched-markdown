@@ -55,6 +55,7 @@ export interface NodeAttributes {
   title?: string;
   language?: string;
   fenceChar?: string;
+  start?: string;
   isTask?: string;
   taskChecked?: string;
   /** Stamped by indexTaskItems() — not present in the raw WASM output. */
