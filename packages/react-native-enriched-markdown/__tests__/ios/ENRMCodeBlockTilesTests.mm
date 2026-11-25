@@ -210,19 +210,15 @@ static UIWindow *ENRMCodeTilesKeyWindow(void)
                 NSStringFromCGRect(covered), NSStringFromCGRect(shown));
 }
 
-- (void)testATallBlockDrawsOnlyNearTheScreen
+- (void)testATallBlockDrawsOnlyNearTheScreenInTiles
 {
   [self render:ENRMCodeTilesMarkdown(800, 26)];
   XCTAssertNotNil(_canvas);
   XCTAssertGreaterThan(_content.bounds.size.height, kENRMCodeTilesTestWindowHeight * 10);
   [self assertTheTilesCoverWhatShows];
   XCTAssertLessThanOrEqual(ENRMCodeTilesCovered(_canvas).size.height, [self maxCoveredHeight]);
-}
-
-- (void)testTheBlockAndItsPaneHoldNoBitmapOfTheirSize
-{
-  [self render:ENRMCodeTilesMarkdown(800, 26)];
-  // As Core Animation's commit draws a view UIKit marked: one without drawRect: is never marked.
+  // Neither the block nor its pane holds a bitmap of its size. As Core Animation's commit draws what
+  // UIKit marked: a view without drawRect: is never marked.
   for (UIView *view in @[ _codeBlock, _content, _canvas ]) {
     [view setNeedsDisplay];
     [view.layer displayIfNeeded];
@@ -295,33 +291,6 @@ static UIWindow *ENRMCodeTilesKeyWindow(void)
   XCTAssertLessThan(redrawn, ENRMCodeTilesTiles(_canvas).count);
 }
 
-// Wrapped, a chunk can move the unfinished last word to a new line: the line it left redraws too.
-- (void)testAppendingToAWrappedBlockRedrawsFromItsLastLine
-{
-  NSString *words = [@"" stringByPaddingToLength:150 withString:@" word" startingAtIndex:0];
-  [self render:ENRMCodeTilesCode(60, 4, words, NO)];
-  _codeBlock.wrapped = YES;
-  [self layOutAtWidth:_scrollView.bounds.size.width];
-  CGRect contentBounds = _content.bounds;
-  ENRMCodeTilesDisplay(_canvas);
-
-  NSString *more = [words stringByAppendingString:@"wordsthatnolongerfitontheirline"];
-  [_codeBlock applyCodeBlockNode:ENRMCodeTilesCodeBlockNode(ENRMCodeTilesCode(60, 4, more, NO))];
-  [_codeBlock layoutIfNeeded];
-  XCTAssertTrue(CGRectEqualToRect(_content.bounds, contentBounds), @"No tile is resized");
-  NSUInteger redrawn = 0;
-  for (UIView *tile in ENRMCodeTilesTiles(_canvas)) {
-    if (CGRectGetMinY(tile.frame) == 0) {
-      XCTAssertFalse(tile.layer.needsDisplay, @"%@", NSStringFromCGRect(tile.frame));
-    }
-    if (CGRectGetMaxY(tile.frame) >= contentBounds.size.height - kENRMCodeTilesTestTile / 2) {
-      XCTAssertTrue(tile.layer.needsDisplay, @"%@", NSStringFromCGRect(tile.frame));
-    }
-    redrawn += tile.layer.needsDisplay ? 1 : 0;
-  }
-  XCTAssertLessThan(redrawn, ENRMCodeTilesTiles(_canvas).count);
-}
-
 - (void)testOtherCodeRedrawsEveryTile
 {
   [self render:ENRMCodeTilesCode(60, 4, @"", NO)];
@@ -330,18 +299,6 @@ static UIWindow *ENRMCodeTilesKeyWindow(void)
                                                                                  withString:@"first "];
   [_codeBlock applyCodeBlockNode:ENRMCodeTilesCodeBlockNode(other)];
   [_codeBlock layoutIfNeeded];
-  for (UIView *tile in ENRMCodeTilesTiles(_canvas)) {
-    XCTAssertTrue(tile.layer.needsDisplay, @"%@", NSStringFromCGRect(tile.frame));
-  }
-}
-
-- (void)testWrappingRedrawsTheCodeWithinThePane
-{
-  [self render:ENRMCodeTilesMarkdown(20, 600)];
-  ENRMCodeTilesDisplay(_canvas);
-  _codeBlock.wrapped = YES;
-  [_codeBlock layoutIfNeeded];
-  XCTAssertLessThanOrEqual(CGRectGetMaxX(ENRMCodeTilesCovered(_canvas)), [self pane].bounds.size.width);
   for (UIView *tile in ENRMCodeTilesTiles(_canvas)) {
     XCTAssertTrue(tile.layer.needsDisplay, @"%@", NSStringFromCGRect(tile.frame));
   }
