@@ -52,6 +52,7 @@ jobs:
               - 'apps/react-native-example/**'
               - 'apps/react-native-web-example/**'
               - 'apps/react-native-spm-example/**'
+              - 'scripts/ios/**'
               - 'package.json'
               - 'yarn.lock'
               - '.nvmrc'
@@ -240,7 +241,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       rn-ios-build-and-tests: ${{ steps.rn-ios-build-and-tests.outputs.status }}
-      rn-ios-spm-build: ${{ steps.rn-ios-spm-build.outputs.status }}
+      rn-ios-spm-build-and-tests: ${{ steps.rn-ios-spm-build-and-tests.outputs.status }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -258,7 +259,7 @@ jobs:
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .turbo/rn-ios-test
-          key: macOS-turborepo-rn-ios-test-${{ hashFiles('yarn.lock', 'packages/react-native-enriched-markdown/ios/**', 'packages/react-native-enriched-markdown/src/**', 'packages/react-native-enriched-markdown/__tests__/ios/**', 'packages/core/cpp/**', 'apps/react-native-example/ios/**') }}
+          key: macOS-turborepo-rn-ios-test-${{ hashFiles('yarn.lock', 'packages/react-native-enriched-markdown/ios/**', 'packages/react-native-enriched-markdown/src/**', 'packages/react-native-enriched-markdown/__tests__/ios/**', 'packages/core/cpp/**', 'apps/react-native-example/ios/**', 'scripts/ios/**') }}
           restore-keys: |
             macOS-turborepo-rn-ios-test-
 
@@ -271,7 +272,7 @@ jobs:
           jq -r '.tasks[0] | "hash=\(.hash) status=\(.cache.status)"' "$RUNNER_TEMP/dry.json"
           echo "status=$(jq -r '.tasks[0].cache.status' "$RUNNER_TEMP/dry.json")" >> $GITHUB_OUTPUT
 
-      - name: Restore turborepo for the default RN iOS SPM build
+      - name: Restore turborepo for the default RN iOS SPM build and tests
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .turbo/rn-ios-spm-default
@@ -288,9 +289,9 @@ jobs:
             macOS-turborepo-rn-ios-spm-reduced-
 
       - name: Check turborepo cache for RN iOS SPM
-        id: rn-ios-spm-build
+        id: rn-ios-spm-build-and-tests
         run: |
-          yarn build:ios-spm \
+          yarn test:ios-spm \
             --cache-dir=.turbo/rn-ios-spm-default \
             --dry=json > "$RUNNER_TEMP/dry-spm-default.json"
 
@@ -397,7 +398,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-rn-ios-test-${{ hashFiles('yarn.lock', 'packages/react-native-enriched-markdown/ios/**', 'packages/react-native-enriched-markdown/src/**', 'packages/react-native-enriched-markdown/__tests__/ios/**', 'packages/core/cpp/**', 'apps/react-native-example/ios/**') }}
+          key: ${{ runner.os }}-turborepo-rn-ios-test-${{ hashFiles('yarn.lock', 'packages/react-native-enriched-markdown/ios/**', 'packages/react-native-enriched-markdown/src/**', 'packages/react-native-enriched-markdown/__tests__/ios/**', 'packages/core/cpp/**', 'apps/react-native-example/ios/**', 'scripts/ios/**') }}
           restore-keys: |
             ${{ runner.os }}-turborepo-rn-ios-test-
 
@@ -479,16 +480,20 @@ jobs:
       - name: Run RN iOS unit tests
         run: yarn test:ios --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
-  rn-ios-spm-build:
+  rn-ios-spm-build-and-tests:
     needs:
       - changes
       - rn-ios-cache
-    if: ${{ !cancelled() && needs.changes.outputs.react-native == 'true' && needs.rn-ios-cache.outputs.rn-ios-spm-build != 'HIT' }}
+    if: ${{ !cancelled() && needs.changes.outputs.react-native == 'true' && needs.rn-ios-cache.outputs.rn-ios-spm-build-and-tests != 'HIT' }}
     runs-on: macos-latest-xlarge
     strategy:
       fail-fast: false
       matrix:
-        config: [default, reduced]
+        include:
+          - config: default
+            task: test:ios-spm
+          - config: reduced
+            task: build:ios-spm
     env:
       TURBO_CACHE_DIR: .turbo/rn-ios-spm-${{ matrix.config }}
       CCACHE_DIR: ${{ github.workspace }}/.ccache
@@ -519,7 +524,7 @@ jobs:
             package.json > package.json.tmp
           mv package.json.tmp package.json
 
-      - name: Cache turborepo for the RN iOS SPM build
+      - name: Cache turborepo for the RN iOS SPM ${{ matrix.task }}
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
@@ -527,10 +532,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turborepo-rn-ios-spm-${{ matrix.config }}-
 
-      - name: Check turborepo cache for the RN iOS SPM build
+      - name: Check turborepo cache for the RN iOS SPM ${{ matrix.task }}
         working-directory: .
         run: |
-          yarn build:ios-spm \
+          yarn ${{ matrix.task }} \
             --cache-dir="${{ env.TURBO_CACHE_DIR }}" \
             --dry=json > "$RUNNER_TEMP/dry.json"
           jq -r '.tasks[0] | "hash=\(.hash) status=\(.cache.status)"' "$RUNNER_TEMP/dry.json"
@@ -567,9 +572,9 @@ jobs:
           printf 'CC = %s\n' "$RUNNER_TEMP/ccache-clang" > "$RUNNER_TEMP/ccache.xcconfig"
           echo "XCODE_XCCONFIG_FILE=$RUNNER_TEMP/ccache.xcconfig" >> $GITHUB_ENV
 
-      - name: Build
+      - name: Run ${{ matrix.task }}
         working-directory: .
-        run: yarn build:ios-spm --cache-dir="${{ env.TURBO_CACHE_DIR }}"
+        run: yarn ${{ matrix.task }} --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   android-build:
     needs: changes
@@ -885,7 +890,7 @@ jobs:
       - rn-build-android
       - rn-android-unit-tests
       - rn-ios-build-and-tests
-      - rn-ios-spm-build
+      - rn-ios-spm-build-and-tests
       - android-build
       - android-unit-tests
       - android-kotlin-lint
@@ -908,7 +913,7 @@ jobs:
           RN_BUILD_ANDROID: ${{ needs.rn-build-android.result }}
           RN_ANDROID_UNIT_TESTS: ${{ needs.rn-android-unit-tests.result }}
           RN_IOS_BUILD_AND_TESTS: ${{ needs.rn-ios-build-and-tests.result }}
-          RN_IOS_SPM_BUILD: ${{ needs.rn-ios-spm-build.result }}
+          RN_IOS_SPM_BUILD_AND_TESTS: ${{ needs.rn-ios-spm-build-and-tests.result }}
           ANDROID_BUILD: ${{ needs.android-build.result }}
           ANDROID_UNIT_TESTS: ${{ needs.android-unit-tests.result }}
           ANDROID_KOTLIN_LINT: ${{ needs.android-kotlin-lint.result }}
@@ -916,7 +921,7 @@ jobs:
           IOS_SWIFT_LINT: ${{ needs.ios-swift-lint.result }}
           CHANGES: ${{ needs.changes.result }}
           RN_IOS_BUILD_AND_TESTS_CACHE: ${{ needs.rn-ios-cache.outputs.rn-ios-build-and-tests }}
-          RN_IOS_SPM_BUILD_CACHE: ${{ needs.rn-ios-cache.outputs.rn-ios-spm-build }}
+          RN_IOS_SPM_BUILD_AND_TESTS_CACHE: ${{ needs.rn-ios-cache.outputs.rn-ios-spm-build-and-tests }}
           IOS_BUILD_AND_TESTS_CACHE: ${{ needs.ios-cache.outputs.ios-build-and-tests }}
         run: |
           if [[ "$CHANGES" != "success" ]]; then
@@ -952,7 +957,7 @@ jobs:
           check_required "$REACT_NATIVE" "$RN_BUILD_ANDROID" "rn-build-android"
           check_required "$REACT_NATIVE" "$RN_ANDROID_UNIT_TESTS" "rn-android-unit-tests"
           check_required "$REACT_NATIVE" "$RN_IOS_BUILD_AND_TESTS" "rn-ios-build-and-tests" "$RN_IOS_BUILD_AND_TESTS_CACHE"
-          check_required "$REACT_NATIVE" "$RN_IOS_SPM_BUILD" "rn-ios-spm-build" "$RN_IOS_SPM_BUILD_CACHE"
+          check_required "$REACT_NATIVE" "$RN_IOS_SPM_BUILD_AND_TESTS" "rn-ios-spm-build-and-tests" "$RN_IOS_SPM_BUILD_AND_TESTS_CACHE"
           check_required "$ANDROID" "$ANDROID_BUILD" "android-build"
           check_required "$ANDROID" "$ANDROID_UNIT_TESTS" "android-unit-tests"
           check_required "$ANDROID" "$ANDROID_KOTLIN_LINT" "android-kotlin-lint"

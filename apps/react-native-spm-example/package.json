@@ -5,7 +5,8 @@
   "scripts": {
     "ios": "react-native run-ios",
     "start": "react-native start",
-    "build:ios-spm": "react-native spm && xcodebuild build -project ios/EnrichedMarkdownSpmExample.xcodeproj -scheme EnrichedMarkdownSpmExample -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build/DerivedData -quiet CODE_SIGNING_ALLOWED=NO ARCHS=arm64"
+    "build:ios-spm": "react-native spm && xcodebuild build -project ios/EnrichedMarkdownSpmExample.xcodeproj -scheme EnrichedMarkdownSpmExample -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build/DerivedData -quiet CODE_SIGNING_ALLOWED=NO ARCHS=arm64",
+    "test:ios-spm": "react-native spm && bash ../../scripts/ios/test-rn-app.sh --project ios/EnrichedMarkdownSpmExample.xcodeproj --scheme EnrichedMarkdownSpmExample --derived-data ios/build/DerivedData"
   },
   "dependencies": {
     "react": "19.3.0",

@@ -10,7 +10,7 @@
     "build:ios": "react-native build-ios --mode Debug",
     "build:ios:release": "xcodebuild build -workspace ios/EnrichedMarkdownExample.xcworkspace -scheme EnrichedMarkdownExample -configuration Release -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build -quiet CODE_SIGNING_ALLOWED=NO",
     "test:android": "cd android && ./gradlew :react-native-enriched-markdown:testDebugUnitTest --no-daemon --console=plain",
-    "test:ios": "bash scripts/test-ios.sh"
+    "test:ios": "bash ../../scripts/ios/test-rn-app.sh --workspace ios/EnrichedMarkdownExample.xcworkspace --scheme EnrichedMarkdownExample"
   },
   "dependencies": {
     "@enriched-markdown/core": "workspace:*",
