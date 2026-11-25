@@ -34,18 +34,4 @@
   paragraphStyle.paragraphSpacingBefore = style.listItemSpacing;
 }
 
-- (NSString *)markdownLinePrefixForBlockRange:(ENRMBlockRange *)blockRange
-{
-  NSInteger depth = blockRange.level;
-  if (depth < 0) {
-    depth = 0;
-  } else if (depth > kENRMMaxListDepth) {
-    depth = kENRMMaxListDepth;
-  }
-  // Three spaces of indent per nesting level (wide enough that ordered markers
-  // nest under bullets and vice versa), then the bullet marker.
-  NSString *indent = [@"" stringByPaddingToLength:depth * 3 withString:@" " startingAtIndex:0];
-  return [indent stringByAppendingString:@"- "];
-}
-
 @end
