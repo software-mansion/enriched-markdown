@@ -2023,6 +2023,11 @@ static void ENRMUpdateNestedViewports(UIView *view, ENRMVisibleArea *area)
   for (UIView *subview in view.subviews) {
     if ([subview isKindOfClass:[EnrichedMarkdownInternalText class]]) {
       ENRMUpdateViewport((EnrichedMarkdownInternalText *)subview, area);
+    } else if ([subview conformsToProtocol:@protocol(ENRMVisibleAreaFollower)]) {
+      // A code block's pane, which draws only near the area.
+      id<ENRMVisibleAreaFollower> follower = (id<ENRMVisibleAreaFollower>)subview;
+      follower.visibleArea = area;
+      [follower updateViewport];
     } else if (![subview isKindOfClass:[UITextView class]] &&
                ![subview isKindOfClass:[ENRMBlockSlotSegmentView class]]) {
       // A renderer's view in a quote may hold a document of its own, which drives its own text.
@@ -2093,8 +2098,9 @@ static void ENRMAfterCommit(dispatch_block_t block)
 }
 
 /// Draws only the segments near the visible part of the document. A text segment draws the part of
-/// its text there (ENRMTextViewport); a block segment off screen (a code block, a table, a quote)
-/// drops the bitmaps it drew, and draws again when it comes back.
+/// its text there (ENRMTextViewport), and so does a code block's pane (ENRMVisibleAreaFollower); a
+/// block segment off screen (a table, a quote) drops the bitmaps it drew, and draws again when it
+/// comes back.
 - (void)updateDrawnSegments
 {
 #if !TARGET_OS_OSX
