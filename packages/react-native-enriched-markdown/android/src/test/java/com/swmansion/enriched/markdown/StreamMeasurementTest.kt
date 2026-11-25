@@ -267,13 +267,15 @@ class StreamMeasurementTest {
     assertNull(streamUpdate("Streaming **markdown**", width = narrow, streaming = false))
   }
 
+  // The end keeps the layout key, so a stream that goes on after it is an update, and another answer isn't.
   @Test
-  fun aNewStreamAfterTheEndMeasuresItsFirstUpdateInFull() {
+  fun aStreamThatGoesOnAfterTheEndTakesAnUpdate() {
     MeasurementStore.storeLaidOutSize(viewId, widthPx, laidOut, "Streaming **mark")
     streamUpdate("Streaming **mark")
     assertEquals(laidOut, streamUpdate("Streaming **markdown**", streaming = false))
 
-    assertNull(streamUpdate("Streaming **markdown** and a new", streaming = true))
+    assertEquals(laidOut, streamUpdate("Streaming **markdown** and more"))
+    assertNull(streamUpdate("Another answer"))
   }
 
   // The view shows less than the end when streaming held back a table, a code block or media.
@@ -327,6 +329,15 @@ class StreamMeasurementTest {
     streamUpdate("Two **mark")
     assertEquals(laidOut, streamUpdate("Two **markdown**"))
     assertEquals(laidOut, streamUpdate("Two **markdown**", streaming = false))
+  }
+
+  // The end's commit may change more than `streaming`: that measures in full.
+  @Test
+  fun anotherPropInTheEndCommitMeasuresInFull() {
+    MeasurementStore.storeLaidOutSize(viewId, widthPx, laidOut, "Streaming **mark")
+    streamUpdate("Streaming **mark")
+
+    assertNull(streamUpdate("Streaming **markdown**", trailingMargin = true, streaming = false))
   }
 
   @Test

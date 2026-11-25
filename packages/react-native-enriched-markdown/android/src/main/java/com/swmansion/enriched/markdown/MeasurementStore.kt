@@ -46,6 +46,7 @@ import com.swmansion.enriched.markdown.utils.common.SlotLayoutReuse
 import com.swmansion.enriched.markdown.utils.common.StreamingFilterResult
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
+import com.swmansion.enriched.markdown.utils.common.getBooleanOrDefault
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
@@ -239,6 +240,7 @@ object MeasurementStore {
   // distinct markdown (MarkdownMeasureSession.h).
   private const val CONFIG_KEY = "configKey"
   private const val TEXT_KEY = "textKey"
+  private const val STREAMING = "streaming"
 
   // Parsed configs by key; messages with the same style and content props share one. The bound is
   // against an app that makes new ones on every render; clearing only costs parsing them again.
@@ -259,9 +261,13 @@ object MeasurementStore {
   ): MeasureInput {
     if (props == null || !props.hasKey(CONFIG_KEY)) {
       Log.w(TAG, "Measured without the shadow node's keys; measuring nothing")
-      return MeasureInput("", MeasureConfig(0, null))
+      return MeasureInput("", MeasureConfig(0, null), streaming = false)
     }
-    return MeasureInput(markdownFor(id, props.getInt(TEXT_KEY)), configFor(props.getInt(CONFIG_KEY)))
+    return MeasureInput(
+      markdownFor(id, props.getInt(TEXT_KEY)),
+      configFor(props.getInt(CONFIG_KEY)),
+      props.getBooleanOrDefault(STREAMING, false),
+    )
   }
 
   private fun configFor(key: Int): MeasureConfig {
@@ -576,7 +582,7 @@ object MeasurementStore {
       // Slot children are measured where the walk places them; a stream's update takes the view's
       // height when the view shows them where the last walk did (slotStreamUpdate).
       if (id != null) streamMeasures.remove(id)
-      val streaming = input.config.streaming
+      val streaming = input.streaming
       val layoutKey =
         id?.takeIf { streaming }?.let {
           streamLayoutKey(
@@ -708,7 +714,7 @@ object MeasurementStore {
     rtl: Boolean,
     withheldAtEnd: (MeasureInput) -> Boolean = ::streamingWithholds,
   ): Long? {
-    val streaming = input.config.streaming
+    val streaming = input.streaming
     val markdown = input.markdown
     val kept = streamMeasures[id]
     // Text appended without `streaming` measures in full, so it has its height on the first commit.
@@ -740,12 +746,9 @@ object MeasurementStore {
     val previous = measured.firstOrNull { it.widthPx == width } ?: measured.firstOrNull() ?: return null
     // The view's size counts for an earlier state of this stream, not a document it replaced.
     val laidOut = laidOutSizes[id]?.takeIf { it.isFor(width) && markdownExtends(it.markdown, markdown) }
-    // The end turns `streaming` off, part of the config key. Another prop changed in the same commit
-    // takes the view's size too, and the view's layout of the end corrects it a commit later.
-    val sameLayout = previous.layoutKey == layoutKey || (!streaming && previous.layoutKey.copy(config = layoutKey.config) == layoutKey)
     val source =
       chooseMeasurement(
-        streamUpdate = sameLayout && markdownExtends(previous.markdown, markdown),
+        streamUpdate = previous.layoutKey == layoutKey && markdownExtends(previous.markdown, markdown),
         grew = markdown.length > previous.markdown.length,
         // A laid-out answer can be behind the markdown, so a newer laid-out size replaces it: the
         // view may have laid out an update between two of this stream's (or, with smooth pacing,
@@ -800,7 +803,7 @@ object MeasurementStore {
     layoutKey: StreamLayoutKey,
     slotIds: List<String>,
   ): Long? {
-    if (!input.config.streaming) return null
+    if (!input.streaming) return null
     val previous = slotMeasurements[id] ?: return null
     val markdown = input.markdown
     if (abs(previous.widthPx - width) >= 1f || previous.layoutKey != layoutKey || previous.slotIds != slotIds ||
@@ -895,7 +898,7 @@ object MeasurementStore {
   // snapshot. The modes come with the layout props (conversions.h), so the first measurement
   // and one after a mode change prepare exactly what the view renders.
   private fun renderableMarkdown(input: MeasureInput): String {
-    if (!input.config.streaming) return input.markdown
+    if (!input.streaming) return input.markdown
     return renderableResult(input).markdown
   }
 
@@ -1026,7 +1029,7 @@ object MeasurementStore {
     blockSlotIds: List<String>,
   ): Long {
     val config = input.config
-    val isStreaming = config.streaming
+    val isStreaming = input.streaming
     val md4cFlags = config.md4cFlags
     val markdown = renderableMarkdown(input)
     val wrapped =

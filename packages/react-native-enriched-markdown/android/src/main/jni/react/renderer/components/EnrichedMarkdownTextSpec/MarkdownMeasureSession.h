@@ -34,6 +34,8 @@ struct MarkdownMeasureKeys {
   std::shared_ptr<const folly::dynamic> config;
   int configKey{0};
   int textKey{0};
+  // Beside the config, not in it: ending a stream turns it off and keeps the config's key.
+  bool streaming{false};
 
   // Brings the keys up to `props`, the next props of the same node. `layoutConfig` serializes the
   // props that lay the document out besides the markdown (conversions.h). New props, as every
@@ -54,12 +56,13 @@ struct MarkdownMeasureKeys {
       configKey = interned.key;
       config = std::move(interned.config);
     }
+    streaming = nextProps.streaming;
     props = next;
   }
 
   // What measurement sends in place of the props.
   folly::dynamic toDynamic() const {
-    return folly::dynamic::object("configKey", configKey)("textKey", textKey);
+    return folly::dynamic::object("configKey", configKey)("textKey", textKey)("streaming", streaming);
   }
 };
 
