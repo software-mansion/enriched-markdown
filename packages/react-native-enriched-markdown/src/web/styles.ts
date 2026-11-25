@@ -420,6 +420,25 @@ function highlightStyle(style: MarkdownStyleInternal): CSSProperties {
   };
 }
 
+function spoilerStyle(style: MarkdownStyleInternal): CSSProperties {
+  return {
+    backgroundColor: style.spoiler.color,
+    borderRadius: style.spoiler.solid.borderRadius,
+    boxDecorationBreak: 'clone',
+    WebkitBoxDecorationBreak: 'clone',
+    cursor: 'pointer',
+  };
+}
+
+function spoilerRevealedStyle(style: MarkdownStyleInternal): CSSProperties {
+  return {
+    backgroundColor: 'transparent',
+    borderRadius: style.spoiler.solid.borderRadius,
+    boxDecorationBreak: 'clone',
+    WebkitBoxDecorationBreak: 'clone',
+  };
+}
+
 function mathInlineStyle(style: MarkdownStyleInternal): CSSProperties {
   return { color: style.inlineMath.color };
 }
@@ -637,6 +656,8 @@ export interface Styles {
   superscript: CSSProperties;
   subscript: CSSProperties;
   highlight: CSSProperties;
+  spoiler: CSSProperties;
+  spoilerRevealed: CSSProperties;
   mathInline: CSSProperties;
   mathDisplay: CSSProperties;
   table: CSSProperties;
@@ -691,6 +712,8 @@ export function buildStyles(style: MarkdownStyleInternal): Styles {
     superscript: superscriptStyle(style),
     subscript: subscriptStyle(style),
     highlight: highlightStyle(style),
+    spoiler: spoilerStyle(style),
+    spoilerRevealed: spoilerRevealedStyle(style),
     mathInline: mathInlineStyle(style),
     mathDisplay: mathDisplayStyle(style),
     table: tableStyle(style),

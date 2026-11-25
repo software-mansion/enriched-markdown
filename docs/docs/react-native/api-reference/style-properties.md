@@ -543,7 +543,7 @@ Styles for spoiler text (`||hidden text||`). The text is concealed behind an ove
 Which overlay preset is used - `'particles'` or `'solid'` - is not a style property; it is chosen with the [`spoilerOverlay`](/react-native/api-reference/enriched-markdown-text#spoileroverlay) prop on the component. The keys below only tune appearance: `color` applies to both presets, while `particles.*` and `solid.*` each affect only their matching preset.
 
 :::note
-The spoiler overlay is iOS and Android only - the web build does not render it, so none of the spoiler style properties below have any effect on web.
+The web build always draws the solid cover, so `color` and `solid.borderRadius` apply there while `particles.*` has no effect. The preview below runs the web build, so it shows the solid cover whatever `spoilerOverlay` says.
 :::
 
 | Property             | Type     | Default   | Description                                             |
@@ -553,7 +553,7 @@ The spoiler overlay is iOS and Android only - the web build does not render it, 
 | `particles.speed`    | `number` | `20`      | Speed of particle movement                              |
 | `solid.borderRadius` | `number` | `4`       | Corner radius of the solid spoiler overlay rectangles   |
 
-<LivePreview src={SpoilerSrc} unavailable unavailableReason={<>iOS and Android only - the web build does not render the spoiler overlay, so these properties have no visible effect here. The source is shown for reference.</>} />
+<LivePreview src={SpoilerSrc} />
 
 ### Superscript-specific
 
