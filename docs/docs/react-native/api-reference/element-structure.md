@@ -280,17 +280,13 @@ To reproduce editor content line for line, combine `preserveBlankLines` with `ha
 
 ## What happens to an unsupported element
 
-Not every target renders every element, and the three renderers fail in **three different ways**. This matters most for spoilers on web and for math in a build compiled without the native math engine.
+Not every target renders every element, and the three renderers fail in **three different ways**. This matters most for math in a build compiled without the native math engine.
 
 | Target      | Unmapped node                                                                   |
 | ----------- | ------------------------------------------------------------------------------- |
 | iOS / macOS | Recurses into the node's children, so the **text survives** without its styling |
 | Android     | Falls back to a plain text renderer that emits only the node's own content and never visits children, so an unsupported **container loses all of its text** |
 | Web         | Drops the node **and its whole subtree**                                        |
-
-:::danger
-The clearest case is **spoilers on web**: the parser emits the node, the web renderer has no entry for it, so the concealed text is deleted rather than concealed - `a ||secret|| b` renders as `a  b`. Do not put content behind a spoiler if the same Markdown is rendered on web.
-:::
 
 ## Reading the AST
 

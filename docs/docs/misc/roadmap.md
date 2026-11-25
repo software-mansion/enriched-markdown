@@ -32,7 +32,7 @@ SwiftUI and Jetpack Compose apps, and have their own columns.
 | GFM (tables, task lists, strikethrough, autolinks) | Yes | Yes | Yes | Yes | Yes |
 | [Admonitions](/react-native/api-reference/element-structure#admonitions) | Yes | Yes | Yes | Yes | Yes |
 | Extended Markdown (underline, superscript, subscript, highlight) | Yes | Yes | Yes | Yes | Yes |
-| Spoilers | Yes | Yes | Yes | Yes | Planned |
+| Spoilers | Yes | Yes | Yes | Yes | Solid cover only |
 | [Videos](/react-native/api-reference/element-structure#videos) | Yes | Planned | Planned | Yes | Yes |
 | [LaTeX math](/rich-text-formatting/latex-math) | Yes | Yes | Yes | Inline only | Yes |
 | [Code-block highlighting](/rich-text-formatting/code-highlighting) | Yes | Yes | Yes | Yes | Planned |
@@ -105,8 +105,7 @@ editor. Still to come:
 - **Editor parity.** The [web editor](/react-native/guides/web-editor) is still
   missing Markdown shortcuts, link and mention commands, auto-link detection,
   custom menus and `markdownStyle.linkVariants`.
-- **Spoilers**, which are currently dropped along with their text - the most
-  important gap on this list.
+- **Particle spoilers.** Spoilers are concealed by the solid cover only.
 - **Code-block highlighting**, including the header and copy button.
 - **[Streaming](/rich-text-formatting/markdown-streaming)** and
   **[smart copy](/user-experience/copy-options)**, neither of which has a web

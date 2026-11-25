@@ -503,7 +503,8 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    *   Choreographer-driven Canvas particles on Android).
    * - `'solid'`: opaque rectangle covering the text (Discord-style).
    *
-   * Both modes support tap-to-reveal.
+   * Both modes support tap-to-reveal. Web ignores this prop and always draws
+   * the solid cover.
    * @default 'particles'
    * @platform ios, android
    */
