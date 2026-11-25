@@ -218,6 +218,13 @@ static const CGFloat kENRMCodeBlockMaxUntiledPixels = 2048 * 2048;
 
 @end
 
+// Small enough to draw at once, so EnrichedMarkdown can drop its bitmap off screen.
+@interface ENRMCodeBlockUntiledCanvasView : ENRMCodeBlockCanvasView <ENRMDroppableContent>
+@end
+
+@implementation ENRMCodeBlockUntiledCanvasView
+@end
+
 @interface ENRMCodeBlockTiledLayer : CATiledLayer
 @end
 
@@ -283,8 +290,8 @@ static const CGFloat kENRMCodeBlockMaxUntiledPixels = 2048 * 2048;
   [super layoutSubviews];
   CGFloat scale = self.traitCollection.displayScale > 0 ? self.traitCollection.displayScale : 3;
   CGFloat pixels = self.bounds.size.width * self.bounds.size.height * scale * scale;
-  Class canvasClass =
-      pixels > kENRMCodeBlockMaxUntiledPixels ? [ENRMCodeBlockTiledCanvasView class] : [ENRMCodeBlockCanvasView class];
+  Class canvasClass = pixels > kENRMCodeBlockMaxUntiledPixels ? [ENRMCodeBlockTiledCanvasView class]
+                                                              : [ENRMCodeBlockUntiledCanvasView class];
   if (![_canvas isMemberOfClass:canvasClass]) {
     [_canvas removeFromSuperview];
     _canvas = [[canvasClass alloc] initWithFrame:self.bounds];
