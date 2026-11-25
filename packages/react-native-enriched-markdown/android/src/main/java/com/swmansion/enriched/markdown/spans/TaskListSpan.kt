@@ -68,6 +68,8 @@ class TaskListSpan(
 
   override val baselineMarkerWidth: Float get() = checkboxColumnWidth
 
+  internal fun markerCenterY(baseline: Int): Float = baseline + markerFontMetrics.ascent * CAP_HEIGHT_RATIO / HALF_DIVISOR
+
   override fun drawMarker(
     canvas: Canvas,
     paint: Paint,
@@ -79,8 +81,7 @@ class TaskListSpan(
     layout: Layout?,
     start: Int,
   ) {
-    val capHeight = -markerFontMetrics.ascent * CAP_HEIGHT_RATIO
-    val centerY = baseline - capHeight / HALF_DIVISOR
+    val centerY = markerCenterY(baseline)
     // Right-align the checkbox inside the reserved marker column so it hugs
     // the gap before the text. At the default (markerColumnWidth ==
     // checkboxSize) this is identical to the previous flush-left layout.

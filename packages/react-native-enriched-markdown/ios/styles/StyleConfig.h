@@ -52,6 +52,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface StyleConfig : NSObject <NSCopying>
 - (instancetype)init;
+- (StyleConfig *)configForListItemBody;
 - (CGFloat)fontScaleMultiplier;
 /// `pill.lineHeight`, scaled with the font like the blocks' own line heights.
 - (CGFloat)lineHeightForLinkPill:(LinkPillConfig *)pill;

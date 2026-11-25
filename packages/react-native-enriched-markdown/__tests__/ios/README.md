@@ -2,9 +2,9 @@
 
 XCTest sources for the React Native library's Objective-C / Objective-C++ code
 (`ios/**`). They run in the example app's app-hosted test target
-`EnrichedMarkdownExampleTests`, which links the same pods as the app (via the
-Podfile `inherit! :complete` block), so tests compile against the exact code the
-example ships.
+`EnrichedMarkdownExampleTests`, which inherits pod search paths through
+`inherit! :search_paths` and resolves pod symbols from its host app. Tests compile
+against the exact code the example ships without linking static pods twice.
 
 ## Running
 

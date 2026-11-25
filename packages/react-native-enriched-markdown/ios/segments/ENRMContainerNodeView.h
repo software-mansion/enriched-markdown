@@ -52,4 +52,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
+__BEGIN_DECLS
+NSArray<RCTUIView *> *ENRMDescendantSegmentViews(NSArray<RCTUIView *> *segments);
+__END_DECLS
+
 NS_ASSUME_NONNULL_END

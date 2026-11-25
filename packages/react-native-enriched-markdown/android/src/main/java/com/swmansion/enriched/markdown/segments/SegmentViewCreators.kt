@@ -35,6 +35,7 @@ import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
  * SegmentViewConfig, where a snapshot can never go stale.
  */
 class DynamicBlockProps {
+  var enableTaskListItemToggle: Boolean = true
   var enableBlockContextMenu: Boolean = true
   var enableCodeBlockPress: Boolean = false
   var copyLabel: String = ""
@@ -79,6 +80,7 @@ data class SegmentViewConfig(
   val onContextMenuItemPress: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)?,
   val onLatexError: LatexErrorReporter? = null,
   val onSelectionCopy: OnSelectionCopy? = null,
+  val configureView: ((View) -> Unit)? = null,
 )
 
 /**
@@ -246,7 +248,7 @@ object SegmentViewCreators {
     segment: RenderedSegment.Blockquote,
     config: SegmentViewConfig,
   ) = BlockquoteContainerView(config.context, config).apply {
-    applyBlockquoteNode(segment.node, segment.taskIndexOffset)
+    applyBlockquoteNode(segment.node, segment.taskIndexOffset, segment.listDepth, segment.parentMarkerWidth)
   }
 
   private val cachedVideoContainerClass: Class<*>? by lazy {

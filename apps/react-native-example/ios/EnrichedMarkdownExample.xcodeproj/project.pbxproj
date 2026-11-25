@@ -25,7 +25,7 @@
 		9E6DECF91246407194021F8B /* CourierPrime-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D495169E422740CF87E4E8EB /* CourierPrime-Regular.ttf */; };
 		A352776896814266B8C2320C /* Poppins-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DB9BD7A36CF349D19BD6AE5B /* Poppins-SemiBold.ttf */; };
 		C1D8E2A5B56496F31C0AE4ED /* ENRMLibraryTests.mm in Sources */ = {isa = PBXBuildFile; fileRef = 3E9BDACA4FAC2E9EA3AAA542 /* ENRMLibraryTests.mm */; };
-		C5E681697D864CB241D83EFA /* libPods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7A8E5ECDA77F0C61C263AE4C /* libPods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.a */; };
+		FC376881E78B4B122918FA34 /* libPods-EnrichedMarkdownExampleTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CE58D1A73BCDEACE6CF1136A /* libPods-EnrichedMarkdownExampleTests.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -48,19 +48,21 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = EnrichedMarkdownExample/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = EnrichedMarkdownExample/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = EnrichedMarkdownExample/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		177147F1CC6690BEC7A62625 /* Pods-EnrichedMarkdownExampleTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-EnrichedMarkdownExampleTests.release.xcconfig"; path = "Target Support Files/Pods-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExampleTests.release.xcconfig"; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-EnrichedMarkdownExample.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-EnrichedMarkdownExample.debug.xcconfig"; path = "Target Support Files/Pods-EnrichedMarkdownExample/Pods-EnrichedMarkdownExample.debug.xcconfig"; sourceTree = "<group>"; };
 		3E9BDACA4FAC2E9EA3AAA542 /* ENRMLibraryTests.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = ENRMLibraryTests.mm; sourceTree = "<group>"; };
 		431C95EEA90C4B3995118D3D /* Montserrat-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-Bold.ttf"; path = "../assets/fonts/Montserrat-Bold.ttf"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-EnrichedMarkdownExample.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-EnrichedMarkdownExample.release.xcconfig"; path = "Target Support Files/Pods-EnrichedMarkdownExample/Pods-EnrichedMarkdownExample.release.xcconfig"; sourceTree = "<group>"; };
 		5B7EB9410499542E8C5724F5 /* Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.debug.xcconfig"; path = "Target Support Files/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.debug.xcconfig"; sourceTree = "<group>"; };
+		71F6E4482245F89216F79D02 /* Pods-EnrichedMarkdownExampleTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-EnrichedMarkdownExampleTests.debug.xcconfig"; path = "Target Support Files/Pods-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExampleTests.debug.xcconfig"; sourceTree = "<group>"; };
 		720AC2EB09FA42C5A3E4EE58 /* Poppins-Italic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Poppins-Italic.ttf"; path = "../assets/fonts/Poppins-Italic.ttf"; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = EnrichedMarkdownExample/AppDelegate.swift; sourceTree = "<group>"; };
-		7A8E5ECDA77F0C61C263AE4C /* libPods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = EnrichedMarkdownExample/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		89C6BE57DB24E9ADA2F236DE /* Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.release.xcconfig"; path = "Target Support Files/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.release.xcconfig"; sourceTree = "<group>"; };
 		9BC709807BEE4A948F59B9EF /* Montserrat-Medium.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-Medium.ttf"; path = "../assets/fonts/Montserrat-Medium.ttf"; sourceTree = "<group>"; };
 		A7358B17E8E74D62A4B1C654 /* Poppins-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Poppins-Regular.ttf"; path = "../assets/fonts/Poppins-Regular.ttf"; sourceTree = "<group>"; };
 		B24805265C44464B924D7791 /* Montserrat-Italic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-Italic.ttf"; path = "../assets/fonts/Montserrat-Italic.ttf"; sourceTree = "<group>"; };
+		CE58D1A73BCDEACE6CF1136A /* libPods-EnrichedMarkdownExampleTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-EnrichedMarkdownExampleTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D495169E422740CF87E4E8EB /* CourierPrime-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "CourierPrime-Regular.ttf"; path = "../assets/fonts/CourierPrime-Regular.ttf"; sourceTree = "<group>"; };
 		DB9BD7A36CF349D19BD6AE5B /* Poppins-SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Poppins-SemiBold.ttf"; path = "../assets/fonts/Poppins-SemiBold.ttf"; sourceTree = "<group>"; };
 		EAE0B639B324451CB6E6F39C /* Poppins-Medium.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Poppins-Medium.ttf"; path = "../assets/fonts/Poppins-Medium.ttf"; sourceTree = "<group>"; };
@@ -74,7 +76,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C5E681697D864CB241D83EFA /* libPods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.a in Frameworks */,
+				FC376881E78B4B122918FA34 /* libPods-EnrichedMarkdownExampleTests.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,7 +127,7 @@
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				09EF1B231B420F64060CE9C8 /* libPods-EnrichedMarkdownExample.a */,
-				7A8E5ECDA77F0C61C263AE4C /* libPods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.a */,
+				CE58D1A73BCDEACE6CF1136A /* libPods-EnrichedMarkdownExampleTests.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -187,6 +189,8 @@
 				5709B34CF0A7D63546082F79 /* Pods-EnrichedMarkdownExample.release.xcconfig */,
 				5B7EB9410499542E8C5724F5 /* Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.debug.xcconfig */,
 				89C6BE57DB24E9ADA2F236DE /* Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.release.xcconfig */,
+				71F6E4482245F89216F79D02 /* Pods-EnrichedMarkdownExampleTests.debug.xcconfig */,
+				177147F1CC6690BEC7A62625 /* Pods-EnrichedMarkdownExampleTests.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -203,8 +207,6 @@
 				00E356EA1AD99517003FC87E /* Sources */,
 				00E356EB1AD99517003FC87E /* Frameworks */,
 				00E356EC1AD99517003FC87E /* Resources */,
-				F6A41C54EA430FDDC6A6ED99 /* [CP] Copy Pods Resources */,
-				A44ED3CC3037C88F69E3AF15 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -337,23 +339,6 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-EnrichedMarkdownExample/Pods-EnrichedMarkdownExample-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		A44ED3CC3037C88F69E3AF15 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests-frameworks-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
 		A55EABD7B0C7F3A422A6CC61 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -369,7 +354,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests-checkManifestLockResult.txt",
+				"$(DERIVED_FILE_DIR)/Pods-EnrichedMarkdownExampleTests-checkManifestLockResult.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -431,23 +416,6 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-EnrichedMarkdownExample/Pods-EnrichedMarkdownExample-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		F6A41C54EA430FDDC6A6ED99 /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests-resources-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			name = "[CP] Copy Pods Resources";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -482,7 +450,7 @@
 /* Begin XCBuildConfiguration section */
 		00E356F61AD99517003FC87E /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 5B7EB9410499542E8C5724F5 /* Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.debug.xcconfig */;
+			baseConfigurationReference = 71F6E4482245F89216F79D02 /* Pods-EnrichedMarkdownExampleTests.debug.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
@@ -531,7 +499,7 @@
 		};
 		00E356F71AD99517003FC87E /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 89C6BE57DB24E9ADA2F236DE /* Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.release.xcconfig */;
+			baseConfigurationReference = 177147F1CC6690BEC7A62625 /* Pods-EnrichedMarkdownExampleTests.release.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";

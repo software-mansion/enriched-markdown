@@ -1,0 +1,56 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - block
+  - advanced
+  - list
+  - table
+  - text
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: home-block-playground
+    timeout: 30000
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        - Service report
+
+          | Service | Status |
+          | --- | --- |
+          | api | ok |
+
+          Still inside the bullet.
+
+        7. Release checks
+
+           | Check | Result |
+           | --- | --- |
+           | Build | Passed |
+
+        8. Next numbered item.
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible:
+        id: set-markdown-confirm
+    commands:
+      - tapOn:
+          id: set-markdown-confirm
+- extendedWaitUntil:
+    notVisible:
+      id: set-markdown-input
+    timeout: 10000
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: preview-container
+    direction: DOWN
+    visibilityPercentage: 100
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'nested_list_table_display'

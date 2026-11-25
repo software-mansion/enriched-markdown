@@ -8,6 +8,7 @@
 #import "ENRMCodeBlockWrapState.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMLinkRegexProps.h"
+#import "ENRMListContainerView.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
@@ -309,11 +310,7 @@ ENRMRenderSegmentedMarkdownViewFree(const PropsT &typedProps, StyleConfig *confi
   NSArray<ENRMRenderedSegment *> *segments = ENRMRenderSegmentsFromAST(
       ast, config, typedProps.allowTrailingMargin, typedProps.allowFontScaling, typedProps.maxFontSizeMultiplier,
       lineBreakStrategy, /*blockquoteContent*/ NO, /*startingTaskIndex*/ 0);
-  for (ENRMRenderedSegment *segment in segments) {
-    if (segment.kind == ENRMSegmentKindText && segment.textResult) {
-      ENRMApplyWritingDirectionMode(segment.textResult.attributedText, writingDirectionMode, resolvedLayoutDirection);
-    }
-  }
+  ENRMApplySegmentWritingDirection(segments, writingDirectionMode, resolvedLayoutDirection);
   return segments.count > 0 ? segments : nil;
 }
 
@@ -398,6 +395,20 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
         if (shouldAddBottomMargin) {
           yOffset += config.codeBlockMarginBottom;
         }
+      } else if (segment.kind == ENRMSegmentKindList && segment.listSegment) {
+        yOffset += config.listStyleMarginTop;
+        yOffset += [ENRMListContainerView measureListSegment:segment.listSegment
+                                                      config:config
+                                                       width:maxWidth
+                                            pointScaleFactor:pointScaleFactor
+                                            allowFontScaling:typedProps.allowFontScaling
+                                           lineBreakStrategy:lineBreakStrategy
+                                                  wrapCursor:wrapCursor
+                                                slotMeasurer:slotMeasurer
+                                                      origin:CGPointMake(0, yOffset)];
+        maxContentWidth = maxWidth;
+        if (shouldAddBottomMargin)
+          yOffset += config.listStyleMarginBottom;
       } else if (segment.kind == ENRMSegmentKindBlockquote && segment.blockquoteSegment) {
         yOffset += config.blockquoteMarginTop;
         yOffset += [ENRMBlockquoteContainerView measureHeightForBlockquoteNode:segment.blockquoteSegment.blockquoteNode
@@ -411,7 +422,8 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
                                                                 outerDirection:NSWritingDirectionNatural
                                                                     wrapCursor:wrapCursor
                                                                   slotMeasurer:slotMeasurer
-                                                                        origin:CGPointMake(0, yOffset)];
+                                                                        origin:CGPointMake(0, yOffset)
+                                                                   listContext:segment.blockquoteSegment.listContext];
         maxContentWidth = maxWidth;
         if (shouldAddBottomMargin) {
           yOffset += config.blockquoteMarginBottom;

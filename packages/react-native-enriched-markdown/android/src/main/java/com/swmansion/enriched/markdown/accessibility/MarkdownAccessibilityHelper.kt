@@ -551,10 +551,16 @@ class MarkdownAccessibilityHelper(
     position: Int,
     requireStart: Boolean,
   ): ListItemInfo? {
-    val deepest =
-      spanned
-        .getSpans(position, position + 1, BaseListSpan::class.java)
-        .maxByOrNull { it.depth } ?: return null
+    val nativeItem = spanned.getSpans(position, position + 1, ListItemInfo::class.java).maxByOrNull { it.depth }
+    val deepestSpan = spanned.getSpans(position, position + 1, BaseListSpan::class.java).maxByOrNull { it.depth }
+    val deepest: Any =
+      if (nativeItem != null &&
+        (deepestSpan == null || nativeItem.depth >= deepestSpan.depth)
+      ) {
+        nativeItem
+      } else {
+        deepestSpan ?: return null
+      }
 
     if (requireStart) {
       val spanStart = spanned.getSpanStart(deepest)
@@ -564,10 +570,11 @@ class MarkdownAccessibilityHelper(
       if (position > firstChar + 1) return null
     }
 
+    if (deepest is ListItemInfo) return deepest
     return ListItemInfo(
       isOrdered = deepest is OrderedListSpan,
       itemNumber = (deepest as? OrderedListSpan)?.itemNumber ?: 0,
-      depth = deepest.depth,
+      depth = (deepest as BaseListSpan).depth,
     )
   }
 }

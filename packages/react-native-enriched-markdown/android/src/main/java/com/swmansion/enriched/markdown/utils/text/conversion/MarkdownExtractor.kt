@@ -20,7 +20,7 @@ import com.swmansion.enriched.markdown.spans.StrikethroughSpan
 import com.swmansion.enriched.markdown.spans.StrongSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.spans.ThematicBreakSpan
-import com.swmansion.enriched.markdown.spans.UnorderedListSpan
+import com.swmansion.enriched.markdown.spans.innermostListSpan
 
 /** Extracts markdown from styled text (Spannable). */
 object MarkdownExtractor {
@@ -202,10 +202,7 @@ object MarkdownExtractor {
     state: ExtractionState,
   ) {
     val inBlockquote = spannable.getSpans(start, end, BlockquoteSpan::class.java).isNotEmpty()
-    val inList =
-      spannable.getSpans(start, end, OrderedListSpan::class.java).isNotEmpty() ||
-        spannable.getSpans(start, end, UnorderedListSpan::class.java).isNotEmpty() ||
-        spannable.getSpans(start, end, TaskListSpan::class.java).isNotEmpty()
+    val inList = innermostListSpan(spannable, start, end) != null
 
     when {
       !inBlockquote && state.blockquoteDepth >= 0 -> {
@@ -331,7 +328,7 @@ object MarkdownExtractor {
     // A list item's span covers its nested children, so ancestors are returned here too. The
     // innermost span is the item this segment actually belongs to.
     val listSpan =
-      spannable.getSpans(start, end, BaseListSpan::class.java).maxByOrNull { it.depth }
+      innermostListSpan(spannable, start, end)
 
     if (listSpan == null) {
       if (state.listDepth >= 0) state.listDepth = -1

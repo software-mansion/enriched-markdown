@@ -3,6 +3,7 @@
 
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMContainerNodeView.h"
+#import "ENRMNestedSegmentViewRegistry.h"
 #import "EditMenuUtils.h"
 #import "ParagraphStyleUtils.h"
 #import "StyleConfig.h"
@@ -36,12 +37,13 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
  * change re-signs the whole subtree so the outer reconciler still reuses the
  * quote view.
  */
-@interface ENRMBlockquoteContainerView : ENRMContainerNodeView <ENRMWritingDirectionTarget>
+@interface ENRMBlockquoteContainerView : ENRMContainerNodeView <ENRMWritingDirectionTarget, ENRMNestedSegmentHost>
 
 - (instancetype)initWithConfig:(StyleConfig *)config;
 
 // Splits the node's children into segments and applies them to this container. Task-list items are
 // numbered from taskIndexOffset: the document-global index of the quote's first task.
+- (void)applyBlockquoteNode:(MarkdownASTNode *)node;
 - (void)applyBlockquoteNode:(MarkdownASTNode *)node taskIndexOffset:(NSInteger)taskIndexOffset;
 
 // Laid-out height of this quote at the given outer width (the width the parent
@@ -73,6 +75,20 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
                              slotMeasurer:(nullable ENRMBlockSlotMeasurer *)slotMeasurer
                                    origin:(CGPoint)origin;
 
++ (CGFloat)measureHeightForBlockquoteNode:(MarkdownASTNode *)node
+                                   config:(StyleConfig *)config
+                                 maxWidth:(CGFloat)maxWidth
+                         pointScaleFactor:(CGFloat)pointScaleFactor
+                         allowFontScaling:(BOOL)allowFontScaling
+                        lineBreakStrategy:(NSLineBreakStrategy)lineBreakStrategy
+                     writingDirectionMode:(ENRMWritingDirectionMode)writingDirectionMode
+                  resolvedLayoutDirection:(NSWritingDirection)resolvedLayoutDirection
+                           outerDirection:(NSWritingDirection)outerDirection
+                               wrapCursor:(nullable ENRMCodeBlockWrapCursor *)wrapCursor
+                             slotMeasurer:(nullable ENRMBlockSlotMeasurer *)slotMeasurer
+                                   origin:(CGPoint)origin
+                              listContext:(nullable ENRMListSegment *)listContext;
+
 // Consumer text props threaded into the quote's inner content so it honors them
 // the same way the root document path does, instead of assuming defaults. Set by
 // the host (root view or parent quote) at creation; propagated to nested quotes.
@@ -84,6 +100,10 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 // host), matching the commonmark path which applies blockquote margins only at
 // depth 0. Set by the parent quote's child registry.
 @property (nonatomic, assign) BOOL nested;
+@property (nonatomic, strong, nullable) ENRMListSegment *listContext;
+@property (nonatomic, copy, nullable) RCTUIView *_Nullable (^createLeafView)(ENRMRenderedSegment *segment);
+@property (nonatomic, copy, nullable) BOOL (^updateLeafView)(RCTUIView *view, ENRMRenderedSegment *segment);
+@property (nonatomic, copy, nullable) void (^onTaskListItemPress)(NSInteger index, BOOL checked, NSString *text);
 
 // Bridged up to the JS onLinkPress/onLinkLongPress events; propagated to nested
 // quotes so links at any depth fire.

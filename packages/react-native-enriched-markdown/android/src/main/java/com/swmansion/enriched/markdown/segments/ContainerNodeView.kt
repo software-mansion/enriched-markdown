@@ -36,6 +36,14 @@ open class ContainerNodeView(
 
   protected var trailingMarginEnabled: Boolean = false
 
+  internal fun descendantSegmentViews(): Sequence<View> =
+    sequence {
+      for (view in segmentViews) {
+        yield(view)
+        if (view is ContainerNodeView) yieldAll(view.descendantSegmentViews())
+      }
+    }
+
   // Code block views in document order, descending into nested blockquotes: the
   // order CodeBlockWrapState indexes them in.
   internal fun codeBlockViews(): Sequence<CodeBlockContainerView> =
@@ -93,7 +101,7 @@ open class ContainerNodeView(
    * to the slot view standing in for it, and nested containers are flattened,
    * so a React replacement is read where its block sits.
    */
-  internal fun addSegmentsForAccessibility(
+  internal open fun addSegmentsForAccessibility(
     slotViews: Map<String, View>,
     outChildren: ArrayList<View>,
   ) {

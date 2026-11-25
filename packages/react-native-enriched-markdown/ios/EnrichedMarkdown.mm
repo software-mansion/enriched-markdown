@@ -39,6 +39,7 @@
 #import "ENRMCodeBlockWrapState.h"
 #import "ENRMDroppableContent.h"
 #import "ENRMDynamicBlockProps.h"
+#import "ENRMListContainerView.h"
 #import "ENRMMarkdownTextView.h"
 #import "ENRMSpoilerCapable.h"
 #import "ENRMSpoilerOverlayView.h"
@@ -467,6 +468,24 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
                             [codeBlockView applyCodeBlockNode:segment.codeBlockSegment.codeBlockNode];
                           }]];
 
+  [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindList
+                          matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
+                            return [view isKindOfClass:[ENRMListContainerView class]];
+                          }
+                          createView:^RCTUIView *(ENRMRenderedSegment *segment) {
+                            EnrichedMarkdown *host = weakSelf;
+                            if (!host)
+                              return [RCTUIView new];
+                            ENRMListContainerView *view = [[ENRMListContainerView alloc] initWithConfig:host->_config];
+                            [host configureNestedContainer:view];
+                            [view applyListSegment:segment.listSegment];
+                            [host animateBlockViewIfNeeded:view];
+                            return view;
+                          }
+                          updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
+                            [(ENRMListContainerView *)view applyListSegment:segment.listSegment];
+                          }]];
+
   [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindBlockquote
                           matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
                             return [view isKindOfClass:[ENRMBlockquoteContainerView class]];
@@ -489,6 +508,7 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
                               ENRMSetWritingDirection(quoteView, strongSelf->_writingDirectionMode,
                                                       strongSelf->_resolvedLayoutDirection);
                             }
+                            quoteView.listContext = segment.blockquoteSegment.listContext;
                             [quoteView applyBlockquoteNode:segment.blockquoteSegment.blockquoteNode
                                            taskIndexOffset:segment.blockquoteSegment.taskIndexOffset];
                           }]];
@@ -549,6 +569,15 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
 {
   ENRMBlockquoteContainerView *view = [[ENRMBlockquoteContainerView alloc] initWithConfig:_config];
   ENRMSetWritingDirection(view, _writingDirectionMode, _resolvedLayoutDirection);
+  view.listContext = blockquoteSegment.listContext;
+  [self configureNestedContainer:view];
+  [view applyBlockquoteNode:blockquoteSegment.blockquoteNode];
+  return view;
+}
+
+- (void)configureNestedContainer:(id<ENRMNestedSegmentHost>)view
+{
+  ENRMSetWritingDirection(view, _writingDirectionMode, _resolvedLayoutDirection);
   view.allowFontScaling = _fontScaleObserver.allowFontScaling;
   view.lineBreakStrategy = _lineBreakStrategy;
   view.dynamicProps = _dynamicBlockProps;
@@ -556,6 +585,40 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   view.onSelectionCopy = [self selectionCopyHandler];
 
   __weak EnrichedMarkdown *weakSelf = self;
+  view.createLeafView = ^RCTUIView *(ENRMRenderedSegment *segment) {
+    EnrichedMarkdown *host = weakSelf;
+    if (!host)
+      return nil;
+    switch (segment.kind) {
+      case ENRMSegmentKindText:
+        return [host createTextViewForRenderedSegment:segment.textResult];
+      case ENRMSegmentKindTable:
+        return [host createTableViewForSegment:segment.tableSegment];
+      case ENRMSegmentKindCodeBlock:
+        return [host createCodeBlockViewForSegment:segment.codeBlockSegment];
+#if ENRICHED_MARKDOWN_MATH
+      case ENRMSegmentKindMath:
+        return [host createMathViewForSegment:segment.mathSegment];
+#endif
+      default:
+        return nil;
+    }
+  };
+  view.updateLeafView = ^BOOL(RCTUIView *child, ENRMRenderedSegment *segment) {
+    EnrichedMarkdown *host = weakSelf;
+    if (!host)
+      return NO;
+    switch (segment.kind) {
+      case ENRMSegmentKindText:
+        [host configureTextView:(EnrichedMarkdownInternalText *)child withRenderedSegment:segment.textResult];
+        return YES;
+      case ENRMSegmentKindTable:
+        [host updateTableView:(TableContainerView *)child withSegment:segment.tableSegment];
+        return YES;
+      default:
+        return NO;
+    }
+  };
   view.onCopyPress = ^(NSString *code, NSString *language) {
     EnrichedMarkdown *strongSelf = weakSelf;
     if (strongSelf)
@@ -588,8 +651,14 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
       [strongSelf emitTextPress:index text:text];
   };
 
-  [view applyBlockquoteNode:blockquoteSegment.blockquoteNode taskIndexOffset:blockquoteSegment.taskIndexOffset];
-  return view;
+  view.onTaskListItemPress = ^(NSInteger index, BOOL checked, NSString *text) {
+    EnrichedMarkdown *host = weakSelf;
+    if (!host || !host->_enableTaskListItemToggle)
+      return;
+    host->_cachedMarkdown = toggleTaskListItemAtIndex(host->_cachedMarkdown, index, checked);
+    [host renderMarkdownContent:host->_cachedMarkdown];
+    [host emitTaskListItemPress:index checked:checked text:text];
+  };
 }
 
 /// The box the segments actually live in: the component frame inset by the
@@ -699,6 +768,10 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
       yOffset += _config.codeBlockMarginTop;
       segmentHeight = [(ENRMCodeBlockContainerView *)segment measureHeight:width];
       maxContentWidth = width;
+    } else if ([segment isKindOfClass:[ENRMListContainerView class]]) {
+      yOffset += _config.listStyleMarginTop;
+      segmentHeight = [(ENRMListContainerView *)segment measureHeight:width];
+      maxContentWidth = width;
     } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
       yOffset += _config.blockquoteMarginTop;
       segmentHeight = [(ENRMBlockquoteContainerView *)segment measureHeight:width];
@@ -756,6 +829,8 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 #endif
     else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]] && shouldAddBottomMargin) {
       yOffset += _config.codeBlockMarginBottom;
+    } else if ([segment isKindOfClass:[ENRMListContainerView class]] && shouldAddBottomMargin) {
+      yOffset += _config.listStyleMarginBottom;
     } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]] && shouldAddBottomMargin) {
       yOffset += _config.blockquoteMarginBottom;
     } else if ([segment isKindOfClass:[ENRMBlockSlotSegmentView class]] && shouldAddBottomMargin) {
@@ -1032,7 +1107,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
 - (void)pushWritingDirectionToTableSegments
 {
-  for (RCTUIView *segment in _segmentViews) {
+  for (RCTUIView *segment in ENRMDescendantSegmentViews(_segmentViews)) {
     if ([segment isKindOfClass:[TableContainerView class]]) {
       TableContainerView *tableView = (TableContainerView *)segment;
       ENRMSetWritingDirection(tableView, _writingDirectionMode, _resolvedLayoutDirection);
@@ -1047,6 +1122,8 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
       ((EnrichedMarkdownInternalText *)segment).accessibilityLabels = _accessibilityLabels;
     } else if ([segment isKindOfClass:[TableContainerView class]]) {
       ((TableContainerView *)segment).accessibilityLabels = _accessibilityLabels;
+    } else if ([segment isKindOfClass:[ENRMListContainerView class]]) {
+      ((ENRMListContainerView *)segment).accessibilityLabels = _accessibilityLabels;
     } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
       ((ENRMBlockquoteContainerView *)segment).accessibilityLabels = _accessibilityLabels;
     } else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
@@ -1177,11 +1254,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     renderedSegments = ENRMRenderSegmentsFromAST(ast, config, allowTrailingMargin, allowFontScaling,
                                                  maxFontSizeMultiplier, lineBreakStrategy,
                                                  /*blockquoteContent*/ NO, /*startingTaskIndex*/ 0);
-    for (ENRMRenderedSegment *segment in renderedSegments) {
-      if (segment.kind == ENRMSegmentKindText && segment.textResult) {
-        ENRMApplyWritingDirectionMode(segment.textResult.attributedText, writingDirectionMode, resolvedLayoutDirection);
-      }
-    }
+    ENRMApplySegmentWritingDirection(renderedSegments, writingDirectionMode, resolvedLayoutDirection);
     return YES;
   };
   // What this render answers, taken now: an older render can still apply after a
@@ -1257,11 +1330,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   NSArray<ENRMRenderedSegment *> *segments = ENRMRenderSegmentsFromAST(
       ast, _config, _allowTrailingMargin, _fontScaleObserver.allowFontScaling, _maxFontSizeMultiplier,
       _lineBreakStrategy, /*blockquoteContent*/ NO, /*startingTaskIndex*/ 0);
-  for (ENRMRenderedSegment *segment in segments) {
-    if (segment.kind == ENRMSegmentKindText && segment.textResult) {
-      ENRMApplyWritingDirectionMode(segment.textResult.attributedText, _writingDirectionMode, _resolvedLayoutDirection);
-    }
-  }
+  ENRMApplySegmentWritingDirection(segments, _writingDirectionMode, _resolvedLayoutDirection);
   return segments;
 }
 
@@ -1463,7 +1532,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
                                   selectionEnd:selectionEnd];
         });
     return buildEditMenuForSelection(textView.textStorage, textView.selectedRange, segmentMarkdown, strongSelf->_config,
-                                     @[ baseMenu ], customItems, strongSelf -> _selectionMenuConfig,
+                                     @[ baseMenu ], customItems, strongSelf->_selectionMenuConfig,
                                      [strongSelf selectionCopyHandler]);
   }];
 #endif
@@ -1668,7 +1737,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   [_blockSlotReveal cancel];
   [self applyBlockSlotReveal];
   [self setNeedsLayout];
-  for (RCTUIView *segment in _segmentViews) {
+  for (RCTUIView *segment in ENRMDescendantSegmentViews(_segmentViews)) {
     if ([segment isKindOfClass:[TableContainerView class]]) {
       [(TableContainerView *)segment finishRowFade];
 #if !TARGET_OS_OSX
@@ -1775,7 +1844,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
   _selectable = newViewProps.selectable;
 
-  for (RCTUIView *segment in _segmentViews) {
+  for (RCTUIView *segment in ENRMDescendantSegmentViews(_segmentViews)) {
     if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
       EnrichedMarkdownInternalText *textSegment = (EnrichedMarkdownInternalText *)segment;
       if (textSegment.textView.selectable != newViewProps.selectable) {
@@ -1836,6 +1905,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
   _enableLinkPreview = newViewProps.enableLinkPreview;
   _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
+  _dynamicBlockProps.enableTaskListItemToggle = _enableTaskListItemToggle;
   _enableImagePress = newViewProps.enableImagePress;
   _enableTextPress = newViewProps.enableTextPress;
 
@@ -1948,7 +2018,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   if (newViewProps.spoilerOverlay != oldViewProps.spoilerOverlay) {
     NSString *modeStr = [[NSString alloc] initWithUTF8String:newViewProps.spoilerOverlay.c_str()];
     _spoilerOverlay = ENRMSpoilerOverlayFromString(modeStr);
-    for (RCTUIView *segment in _segmentViews) {
+    for (RCTUIView *segment in ENRMDescendantSegmentViews(_segmentViews)) {
       if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
         ((EnrichedMarkdownInternalText *)segment).spoilerOverlay = _spoilerOverlay;
       }
@@ -1956,7 +2026,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   }
 
   if (newViewProps.selectionColor != oldViewProps.selectionColor) {
-    for (RCTUIView *segment in _segmentViews) {
+    for (RCTUIView *segment in ENRMDescendantSegmentViews(_segmentViews)) {
       if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
         ENRMPlatformTextView *tv = ((EnrichedMarkdownInternalText *)segment).textView;
         ENRMApplySelectionColor(tv, newViewProps.selectionColor);
@@ -2230,7 +2300,7 @@ static void ENRMAfterCommit(dispatch_block_t block)
   }
   if (_renderedMarkdown != nil && _needsWindowAttachRefresh) {
     _needsWindowAttachRefresh = NO;
-    for (RCTUIView *segment in _segmentViews) {
+    for (RCTUIView *segment in ENRMDescendantSegmentViews(_segmentViews)) {
       if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
         EnrichedMarkdownInternalText *textSegment = (EnrichedMarkdownInternalText *)segment;
         [textSegment refreshAfterWindowAttach];
@@ -2333,7 +2403,10 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
 
 - (facebook::react::SharedTouchEventEmitter)touchEventEmitterAtPoint:(CGPoint)point
 {
-  for (RCTUIView *segment in _segmentViews) {
+  for (RCTUIView *segment in ENRMDescendantSegmentViews(_segmentViews)) {
+    if ([segment isKindOfClass:[ENRMListContainerView class]] &&
+        [(ENRMListContainerView *)segment isTaskTargetAtPoint:[self convertPoint:point toView:segment]])
+      return nil;
     if ([segment isKindOfClass:[TableContainerView class]]) {
       CGPoint segmentPoint = [self convertPoint:point toView:segment];
 #if !TARGET_OS_OSX
@@ -2503,7 +2576,7 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     return;
   }
 
-  for (RCTUIView *segment in _segmentViews) {
+  for (RCTUIView *segment in ENRMDescendantSegmentViews(_segmentViews)) {
     if ([segment conformsToProtocol:@protocol(ENRMSpoilerCapable)]) {
       id<ENRMSpoilerCapable> spoilerSegment = (id<ENRMSpoilerCapable>)segment;
       if (spoilerSegment.textView == textView) {

@@ -26,6 +26,7 @@ import com.swmansion.enriched.markdown.segments.BlockquoteContainerView
 import com.swmansion.enriched.markdown.segments.CodeBlockContainerView
 import com.swmansion.enriched.markdown.segments.ContainerNodeView
 import com.swmansion.enriched.markdown.segments.DynamicBlockProps
+import com.swmansion.enriched.markdown.segments.ListContainerView
 import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.segments.OverflowScrollView
 import com.swmansion.enriched.markdown.segments.RenderedSegment
@@ -305,7 +306,8 @@ class EnrichedMarkdown(
     set(value) {
       if (field == value) return
       field = value
-      segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
+      dynamicProps.enableTaskListItemToggle = value
+      descendantSegmentViews().filterIsInstance<EnrichedMarkdownInternalText>().forEach {
         it.enableTaskListItemToggle = value
       }
     }
@@ -551,7 +553,7 @@ class EnrichedMarkdown(
   fun setIsSelectable(value: Boolean) {
     if (selectable == value) return
     selectable = value
-    segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
+    descendantSegmentViews().filterIsInstance<EnrichedMarkdownInternalText>().forEach {
       it.setIsSelectable(value)
     }
   }
@@ -574,7 +576,7 @@ class EnrichedMarkdown(
     MeasurementStore.updateBreakStrategy(id, strategy)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
       val resolved = BreakStrategyUtils.resolveBreakStrategy(strategy)
-      segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
+      descendantSegmentViews().filterIsInstance<EnrichedMarkdownInternalText>().forEach {
         it.breakStrategy = resolved
       }
     }
@@ -583,7 +585,7 @@ class EnrichedMarkdown(
   }
 
   private fun applySelectionColorsToSegments() {
-    segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
+    descendantSegmentViews().filterIsInstance<EnrichedMarkdownInternalText>().forEach {
       it.applySelectionColors(selectionColor, selectionHandleColor)
     }
   }
@@ -642,7 +644,7 @@ class EnrichedMarkdown(
 
   fun setContextMenuItems(items: List<String>) {
     contextMenuItemTexts = items
-    segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
+    descendantSegmentViews().filterIsInstance<EnrichedMarkdownInternalText>().forEach {
       it.setContextMenuItems(items, ::forwardContextMenuItemPress)
     }
   }
@@ -652,7 +654,7 @@ class EnrichedMarkdown(
     selectionMenuConfig = config
     dynamicProps.copyLabel = config.copyLabel
     dynamicProps.copyAsMarkdownLabel = config.copyAsMarkdownLabel
-    segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
+    descendantSegmentViews().filterIsInstance<EnrichedMarkdownInternalText>().forEach {
       it.selectionMenuConfig = config
     }
   }
@@ -660,17 +662,17 @@ class EnrichedMarkdown(
   fun setAccessibilityLabels(labels: AccessibilityLabels) {
     if (accessibilityLabels == labels) return
     accessibilityLabels = labels
-    segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
+    descendantSegmentViews().filterIsInstance<EnrichedMarkdownInternalText>().forEach {
       it.accessibilityLabels = labels
     }
-    segmentViews.filterIsInstance<TableContainerView>().forEach {
+    descendantSegmentViews().filterIsInstance<TableContainerView>().forEach {
       it.accessibilityLabels = labels
     }
     codeBlockViews().forEach {
       it.accessibilityLabels = labels
     }
     mathContainerClass?.let { mathClass ->
-      segmentViews.filter { mathClass.isInstance(it) }.forEach { view ->
+      descendantSegmentViews().filter { mathClass.isInstance(it) }.forEach { view ->
         runCatching {
           mathClass
             .getMethod("setAccessibilityLabels", AccessibilityLabels::class.java)
@@ -982,6 +984,37 @@ class EnrichedMarkdown(
 
   private fun isVideoContainerView(view: View): Boolean = videoContainerClass?.isInstance(view) == true
 
+  private fun configureNestedView(view: View) {
+    when (view) {
+      is EnrichedMarkdownInternalText -> {
+        view.spoilerOverlay = spoilerOverlay
+        view.enableTaskListItemToggle = enableTaskListItemToggle
+        view.setIsSelectable(selectable)
+        view.selectionMenuConfig = selectionMenuConfig
+        view.accessibilityLabels = accessibilityLabels
+        view.applySelectionColors(selectionColor, selectionHandleColor)
+        view.setContextMenuItems(contextMenuItemTexts, ::forwardContextMenuItemPress)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+          view.breakStrategy = BreakStrategyUtils.resolveBreakStrategy(textBreakStrategy)
+        }
+      }
+
+      is TableContainerView -> {
+        view.accessibilityLabels = accessibilityLabels
+      }
+
+      is CodeBlockContainerView -> {
+        view.accessibilityLabels = accessibilityLabels
+      }
+
+      else -> {
+        mathContainerClass?.takeIf { it.isInstance(view) }?.let {
+          it.getMethod("setAccessibilityLabels", AccessibilityLabels::class.java).invoke(view, accessibilityLabels)
+        }
+      }
+    }
+  }
+
   private fun segmentViewConfig(): SegmentViewConfig =
     SegmentViewConfig(
       context = context,
@@ -1002,6 +1035,7 @@ class EnrichedMarkdown(
       onContextMenuItemPress = ::forwardContextMenuItemPress,
       onLatexError = latexErrorReporter,
       onSelectionCopy = ::forwardSelectionCopy,
+      configureView = ::configureNestedView,
     )
 
   /**
@@ -1020,6 +1054,7 @@ class EnrichedMarkdown(
         is RenderedSegment.Table -> view is TableContainerView
         is RenderedSegment.Math -> isMathContainerView(view)
         is RenderedSegment.CodeBlock -> view is CodeBlockContainerView
+        is RenderedSegment.ListBlock -> view is ListContainerView
         is RenderedSegment.Blockquote -> view is BlockquoteContainerView
         is RenderedSegment.Video -> isVideoContainerView(view)
         is RenderedSegment.BlockSlot -> view is BlockSlotSegmentView
@@ -1046,6 +1081,10 @@ class EnrichedMarkdown(
           SegmentViewCreators.createCodeBlockView(segment, config).apply {
             pending = segment === pendingCodeBlockSegment
           }
+        }
+
+        is RenderedSegment.ListBlock -> {
+          ListContainerView(context, config).apply { applyList(segment) }
         }
 
         is RenderedSegment.Blockquote -> {
@@ -1099,8 +1138,17 @@ class EnrichedMarkdown(
           }
         }
 
+        is RenderedSegment.ListBlock -> {
+          (view as ListContainerView).applyList(segment)
+        }
+
         is RenderedSegment.Blockquote -> {
-          (view as BlockquoteContainerView).applyBlockquoteNode(segment.node, segment.taskIndexOffset)
+          (view as BlockquoteContainerView).applyBlockquoteNode(
+            segment.node,
+            segment.taskIndexOffset,
+            segment.listDepth,
+            segment.parentMarkerWidth,
+          )
         }
 
         is RenderedSegment.Video -> {
@@ -1124,6 +1172,7 @@ class EnrichedMarkdown(
         is RenderedSegment.Math,
         is RenderedSegment.CodeBlock,
         is RenderedSegment.Blockquote,
+        is RenderedSegment.ListBlock,
         is RenderedSegment.Video,
         -> animateBlockViewFadeIn(view)
 

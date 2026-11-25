@@ -363,6 +363,19 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   }
 }
 
+- (StyleConfig *)configForListItemBody
+{
+  StyleConfig *body = [self copy];
+  [body setParagraphFontSize:_listStyleFontSize];
+  [body setParagraphFontFamily:_listStyleFontFamily];
+  [body setParagraphFontWeight:_listStyleFontWeight];
+  [body setParagraphColor:_listStyleColor];
+  [body setParagraphLineHeight:_listStyleLineHeight];
+  [body setParagraphMarginTop:0];
+  [body setParagraphMarginBottom:0];
+  return body;
+}
+
 - (id)copyWithZone:(NSZone *)zone
 {
   // -init creates fresh ENRMFontSlot instances with needsRecreation = YES,

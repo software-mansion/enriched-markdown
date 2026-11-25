@@ -40,4 +40,11 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
                                           ENRMCodeBlockWrapCursor *_Nullable wrapCursor,
                                           ENRMBlockSlotMeasurer *_Nullable slotMeasurer, CGPoint origin);
 
+CGFloat ENRMMeasureSegmentsHeightViewFreeWithContext(
+    NSArray<ENRMRenderedSegment *> *segments, StyleConfig *config, CGFloat contentWidth, BOOL allowTrailingMargin,
+    CGFloat pointScaleFactor, ENRMWritingDirectionMode writingDirectionMode, NSWritingDirection resolvedLayoutDirection,
+    NSWritingDirection quoteDirection, BOOL allowFontScaling, NSLineBreakStrategy lineBreakStrategy,
+    ENRMCodeBlockWrapCursor *_Nullable wrapCursor, ENRMBlockSlotMeasurer *_Nullable slotMeasurer, CGPoint origin,
+    BOOL childrenInsideBlockquote);
+
 NS_ASSUME_NONNULL_END

@@ -131,8 +131,8 @@ ENRMRenderResult *ENRMRenderASTNodesResuming(NSArray<MarkdownASTNode *> *nodes, 
   [context applyImageAttributesToString:tail];
   ENRMApplyLineBreakStrategyToParagraphStyles(tail, lineBreakStrategy);
   // A renderer that changed the text before the tail would have changed it in the whole text too.
-  if (tail.length < kResumeSeedLength ||
-      ![[tail attributedSubstringFromRange:NSMakeRange(0, kResumeSeedLength)] isEqualToAttributedString:seed]) {
+  if (tail.length < kResumeSeedLength || ![[tail attributedSubstringFromRange:NSMakeRange(0, kResumeSeedLength)]
+                                             isEqualToAttributedString:seed]) {
     return nil;
   }
   [tail deleteCharactersInRange:NSMakeRange(0, kResumeSeedLength)];
@@ -179,4 +179,15 @@ ENRMRenderResult *ENRMRenderBlockquoteContentNodes(NSArray<MarkdownASTNode *> *n
   ENRMBlockquoteTextRenderer *block = [[ENRMBlockquoteTextRenderer alloc] initWithConfig:config];
   return ENRMRenderASTNodesCore(nodes, config, /*allowTrailingMargin*/ NO, allowFontScaling, maxFontSizeMultiplier,
                                 lineBreakStrategy, block, startingTaskIndex);
+}
+
+ENRMRenderResult *ENRMRenderASTNodesWithTaskOffset(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config,
+                                                   BOOL allowTrailingMargin, BOOL allowFontScaling,
+                                                   CGFloat maxFontSizeMultiplier, NSLineBreakStrategy lineBreakStrategy,
+                                                   BOOL blockquoteContent, NSInteger taskIndexOffset)
+{
+  return blockquoteContent ? ENRMRenderBlockquoteContentNodes(nodes, config, allowFontScaling, maxFontSizeMultiplier,
+                                                              lineBreakStrategy, taskIndexOffset)
+                           : ENRMRenderASTNodes(nodes, config, allowTrailingMargin, allowFontScaling,
+                                                maxFontSizeMultiplier, lineBreakStrategy, taskIndexOffset);
 }

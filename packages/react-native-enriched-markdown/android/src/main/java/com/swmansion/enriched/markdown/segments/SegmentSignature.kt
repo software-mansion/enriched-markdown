@@ -10,6 +10,7 @@ object SegmentSignature {
 
   internal const val TEXT_KIND_SALT = 0x7465787400000000L // "text"
   internal const val TABLE_KIND_SALT = 0x7461626C00000000L // "tabl"
+  internal const val LIST_KIND_SALT = 0x6c69737400000000L // "list"
   internal const val MATH_KIND_SALT = 0x6D61746800000000L // "math"
   internal const val CODE_BLOCK_KIND_SALT = 0x63626C6B00000000L // "cblk"
   internal const val BLOCKQUOTE_KIND_SALT = 0x6271746500000000L // "bqte"
@@ -25,7 +26,7 @@ object SegmentSignature {
     return result
   }
 
-  private fun fnvMixLong(
+  internal fun fnvMixLong(
     hash: Long,
     value: Long,
   ): Long {

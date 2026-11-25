@@ -5,6 +5,7 @@
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMCodeBlockWrapState.h"
 #import "ENRMFeatureFlags.h"
+#import "ENRMListContainerView.h"
 #import "ENRMTextRenderer.h"
 #import "ENRMViewFreeMeasurement.h"
 #import "TableContainerView.h"
@@ -22,6 +23,19 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
                                           BOOL allowFontScaling, NSLineBreakStrategy lineBreakStrategy,
                                           ENRMCodeBlockWrapCursor *wrapCursor, ENRMBlockSlotMeasurer *slotMeasurer,
                                           CGPoint origin)
+{
+  return ENRMMeasureSegmentsHeightViewFreeWithContext(segments, config, contentWidth, allowTrailingMargin,
+                                                      pointScaleFactor, writingDirectionMode, resolvedLayoutDirection,
+                                                      quoteDirection, allowFontScaling, lineBreakStrategy, wrapCursor,
+                                                      slotMeasurer, origin, YES);
+}
+
+CGFloat ENRMMeasureSegmentsHeightViewFreeWithContext(
+    NSArray<ENRMRenderedSegment *> *segments, StyleConfig *config, CGFloat contentWidth, BOOL allowTrailingMargin,
+    CGFloat pointScaleFactor, ENRMWritingDirectionMode writingDirectionMode, NSWritingDirection resolvedLayoutDirection,
+    NSWritingDirection quoteDirection, BOOL allowFontScaling, NSLineBreakStrategy lineBreakStrategy,
+    ENRMCodeBlockWrapCursor *wrapCursor, ENRMBlockSlotMeasurer *slotMeasurer, CGPoint origin,
+    BOOL childrenInsideBlockquote)
 {
   if (segments.count == 0) {
     return 0;
@@ -63,10 +77,25 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
       if (shouldAddBottomMargin) {
         totalHeight += config.codeBlockMarginBottom;
       }
+    } else if (segment.kind == ENRMSegmentKindList && segment.listSegment) {
+      segment.listSegment.outerDirection = quoteDirection;
+      BOOL root = segment.listSegment.depth == 0;
+      if (root)
+        totalHeight += config.listStyleMarginTop;
+      totalHeight += [ENRMListContainerView measureListSegment:segment.listSegment
+                                                        config:config
+                                                         width:contentWidth
+                                              pointScaleFactor:pointScaleFactor
+                                              allowFontScaling:allowFontScaling
+                                             lineBreakStrategy:lineBreakStrategy
+                                                    wrapCursor:wrapCursor
+                                                  slotMeasurer:slotMeasurer
+                                                        origin:CGPointMake(origin.x, origin.y + totalHeight)];
+      if (root && shouldAddBottomMargin)
+        totalHeight += config.listStyleMarginBottom;
     } else if (segment.kind == ENRMSegmentKindBlockquote && segment.blockquoteSegment) {
-      // This helper only ever sums a quote's own children, so any quote here is
-      // nested and carries no vertical margin (only the outermost quote does,
-      // added by the root measurement pass); mirrors ENRMBlockquoteContainerView.nested.
+      if (!childrenInsideBlockquote)
+        totalHeight += config.blockquoteMarginTop;
       totalHeight +=
           [ENRMBlockquoteContainerView measureHeightForBlockquoteNode:segment.blockquoteSegment.blockquoteNode
                                                                config:config
@@ -79,7 +108,10 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
                                                        outerDirection:quoteDirection
                                                            wrapCursor:wrapCursor
                                                          slotMeasurer:slotMeasurer
-                                                               origin:CGPointMake(origin.x, origin.y + totalHeight)];
+                                                               origin:CGPointMake(origin.x, origin.y + totalHeight)
+                                                          listContext:segment.blockquoteSegment.listContext];
+      if (!childrenInsideBlockquote && shouldAddBottomMargin)
+        totalHeight += config.blockquoteMarginBottom;
     } else if (segment.kind == ENRMSegmentKindBlockSlot && segment.blockSlotSegment) {
       ENRMBlockSlotSegment *slot = segment.blockSlotSegment;
       totalHeight += ENRMBlockSlotMarginTop(slot.kind, config);

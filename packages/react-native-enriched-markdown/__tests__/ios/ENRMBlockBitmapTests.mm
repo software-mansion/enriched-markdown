@@ -30,8 +30,9 @@ static void ENRMCollectBitmapViews(UIView *view, NSMutableArray<UIView *> *views
   static NSSet<NSString *> *names;
   static dispatch_once_t once;
   dispatch_once(&once, ^{
-    names =
-        [NSSet setWithArray:@[ @"ENRMCodeBlockContainerView", @"ENRMCodeBlockContentView", @"ENRMTableIOSGridView" ]];
+    names = [NSSet setWithArray:@[
+      @"ENRMCodeBlockContainerView", @"ENRMCodeBlockContentView", @"ENRMTableIOSGridView", @"ENRMListItemView"
+    ]];
   });
   if ([names containsObject:NSStringFromClass([view class])]) {
     [views addObject:view];
@@ -165,6 +166,38 @@ static CGRect ENRMBlockTestDrawnTextRect(UIView *view, UIView *textView)
 }
 
 // A block just below the screen, within the margin, keeps its bitmap for when it scrolls in.
+- (void)testANativeListDropsAndRestoresItsMarkerAndTableBitmaps
+{
+  EnrichedMarkdown *document = [[EnrichedMarkdown alloc] initWithFrame:CGRectMake(0, 0, kENRMBlockTestWidth, 0)];
+  document.config = [[StyleConfig alloc] init];
+  [_scrollView addSubview:document];
+  NSString *markdown = [@"- Item with a table\n\n  | a | b |\n  |---|---|\n  | 1 | 2 |\n\n"
+      stringByAppendingString:ENRMBlockTestMarkdown()];
+  [document renderMarkdownSynchronously:markdown];
+  CGSize size = [document computeSegmentLayoutForWidth:kENRMBlockTestWidth applyFrames:YES];
+  document.frame = CGRectMake(0, 0, kENRMBlockTestWidth, size.height);
+  _scrollView.contentSize = size;
+  [document layoutIfNeeded];
+  UIView *list = nil;
+  for (UIView *child in document.subviews) {
+    if ([NSStringFromClass(child.class) isEqualToString:@"ENRMListContainerView"])
+      list = child;
+  }
+  XCTAssertNotNil(list);
+  NSArray<UIView *> *views = ENRMBitmapViews(@[ list ]);
+  XCTAssertEqual(views.count, 2u);
+  ENRMDrawBitmaps(views);
+  for (UIView *view in views)
+    XCTAssertNotNil(view.layer.contents);
+  _scrollView.contentOffset = CGPointMake(0, size.height - kENRMBlockTestWindowHeight);
+  for (UIView *view in views)
+    XCTAssertNil(view.layer.contents);
+  _scrollView.contentOffset = CGPointZero;
+  ENRMDrawBitmaps(views);
+  for (UIView *view in views)
+    XCTAssertNotNil(view.layer.contents);
+}
+
 - (void)testABlockWithinTheMarginKeepsItsBitmap
 {
   NSArray<UIView *> *views = ENRMBitmapViews(_bottomBlocks);

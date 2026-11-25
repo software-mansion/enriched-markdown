@@ -56,6 +56,15 @@ sealed interface RenderedSegment {
     override val signature: Long,
   ) : RenderedSegment
 
+  data class ListBlock(
+    val node: MarkdownASTNode,
+    override val signature: Long,
+    val taskIndexOffset: Int = 0,
+    val depth: Int = 0,
+    val parentMarkerWidth: Float? = null,
+    val withinBlockquote: Boolean = false,
+  ) : RenderedSegment
+
   data class Math(
     val latex: String,
     override val signature: Long,
@@ -71,6 +80,8 @@ sealed interface RenderedSegment {
     override val signature: Long,
     /** Document-global index of the quote's first task-list item. */
     val taskIndexOffset: Int = 0,
+    val listDepth: Int = 0,
+    val parentMarkerWidth: Float? = null,
   ) : RenderedSegment
 
   data class Video(
@@ -96,6 +107,9 @@ object MarkdownSegmentRenderer {
     onLatexError: LatexErrorReporter? = null,
     startingTaskIndex: Int = 0,
     cache: TextRenderCache? = null,
+    listDepth: Int = 0,
+    parentMarkerWidth: Float? = null,
+    withinBlockquote: Boolean = false,
   ): List<RenderedSegment> {
     var taskIndexOffset = startingTaskIndex
     val lastText = segments.indexOfLast { it is MarkdownSegment.Text }
@@ -121,6 +135,29 @@ object MarkdownSegmentRenderer {
           RenderedSegment.Table(segment.node, signature)
         }
 
+        is MarkdownSegment.ListBlock -> {
+          val count = countTaskItems(segment.node)
+          val signature =
+            SegmentSignature.withTaskIndexOffset(
+              SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.LIST_KIND_SALT xor
+                (listDepth.toLong() shl 32) xor (parentMarkerWidth?.toBits()?.toLong() ?: 0L) xor
+                (if (withinBlockquote || blockquoteStyle != null) 1L else 0L),
+              taskIndexOffset,
+              hasTasks = count > 0,
+            )
+          RenderedSegment
+            .ListBlock(
+              segment.node,
+              signature,
+              taskIndexOffset,
+              listDepth,
+              parentMarkerWidth,
+              withinBlockquote || blockquoteStyle != null,
+            ).also {
+              taskIndexOffset += count
+            }
+        }
+
         is MarkdownSegment.Math -> {
           var signature = SegmentSignature.signatureForNode(null) xor SegmentSignature.MATH_KIND_SALT
           signature = SegmentSignature.fnvMixString(signature, segment.latex)
@@ -136,11 +173,12 @@ object MarkdownSegmentRenderer {
           val taskItemCount = countTaskItems(segment.node)
           val signature =
             SegmentSignature.withTaskIndexOffset(
-              SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.BLOCKQUOTE_KIND_SALT,
+              SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.BLOCKQUOTE_KIND_SALT xor
+                (listDepth.toLong() shl 32) xor (parentMarkerWidth?.toBits()?.toLong() ?: 0L),
               taskIndexOffset,
               hasTasks = taskItemCount > 0,
             )
-          RenderedSegment.Blockquote(segment.node, signature, taskIndexOffset).also {
+          RenderedSegment.Blockquote(segment.node, signature, taskIndexOffset, listDepth, parentMarkerWidth).also {
             taskIndexOffset += taskItemCount
           }
         }
@@ -164,7 +202,7 @@ object MarkdownSegmentRenderer {
    * Task-list items in [node]'s subtree, counted as ListItemRenderer numbers them. Used for a
    * blockquote, whose children render only when its container view applies the node.
    */
-  private fun countTaskItems(node: MarkdownASTNode): Int {
+  internal fun countTaskItems(node: MarkdownASTNode): Int {
     val own = if (node.type == MarkdownASTNode.NodeType.ListItem && node.getAttribute("isTask") == "true") 1 else 0
     return own + node.children.sumOf { countTaskItems(it) }
   }

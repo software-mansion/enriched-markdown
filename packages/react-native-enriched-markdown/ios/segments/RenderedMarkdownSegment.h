@@ -1,9 +1,11 @@
 #pragma once
 
+#import "ParagraphStyleUtils.h"
 #import <Foundation/Foundation.h>
 
 @class ENRMRenderResult;
 @class MarkdownASTNode;
+@class ENRMListMarkerDescriptor;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -14,7 +16,8 @@ typedef NS_ENUM(NSInteger, ENRMSegmentKind) {
   ENRMSegmentKindCodeBlock,
   ENRMSegmentKindBlockquote,
   ENRMSegmentKindVideo,
-  ENRMSegmentKindBlockSlot
+  ENRMSegmentKindBlockSlot,
+  ENRMSegmentKindList
 };
 
 typedef NS_ENUM(NSInteger, ENRMBlockSlotKind) {
@@ -23,6 +26,18 @@ typedef NS_ENUM(NSInteger, ENRMBlockSlotKind) {
   ENRMBlockSlotKindLink,
   ENRMBlockSlotKindCode,
 };
+
+@interface ENRMListSegment : NSObject <NSCopying>
+@property (nonatomic, assign) NSWritingDirection outerDirection;
+@property (nonatomic, strong) MarkdownASTNode *node;
+@property (nonatomic, assign) NSInteger depth;
+@property (nonatomic, assign) CGFloat parentMarkerWidth;
+@property (nonatomic, assign) BOOL withinBlockquote;
+@property (nonatomic, assign) NSInteger taskIndexOffset;
+@property (nonatomic, assign) ENRMWritingDirectionMode writingDirectionMode;
+@property (nonatomic, assign) NSWritingDirection resolvedLayoutDirection;
+@property (nonatomic, strong, nullable) ENRMListMarkerDescriptor *itemMarker;
+@end
 
 @interface ENRMTextSegment : NSObject
 @property (nonatomic, strong) NSArray<MarkdownASTNode *> *nodes;
@@ -48,6 +63,7 @@ typedef NS_ENUM(NSInteger, ENRMBlockSlotKind) {
 @property (nonatomic, strong) MarkdownASTNode *blockquoteNode;
 // Document-global index of the quote's first task-list item.
 @property (nonatomic, assign) NSInteger taskIndexOffset;
+@property (nonatomic, strong, nullable) ENRMListSegment *listContext;
 + (instancetype)segmentWithBlockquoteNode:(MarkdownASTNode *)node;
 @end
 
@@ -70,12 +86,14 @@ typedef NS_ENUM(NSInteger, ENRMBlockSlotKind) {
 @property (nonatomic, assign) uint64_t signature;
 @property (nonatomic, strong, nullable) ENRMRenderResult *textResult;
 @property (nonatomic, strong, nullable) ENRMTableSegment *tableSegment;
+@property (nonatomic, strong, nullable) ENRMListSegment *listSegment;
 @property (nonatomic, strong, nullable) ENRMMathSegment *mathSegment;
 @property (nonatomic, strong, nullable) ENRMCodeBlockSegment *codeBlockSegment;
 @property (nonatomic, strong, nullable) ENRMBlockquoteSegment *blockquoteSegment;
 @property (nonatomic, strong, nullable) ENRMVideoSegment *videoSegment;
 @property (nonatomic, strong, nullable) ENRMBlockSlotSegment *blockSlotSegment;
 + (instancetype)textSegmentWithResult:(ENRMRenderResult *)result signature:(uint64_t)signature;
++ (instancetype)listSegmentWithSegment:(ENRMListSegment *)listSegment signature:(uint64_t)signature;
 + (instancetype)tableSegmentWithSegment:(ENRMTableSegment *)segment signature:(uint64_t)signature;
 + (instancetype)mathSegmentWithSegment:(ENRMMathSegment *)segment signature:(uint64_t)signature;
 + (instancetype)codeBlockSegmentWithSegment:(ENRMCodeBlockSegment *)segment signature:(uint64_t)signature;
