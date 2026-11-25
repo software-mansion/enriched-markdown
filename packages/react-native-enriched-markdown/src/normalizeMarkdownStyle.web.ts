@@ -232,7 +232,7 @@ export const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
     checkedTextColor: '#000000',
     checkedStrikethrough: false,
   },
-  // Web draws only the solid cover; `particles` is kept for type compatibility.
+  // Web draws only the solid cover. `particles` is kept for type compatibility.
   spoiler: {
     color: '#374151',
     particles: { density: 8, speed: 20 },

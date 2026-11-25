@@ -317,7 +317,7 @@ Most of `markdownStyle` applies, but these keys are accepted and ignored:
 - Code blocks: `aria-label` with language when available (e.g. `"Code block: python"`)
 - Math: `role="math"` and `aria-label` with the expression source, on both the KaTeX MathML output and the plain-text fallback
 - Task list checkboxes: `aria-label` with the task text (e.g. `"Task: Buy groceries"`)
-- Spoilers: a concealed spoiler is a `role="button"` named by its own text (or an image's alt text), so screen readers still read it (as on native) and announce that it can be revealed; it is reachable with Tab and keeps focus after Enter/Space reveals it (inside a link, focus moves to the link, so the next Enter follows it), and a click does not reveal it while text on the page is selected, so ending a drag-selection on it does not either
+- Spoilers: a concealed spoiler is a `role="button"` named by its own text (or an image's alt text), so screen readers still read it (as on native) and announce that it can be revealed. It is reachable with Tab and keeps focus after Enter/Space reveals it. Inside a link, focus moves to the link instead, so the next Enter follows it. A click does not reveal it while text on the page is selected, so ending a drag-selection on it does not either
 - Videos: `aria-label` from the tag's text content, falling back to `title`, then `"Video"`
 
 :::caution
@@ -355,7 +355,7 @@ it is exactly the native-only surface:
 | `allowFontScaling` / `maxFontSizeMultiplier` | React Native text scaling props. Browsers handle font scaling through zoom and OS accessibility settings instead.                                                                                       |
 | `streaming`, `streamingAnimation`            | Native-only streaming handling and fade-in. Not yet implemented on web.                                                                                                                                 |
 | `streamingConfig`                            | Native-only streaming configuration. Not yet implemented on web.                                                                                                                                        |
-| `spoilerOverlay`                             | Web always draws the solid cover; the particle preset is native-only.                                                                                                                                   |
+| `spoilerOverlay`                             | Web always draws the solid cover. The particle preset is native-only.                                                                                                                                   |
 | `contextMenuItems`                           | Not supported - browsers don't allow extending the native context menu.                                                                                                                                 |
 | `linkContextMenuItems`                       | iOS 17+ [link menus](/react-native/guides/link-menus). On web a link long press is the `contextmenu` event, delivered to `onLinkLongPress`.                                                                  |
 | `linkPillContent`                            | Per-link content for [link pills](/react-native/guides/link-pills), which are not rendered on web.                                                                                                     |
