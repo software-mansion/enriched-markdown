@@ -217,7 +217,8 @@ if enableMath {
     ]
 }
 
-let notSources = ["node_modules", "android", "lib", "src", "__tests__", "ios/vendor", "ios/generated", "ios/build"]
+let notSources = ["node_modules", "android", "lib", "src", "__tests__", "ios/vendor", "ios/generated", "ios/build",
+    "cpp/repair/LICENSE.remend"]
     .filter { exists($0) }
 
 let package = Package(
