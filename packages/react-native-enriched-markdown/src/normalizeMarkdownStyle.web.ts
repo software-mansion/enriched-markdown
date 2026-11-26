@@ -8,6 +8,7 @@ import type {
 import { isStyleEqual, mergeSubStyle } from './styleUtils';
 import {
   normalizeLinkVariantEntries,
+  normalizeLinkInlineIcon,
   normalizeLinkPillStyle,
 } from './linkVariantUtils';
 import { resolveAdmonitionColors } from './admonitionDefaults';
@@ -295,6 +296,7 @@ export const normalizeMarkdownStyle = (
       return {
         pattern,
         pill: normalizeLinkPillStyle(override),
+        inlineIcon: normalizeLinkInlineIcon(override),
         fontFamily: override.fontFamily ?? linkBase.fontFamily,
         color: override.color ?? linkBase.color,
         underline: override.underline ?? linkBase.underline,

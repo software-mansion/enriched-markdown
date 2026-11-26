@@ -363,6 +363,15 @@ Nonfinite dimensions fall back to their defaults and negative dimensions clamp t
 Pills are drawn by the native text stack, so `pill` applies on **iOS and Android only**. The web build and macOS render those links as ordinary links with the variant's colors and font. The [Link pills](/react-native/guides/link-pills) guide covers the rest: per-link content, line height, icon sources and behavior.
 :::
 
+#### Inline link icons {#inline-icon}
+
+A variant's `inlineIcon` draws an icon before the link's own text, which stays ordinary link text and wraps across lines. It is ignored when the variant sets `pill`. iOS and Android only.
+
+| Property        | Type     | Default | Description                                                                                       |
+| --------------- | -------- | ------- | ------------------------------------------------------------------------------------------------- |
+| `iconUri`       | `string` | -       | Icon drawn at the text's font size. See [Icon sources](/react-native/guides/link-pills#icon-sources) |
+| `iconTintColor` | `string` | No tint | Tints the icon and keeps its alpha                                                                |
+
 ### Strong-specific
 
 | Property     | Type                 | Default        | Description                                                                                                                                              |

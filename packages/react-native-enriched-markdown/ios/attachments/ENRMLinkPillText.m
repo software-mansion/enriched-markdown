@@ -1,7 +1,10 @@
 #import "ENRMLinkPillText.h"
+#import "ENRMLinkIconAttachment.h"
 #import "ENRMLinkPillAttachment.h"
 
 #if !TARGET_OS_OSX
+
+static const unichar kWordJoiner = 0x2060;
 
 /// Inline parents (strong, emphasis) restyle the placeholder's font after the pill was created; carry that over.
 static UIFont *ENRMFontAddingTraits(UIFont *font, UIFontDescriptorSymbolicTraits traits)
@@ -53,10 +56,9 @@ void ENRMLinkPillsAdoptPlaceholderFonts(NSAttributedString *text)
                    inRange:NSMakeRange(0, text.length)
                    options:NSAttributedStringEnumerationLongestEffectiveRangeNotRequired
                 usingBlock:^(id value, NSRange range, BOOL *stop) {
-                  if ([value isKindOfClass:ENRMLinkPillAttachment.class])
-                    [(ENRMLinkPillAttachment *)value adoptFont:[text attribute:NSFontAttributeName
-                                                                          atIndex:range.location
-                                                                   effectiveRange:NULL]];
+                  if ([value isKindOfClass:ENRMLinkPillAttachment.class] ||
+                      [value isKindOfClass:ENRMLinkIconAttachment.class])
+                    [value adoptFont:[text attribute:NSFontAttributeName atIndex:range.location effectiveRange:NULL]];
                 }];
 #endif
 }
@@ -69,7 +71,7 @@ NSAttributedString *ENRMAttributedStringByExpandingLinkPills(NSAttributedString 
   if (text.length == 0)
     return text;
   NSMutableArray<NSValue *> *ranges = nil;
-  NSMutableArray<ENRMLinkPillAttachment *> *pills = nil;
+  NSMutableArray<NSTextAttachment *> *pills = nil;
   NSRange all = NSMakeRange(0, text.length);
   NSRange cursor = NSMakeRange(0, 0);
   while (NSMaxRange(cursor) < text.length) {
@@ -77,8 +79,13 @@ NSAttributedString *ENRMAttributedStringByExpandingLinkPills(NSAttributedString 
                        atIndex:NSMaxRange(cursor)
          longestEffectiveRange:&cursor
                        inRange:all];
-    if (![value isKindOfClass:ENRMLinkPillAttachment.class])
+    if ([value isKindOfClass:ENRMLinkIconAttachment.class]) {
+      // The word joiner after the icon goes with it.
+      if (NSMaxRange(cursor) < text.length && [text.string characterAtIndex:NSMaxRange(cursor)] == kWordJoiner)
+        cursor.length += 1;
+    } else if (![value isKindOfClass:ENRMLinkPillAttachment.class]) {
       continue;
+    }
     if (!pills) {
       ranges = [NSMutableArray new];
       pills = [NSMutableArray new];
@@ -91,23 +98,26 @@ NSAttributedString *ENRMAttributedStringByExpandingLinkPills(NSAttributedString 
 
   NSMutableAttributedString *result = [text mutableCopy];
   NSRange range = ioRange ? *ioRange : NSMakeRange(0, 0);
-  NSInteger locationDelta = 0;
-  NSInteger lengthDelta = 0;
-  // Back to front, so earlier ranges stay valid while the string grows.
+  NSInteger start = (NSInteger)range.location;
+  NSInteger end = (NSInteger)NSMaxRange(range);
+  // Back to front, so earlier ranges stay valid while the string changes length.
   for (NSInteger i = (NSInteger)pills.count - 1; i >= 0; i--) {
     NSRange placeholder = ranges[i].rangeValue;
-    NSAttributedString *expanded = ENRMExpandedLinkPill(pills[i], [text attributesAtIndex:placeholder.location
-                                                                           effectiveRange:NULL]);
+    NSAttributedString *expanded =
+        [pills[i] isKindOfClass:ENRMLinkPillAttachment.class]
+            ? ENRMExpandedLinkPill((ENRMLinkPillAttachment *)pills[i], [text attributesAtIndex:placeholder.location
+                                                                                effectiveRange:NULL])
+            : [NSAttributedString new];
     [result replaceCharactersInRange:placeholder withAttributedString:expanded];
     NSInteger growth = (NSInteger)expanded.length - (NSInteger)placeholder.length;
-    if (NSMaxRange(placeholder) <= range.location) {
-      locationDelta += growth;
-    } else if (placeholder.location < NSMaxRange(range)) {
-      lengthDelta += growth;
-    }
+    // A bound inside a removed icon moves to where the icon was.
+    NSInteger from = (NSInteger)placeholder.location;
+    NSInteger to = (NSInteger)NSMaxRange(placeholder);
+    start = start <= from ? start : (start >= to ? start + growth : from);
+    end = end <= from ? end : (end >= to ? end + growth : from + (NSInteger)expanded.length);
   }
   if (ioRange)
-    *ioRange = NSMakeRange(range.location + locationDelta, range.length + lengthDelta);
+    *ioRange = NSMakeRange((NSUInteger)start, (NSUInteger)MAX(0, end - start));
   return result;
 #endif
 }

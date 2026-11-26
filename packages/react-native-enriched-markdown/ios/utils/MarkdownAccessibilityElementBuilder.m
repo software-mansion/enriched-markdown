@@ -2,7 +2,9 @@
 #import "AccessibilityInfo.h"
 #import "BlockquoteBorder.h"
 #import "ENRMAccessibilityLabels.h"
+#import "ENRMLinkIconAttachment.h"
 #import "ENRMLinkPillAttachment.h"
+#import "ENRMLinkPillText.h"
 #include <TargetConditionals.h>
 
 typedef NS_ENUM(NSInteger, ElementType) { ElementTypeText, ElementTypeLink, ElementTypeImage };
@@ -129,6 +131,8 @@ static const CGFloat kFocusRectPadding = 2.0;
                                        effectiveRange:NULL];
       if ([attachment isKindOfClass:ENRMLinkPillAttachment.class])
         label = [(ENRMLinkPillAttachment *)attachment linkAccessibilityLabel];
+      else if ([attachment isKindOfClass:ENRMLinkIconAttachment.class])
+        label = ENRMStringByExpandingLinkPills([textView.textStorage attributedSubstringFromRange:itemRange]);
     }
     [elements addObject:[self createElementForRange:itemRange
                                                type:type

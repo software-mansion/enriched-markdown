@@ -84,6 +84,17 @@ export function normalizeLinkPillStyle(style: LinkVariantStyle) {
   };
 }
 
+/** A pill wins over an inline icon, so a variant never asks for both. */
+export function normalizeLinkInlineIcon(style: LinkVariantStyle) {
+  const pill =
+    style.pill === true ||
+    (typeof style.pill === 'object' && style.pill !== null);
+  return {
+    iconUri: pill ? '' : (style.inlineIcon?.iconUri ?? ''),
+    iconTintColor: pill ? undefined : style.inlineIcon?.iconTintColor,
+  };
+}
+
 /** Flattens `linkPillContent` for native; sorted so equal maps produce the same array. */
 export function normalizeLinkPillContent(
   content: Record<string, LinkPillContent> | undefined

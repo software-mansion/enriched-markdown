@@ -570,7 +570,9 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
             newVariant.pill.lineHeight != oldVariant.pill.lineHeight ||
             newVariant.pill.borderWidth != oldVariant.pill.borderWidth ||
             newVariant.pill.borderColor != oldVariant.pill.borderColor ||
-            newVariant.pill.maxWidth != oldVariant.pill.maxWidth) {
+            newVariant.pill.maxWidth != oldVariant.pill.maxWidth ||
+            newVariant.inlineIcon.iconUri != oldVariant.inlineIcon.iconUri ||
+            newVariant.inlineIcon.iconTintColor != oldVariant.inlineIcon.iconTintColor) {
           linkVariantsChanged = YES;
           break;
         }
@@ -597,6 +599,12 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
           pill.borderColor = RCTUIColorFromSharedColor(entry.pill.borderColor);
           pill.maxWidth = entry.pill.maxWidth;
           variant.pill = pill;
+        } else if (!entry.inlineIcon.iconUri.empty()) {
+          LinkInlineIconConfig *inlineIcon = [[LinkInlineIconConfig alloc] init];
+          inlineIcon.iconUri = [[NSString alloc] initWithUTF8String:entry.inlineIcon.iconUri.c_str()];
+          inlineIcon.iconTintColor =
+              entry.inlineIcon.iconTintColor ? RCTUIColorFromSharedColor(entry.inlineIcon.iconTintColor) : nil;
+          variant.inlineIcon = inlineIcon;
         }
         RCTUIColor *backgroundColor = RCTUIColorFromSharedColor(entry.backgroundColor);
         variant.backgroundColor = CGColorGetAlpha(backgroundColor.CGColor) > 0 ? backgroundColor : nil;

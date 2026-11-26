@@ -9,6 +9,7 @@ import type {
 import { isStyleEqual, normalizeColor, mergeSubStyle } from './styleUtils';
 import {
   normalizeLinkVariantEntries,
+  normalizeLinkInlineIcon,
   normalizeLinkPillStyle,
 } from './linkVariantUtils';
 import { resolveAdmonitionColors } from './admonitionDefaults';
@@ -341,6 +342,7 @@ export const normalizeMarkdownStyle = (
   result.linkVariants = normalizeLinkVariantEntries(style.linkVariants).map(
     ([pattern, override]): LinkVariantEntryInternal => {
       const pill = normalizeLinkPillStyle(override);
+      const inlineIcon = normalizeLinkInlineIcon(override);
       return {
         pattern,
         pill: {
@@ -350,6 +352,12 @@ export const normalizeMarkdownStyle = (
             | undefined,
           borderColor: (normalizeColor(pill.borderColor) ??
             transparent) as string,
+        },
+        inlineIcon: {
+          iconUri: inlineIcon.iconUri,
+          iconTintColor: normalizeColor(inlineIcon.iconTintColor) as
+            | string
+            | undefined,
         },
         fontFamily: override.fontFamily ?? linkBase.fontFamily,
         color: ((override.color ? normalizeColor(override.color) : null) ??

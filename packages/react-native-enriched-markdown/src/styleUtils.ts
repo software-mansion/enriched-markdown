@@ -64,6 +64,8 @@ function isSubStyleEqual(
   const keys = Object.keys(a);
   if (keys.length !== Object.keys(b).length) return false;
   for (const key of keys) {
+    // `{ pill: undefined }` and `{ inlineIcon: {...} }` have as many keys, so check each is in both.
+    if (!(key in b)) return false;
     const valueA = a[key];
     const valueB = b[key];
     if (valueA === valueB) continue;

@@ -9,6 +9,7 @@ import android.view.ActionMode
 import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.appcompat.widget.AppCompatTextView
+import com.swmansion.enriched.markdown.spans.LinkIconSpan
 import com.swmansion.enriched.markdown.spans.LinkPillSpan
 import com.swmansion.enriched.markdown.spans.TextBackgroundDrawer
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
@@ -73,6 +74,7 @@ abstract class AccessibleMarkdownTextView
       val contentWidth = width - compoundPaddingLeft - compoundPaddingRight
       if (contentWidth > 0) prepareWidthAwareSpans(text, contentWidth)
       LinkPillSpan.registerView(text, this)
+      LinkIconSpan.registerView(text, this)
     }
 
     /**

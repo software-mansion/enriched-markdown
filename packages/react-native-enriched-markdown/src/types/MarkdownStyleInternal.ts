@@ -111,6 +111,13 @@ export interface LinkVariantEntryInternal {
   backgroundColor: string;
   fontFamily: string;
   pill: LinkPillInternal;
+  inlineIcon: LinkInlineIconInternal;
+}
+
+export interface LinkInlineIconInternal {
+  /** Empty when the variant shows no inline icon. */
+  iconUri: string;
+  iconTintColor?: string;
 }
 
 export interface LinkPillInternal {

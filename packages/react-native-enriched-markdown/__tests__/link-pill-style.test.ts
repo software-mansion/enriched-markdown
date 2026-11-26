@@ -31,6 +31,7 @@ it('requires an explicit pill opt-in and preserves ordinary link overrides', () 
       borderColor: normalizeColor('transparent'),
       maxWidth: 0,
     },
+    inlineIcon: { iconUri: '', iconTintColor: undefined },
   });
 });
 
@@ -226,4 +227,49 @@ it('passes a per-link icon tint and treats a tint change as a content change', (
   expect(isLinkPillContentEqual(make('#abcdef'), make('#abcdef'))).toBe(true);
   expect(isLinkPillContentEqual(make('#abcdef'), make('#123456'))).toBe(false);
   expect(isLinkPillContentEqual(make(), make('transparent'))).toBe(false);
+});
+
+it('passes an inline icon and its tint to native', () => {
+  const style = normalizeMarkdownStyle({
+    linkVariants: {
+      '^app:': {
+        inlineIcon: { iconUri: 'file:///icon.png', iconTintColor: '#abcdef' },
+      },
+    },
+  });
+  expect(style.linkVariants[0]?.inlineIcon).toEqual({
+    iconUri: 'file:///icon.png',
+    iconTintColor: normalizeColor('#abcdef'),
+  });
+  expect(style.linkVariants[0]?.pill.enabled).toBe(false);
+  expect(
+    normalizeWebStyle({
+      linkVariants: { '^app:': { inlineIcon: { iconUri: 'icon.png' } } },
+    }).linkVariants[0]?.inlineIcon
+  ).toEqual({ iconUri: 'icon.png', iconTintColor: undefined });
+});
+
+it.each([true, {}])('drops the inline icon of a pill variant (%s)', (pill) => {
+  const style = normalizeMarkdownStyle({
+    linkVariants: {
+      '^app:': {
+        pill,
+        inlineIcon: { iconUri: 'file:///icon.png', iconTintColor: '#abcdef' },
+      },
+    },
+  });
+  expect(style.linkVariants[0]?.pill.enabled).toBe(true);
+  expect(style.linkVariants[0]?.inlineIcon).toEqual({
+    iconUri: '',
+    iconTintColor: undefined,
+  });
+});
+
+it('does not reuse a cached style whose variant has the same number of keys', () => {
+  normalizeMarkdownStyle({ linkVariants: { '^key:': { pill: undefined } } });
+  expect(
+    normalizeMarkdownStyle({
+      linkVariants: { '^key:': { inlineIcon: { iconUri: 'icon.png' } } },
+    }).linkVariants[0]?.inlineIcon.iconUri
+  ).toBe('icon.png');
 });

@@ -1,5 +1,6 @@
 #import "LinkRenderer.h"
 #import "CodeBackground.h"
+#import "ENRMLinkIconAttachment.h"
 #import "ENRMLinkPillAttachment.h"
 #import "ENRMSpoilerTapUtils.h"
 #import "ENRMTextLinkAttributes.h"
@@ -56,6 +57,28 @@ static NSRange ENRMCollapseLinkIntoPill(NSMutableAttributedString *output, NSRan
   [output replaceCharactersInRange:range
               withAttributedString:[[NSAttributedString alloc] initWithString:@"\uFFFC" attributes:placeholder]];
   return NSMakeRange(range.location, 1);
+}
+
+/// Puts the variant's inline icon before the link text and returns the link's range, icon included.
+static NSRange ENRMPrependLinkIcon(NSMutableAttributedString *output, NSRange range, LinkInlineIconConfig *inlineIcon,
+                                   StyleConfig *config, RenderContext *context)
+{
+  NSDictionary<NSAttributedStringKey, id> *attributes = [output attributesAtIndex:range.location effectiveRange:NULL];
+  ENRMLinkIconAttachment *icon = [[ENRMLinkIconAttachment alloc]
+      initWithIconUri:inlineIcon.iconUri
+        iconTintColor:inlineIcon.iconTintColor
+                 font:attributes[NSFontAttributeName] ?: [context getBlockStyle].cachedFont
+       requestHeaders:[config imageRequestHeaders]];
+  NSMutableDictionary<NSAttributedStringKey, id> *prefix = [attributes mutableCopy];
+  [prefix removeObjectsForKeys:@[
+    NSBackgroundColorAttributeName, NSUnderlineStyleAttributeName, NSUnderlineColorAttributeName,
+    NSStrikethroughStyleAttributeName, CodeAttributeName
+  ]];
+  NSMutableAttributedString *inserted = [[NSMutableAttributedString alloc] initWithString:@"\uFFFC\u2060"
+                                                                               attributes:prefix];
+  [inserted addAttribute:NSAttachmentAttributeName value:icon range:NSMakeRange(0, 1)];
+  [output insertAttributedString:inserted atIndex:range.location];
+  return NSMakeRange(range.location, range.length + inserted.length);
 }
 #endif
 
@@ -151,6 +174,8 @@ static NSRange ENRMCollapseLinkIntoPill(NSMutableAttributedString *output, NSRan
 #if !TARGET_OS_OSX
   if (willBePill)
     range = ENRMCollapseLinkIntoPill(output, range, url, variant, _config, context);
+  else if (variant.inlineIcon && !ENRMRangeHasAttribute(output, range, NSAttachmentAttributeName))
+    range = ENRMPrependLinkIcon(output, range, variant.inlineIcon, _config, context);
 #endif
   [context registerLinkRange:range url:url];
 }

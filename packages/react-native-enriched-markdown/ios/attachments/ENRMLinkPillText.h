@@ -4,15 +4,16 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /**
- * In text storage a link pill is one placeholder character. Wherever text leaves the
- * view it must carry the link text again: the Markdown, HTML and RTF exporters expand
- * pills themselves, and code that reads plain text out of storage calls these functions.
+ * In text storage a link pill is one placeholder character, and an inline link icon is a
+ * placeholder plus a word joiner. Wherever text leaves the view it must carry the link
+ * text again, without icons: the Markdown, HTML and RTF exporters expand pills themselves,
+ * and code that reads plain text out of storage calls these functions.
  * On macOS, where pills are not rendered, they return their input unchanged.
  */
 
 /**
- * Returns `text` with every pill placeholder replaced by the link content it stands for,
- * or `text` itself when it holds no pills. `ioRange`, when given, is a range in `text` on
+ * Returns `text` with every pill placeholder replaced by the link content it stands for and
+ * every inline link icon removed, or `text` itself when it holds neither. `ioRange`, when given, is a range in `text` on
  * input and the matching range in the result on output.
  */
 FOUNDATION_EXPORT NSAttributedString *ENRMAttributedStringByExpandingLinkPills(NSAttributedString *text,

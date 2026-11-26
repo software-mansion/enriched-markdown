@@ -56,6 +56,18 @@ For text that [streams in](/rich-text-formatting/markdown-streaming), set the bl
 - A pill inside an unrevealed spoiler is hidden with the rest of the spoiler.
 - A long-pressed pill can open a [link menu](/react-native/guides/link-menus) on iOS 17+; the menu is titled with the pill's label.
 
+## Inline icons {#inline-icons}
+
+A pill is one unit, so a long label is cut off at the end of the line. For links that show their own text and need to wrap, such as titles, give the variant an `inlineIcon` instead of `pill`:
+
+```tsx
+linkVariants: {
+  '^app://thread/': { color: '#4F46E5', inlineIcon: { iconUri: 'thread_icon', iconTintColor: '#4F46E5' } },
+}
+```
+
+The icon is drawn before the link text, on the same line as its first word, and the text wraps like any other link. The variant's `color`, `underline`, `backgroundColor` and `fontFamily` apply to the text. The icon is not part of the text: copy, export, the accessible name and link menus see only the link text. `inlineIcon` takes the same [icon sources](#icon-sources) as pills, and is ignored when the variant also sets `pill`.
+
 ## Icon sources {#icon-sources}
 
 Both `pill.iconUri` and a `linkPillContent` entry's `iconUri` take the same sources. Icons are drawn at the label's font size.
