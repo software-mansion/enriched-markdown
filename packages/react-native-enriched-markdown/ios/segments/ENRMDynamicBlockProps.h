@@ -24,7 +24,7 @@ NS_ASSUME_NONNULL_BEGIN
  * dynamic.copyLabel.
  */
 #if !TARGET_OS_OSX
-@class ENRMMarkdownTextView;
+@class ENRMMarkdownTextView, ENRMTableIOSGridView;
 @protocol ENRMTableSelectionHost <NSObject>
 @property (nonatomic, readonly) BOOL tableSelectionEnabled;
 - (void)configureTableSelectionView:(ENRMMarkdownTextView *)textView;
@@ -34,6 +34,8 @@ NS_ASSUME_NONNULL_BEGIN
 @interface ENRMDynamicBlockProps : NSObject
 #if !TARGET_OS_OSX
 @property (nonatomic, weak, nullable) id<ENRMTableSelectionHost> tableSelectionHost;
+@property (nonatomic, weak, nullable) ENRMTableIOSGridView *activeSelectionGrid;
+@property (nonatomic, assign) BOOL tableCopyAsMarkdownEnabled;
 #endif
 @property (nonatomic, strong, nullable) ENRMLinkContextMenus *linkContextMenus;
 @property (nonatomic, assign) BOOL enableLinkPreview;

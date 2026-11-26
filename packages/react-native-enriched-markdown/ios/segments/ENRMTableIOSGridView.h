@@ -12,12 +12,13 @@ typedef void (^ENRMTableIOSLinkBlock)(NSString *url);
 typedef NS_ENUM(NSInteger, ENRMTableIOSItemKind) {
   ENRMTableIOSItemKindLink,
   ENRMTableIOSItemKindImage,
+  ENRMTableIOSItemKindText,
 };
 
 /// An interactive item found under a point of the grid.
 @interface ENRMTableIOSItemHit : NSObject
 @property (nonatomic, assign) ENRMTableIOSItemKind kind;
-@property (nonatomic, copy) NSString *url;
+@property (nonatomic, copy, nullable) NSString *url;
 /// The link's visible label, or an image's alt text.
 @property (nonatomic, copy, nullable) NSString *title;
 /// The item's frame in grid coordinates.
@@ -35,7 +36,8 @@ typedef NS_ENUM(NSInteger, ENRMTableIOSItemKind) {
 @class TableContainerView;
 @interface ENRMTableIOSGridView : UIView
 @property (nonatomic, weak) TableContainerView *table;
-- (BOOL)isSelectingCellAtPoint:(CGPoint)point;
+- (void)clearSelectionView;
+- (BOOL)ownsCellInteractionAtPoint:(CGPoint)point;
 
 @property (nonatomic, copy, nullable) ENRMTableIOSLinkBlock onLinkTap;
 @property (nonatomic, copy, nullable) ENRMTableIOSLinkBlock onLinkLongTap;

@@ -1777,8 +1777,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
 #if !TARGET_OS_OSX
   if (_selectable && !newViewProps.selectable) {
-    // Revoke any live table selection, including tables nested inside blockquotes.
-    _dirtyFlags |= ENRMDirtyRecreateSegments | ENRMDirtyRender;
+    [_dynamicBlockProps.activeSelectionGrid clearSelectionView];
   }
 #endif
   _selectable = newViewProps.selectable;
@@ -1919,6 +1918,9 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
                                    newViewProps.selectionMenuConfig.copyImageUrl);
   // Block menu labels live in the shared box; block views read them live at
   // menu-open. (_selectionMenuLabels also feeds the text selection menu above.)
+#if !TARGET_OS_OSX
+  _dynamicBlockProps.tableCopyAsMarkdownEnabled = _selectionMenuConfig.copyAsMarkdown;
+#endif
   _dynamicBlockProps.copyLabel = _selectionMenuLabels.copyLabel;
   _dynamicBlockProps.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
 

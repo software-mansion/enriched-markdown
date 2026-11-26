@@ -319,21 +319,30 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
   if (charIndex >= text.length)
     return nil;
 
+  // TextKit returns the nearest glyph even past a line end. Test its laid-out
+  // box so spaces between words select normally but unused space stays blank.
+  CGRect glyphRect = [layoutManager boundingRectForGlyphRange:NSMakeRange(glyphIndex, 1) inTextContainer:textContainer];
+  if (!CGRectContainsPoint(glyphRect, local) ||
+      [NSCharacterSet.newlineCharacterSet characterIsMember:[text.string characterAtIndex:charIndex]])
+    return nil;
+
   NSRange itemRange;
   NSRange whole = NSMakeRange(0, text.length);
   NSString *linkURL = [text attribute:@"linkURL" atIndex:charIndex longestEffectiveRange:&itemRange inRange:whole];
   NSString *imageURL =
       linkURL ? nil : [text attribute:@"imageURL" atIndex:charIndex longestEffectiveRange:&itemRange inRange:whole];
-  if (!linkURL && !imageURL)
-    return nil;
+  ENRMTableIOSItemHit *hit = [[ENRMTableIOSItemHit alloc] init];
+  if (!linkURL && !imageURL) {
+    hit.kind = ENRMTableIOSItemKindText;
+    return hit;
+  }
 
   NSRange glyphRange = [layoutManager glyphRangeForCharacterRange:itemRange actualCharacterRange:NULL];
   CGRect frame = [layoutManager boundingRectForGlyphRange:glyphRange inTextContainer:textContainer];
-  // Links keep nearest-glyph hits; an image needs the tap inside its bounds.
+  // An image also needs the tap inside its attachment bounds.
   if (imageURL && !CGRectContainsPoint(frame, local))
     return nil;
 
-  ENRMTableIOSItemHit *hit = [[ENRMTableIOSItemHit alloc] init];
   hit.kind = linkURL ? ENRMTableIOSItemKindLink : ENRMTableIOSItemKindImage;
   hit.url = linkURL ?: imageURL;
   hit.title = linkURL ? linkTitleAtIndex(text, charIndex)
@@ -351,6 +360,15 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
   return itemInAttributedString(_tableRows[row].cellTexts[column], rect, point);
 }
 
+- (BOOL)ownsCellInteractionAtPoint:(CGPoint)point
+{
+  ENRMTableIOSItemHit *hit = [self itemAtPoint:point];
+  return hit &&
+         (hit.kind == ENRMTableIOSItemKindText
+              ? self.table.dynamicProps.tableSelectionHost.tableSelectionEnabled
+              : hit.kind == ENRMTableIOSItemKindLink && self.hasLinkContextMenu && self.hasLinkContextMenu(hit.url));
+}
+
 - (ENRMTableIOSItemHit *)linkAtPoint:(CGPoint)point
 {
   ENRMTableIOSItemHit *hit = [self itemAtPoint:point];
@@ -361,6 +379,9 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
 
 - (void)clearSelectionView
 {
+  if (self.table.dynamicProps.activeSelectionGrid == self)
+    self.table.dynamicProps.activeSelectionGrid = nil;
+  [_selectionView resignFirstResponder];
   [_selectionView removeFromSuperview];
   _selectionView = nil;
   _selectedText = nil;
@@ -387,15 +408,17 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
   [_selectionView setDrawnRect:_selectionView.bounds];
 }
 
-static BOOL canSelectCellText(NSAttributedString *text, CGRect rect, CGPoint point)
+// A native grabber can extend into the blank space below or above its cell.
+- (BOOL)isSelectionHandleAtPoint:(CGPoint)point
 {
-  return text.length && CGRectContainsPoint(rect, point) && !itemInAttributedString(text, rect, point);
-}
-
-- (BOOL)isSelectingCellAtPoint:(CGPoint)point
-{
-  return self.table.dynamicProps.tableSelectionHost.tableSelectionEnabled && _selectionView &&
-         canSelectCellText(_selectedText, _selectionView.frame, point);
+  UITextRange *range = _selectionView.selectedTextRange;
+  if (!_selectionView.isFirstResponder || !range || range.isEmpty)
+    return NO;
+  CGPoint local = [self convertPoint:point toView:_selectionView];
+  CGRect start = [_selectionView caretRectForPosition:range.start];
+  CGRect end = [_selectionView caretRectForPosition:range.end];
+  return hypot(local.x - CGRectGetMidX(start), local.y - (CGRectGetMinY(start) - 5)) <= 8 ||
+         hypot(local.x - CGRectGetMidX(end), local.y - (CGRectGetMaxY(end) + 5)) <= 8;
 }
 
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
@@ -405,19 +428,23 @@ static BOOL canSelectCellText(NSAttributedString *text, CGRect rect, CGPoint poi
   if (!hit || !event || event.type != UIEventTypeTouches || !host.tableSelectionEnabled)
     return hit;
 
+  if ([self isSelectionHandleAtPoint:point])
+    return [hit isDescendantOfView:_selectionView] ? hit : _selectionView;
   NSUInteger row, column;
   CGRect rect;
   if (![self cellAtPoint:point row:&row column:&column textRect:&rect] || !CGRectContainsPoint(rect, point))
-    return hit;
+    return self;
   NSAttributedString *text = _tableRows[row].cellTexts[column];
-  if (!canSelectCellText(text, rect, point))
+  if (itemInAttributedString(text, rect, point).kind != ENRMTableIOSItemKindText)
     return self;
   if (!_selectionView || row != _selectedRow || column != _selectedColumn) {
-    [self clearSelectionView];
+    [self.table.dynamicProps.activeSelectionGrid clearSelectionView];
+    self.table.dynamicProps.activeSelectionGrid = self;
     _selectedRow = row;
     _selectedColumn = column;
     _selectionView = [[ENRMMarkdownTextView alloc] initWithFrame:rect];
     _selectionView.editable = NO;
+    _selectionView.textDragInteraction.enabled = NO;
     _selectionView.selectable = YES;
     _selectionView.scrollEnabled = NO;
     _selectionView.backgroundColor = UIColor.clearColor;
@@ -435,15 +462,6 @@ static BOOL canSelectCellText(NSAttributedString *text, CGRect rect, CGPoint poi
 
 #pragma mark - Gesture handlers
 
-- (void)handleLinkGesture:(UIGestureRecognizer *)recognizer block:(ENRMTableIOSLinkBlock)block
-{
-  CGPoint point = [recognizer locationInView:self];
-  NSString *url = [self linkAtPoint:point].url;
-  if (url && block) {
-    block(url);
-  }
-}
-
 - (void)handleTap:(UITapGestureRecognizer *)recognizer
 {
   if (recognizer.state != UIGestureRecognizerStateEnded)
@@ -454,7 +472,7 @@ static BOOL canSelectCellText(NSAttributedString *text, CGRect rect, CGPoint poi
   if (hit.kind == ENRMTableIOSItemKindLink) {
     if (self.onLinkTap)
       self.onLinkTap(hit.url);
-  } else if (self.onImageTap) {
+  } else if (hit.kind == ENRMTableIOSItemKindImage && self.onImageTap) {
     self.onImageTap(hit.url, hit.title ?: @"");
   }
 }
@@ -473,7 +491,12 @@ static BOOL canSelectCellText(NSAttributedString *text, CGRect rect, CGPoint poi
 - (void)handleLongPress:(UILongPressGestureRecognizer *)recognizer
 {
   if (recognizer.state == UIGestureRecognizerStateBegan) {
-    [self handleLinkGesture:recognizer block:self.onLinkLongTap];
+    CGPoint point = [recognizer locationInView:self];
+    NSString *url = [self linkAtPoint:point].url;
+    if (url && self.onLinkLongTap)
+      self.onLinkLongTap(url);
+    else
+      [self.table showTableMenuAtPoint:point];
   }
 }
 

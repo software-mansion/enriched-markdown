@@ -56,6 +56,7 @@ typedef void (^TableLinkPressBlock)(NSString *url);
 
 #if !TARGET_OS_OSX
 - (NSArray<UIAction *> *)tableCopyActions;
+- (void)showTableMenuAtPoint:(CGPoint)point;
 #endif
 
 @property (nonatomic, readonly) NSUInteger rowCount;
