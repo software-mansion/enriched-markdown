@@ -29,13 +29,14 @@ NS_ASSUME_NONNULL_BEGIN
  * shared with nested quotes) measure at contentWidth. Block slots take their
  * height from slotMeasurer, which also records where each slot lands: origin is
  * the content area's top-left in the host's content box, so nested quotes report
- * absolute positions.
+ * absolute positions. quoteDirection is the side of the quote these segments
+ * sit in, which a nested quote takes.
  */
 CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segments, StyleConfig *config,
                                           CGFloat contentWidth, BOOL allowTrailingMargin, CGFloat pointScaleFactor,
                                           ENRMWritingDirectionMode writingDirectionMode,
-                                          NSWritingDirection resolvedLayoutDirection, BOOL allowFontScaling,
-                                          NSLineBreakStrategy lineBreakStrategy,
+                                          NSWritingDirection resolvedLayoutDirection, NSWritingDirection quoteDirection,
+                                          BOOL allowFontScaling, NSLineBreakStrategy lineBreakStrategy,
                                           ENRMCodeBlockWrapCursor *_Nullable wrapCursor,
                                           ENRMBlockSlotMeasurer *_Nullable slotMeasurer, CGPoint origin);
 

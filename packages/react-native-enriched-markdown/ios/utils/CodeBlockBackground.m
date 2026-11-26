@@ -1,4 +1,5 @@
 #import "CodeBlockBackground.h"
+#import "CodeBackground.h"
 #import "ENRMUIKit.h"
 #import "LastElementUtils.h"
 #import "StyleConfig.h"
@@ -27,24 +28,14 @@
 {
   NSTextStorage *textStorage = layoutManager.textStorage;
   NSRange charRange = [layoutManager characterRangeForGlyphRange:glyphsToShow actualGlyphRange:NULL];
+  if (charRange.location == NSNotFound || charRange.length == 0)
+    return;
 
-  // Enumerate over the full storage range so each code block's full rect is drawn.
-  // Restricting to charRange causes partial rects per draw pass, which produces
-  // multiple stacked oval shapes when border radius is large.
-  // The graphics context clip ensures only the visible portion is painted.
-  [textStorage enumerateAttribute:CodeBlockAttributeName
-                          inRange:NSMakeRange(0, textStorage.length)
-                          options:0
-                       usingBlock:^(id value, NSRange range, BOOL *stop) {
-                         if (!value)
-                           return;
-                         if (NSIntersectionRange(range, charRange).length == 0)
-                           return;
-                         [self drawCodeBlockBackgroundForRange:range
-                                                 layoutManager:layoutManager
-                                                 textContainer:textContainer
-                                                       atPoint:origin];
-                       }];
+  // Each code block's full rect is drawn, or a large border radius stacks partial ovals; the context's
+  // clip paints only the visible part.
+  ENRMEnumerateWholeRuns(textStorage, CodeBlockAttributeName, charRange, ^(NSRange range) {
+    [self drawCodeBlockBackgroundForRange:range layoutManager:layoutManager textContainer:textContainer atPoint:origin];
+  });
 }
 
 - (void)drawCodeBlockBackgroundForRange:(NSRange)range

@@ -1,9 +1,16 @@
 package com.swmansion.enriched.markdown
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.RectF
 import android.text.StaticLayout
 import android.text.TextPaint
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
+import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
 import com.swmansion.enriched.markdown.spans.AdmonitionIcons
 import com.swmansion.enriched.markdown.spans.BlockquoteSpan
@@ -11,6 +18,7 @@ import com.swmansion.enriched.markdown.test.HTMLAssertions.assertContainsHtml
 import com.swmansion.enriched.markdown.test.HTMLGeneratorTestSupport
 import com.swmansion.enriched.markdown.test.MarkdownExtractorTestSupport
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
+import com.swmansion.enriched.markdown.test.MarkerCanvas
 import com.swmansion.enriched.markdown.test.TestAstFactory.admonition
 import com.swmansion.enriched.markdown.test.TestAstFactory.blockquote
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
@@ -22,9 +30,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import java.io.File
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -52,6 +62,41 @@ class AdmonitionRendererTest {
     val quote = rendered.getSpans(0, rendered.length, BlockquoteSpan::class.java).single()
     assertEquals(rendered.getSpanStart(quote), rendered.getSpanStart(headers[0]))
     assertTrue("Header must sit inside the quote", rendered.getSpanEnd(headers[0]) <= rendered.getSpanEnd(quote))
+  }
+
+  @Test
+  fun admonitionTitlesReplaceTheTypeName() {
+    val renderer = Renderer()
+    renderer.configure(
+      HTMLGeneratorTestSupport.defaultStyle,
+      ApplicationProvider.getApplicationContext(),
+      plugins = PluginSnapshot.EMPTY,
+      admonitionTitles = AdmonitionTitles(note = "Uwaga\n", tip = ""),
+    )
+    val rendered =
+      renderer.renderDocument(
+        document(
+          admonition("note", paragraph(text("A"))),
+          admonition("tip", paragraph(text("B"))),
+          admonition("caution", paragraph(text("C"))),
+        ),
+        null,
+        null,
+      )
+
+    val titles =
+      rendered
+        .getSpans(
+          0,
+          rendered.length,
+          AdmonitionHeaderSpan::class.java,
+        ).sortedBy { rendered.getSpanStart(it) }
+        .map { it.title }
+    assertEquals(listOf("Uwaga", "", "Caution"), titles)
+
+    val html = HTMLGeneratorTestSupport.generateHTML(rendered)
+    html.assertContainsHtml("font-weight: 700;\"><bdi>Uwaga</bdi></p>")
+    assertEquals("An empty title leaves no header row", 2, html.split("font-weight: 700;").size - 1)
   }
 
   @Test
@@ -100,6 +145,56 @@ class AdmonitionRendererTest {
   }
 
   @Test
+  fun aRightToLeftBodyPutsTheHeaderAndEveryBarOnTheRight() {
+    val tint = blockquoteStyle.admonitions.getValue("tip").color
+    val half = MarkerCanvas.LAYOUT_WIDTH / 2f
+
+    fun drawn(body: String) =
+      TintCanvas(tint).also {
+        MarkerCanvas.layout(render(document(admonition("tip", paragraph(text(body))))), blockquoteStyle.fontSize).draw(it)
+      }
+
+    val ltr = drawn("A tip")
+    assertTrue(ltr.bars.isNotEmpty() && ltr.bars.all { it.right < half } && ltr.titleX < half)
+    val rtl = drawn("نصيحة تساعدك")
+    assertTrue(rtl.bars.isNotEmpty() && rtl.bars.all { it.left > half } && rtl.titleX > half)
+  }
+
+  /** Records the bars and the title a layout draws in [tint]. */
+  private class TintCanvas(
+    private val tint: Int,
+  ) : Canvas(Bitmap.createBitmap(MarkerCanvas.LAYOUT_WIDTH, 1, Bitmap.Config.ARGB_8888)) {
+    val bars = mutableListOf<RectF>()
+    var titleX = Float.NaN
+
+    override fun getClipBounds(bounds: Rect): Boolean {
+      bounds.set(0, 0, MarkerCanvas.LAYOUT_WIDTH, Int.MAX_VALUE / 2)
+      return true
+    }
+
+    override fun drawRect(
+      left: Float,
+      top: Float,
+      right: Float,
+      bottom: Float,
+      paint: Paint,
+    ) {
+      if (paint.color == tint) bars += RectF(left, top, right, bottom)
+      super.drawRect(left, top, right, bottom, paint)
+    }
+
+    override fun drawText(
+      text: String,
+      x: Float,
+      y: Float,
+      paint: Paint,
+    ) {
+      if (paint.color == tint) titleX = x
+      super.drawText(text, x, y, paint)
+    }
+  }
+
+  @Test
   fun everyAlertTypeHasItsGitHubColorByDefault() {
     val palette = blockquoteStyle.admonitions
 
@@ -115,10 +210,22 @@ class AdmonitionRendererTest {
   }
 
   @Test
-  fun everyAlertTypeHasAnIconAndATitle() {
+  fun everyAlertTypeHasAnIcon() {
     for (type in AdmonitionIcons.TYPES) {
       assertNotNull("Missing icon for $type", AdmonitionIcons.path(type))
-      assertEquals(type.replaceFirstChar { it.uppercase() }, AdmonitionIcons.title(type))
+    }
+  }
+
+  /** The React Native package's defaults are the source of truth. Skipped outside the monorepo. */
+  @Test
+  fun defaultTitlesMatchTheReactNativeSource() {
+    val file = File("../../react-native-enriched-markdown/src/admonitionDefaults.ts")
+    assumeTrue("${file.path} not available", file.exists())
+    // Prettier wraps long entries onto the next line; join key and value.
+    val source = file.readText().replace(Regex(":\\s+'"), ": '")
+
+    for (type in AdmonitionIcons.TYPES) {
+      assertTrue("title for $type", source.contains("$type: '${AdmonitionTitles.Default.forType(type)}'"))
     }
   }
 
@@ -237,7 +344,7 @@ class AdmonitionRendererTest {
 
     // #9A6700 is the GitHub warning color, applied to both the accent bar and the title.
     html.assertContainsHtml("border-inline-start: 3px solid #9A6700")
-    html.assertContainsHtml("font-weight: 700;\">Warning</p>")
+    html.assertContainsHtml("font-weight: 700;\"><bdi>Warning</bdi></p>")
     html.assertContainsHtml("Careful")
   }
 

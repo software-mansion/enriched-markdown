@@ -50,6 +50,11 @@ class BlockStyleContext {
 
   val listItemStarts = mutableListOf<Int>()
 
+  // Where each item of the last top-level list started, and the task count before it: a stream
+  // growing that list renders again from its last items only (TextRenderCache).
+  val topLevelListItemStarts = mutableListOf<Int>()
+  val topLevelListItemTaskStarts = mutableListOf<Int>()
+
   private val orderedListItemNumbers = ArrayDeque<Int>()
 
   enum class ListType { UNORDERED, ORDERED }
@@ -162,6 +167,8 @@ class BlockStyleContext {
     taskItemCount = 0
     accumulatedIndent = 0
     listItemStarts.clear()
+    topLevelListItemStarts.clear()
+    topLevelListItemTaskStarts.clear()
     orderedListItemNumbers.clear()
   }
 }

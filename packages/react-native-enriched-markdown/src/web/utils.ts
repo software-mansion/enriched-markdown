@@ -49,6 +49,13 @@ export function indexTaskItems(node: ASTNode, counter = { value: 0 }): void {
   node.children?.forEach((child) => indexTaskItems(child, counter));
 }
 
+/** Whether a node holds anything besides images, at any depth (even a space). */
+export function hasNonImageContent(node: ASTNode): boolean {
+  if (node.type === 'Image') return false;
+  if (!node.children?.length) return true;
+  return node.children.some(hasNonImageContent);
+}
+
 /**
  * Stamps Image nodes with `isInline` when they appear inside a paragraph
  * that also contains other content (text, links, etc.).
@@ -69,4 +76,10 @@ export function markInlineImages(node: ASTNode): void {
     }
   }
   node.children?.forEach(markInlineImages);
+}
+
+/** Whether a node holds a block-level image (one not stamped inline). */
+export function hasBlockImage(node: ASTNode): boolean {
+  if (node.type === 'Image') return !node.attributes?.isInline;
+  return node.children?.some(hasBlockImage) ?? false;
 }

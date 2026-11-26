@@ -1,6 +1,7 @@
 import { Fragment, isValidElement, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { MarkdownBlock, MarkdownRenderers } from './types/markdownBlocks';
+import { isDev } from './utils/isDev';
 
 // What a renderer may return at runtime from plain JS, beyond its typed
 // `ReactElement | undefined`.
@@ -39,7 +40,7 @@ export function renderBlock(
   try {
     element = render(block);
   } catch (error) {
-    if (__DEV__) {
+    if (isDev) {
       console.error(
         `[EnrichedMarkdownText] renderers.${block.kind} threw for ${block.id}; keeping the native block.`,
         error
@@ -49,7 +50,7 @@ export function renderBlock(
   }
   if (element == null || typeof element === 'boolean') return undefined;
   if (isRenderableChild(element)) return element;
-  if (__DEV__) {
+  if (isDev) {
     console.warn(
       `[EnrichedMarkdownText] renderers.${block.kind} returned ${
         Array.isArray(element) ? 'an array with text' : `a ${typeof element}`

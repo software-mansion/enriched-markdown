@@ -137,7 +137,7 @@ On iOS, VoiceOver also exposes custom **rotors** for headings, links, and images
 | **List items** | "Bullet point" / "List item N", or "Nested …" inside another list |
 | **Task items** | State announced: "Task, checked" / "Task, not checked" (and nested variants) |
 | **Blockquotes** | "Blockquote" / "Nested blockquote" appended |
-| **Admonitions** | The title is read as its own element first, then the body as a blockquote |
+| **Admonitions** | The title is read as its own element first, then the body as a blockquote; an empty title (icon only) adds no element |
 | **Table rows** | One element per row, `"Row N: <cells>"` |
 | **Code blocks** | One element per block, with a "Copy code" custom action (`codeBlock.copy`) |
 | **Math** | An English spoken form - "Math: x squared over 2" - rather than raw LaTeX |
@@ -155,7 +155,7 @@ VoiceOver also gets custom **rotors** for headings, links, and images (a two-fin
 | **List items** | "bullet point" / "list item N", or "nested …" inside another list, as the role description |
 | **Task items** | State announced: "task, checked" / "task, not checked" (and nested variants) |
 | **Blockquotes** | No announcement - a quote is read as its text |
-| **Admonitions** | The header is its own node with the role description "alert", announced ahead of the body |
+| **Admonitions** | The header is its own node with the role description "alert", announced ahead of the body; an empty title (icon only) adds no node |
 | **Table rows** | One focusable element per row, `"Row N: <cells>"` |
 | **Math** | Own element per formula, inline and block, read in English (`"Math: x squared over 2"`); the label is a parameter of `LatexMathPlugin` |
 

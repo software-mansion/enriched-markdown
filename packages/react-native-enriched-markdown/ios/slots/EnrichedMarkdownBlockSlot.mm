@@ -5,7 +5,7 @@
 #import <react/renderer/components/EnrichedMarkdownTextSpec/Props.h>
 #import <react/renderer/components/EnrichedMarkdownTextSpec/RCTComponentViewHelpers.h>
 
-#import "RCTFabricComponentsPlugins.h"
+#import <React/RCTFabricComponentsPlugins.h>
 
 using namespace facebook::react;
 

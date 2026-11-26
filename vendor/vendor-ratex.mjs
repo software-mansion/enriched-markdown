@@ -120,8 +120,31 @@ function extractTo(buf, ext, args, tmp) {
   if (res.status !== 0) fail(`${tool} failed to extract ${archive} (status ${res.status})`);
 }
 
+// Bump when this script changes the on-disk layout, so older trees get re-vendored.
+const LAYOUT_VERSION = 'headers-nested';
+
 function stampKey(m) {
-  return `${m.tag}|${m.xcframework.sha256}|${m.source.sha256}`;
+  return `${m.tag}|${m.xcframework.sha256}|${m.source.sha256}|${LAYOUT_VERSION}`;
+}
+
+// SwiftPM copies every xcframework's Headers/ into one include/ dir, where RaTeX's
+// module.modulemap collides with React Native's. Nesting it under RaTeXFFI/ avoids
+// that; clang still finds the module there, so CocoaPods builds are unaffected.
+function nestHeaders(xcframeworkDir) {
+  for (const slice of fs.readdirSync(xcframeworkDir, { withFileTypes: true })) {
+    if (!slice.isDirectory()) continue;
+    const headers = path.join(xcframeworkDir, slice.name, 'Headers');
+    if (!fs.existsSync(headers)) continue;
+    const nested = path.join(headers, 'RaTeXFFI');
+    fs.mkdirSync(nested, { recursive: true });
+    for (const entry of fs.readdirSync(headers)) {
+      if (entry === 'RaTeXFFI') continue;
+      fs.renameSync(path.join(headers, entry), path.join(nested, entry));
+    }
+    if (!fs.existsSync(path.join(nested, 'module.modulemap'))) {
+      fail(`RaTeX.xcframework slice ${slice.name} has no module.modulemap`);
+    }
+  }
 }
 
 function present(m, dir) {
@@ -181,6 +204,7 @@ async function main() {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
     if (!fs.existsSync(xcframeworkDir)) fail(`extracted zip has no RaTeX.xcframework in ${staging}`);
+    nestHeaders(xcframeworkDir);
   }
 
   // 2. Core Swift sources + KaTeX fonts + LICENSE from the pinned source tag.

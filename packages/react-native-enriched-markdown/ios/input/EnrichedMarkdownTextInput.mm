@@ -38,15 +38,15 @@
 #import <React/RCTBackedTextInputDelegate.h>
 #endif
 
-#import <ReactNativeEnrichedMarkdown/EnrichedMarkdownTextInputComponentDescriptor.h>
+#import "EnrichedMarkdownTextInputComponentDescriptor.h"
 #import <react/renderer/components/EnrichedMarkdownTextSpec/EventEmitters.h>
 #import <react/renderer/components/EnrichedMarkdownTextSpec/Props.h>
 #import <react/renderer/components/EnrichedMarkdownTextSpec/RCTComponentViewHelpers.h>
 
 #import "EnrichedMarkdownTextInputShadowNode.h"
 #import "HeightUpdateUtils.h"
-#import "RCTFabricComponentsPlugins.h"
 #import <React/RCTConversions.h>
+#import <React/RCTFabricComponentsPlugins.h>
 
 using namespace facebook::react;
 
@@ -196,8 +196,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
                                                            autoLinkDetector:_autoLinkDetector];
     _clipboardCoordinator = [[ENRMClipboardCoordinator alloc] initWithFormattingStore:_formattingStore
                                                                            blockStore:_blockStore
-                                                               transientRangeProvider:_detectorPipeline
-                                                                            formatter:_formatter];
+                                                               transientRangeProvider:_detectorPipeline];
   }
   return self;
 }
@@ -648,6 +647,15 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 #endif
 
 #if !TARGET_OS_OSX
+
+#pragma mark - Hit testing
+
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
+{
+  UIView *hitView = [super hitTest:point withEvent:event];
+  return hitView == self ? _textView : hitView;
+}
+
 - (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection
 {
   [super traitCollectionDidChange:previousTraitCollection];
@@ -1040,8 +1048,8 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
                                                    inText:text];
 
   if (alreadyActive) {
-    // Strip the stored block paragraph style directly: an empty item's line has no
-    // stamped block-marker attribute (zero-length ranges are never stamped), so the
+    // Strip the stored block paragraph style directly: an empty item on the last
+    // line has no terminator to carry the block-marker attribute, so the
     // applyFormatting reset below — which is keyed off that marker — cannot reach it.
     NSRange paragraphRange = [text paragraphRangeForRange:_textView.selectedRange];
     NSTextStorage *storage = _textView.textStorage;

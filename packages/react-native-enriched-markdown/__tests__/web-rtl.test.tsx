@@ -114,7 +114,7 @@ describe('web renderer direction', () => {
     );
     expect(out).toMatch(/<ul[^>]*dir="auto"/);
     // The admonition title never decides the box's direction.
-    expect(out.match(/<span dir="ltr">Note<\/span>/g)).toHaveLength(2);
+    expect(out.match(/<bdi[^>]*>Note<\/bdi>/g)).toHaveLength(2);
   });
 
   it('lets a block whose only letters are code or digits inherit', () => {

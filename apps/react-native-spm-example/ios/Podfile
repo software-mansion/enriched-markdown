@@ -1,0 +1,3 @@
+# Not used: this app gets React Native and its libraries through Swift Package
+# Manager (`npx react-native spm`). The React Native CLI only finds an iOS
+# project that has a Podfile, so the file has to exist.

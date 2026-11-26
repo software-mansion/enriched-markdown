@@ -32,7 +32,7 @@ static const CFTimeInterval kRevealDuration = 0.20;
     [_displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
   }
 #else
-  // TODO: Grow slots in on macOS once a display-sync callback is wired up (see ENRMTailFadeInAnimator).
+  // TODO: Grow slots in on macOS once a display-sync callback is wired up.
 #endif
 }
 

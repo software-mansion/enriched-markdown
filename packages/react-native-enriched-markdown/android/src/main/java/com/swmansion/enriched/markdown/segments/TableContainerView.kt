@@ -1,5 +1,6 @@
 package com.swmansion.enriched.markdown.segments
 
+import android.animation.ValueAnimator
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -18,8 +19,10 @@ import android.text.style.MetricAffectingSpan
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
-import android.widget.HorizontalScrollView
+import android.widget.TextView
 import androidx.core.view.ViewCompat
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
@@ -27,6 +30,10 @@ import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkPillSpan
+import com.swmansion.enriched.markdown.spans.TextBackgroundDrawer
+import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayMode
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableStyle
 import com.swmansion.enriched.markdown.utils.common.BoundsForWidthUtils
@@ -70,8 +77,7 @@ class TableContainerView(
   var dynamicProps: DynamicBlockProps = DynamicBlockProps()
 
   private val scrollView =
-    HorizontalScrollView(context).apply {
-      isHorizontalScrollBarEnabled = true
+    OverflowScrollView(context, detectsOverflow = false).apply {
       overScrollMode = View.OVER_SCROLL_NEVER
       importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
       addView(
@@ -89,22 +95,120 @@ class TableContainerView(
     durationMs: Long,
   ) {
     if (rowCount <= previousRowCount) return
-    val grid = gridContainer
-    val childCount = grid.childCount
-    if (childCount == 0 || rowCount == 0) return
-
-    val colCount = childCount / rowCount
-    if (colCount == 0) return
-
-    val firstNewCellIndex = previousRowCount * colCount
-    for (i in firstNewCellIndex until childCount) {
-      val cell = grid.getChildAt(i) ?: continue
-      cell.alpha = 0f
-      cell
+    // By row, not child index: the rows' accessibility overlays come first among the grid's children.
+    for (cell in placedCells) {
+      if (cell.row < previousRowCount) continue
+      cell.view.alpha = 0f
+      cell.view
         .animate()
         .alpha(1f)
         .setDuration(durationMs)
         .start()
+    }
+  }
+
+  fun finishRowFade() {
+    for (cell in placedCells) {
+      cell.view.animate().cancel()
+      cell.view.alpha = 1f
+    }
+    if (widthsAnimator != null) {
+      stopWidthsAnimation()
+      placeCells(columnWidths)
+    }
+  }
+
+  // The cells as placed by [renderGrid], to move while the columns animate.
+  private class PlacedCell(
+    val view: View,
+    val row: Int,
+    val column: Int,
+  )
+
+  private val placedCells = mutableListOf<PlacedCell>()
+
+  // The rows' accessibility overlays, as wide as the table: the scroll view sizes the grid to them.
+  private val rowOverlays = mutableListOf<View>()
+
+  // While the columns move to [columnWidths]: what is drawn now.
+  private var shownWidths: List<Float>? = null
+  private var widthsAnimator: ValueAnimator? = null
+
+  /** The column widths as drawn now: moving from earlier ones while they animate. */
+  val shownColumnWidths: List<Float> get() = shownWidths ?: columnWidths
+
+  private val shownTableWidth: Float
+    get() = shownWidths?.let { it.sum() + tableStyle.borderWidth } ?: totalTableWidth
+
+  /** Moves the columns from [widths] to the laid-out ones over [durationMs] instead of jumping. */
+  fun animateColumnWidths(
+    widths: List<Float>,
+    durationMs: Long,
+  ) {
+    if (widths.size != columnWidths.size || widths == columnWidths || durationMs <= 0) return
+    stopWidthsAnimation()
+    val from = widths
+    val to = columnWidths
+    shownWidths = from
+    placeCells(from)
+    widthsAnimator =
+      ValueAnimator.ofFloat(0f, 1f).apply {
+        duration = durationMs
+        interpolator = DecelerateInterpolator(1.5f)
+        addUpdateListener { animator ->
+          val progress = animator.animatedValue as Float
+          val shown = List(to.size) { from[it] + (to[it] - from[it]) * progress }
+          shownWidths = if (progress >= 1f) null else shown
+          placeCells(shownWidths ?: to)
+        }
+        start()
+      }
+  }
+
+  // Where [text] sits across its cell: 0 at the left, 0.5 centred, 1 at the right.
+  private fun textAnchor(text: TextView): Float =
+    when (Gravity.getAbsoluteGravity(text.gravity, text.layoutDirection) and Gravity.HORIZONTAL_GRAVITY_MASK) {
+      Gravity.RIGHT -> 1f
+      Gravity.CENTER_HORIZONTAL -> 0.5f
+      else -> 0f
+    }
+
+  private fun stopWidthsAnimation() {
+    widthsAnimator?.removeAllUpdateListeners()
+    widthsAnimator?.cancel()
+    widthsAnimator = null
+    shownWidths = null
+  }
+
+  // Lays the placed cells out at [widths]; their text keeps its laid-out width, cut at the cell.
+  private fun placeCells(widths: List<Float>) {
+    val border = tableStyle.borderWidth
+    val tableWidth = widths.sum() + border
+    val lefts = FloatArray(widths.size)
+    var x = 0f
+    for (col in widths.indices) {
+      lefts[col] = if (isRtl) tableWidth - border - x - widths[col] else x
+      x += widths[col]
+    }
+    for (cell in placedCells) {
+      val params = cell.view.layoutParams as? LayoutParams ?: continue
+      params.width = ceil(widths[cell.column] + border).toInt()
+      params.leftMargin = ceil(lefts[cell.column]).toInt()
+      cell.view.layoutParams = params
+      // Text keeps its laid-out width; while its column is narrower it keeps its side.
+      val text = (cell.view as? ViewGroup)?.getChildAt(0) as? TextView ?: continue
+      text.translationX = (widths[cell.column] - columnWidths[cell.column]) * textAnchor(text)
+    }
+    for (overlay in rowOverlays) {
+      val params = overlay.layoutParams as? LayoutParams ?: continue
+      params.width = ceil(tableWidth).toInt()
+      overlay.layoutParams = params
+    }
+    gridContainer.layoutParams = LayoutParams(ceil(tableWidth).toInt(), ceil(totalTableHeight).toInt())
+    // React Native's parents ignore requestLayout: lay the table out again here, at its own size.
+    if (width > 0 && height > 0) {
+      measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY))
+      layout(left, top, right, bottom)
     }
   }
 
@@ -181,6 +285,9 @@ class TableContainerView(
     }
 
   private fun renderGrid() {
+    stopWidthsAnimation()
+    placedCells.clear()
+    rowOverlays.clear()
     gridContainer.removeAllViews()
     gridContainer.configure(totalTableWidth, totalTableHeight, tableStyle)
 
@@ -224,6 +331,7 @@ class TableContainerView(
           },
         )
 
+        placedCells.add(PlacedCell(cellBg, rowIndex, col))
         if (col < row.size) addTextToCell(cellBg, row[col], columnWidth, rowHeight)
         if (!isRtl) xOffset += columnWidth
       }
@@ -259,6 +367,7 @@ class TableContainerView(
         contentDescription = description
         if (isHeaderRow) ViewCompat.setAccessibilityHeading(this, true)
       }
+    rowOverlays.add(overlay)
     gridContainer.addView(
       overlay,
       0,
@@ -280,7 +389,7 @@ class TableContainerView(
   ) {
     val cellTextView =
       CellTextView(context).apply {
-        text = data.attributedText
+        applyCellText(data.attributedText, dynamicProps.spoilerOverlay)
         textSize = tableStyle.fontSize / resources.displayMetrics.scaledDensity
         typeface = if (data.isHeader) styleConfig.tableHeaderTypeface else styleConfig.tableTypeface
         setTextColor(if (data.isHeader) tableStyle.headerTextColor else tableStyle.color)
@@ -359,19 +468,20 @@ class TableContainerView(
     bottom: Int,
   ) {
     val viewWidth = right - left
+    val tableWidth = shownTableWidth
     val overhang = max(ceil(tableStyle.horizontalOverflow.toDouble()).toInt(), 0)
     val contentWidth = viewWidth - overhang * 2
-    val tableOverflows = totalTableWidth > contentWidth
+    val tableOverflows = tableWidth > contentWidth
 
     scrollView.setPadding(overhang, 0, overhang, 0)
     scrollView.clipToPadding = !tableOverflows
-    scrollView.isHorizontalScrollBarEnabled = tableOverflows
+    scrollView.setOverflows(tableOverflows)
 
     scrollView.layout(0, 0, viewWidth, bottom - top)
 
     gridContainer.translationX =
       if (tableStyle.align.isNotEmpty() && !tableOverflows) {
-        val freeSpace = max(contentWidth - totalTableWidth, 0f)
+        val freeSpace = max(contentWidth - tableWidth, 0f)
         val desiredLeft =
           overhang +
             when (tableStyle.align) {
@@ -386,8 +496,8 @@ class TableContainerView(
 
     if (isRtl) {
       val effectiveWidth = if (tableOverflows) contentWidth.toFloat() else viewWidth.toFloat()
-      if (totalTableWidth > effectiveWidth) {
-        scrollView.scrollTo((totalTableWidth - effectiveWidth).toInt(), 0)
+      if (tableWidth > effectiveWidth) {
+        scrollView.scrollTo((tableWidth - effectiveWidth).toInt(), 0)
       }
     }
   }
@@ -468,8 +578,9 @@ class TableContainerView(
       val columnWidths = FloatArray(texts.maxOfOrNull { it.size } ?: 0)
       texts.forEach { row ->
         row.forEachIndexed { colIndex, cellText ->
-          // Images are sized in the row pass below, once the column width is known.
-          prepareWidthAwareSpans(cellText, maxColumnWidth.toInt(), includeImages = false)
+          // Block images are sized in the row pass below, once the column width is known. A
+          // failure chip is sized now, or it keeps the width of the column it failed in.
+          prepareWidthAwareSpans(cellText, maxColumnWidth.toInt(), includeBlockImages = false)
           val layout =
             StaticLayout.Builder
               .obtain(cellText, 0, cellText.length, paint, maxColumnWidth.toInt())
@@ -611,7 +722,33 @@ class TableContainerView(
 
   private class CellTextView(
     context: Context,
-  ) : androidx.appcompat.widget.AppCompatTextView(context) {
+  ) : androidx.appcompat.widget.AppCompatTextView(context),
+    SpoilerCapable {
+    override var spoilerOverlayDrawer: SpoilerOverlayDrawer? = null
+      private set
+
+    override var spoilerOverlay: SpoilerOverlayMode = SpoilerOverlayMode.PARTICLES
+      set(value) {
+        if (field == value) return
+        field = value
+        spoilerOverlayDrawer?.overlayMode = value
+      }
+
+    fun applyCellText(
+      styledText: CharSequence,
+      overlay: SpoilerOverlayMode,
+    ) {
+      spoilerOverlay = overlay
+      text = styledText
+      spoilerOverlayDrawer = SpoilerOverlayDrawer.setupIfNeeded(this, styledText, spoilerOverlayDrawer, spoilerOverlay)
+    }
+
+    override fun onDetachedFromWindow() {
+      // Kept, not cleared: the next draw after reattaching picks the animation back up.
+      spoilerOverlayDrawer?.stop()
+      super.onDetachedFromWindow()
+    }
+
     init {
       setPadding(0, 0, 0, 0)
       includeFontPadding = false
@@ -626,6 +763,24 @@ class TableContainerView(
       val result = super.onTouchEvent(event)
       if (event.action == MotionEvent.ACTION_DOWN) cancelJSTouchForLinkTap(event)
       return result
+    }
+
+    // Made on first draw: setText runs from the TextView constructor, before fields are set.
+    private var textBackgrounds: TextBackgroundDrawer? = null
+
+    override fun setText(
+      text: CharSequence?,
+      type: BufferType?,
+    ) {
+      textBackgrounds?.invalidateFrom(0)
+      super.setText(text, type)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+      val drawer = textBackgrounds ?: TextBackgroundDrawer().also { textBackgrounds = it }
+      drawer.draw(canvas, this)
+      super.onDraw(canvas)
+      spoilerOverlayDrawer?.draw(canvas)
     }
   }
 

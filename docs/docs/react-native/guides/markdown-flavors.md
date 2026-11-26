@@ -112,7 +112,7 @@ Mapping the rich text features back to the three layers above - what each one ne
 - [**Editor-style text**](/rich-text-formatting/editor-style-text) - the `hardSoftBreaks` and `preserveBlankLines` flags.
 - [**Code-block highlighting**](/rich-text-formatting/code-highlighting) - automatic for language-tagged fenced blocks, independent of the flavor, as long as the `enableCodeHighlight` [build flag](/react-native/guides/native-assets#optional-features) is on (it is by default). The header and copy button do need `flavor="github"`.
 - [**Mentions**](/rich-text-formatting/mentions) - not a parser feature at all; ordinary links with custom URL schemes.
-- [**Markdown streaming**](/rich-text-formatting/markdown-streaming) - the [`streamingAnimation`](/react-native/api-reference/enriched-markdown-text#streaminganimation) prop (off by default), tuned by [`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig), which itself needs `flavor="github"` to have any effect.
+- [**Markdown streaming**](/rich-text-formatting/markdown-streaming) - the [`streaming`](/react-native/api-reference/enriched-markdown-text#streaming) prop (off by default), tuned by [`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig), in both flavors.
 
 ## Reference
 

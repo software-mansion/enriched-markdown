@@ -299,6 +299,7 @@ static CGFloat ENRMLinkPillLabelWidth(NSString *label, UIFont *font)
     return;
   }
   // The pill got narrower, so lines can reflow: lay out again and let the host re-measure.
+  [textView.layoutManager invalidateDisplayForCharacterRange:range];
   [textView.layoutManager invalidateLayoutForCharacterRange:range actualCharacterRange:NULL];
   id<ENRMImageLayoutObserver> observer = [textView enrm_imageLayoutObserver];
   if (observer)

@@ -14,6 +14,7 @@ import com.swmansion.enriched.markdown.spans.HeadingSpan
 import com.swmansion.enriched.markdown.spans.HighlightSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
+import com.swmansion.enriched.markdown.spans.ListMarkerAnchorSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.spans.StrikethroughSpan
 import com.swmansion.enriched.markdown.spans.StrongSpan
@@ -58,6 +59,8 @@ object MarkdownExtractor {
       val nextTransition = spannable.nextSpanTransition(i, end, Any::class.java)
       val segmentText = spannable.subSequence(i, nextTransition).toString()
 
+      state.codeBlock?.let { if (i >= spannable.getSpanEnd(it)) closeCodeBlock(result, state) }
+
       val handled =
         processSegment(
           spannable = spannable,
@@ -77,6 +80,7 @@ object MarkdownExtractor {
       i = nextTransition
     }
 
+    closeCodeBlock(result, state)
     headingAccumulator.flush(result, state)
     return result.toString()
   }
@@ -114,6 +118,15 @@ object MarkdownExtractor {
 
     if (segmentText.isEmpty()) return true
 
+    // Before newlines: a newline between two highlighted tokens is still code.
+    val codeBlockSpans = spannable.getSpans(segmentStart, segmentEnd, CodeBlockSpan::class.java)
+    if (codeBlockSpans.isNotEmpty()) {
+      headingAccumulator.flush(result, state)
+      val opensBlock = codeBlockSpans.any { spannable.getSpanStart(it) == segmentStart }
+      appendCodeBlock(spannable, codeBlockSpans[0], segmentText, opensBlock, result, state)
+      return true
+    }
+
     if (segmentText == "\n" || segmentText == "\n\n") {
       handleNewline(spannable, segmentStart, segmentEnd, result, state)
       return true
@@ -125,12 +138,6 @@ object MarkdownExtractor {
       return true
     } else {
       headingAccumulator.flush(result, state)
-    }
-
-    val codeBlockSpans = spannable.getSpans(segmentStart, segmentEnd, CodeBlockSpan::class.java)
-    if (codeBlockSpans.isNotEmpty()) {
-      appendCodeBlock(segmentText, result, state)
-      return true
     }
 
     return false
@@ -221,25 +228,80 @@ object MarkdownExtractor {
     }
   }
 
+  /**
+   * Appends one segment of a code block. Highlighting spans split a block into several segments, so the fence
+   * opens on the block's first selected segment and [closeCodeBlock] closes it once the selection leaves the block.
+   */
   private fun appendCodeBlock(
+    spannable: Spannable,
+    block: CodeBlockSpan,
     text: String,
+    opensBlock: Boolean,
     result: StringBuilder,
     state: ExtractionState,
   ) {
+    if (state.codeBlock !== block) openCodeBlock(spannable, block, opensBlock, result, state)
+
+    val indent = state.codeBlockIndent
+    text.split('\n').forEachIndexed { index, line ->
+      if (index > 0) result.append('\n')
+      if (line.isNotEmpty() && result.isAtLineStart()) result.append(indent)
+      result.append(line)
+    }
+  }
+
+  private fun openCodeBlock(
+    spannable: Spannable,
+    block: CodeBlockSpan,
+    opensBlock: Boolean,
+    result: StringBuilder,
+    state: ExtractionState,
+  ) {
+    closeCodeBlock(result, state)
+
     if (state.needsBlankLine) {
       result.ensureBlankLine()
       state.needsBlankLine = false
     }
 
-    val needsFence = result.isEmpty() || result.endsWith("\n\n")
-    if (needsFence) result.append("```\n")
+    // A code block inside a list item lines up under the item's text.
+    val item = block.listItem
 
-    result.append(text)
+    // When the block opens its item, the item's marker is drawn on the block's first line by a ListMarkerAnchorSpan.
+    // Later blocks of that item share the same unattached marker span, so only the anchor tells them apart.
+    val blockOpensItem =
+      item != null &&
+        spannable
+          .getSpans(spannable.getSpanStart(block), spannable.getSpanEnd(block), ListMarkerAnchorSpan::class.java)
+          .any { it.marker === item }
 
-    if (text.endsWith("\n")) {
-      result.append("```\n")
-      state.needsBlankLine = true
-    }
+    // The fence takes the item's marker only when the selection includes the block's first line.
+    val opensItem = opensBlock && blockOpensItem
+
+    // The indent is decided here, once per block, so later segments don't gain an indent the fence lacks.
+    val nestedItem = item?.takeIf { opensItem || result.isNotEmpty() }
+    val indent = nestedItem?.let { contentIndent(it) } ?: ""
+    if (nestedItem != null) state.listDepth = nestedItem.depth
+    state.codeBlock = block
+    state.codeBlockIndent = indent
+
+    if (!result.isAtLineStart()) result.append("\n")
+    result.append(if (opensItem) listMarker(item) else indent)
+    result.append("```\n")
+  }
+
+  /** Closes the open code block's fence, also when the selection or the trimmed document ends mid-line. */
+  private fun closeCodeBlock(
+    result: StringBuilder,
+    state: ExtractionState,
+  ) {
+    if (state.codeBlock == null) return
+
+    if (!result.isAtLineStart()) result.append("\n")
+    result.append(state.codeBlockIndent).append("```\n")
+    // An unindented block is not nested in a list item.
+    state.needsBlankLine = state.codeBlockIndent.isEmpty()
+    state.codeBlock = null
   }
 
   private fun detectBlockquote(
@@ -277,6 +339,12 @@ object MarkdownExtractor {
     }
 
     state.listDepth = listSpan.depth
+
+    // Segments after a code block don't draw the marker: they continue the item rather than start a new one.
+    return if (listSpan.drawsMarker) listMarker(listSpan) else contentIndent(listSpan)
+  }
+
+  private fun listMarker(listSpan: BaseListSpan): String {
     val indent = "  ".repeat(listSpan.depth)
 
     return when (listSpan) {
@@ -284,6 +352,12 @@ object MarkdownExtractor {
       is OrderedListSpan -> "$indent${listSpan.itemNumber}. "
       else -> "$indent- "
     }
+  }
+
+  /** The column an item's text starts at; a task item's checkbox is part of its text. */
+  private fun contentIndent(listSpan: BaseListSpan): String {
+    val markerWidth = if (listSpan is OrderedListSpan) "${listSpan.itemNumber}. ".length else 2
+    return " ".repeat(2 * listSpan.depth + markerWidth)
   }
 
   private fun applyInlineFormatting(
@@ -350,6 +424,9 @@ object MarkdownExtractor {
     var blockquoteDepth: Int = -1,
     var listDepth: Int = -1,
     var needsBlankLine: Boolean = false,
+    /** The code block whose fence is open, and the indent chosen for it on its first selected segment. */
+    var codeBlock: CodeBlockSpan? = null,
+    var codeBlockIndent: String = "",
   )
 
   /** Accumulates heading content across multiple span segments. */

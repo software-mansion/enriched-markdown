@@ -6,10 +6,12 @@ import UIKit
 final class BlockquoteRenderer: NodeRenderer {
     private let factory: RendererFactory
     private let config: MarkdownStyleConfiguration
+    private let titles: MarkdownAdmonitionTitles
 
-    init(factory: RendererFactory, config: MarkdownStyleConfiguration) {
+    init(factory: RendererFactory, config: MarkdownStyleConfiguration, titles: MarkdownAdmonitionTitles = .default) {
         self.factory = factory
         self.config = config
+        self.titles = titles
     }
 
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
@@ -55,13 +57,18 @@ final class BlockquoteRenderer: NodeRenderer {
     private func appendHeader(for type: AdmonitionType, font: UIFont, to output: NSMutableAttributedString) {
         let style = NSMutableParagraphStyle()
         style.paragraphSpacing = AdmonitionHeader.bodyGap(for: font)
+        style.lineBreakMode = .byTruncatingTail
+        // A line break would split the header into several header paragraphs.
+        let title = titles[type].components(separatedBy: .newlines).joined(separator: " ")
+            .trimmingCharacters(in: .whitespaces)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: FontHelpers.ensureBold(font) ?? font,
             .foregroundColor: config.blockquote.admonitionTint(for: type),
             .paragraphStyle: style,
-            MarkdownAttribute.admonitionHeader: type.rawValue
+            MarkdownAttribute.admonitionHeader: type.rawValue,
+            MarkdownAttribute.admonitionTitle: title
         ]
-        output.append(NSAttributedString(string: type.title + "\n", attributes: attributes))
+        output.append(NSAttributedString(string: (title.isEmpty ? "\u{200B}" : title) + "\n", attributes: attributes))
     }
 
     private func applyStylingAndSpacing(

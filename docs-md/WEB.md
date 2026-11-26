@@ -3,7 +3,7 @@
 `EnrichedMarkdownText` and `EnrichedMarkdownTextInput` run on web using plain React and DOM primitives. They work in any React project (Next.js, Vite, Remix, CRA, etc.).
 
 > [!NOTE]
-> The web editor (`EnrichedMarkdownTextInput`) is [![Experimental](https://img.shields.io/badge/-experimental-orange "Experimental: this feature is still taking shape and may get breaking changes, including in nightly releases.")](WEB_INPUT.md#experimental-status) and documented separately in [Web Editor](WEB_INPUT.md). This page covers `EnrichedMarkdownText` and the setup both share.
+> The web editor (`EnrichedMarkdownTextInput`) is documented separately in [Web Editor](WEB_INPUT.md). This page covers `EnrichedMarkdownText` and the setup both share.
 
 The package's `browser` field points web bundlers (webpack, Vite, Next.js, Expo web) at the web entry, so no extra resolver configuration is needed for that. One shared style module still imports `Platform` and `processColor` from `react-native`, so outside React Native the bundler has to resolve `react-native`: alias it to `react-native-web` (as most React Native web setups already do).
 
@@ -17,12 +17,15 @@ Most `EnrichedMarkdownText` features are supported on web (see [Not supported on
 
 - Full GFM: tables (with horizontal scroll), task lists (with checkbox interaction), strikethrough, links, images (block and inline), code blocks, LaTeX math (block and inline), admonitions (`> [!NOTE]` and the other GitHub alerts)
 - Videos: `<video src>` renders as a `<video>` element with the browser's controls
-- All `markdownStyle` customisation options except `spoiler`
+- Most `markdownStyle` customisation options. Accepted but ignored on web: `codeBlock.syntaxColors`, `spoiler.particles`, `list.bulletColor`, `list.bulletSize`, `list.markerMinWidth`, `list.markerColor`, `list.markerFontWeight`, `list.gapWidth`, `table.horizontalOverflow`, `linkVariants[pattern].pill`, `taskList.borderColor` and `taskList.checkmarkColor`
+- Spoilers (`||text||`), concealed by a solid cover and revealed by a click or Enter/Space. Links and images inside stay inert until then. A revealed spoiler stays revealed while more Markdown streams in after it, but conceals again when its own text, or the structure of the Markdown before it, changes
 - `onLinkPress`, `onLinkLongPress` (mapped to `contextmenu` event), `onImagePress`, `onTaskListItemPress`, `onCodeBlockPress` callbacks
 - `onImagePress` — makes rendered images focusable and keyboard-activatable (Enter/Space) with a button role; the browser's right-click menu is preserved
 - `onCodeBlockPress` — makes fenced code blocks clickable and keyboard-activatable (Enter/Space) with a button role, receiving the block's `code` and `language`; clicking while code text is selected does not fire
 - `enableTaskListItemToggle` — set to `false` to render task list checkboxes read-only (the click is fully inert: no toggle, no `onTaskListItemPress`). The checkbox keeps its normal appearance, marked `readOnly` / `aria-disabled` and pointer-inert rather than `disabled`, matching iOS and Android
+- `admonitionTitles` — localized or renamed admonition header titles, as on native
 - `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `strikethrough`, `latexMath`, `highlight`, `hardSoftBreaks`, `preserveBlankLines`, `admonitions`; `strikethrough` is accepted but has no effect, because web always parses GFM)
+- `stream` from `createMarkdownStream()`: the view renders the text appended so far (without the native streaming filter or fade)
 - RTL and mixed-direction (bidi) content, resolved per block as on native — see [RTL Support](RTL.md)
 
 ### Accessibility
@@ -32,6 +35,7 @@ Most `EnrichedMarkdownText` features are supported on web (see [Not supported on
 - Code blocks: `aria-label` with language when available (e.g. `"Code block: python"`)
 - Math (KaTeX fallback): `role="math"` and `aria-label` with the expression content
 - Task list checkboxes: `aria-label` with the task text (e.g. `"Task: Buy groceries"`)
+- Spoilers: a concealed spoiler is a `role="button"` named by its own text (or an image's alt text), so screen readers still read it (as on native) and announce that it can be revealed. It is reachable with Tab and keeps focus after Enter/Space reveals it. Inside a link, focus moves to the link instead, so the next Enter follows it. A click does not reveal it while text on the page is selected, so ending a drag-selection on it does not either
 - Videos: `aria-label` from the alt text, then `title`, then `"Video"`
 
 ### Web props
@@ -56,10 +60,10 @@ warnings.
 | `flavor` | The web renderer always uses full GFM capabilities. On native, `flavor` controls whether a single `TextView` (CommonMark) or container-based renderer (GitHub) is used; the DOM has no such constraint. |
 | `enableLinkPreview` | iOS-only feature (native link preview on long press). |
 | `allowFontScaling` / `maxFontSizeMultiplier` | React Native text scaling props. Browsers handle font scaling natively via OS accessibility settings. |
-| `streamingAnimation` | Native-only tail fade-in animation. Not yet implemented on web. |
-| `streamingConfig` | Native-only streaming table configuration. Not yet implemented on web. |
+| `streaming`, `streamingAnimation` | Native-only streaming handling and fade-in. Not yet implemented on web. |
+| `streamingConfig` | Native-only streaming configuration. Not yet implemented on web. |
 | `numberOfLines` / `ellipsizeMode` | Native text truncation. Not yet implemented on web. |
-| `spoilerOverlay` | Native-only spoiler reveal animation. Not yet implemented on web. |
+| `spoilerOverlay` | Web always draws the solid cover. The particle preset is native-only. |
 | `contextMenuItems` | Not supported - browsers don't allow extending the native context menu. |
 | `selectionMenuConfig` | Not supported - native-only built-in selection menu actions. |
 | `selectionHandleColor` | Android-only - desktop browsers don't render selection handles. |
@@ -69,7 +73,7 @@ warnings.
 | `accessibilityLabels` | VoiceOver / TalkBack announcement strings. The web renderer uses semantic HTML and native `aria-*` instead. |
 | `textBreakStrategy` / `lineBreakStrategyIOS` / `writingDirection` | Native line-breaking and paragraph-direction controls. Use `dir` for web text direction. |
 | `enableBlockContextMenu` | Native-only long-press copy popup on block views. |
-| `onCopyPress` / `onLatexError` | Native-only callbacks. |
+| `onCopyPress` / `onLatexError` / `onStreamingEnd` | Native-only callbacks. |
 
 The stripping covers this library's own props only. Generic React Native
 `ViewProps` that the native interface inherits - `accessibilityLabel`,
@@ -81,6 +85,7 @@ exception: it is mapped to `data-testid`.
 ## Not supported on web
 
 - Editor features — see [Web Editor](WEB_INPUT.md#not-supported-on-web) for what `EnrichedMarkdownTextInput` does not support on web.
-- Spoilers (`||text||`) — `EnrichedMarkdownText` does not render them on web yet, and the text inside a spoiler is currently left out.
+- Particle spoilers — every spoiler uses the solid cover.
+- Inline images inside formatting — an image next to text renders inline only as a direct child of its paragraph. Inside a spoiler, link or emphasis it renders as a block image, and a spoiler holding one becomes a full-width block.
 - Configurable link `target` — all links open in a new tab (`target="_blank"`). Use `onLinkPress` for custom navigation.
 - Link pills — `linkVariants[pattern].pill` is ignored; such links render as ordinary links with the variant's colors and font.

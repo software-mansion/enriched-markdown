@@ -5,7 +5,7 @@ import android.view.View
 
 // Keep in step with ENRMBlockSlotReveal (iOS).
 
-/** The tail fade's ease. */
+/** The ease a block drawn by `renderers` grows into place with. */
 fun blockSlotRevealEaseOut(progress: Float): Float = 1f - (1f - progress) * (1f - progress)
 
 /** Moves the view up by [offset] px and clips it to [clipHeight] px, with [overhang] px for shadows at the sides and top. */

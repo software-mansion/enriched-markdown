@@ -44,6 +44,18 @@ BOOL ENRMParagraphIsRTL(NSParagraphStyle *_Nullable style);
 void ENRMApplyWritingDirectionMode(NSMutableAttributedString *output, ENRMWritingDirectionMode mode,
                                    NSWritingDirection layoutDirection);
 
+@protocol ENRMWritingDirectionTarget <NSObject>
+@property (nonatomic, assign) ENRMWritingDirectionMode writingDirectionMode;
+@property (nonatomic, assign) NSWritingDirection resolvedLayoutDirection;
+@end
+
+static inline void ENRMSetWritingDirection(id<ENRMWritingDirectionTarget> target, ENRMWritingDirectionMode mode,
+                                           NSWritingDirection layoutDirection)
+{
+  target.writingDirectionMode = mode;
+  target.resolvedLayoutDirection = layoutDirection;
+}
+
 /// Sets lineHeight as a floor (minimumLineHeight) so a line can still grow to fit a taller run.
 /// No-op when lineHeight <= 0.
 void ENRMApplyLineHeightToParagraphStyle(NSMutableParagraphStyle *style, CGFloat lineHeight);
