@@ -28,6 +28,7 @@ import com.swmansion.enriched.markdown.segments.SegmentHeightMeasurer
 import com.swmansion.enriched.markdown.segments.TableContainerView
 import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
 import com.swmansion.enriched.markdown.spans.ImageSpan
+import com.swmansion.enriched.markdown.spans.LinkPillSpan
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.spans.MathMeasureRequest
 import com.swmansion.enriched.markdown.spans.MathMetrics
@@ -316,10 +317,16 @@ object MeasurementStore {
     val existingHash = cached?.markdownHash ?: 0
     val paintParams = PaintParams(paint.typeface ?: Typeface.DEFAULT, paint.textSize)
 
+    // Yoga can measure a width the view doesn't lay out at (a flex row's basis): the layout below
+    // sizes the view's images and pills for it, so they go back to what the view draws: images
+    // sized for its width, and pills' limits and reserved widths as they were.
+    val foreignWidth = viewWidthPx > 0 && width > 0f && ceil(width).toInt() != viewWidthPx
+    val pills = if (foreignWidth) LinkPillSpan.saveUiStates(spannable) else null
     var newSize = measure(width, spannable, paint, id)
-    // Yoga can measure a width the view doesn't lay out at (a flex row's basis): the layout above
-    // sized the view's images and pills for it, so size them back for the width the view draws at.
-    if (viewWidthPx > 0 && width > 0f && ceil(width).toInt() != viewWidthPx) prepareWidthAwareSpans(spannable, viewWidthPx)
+    if (foreignWidth) {
+      prepareWidthAwareSpans(spannable, viewWidthPx)
+      pills?.restore()
+    }
     // A view's adopted buffer changes in place as patches land, on the main thread. A line-clamped
     // view's text is a copy that shares its spans, and images and inline math keep the state of the
     // layout they were last laid out in, which the view draws from: a later measurement at another
