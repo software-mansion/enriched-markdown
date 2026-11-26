@@ -722,7 +722,7 @@ object MeasurementStore {
 
     // Width changed - re-measure with cached spannable
     if (cached.cachedWidth != width) {
-      return measureKeptTextAtWidth(safeId, width)
+      return measureKeptText(safeId, width, cached)
         ?: measureAndCache(context, safeId, width, input, allowFontScaling, fontScale, maxFontSizeMultiplier)
     }
 
@@ -733,8 +733,15 @@ object MeasurementStore {
   internal fun measureKeptTextAtWidth(
     id: Int,
     width: Float,
+  ): Long? = data[id]?.let { measureKeptText(id, width, it) }
+
+  // From the [cached] entry the caller checked, not the map again: a store() on the main thread
+  // may have replaced it since with another render's text.
+  private fun measureKeptText(
+    id: Int,
+    width: Float,
+    cached: MeasurementParams,
   ): Long? {
-    val cached = data[id] ?: return null
     val spannable = cached.spannable ?: return null
     val newSize = measure(width, spannable, cached.paintParams, id)
     data[id] = cached.copy(cachedWidth = width, cachedSize = newSize)
