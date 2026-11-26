@@ -8,9 +8,6 @@ import com.facebook.react.uimanager.ViewManager
 import com.swmansion.enriched.markdown.input.EnrichedMarkdownTextInputManager
 import com.swmansion.enriched.markdown.slots.EnrichedMarkdownBlockSlotManager
 
-// On demand: React Native lists the names at startup and makes a manager, and its view config,
-// only when JS first uses that view. Before React Native 0.89, JS still read every on-demand
-// config at startup, so the gain starts there.
 class EnrichedMarkdownTextPackage :
   ReactPackage,
   ViewManagerOnDemandReactPackage {
