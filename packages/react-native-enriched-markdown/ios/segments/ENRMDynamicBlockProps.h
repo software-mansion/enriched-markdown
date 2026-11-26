@@ -23,7 +23,18 @@ NS_ASSUME_NONNULL_BEGIN
  * ENRMCodeBlockContainerView; property names are unchanged so call sites read
  * dynamic.copyLabel.
  */
+#if !TARGET_OS_OSX
+@class ENRMMarkdownTextView;
+@protocol ENRMTableSelectionHost <NSObject>
+@property (nonatomic, readonly) BOOL tableSelectionEnabled;
+- (void)configureTableSelectionView:(ENRMMarkdownTextView *)textView;
+@end
+#endif
+
 @interface ENRMDynamicBlockProps : NSObject
+#if !TARGET_OS_OSX
+@property (nonatomic, weak, nullable) id<ENRMTableSelectionHost> tableSelectionHost;
+#endif
 @property (nonatomic, strong, nullable) ENRMLinkContextMenus *linkContextMenus;
 @property (nonatomic, assign) BOOL enableLinkPreview;
 @property (nonatomic, assign) BOOL enableBlockContextMenu;

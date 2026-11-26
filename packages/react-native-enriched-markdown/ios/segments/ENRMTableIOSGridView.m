@@ -3,6 +3,8 @@
 #import "LinkTapUtils.h"
 
 #if !TARGET_OS_OSX
+#import "ENRMMarkdownTextView.h"
+#import "TableContainerView.h"
 
 @interface ENRMTableIOSGridView () <UIGestureRecognizerDelegate, ENRMDroppableContent>
 @end
@@ -55,6 +57,10 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
   NSArray<ENRMTableIOSRowData *> *_tableRows;
   NSArray<NSNumber *> *_columnWidths;
   NSArray<NSNumber *> *_rowHeights;
+  ENRMMarkdownTextView *_selectionView;
+  NSAttributedString *_selectedText;
+  NSUInteger _selectedRow;
+  NSUInteger _selectedColumn;
   UIColor *_borderColor;
   CGFloat _borderWidth;
   CGFloat _cornerRadius;
@@ -77,6 +83,7 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
     self.accessibilityElementsHidden = YES;
 
     UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTap:)];
+    tap.delegate = self;
     [self addGestureRecognizer:tap];
 
     UILongPressGestureRecognizer *longPress =
@@ -106,6 +113,7 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
   _cornerRadius = cornerRadius;
   _horizontalCellPadding = horizontalCellPadding;
   _verticalCellPadding = verticalCellPadding;
+  [self updateSelectionView];
   [self setNeedsDisplay];
 }
 
@@ -178,6 +186,7 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
 - (void)setShownColumnWidths:(NSArray<NSNumber *> *)widths
 {
   _shownColumnWidths = [widths copy];
+  [self updateSelectionView];
   [self setNeedsDisplay];
 }
 
@@ -224,7 +233,7 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
       [border stroke];
 
       NSAttributedString *text = rowData.cellTexts[c];
-      if (text.length > 0) {
+      if (text.length > 0 && !(_selectionView && r == _selectedRow && c == _selectedColumn)) {
         // While the column is narrower than laid out, text keeps its side: trailing text its trailing edge.
         CGFloat shift = (columnWidth - [_columnWidths[c] doubleValue]) * ENRMTableTextAnchor(text);
         CGRect textRect = CGRectMake(xOffset + _horizontalCellPadding + shift, yOffset + _verticalCellPadding,
@@ -260,36 +269,28 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
 
 #pragma mark - Link hit-testing
 
-- (BOOL)cellAtPoint:(CGPoint)point
-          rowOrigin:(out CGFloat *)outRowY
-          rowHeight:(out CGFloat *)outRowH
-          colOrigin:(out CGFloat *)outColX
-           colWidth:(out CGFloat *)outColW
-           cellText:(out NSAttributedString *__autoreleasing *)outText
+// Use the displayed cell bounds for hit testing while streamed columns widen.
+- (BOOL)cellAtPoint:(CGPoint)point row:(NSUInteger *)row column:(NSUInteger *)column textRect:(CGRect *)rect
 {
-  CGFloat rowY = 0;
+  NSArray<NSNumber *> *widths = _shownColumnWidths ?: _columnWidths;
+  CGFloat y = 0;
   for (NSUInteger r = 0; r < _tableRows.count; r++) {
-    CGFloat rh = [_rowHeights[r] doubleValue];
-    if (point.y >= rowY && point.y < rowY + rh) {
-      CGFloat colX = 0;
-      for (NSUInteger c = 0; c < _columnWidths.count; c++) {
-        CGFloat cw = [_columnWidths[c] doubleValue];
-        if (point.x >= colX && point.x < colX + cw) {
-          ENRMTableIOSRowData *rowData = _tableRows[r];
-          if (c >= rowData.cellTexts.count)
-            return NO;
-          *outRowY = rowY;
-          *outRowH = rh;
-          *outColX = colX;
-          *outColW = cw;
-          *outText = rowData.cellTexts[c];
+    CGFloat height = _rowHeights[r].doubleValue;
+    if (point.y >= y && point.y < y + height) {
+      CGFloat x = 0;
+      for (NSUInteger c = 0; c < _tableRows[r].cellTexts.count; c++) {
+        CGFloat width = widths[c].doubleValue;
+        if (point.x >= x && point.x < x + width) {
+          *row = r;
+          *column = c;
+          *rect = CGRectInset(CGRectMake(x, y, width, height), _horizontalCellPadding, _verticalCellPadding);
           return YES;
         }
-        colX += cw;
+        x += width;
       }
       return NO;
     }
-    rowY += rh;
+    y += height;
   }
   return NO;
 }
@@ -343,23 +344,93 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
 
 - (ENRMTableIOSItemHit *)itemAtPoint:(CGPoint)point
 {
-  CGFloat rowY, rowH, colX, colW;
-  NSAttributedString *text;
-  if (![self cellAtPoint:point rowOrigin:&rowY rowHeight:&rowH colOrigin:&colX colWidth:&colW cellText:&text])
+  NSUInteger row, column;
+  CGRect rect;
+  if (![self cellAtPoint:point row:&row column:&column textRect:&rect] || !CGRectContainsPoint(rect, point))
     return nil;
-
-  CGRect textRect = CGRectMake(colX + _horizontalCellPadding, rowY + _verticalCellPadding,
-                               colW - _horizontalCellPadding * 2, rowH - _verticalCellPadding * 2);
-  if (!CGRectContainsPoint(textRect, point))
-    return nil;
-
-  return itemInAttributedString(text, textRect, point);
+  return itemInAttributedString(_tableRows[row].cellTexts[column], rect, point);
 }
 
 - (ENRMTableIOSItemHit *)linkAtPoint:(CGPoint)point
 {
   ENRMTableIOSItemHit *hit = [self itemAtPoint:point];
   return hit.kind == ENRMTableIOSItemKindLink ? hit : nil;
+}
+
+#pragma mark - Native selection in the touched cell
+
+- (void)clearSelectionView
+{
+  [_selectionView removeFromSuperview];
+  _selectionView = nil;
+  _selectedText = nil;
+  [self setNeedsDisplay];
+}
+
+- (void)updateSelectionView
+{
+  if (!_selectionView)
+    return;
+  if (_selectedRow >= _tableRows.count || _selectedColumn >= _tableRows[_selectedRow].cellTexts.count ||
+      ![_selectedText isEqualToAttributedString:_tableRows[_selectedRow].cellTexts[_selectedColumn]]) {
+    [self clearSelectionView];
+    return;
+  }
+  CGFloat x = 0, y = 0;
+  NSArray<NSNumber *> *widths = _shownColumnWidths ?: _columnWidths;
+  for (NSUInteger c = 0; c < _selectedColumn; c++)
+    x += widths[c].doubleValue;
+  for (NSUInteger r = 0; r < _selectedRow; r++)
+    y += _rowHeights[r].doubleValue;
+  _selectionView.frame = CGRectInset(CGRectMake(x, y, widths[_selectedColumn].doubleValue, _rowHeights[_selectedRow].doubleValue),
+                                     _horizontalCellPadding, _verticalCellPadding);
+  [_selectionView setDrawnRect:_selectionView.bounds];
+}
+
+static BOOL canSelectCellText(NSAttributedString *text, CGRect rect, CGPoint point)
+{
+  return text.length && CGRectContainsPoint(rect, point) && !itemInAttributedString(text, rect, point);
+}
+
+- (BOOL)isSelectingCellAtPoint:(CGPoint)point
+{
+  return self.table.dynamicProps.tableSelectionHost.tableSelectionEnabled && _selectionView &&
+         canSelectCellText(_selectedText, _selectionView.frame, point);
+}
+
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
+{
+  UIView *hit = [super hitTest:point withEvent:event];
+  id<ENRMTableSelectionHost> host = self.table.dynamicProps.tableSelectionHost;
+  if (!hit || !event || event.type != UIEventTypeTouches || !host.tableSelectionEnabled)
+    return hit;
+
+  NSUInteger row, column;
+  CGRect rect;
+  if (![self cellAtPoint:point row:&row column:&column textRect:&rect] || !CGRectContainsPoint(rect, point))
+    return hit;
+  NSAttributedString *text = _tableRows[row].cellTexts[column];
+  if (!canSelectCellText(text, rect, point))
+    return self;
+  if (!_selectionView || row != _selectedRow || column != _selectedColumn) {
+    [self clearSelectionView];
+    _selectedRow = row;
+    _selectedColumn = column;
+    _selectionView = [[ENRMMarkdownTextView alloc] initWithFrame:rect];
+    _selectionView.editable = NO;
+    _selectionView.selectable = YES;
+    _selectionView.scrollEnabled = NO;
+    _selectionView.backgroundColor = UIColor.clearColor;
+    _selectionView.textContainerInset = UIEdgeInsetsZero;
+    _selectionView.textContainer.lineFragmentPadding = 0;
+    _selectedText = text;
+    _selectionView.attributedText = text;
+    [host configureTableSelectionView:_selectionView];
+    [self addSubview:_selectionView];
+    [_selectionView setDrawnRect:_selectionView.bounds];
+    [self setNeedsDisplay];
+  }
+  return [super hitTest:point withEvent:event];
 }
 
 #pragma mark - Gesture handlers
@@ -390,6 +461,8 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch
 {
+  if (_selectionView && [touch.view isDescendantOfView:_selectionView])
+    return NO;
   if (![gestureRecognizer isKindOfClass:[UILongPressGestureRecognizer class]])
     return YES;
   // Reject before recognition so the context-menu interaction can own this touch.

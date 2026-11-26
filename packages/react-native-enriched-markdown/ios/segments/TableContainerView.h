@@ -54,6 +54,10 @@ typedef void (^TableLinkPressBlock)(NSString *url);
 // ENRMDynamicBlockProps.
 @property (nonatomic, strong) ENRMDynamicBlockProps *dynamicProps;
 
+#if !TARGET_OS_OSX
+- (NSArray<UIAction *> *)tableCopyActions;
+#endif
+
 @property (nonatomic, readonly) NSUInteger rowCount;
 
 - (void)animateNewRowsFromPreviousCount:(NSUInteger)previousRowCount duration:(NSTimeInterval)duration;

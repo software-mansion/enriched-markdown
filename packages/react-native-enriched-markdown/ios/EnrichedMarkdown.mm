@@ -69,6 +69,7 @@
 #import "StyleConfig.h"
 #import "StylePropsUtils.h"
 #import "TableContainerView.h"
+#import "ENRMTableIOSGridView.h"
 #import "TaskListTapUtils.h"
 #import "TextViewLayoutManager.h"
 #import <React/RCTUtils.h>
@@ -116,7 +117,7 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
 @end
 
 #if !TARGET_OS_OSX
-@interface EnrichedMarkdown () <ENRMLinkContextMenuSource, ENRMCaptureParticipant>
+@interface EnrichedMarkdown () <ENRMLinkContextMenuSource, ENRMCaptureParticipant, ENRMTableSelectionHost>
 - (nullable NSArray<RCTUIView *> *)drawSegmentsForCaptureInRect:(CGRect)rect;
 - (void)dropSegmentsAfterCapture:(nullable NSArray<RCTUIView *> *)segments;
 @end
@@ -355,6 +356,7 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
     _drawnVisibleRect = CGRectNull;
     _undrawnSegments = [NSHashTable weakObjectsHashTable];
 #if !TARGET_OS_OSX
+    _dynamicBlockProps.tableSelectionHost = self;
     ENRMCaptureAddParticipant(self);
 #endif
     _fontScaleObserver.onChange = ^{
@@ -1773,6 +1775,12 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     _dirtyFlags |= ENRMDirtyRender | ENRMDirtyRecreateSegments;
   }
 
+#if !TARGET_OS_OSX
+  if (_selectable && !newViewProps.selectable) {
+    // Revoke any live table selection, including tables nested inside blockquotes.
+    _dirtyFlags |= ENRMDirtyRecreateSegments | ENRMDirtyRender;
+  }
+#endif
   _selectable = newViewProps.selectable;
 
   for (RCTUIView *segment in _segmentViews) {
@@ -2536,6 +2544,28 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
 
 // TODO: Remove API_AVAILABLE(ios(16.0)) guard when the minimum iOS deployment target in RN is bumped to 16.
 #if !TARGET_OS_OSX
+- (BOOL)tableSelectionEnabled
+{
+  return _selectable;
+}
+
+- (void)configureTableSelectionView:(ENRMMarkdownTextView *)textView
+{
+  textView.delegate = self;
+  const auto &props = *std::static_pointer_cast<EnrichedMarkdownProps const>(_props);
+  ENRMApplySelectionColor(textView, props.selectionColor);
+  __weak ENRMMarkdownTextView *weakView = textView;
+  __weak EnrichedMarkdown *weakSelf = self;
+  textView.copySelectionHandler = ^(NSRange range) {
+    EnrichedMarkdown *host = weakSelf;
+    NSAttributedString *text = weakView.attributedText;
+    if (host && NSMaxRange(range) <= text.length) {
+      ENRMCopySelection([text attributedSubstringFromRange:range], range,
+                        extractMarkdownFromAttributedString(text, range), host.config, [host selectionCopyHandler]);
+    }
+  };
+}
+
 - (UIMenu *)textView:(UITextView *)textView
     editMenuForTextInRange:(NSRange)range
           suggestedActions:(NSArray<UIMenuElement *> *)suggestedActions API_AVAILABLE(ios(16.0))
@@ -2553,6 +2583,10 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
   NSMutableArray<UIAction *> *customActions =
       ENRMBuildContextMenuActions(_contextMenuItemTexts, _contextMenuItemIcons, textView, range, handler);
 
+  if ([textView.superview isKindOfClass:[ENRMTableIOSGridView class]]) {
+    TableContainerView *table = ((ENRMTableIOSGridView *)textView.superview).table;
+    suggestedActions = [suggestedActions arrayByAddingObjectsFromArray:[table tableCopyActions]];
+  }
   NSString *segmentMarkdown = extractMarkdownFromAttributedString(textView.attributedText, range);
   return buildEditMenuForSelection(textView.attributedText, range, segmentMarkdown, _config, suggestedActions,
                                    customActions, _selectionMenuConfig, [self selectionCopyHandler]);

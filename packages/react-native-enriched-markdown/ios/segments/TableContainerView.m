@@ -364,6 +364,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 #else
   ENRMTableIOSGridView *iosGridView = [[ENRMTableIOSGridView alloc] initWithFrame:CGRectZero];
   __weak TableContainerView *weakSelf = self;
+  iosGridView.table = self;
   iosGridView.onLinkTap = ^(NSString *url) {
     TableContainerView *strongSelf = weakSelf;
     if (strongSelf && strongSelf.onLinkPress)
@@ -482,8 +483,6 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 
 - (void)applyTableNode:(MarkdownASTNode *)tableNode
 {
-  [[_gridContainer subviews] makeObjectsPerformSelector:@selector(removeFromSuperview)];
-
   NSUInteger colCount = 0;
   _rows = ENRMTableBuildRows(tableNode, self.config, self.allowFontScaling, self.maxFontSizeMultiplier,
                              _writingDirectionMode, _resolvedLayoutDirection, &colCount);
@@ -755,27 +754,33 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
                     previewProvider:nil
                      actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) { return linkMenu; }];
   }
-  if (!self.dynamicProps.enableBlockContextMenu) {
+  if (!self.dynamicProps.enableBlockContextMenu || [(ENRMTableIOSGridView *)_gridContainer isSelectingCellAtPoint:location]) {
     return nil;
   }
   return [UIContextMenuConfiguration
       configurationWithIdentifier:nil
                   previewProvider:nil
                    actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
-                     UIAction *copyMarkdown =
-                         [UIAction actionWithTitle:self.dynamicProps.menuCopyAsMarkdownLabel
-                                             image:[RCTUIImage systemImageNamed:@"doc.text"]
-                                        identifier:nil
-                                           handler:^(__kindof UIAction *action) { [self copyMarkdownToPasteboard]; }];
-
-                     UIAction *copyPlainText =
-                         [UIAction actionWithTitle:self.dynamicProps.menuCopyLabel
-                                             image:[RCTUIImage systemImageNamed:@"doc.on.doc"]
-                                        identifier:nil
-                                           handler:^(__kindof UIAction *action) { [self copyTableToPasteboard]; }];
-
-                     return [UIMenu menuWithTitle:@"" children:@[ copyPlainText, copyMarkdown ]];
+                     return [UIMenu menuWithChildren:[self tableActionsWithTitle:self.dynamicProps.menuCopyLabel markdownTitle:self.dynamicProps.menuCopyAsMarkdownLabel]];
                    }];
+}
+
+- (NSArray<UIAction *> *)tableCopyActions
+{
+  if (!self.dynamicProps.enableBlockContextMenu)
+    return @[];
+  return [self tableActionsWithTitle:NSLocalizedString(@"Copy Table", nil)
+                    markdownTitle:NSLocalizedString(@"Copy Table as Markdown", nil)];
+}
+
+- (NSArray<UIAction *> *)tableActionsWithTitle:(NSString *)title markdownTitle:(NSString *)markdownTitle
+{
+  return @[
+    [UIAction actionWithTitle:title image:[UIImage systemImageNamed:@"doc.on.doc"]
+                   identifier:nil handler:^(__kindof UIAction *action) { [self copyTableToPasteboard]; }],
+    [UIAction actionWithTitle:markdownTitle image:[UIImage systemImageNamed:@"doc.text"]
+                   identifier:nil handler:^(__kindof UIAction *action) { [self copyMarkdownToPasteboard]; }]
+  ];
 }
 #endif // !TARGET_OS_OSX
 

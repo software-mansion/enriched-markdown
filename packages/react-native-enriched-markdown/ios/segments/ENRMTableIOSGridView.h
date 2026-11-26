@@ -32,7 +32,10 @@ typedef NS_ENUM(NSInteger, ENRMTableIOSItemKind) {
 /// Draws the entire table grid in a single drawRect: pass, avoiding
 /// per-cell UITextView allocation and the TextKit layout storms that
 /// cause multi-second main-thread hangs on large tables.
+@class TableContainerView;
 @interface ENRMTableIOSGridView : UIView
+@property (nonatomic, weak) TableContainerView *table;
+- (BOOL)isSelectingCellAtPoint:(CGPoint)point;
 
 @property (nonatomic, copy, nullable) ENRMTableIOSLinkBlock onLinkTap;
 @property (nonatomic, copy, nullable) ENRMTableIOSLinkBlock onLinkLongTap;

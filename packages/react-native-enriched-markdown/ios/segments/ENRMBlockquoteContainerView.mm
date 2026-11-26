@@ -747,8 +747,12 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
     NSString *url = nil;
     if ([hit isKindOfClass:[UITextView class]])
       url = linkURLAtPoint((UITextView *)hit, point);
-    else if ([hit isKindOfClass:[ENRMTableIOSGridView class]])
-      url = [(ENRMTableIOSGridView *)hit linkAtPoint:point].url;
+    else if ([hit isKindOfClass:[ENRMTableIOSGridView class]]) {
+      ENRMTableIOSGridView *grid = (ENRMTableIOSGridView *)hit;
+      if ([grid isSelectingCellAtPoint:point])
+        return nil;
+      url = [grid linkAtPoint:point].url;
+    }
     if ([self.dynamicProps.linkContextMenus hasMenuForURL:url])
       return nil;
     hit = hit.superview;
