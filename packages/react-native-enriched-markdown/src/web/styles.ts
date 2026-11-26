@@ -149,6 +149,7 @@ function blockquoteStyle(style: MarkdownStyleInternal): CSSProperties {
 function listStyle(style: MarkdownStyleInternal): CSSProperties {
   const list = style.list;
   return {
+    listStylePosition: 'outside',
     paddingInlineStart: 0,
     fontSize: list.fontSize,
     fontFamily: normalizeFontFamily(list.fontFamily),

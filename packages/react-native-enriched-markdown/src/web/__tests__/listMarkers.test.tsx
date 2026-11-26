@@ -111,6 +111,7 @@ it('keeps lists native and hides only their own markers', async () => {
 
   const [list] = find(root, 'ul');
   expect(list!.props['data-enrm-list']).toBe(true);
+  expect(list!.props.style.listStylePosition).toBe('outside');
   const css = document.getElementById('enrm-list-markers')!.textContent;
   expect(css).toContain('[data-enrm-list] > li::marker');
   expect(css).toContain(
