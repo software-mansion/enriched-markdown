@@ -46,6 +46,7 @@ import com.swmansion.enriched.markdown.utils.common.SlotLayoutReuse
 import com.swmansion.enriched.markdown.utils.common.StreamingFilterResult
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
+import com.swmansion.enriched.markdown.utils.common.getBooleanOrDefault
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
@@ -162,6 +163,19 @@ object MeasurementStore {
     val fromLaidOut: Boolean = false,
   )
 
+  // What a stream ended with: later measures take its size only for the same markdown and layout.
+  private data class EndedStream(
+    val markdown: String,
+    val layoutKey: StreamLayoutKey,
+  )
+
+  private class StreamMeasures(
+    // At each of the view's last two widths, the latest first: Yoga can measure a node twice a pass
+    // (its flex basis, then the width it shrinks to).
+    val inputs: List<MeasuredInputs>,
+    val ended: EndedStream?,
+  )
+
   private val laidOutSizes = ConcurrentHashMap<Int, LaidOutSize>()
 
   // For each line of the text a view laid out itself at [widthPx], the widest line up to it
@@ -173,9 +187,7 @@ object MeasurementStore {
 
   private val laidOutLines = ConcurrentHashMap<Int, LaidOutLines>()
 
-  // At each view's last two widths, the latest first: Yoga can measure a node twice a pass (its
-  // flex basis, then the width it shrinks to).
-  private val previousInputs = ConcurrentHashMap<Int, List<MeasuredInputs>>()
+  private val streamMeasures = ConcurrentHashMap<Int, StreamMeasures>()
 
   // Each view's last measurement, a shortcut's too: the width the view lays out at, and the size
   // its own layout is compared with.
@@ -228,6 +240,7 @@ object MeasurementStore {
   // distinct markdown (MarkdownMeasureSession.h).
   private const val CONFIG_KEY = "configKey"
   private const val TEXT_KEY = "textKey"
+  private const val STREAMING = "streaming"
 
   // Parsed configs by key; messages with the same style and content props share one. The bound is
   // against an app that makes new ones on every render; clearing only costs parsing them again.
@@ -248,9 +261,13 @@ object MeasurementStore {
   ): MeasureInput {
     if (props == null || !props.hasKey(CONFIG_KEY)) {
       Log.w(TAG, "Measured without the shadow node's keys; measuring nothing")
-      return MeasureInput("", MeasureConfig(0, null))
+      return MeasureInput("", MeasureConfig(0, null), streaming = false)
     }
-    return MeasureInput(markdownFor(id, props.getInt(TEXT_KEY)), configFor(props.getInt(CONFIG_KEY)))
+    return MeasureInput(
+      markdownFor(id, props.getInt(TEXT_KEY)),
+      configFor(props.getInt(CONFIG_KEY)),
+      props.getBooleanOrDefault(STREAMING, false),
+    )
   }
 
   private fun configFor(key: Int): MeasureConfig {
@@ -422,7 +439,7 @@ object MeasurementStore {
     data.remove(id)
     laidOutSizes.remove(id)
     laidOutLines.remove(id)
-    previousInputs.remove(id)
+    streamMeasures.remove(id)
     lastMeasured.remove(id)
     slotMeasurements.remove(id)
     measuredMarkdown.remove(id)
@@ -443,6 +460,21 @@ object MeasurementStore {
   fun invalidate(id: Int) {
     data.remove(id)
     lastMeasured.remove(id)
+  }
+
+  // The content changed size without new markdown (an image loaded or failed, a code block wrapped).
+  // A view narrower than it was measured at publishes no size for the measured width, so a
+  // stream's next measure, or its end's, would keep its last answer: it measures in full instead.
+  // A view at the measured width has just published its size, and the next measure takes that.
+  // Not in [invalidate]: the end's own height update calls that, and keeps the shortcut.
+  fun invalidateForContentResize(id: Int) {
+    // The width from the stream's own record: [invalidate] forgets lastMeasured, and resizes come
+    // in bursts ahead of the next measure (every span of a failed image reports).
+    val laidOut = laidOutSizes[id]
+    streamMeasures.computeIfPresent(id) { _, measures ->
+      measures.takeIf { laidOut?.isFor(it.inputs.first().widthPx) == true }
+    }
+    invalidate(id)
   }
 
   // Content-box width (px) the measure pass last wrapped at; the display view insets to match (#805).
@@ -564,8 +596,8 @@ object MeasurementStore {
     if (id == null || blockSlotIds.isNotEmpty()) {
       // Slot children are measured where the walk places them; a stream's update takes the view's
       // height when the view shows them where the last walk did (slotStreamUpdate).
-      if (id != null) previousInputs.remove(id)
-      val streaming = input.config.streaming
+      if (id != null) streamMeasures.remove(id)
+      val streaming = input.streaming
       val layoutKey =
         id?.takeIf { streaming }?.let {
           streamLayoutKey(
@@ -681,9 +713,10 @@ object MeasurementStore {
     return cached.cachedSize
   }
 
-  // A stream's update: the markdown only grew and nothing else that sizes the content
-  // changed. The size the view laid out at is behind by at most the render in flight.
-  // Null to measure in full: new content, another width or a view that hasn't laid out.
+  // A stream's update, or its end (`streaming` turns off): the markdown only grew and nothing else
+  // that sizes the content changed. The size the view laid out at is behind by at most the render
+  // in flight. Null to measure in full: new content, another width or a view that hasn't laid out.
+  // iOS measures the end in full (ENRMIsStreamUpdate needs `streaming`): there it is fast.
   internal fun laidOutSizeForStreamUpdate(
     id: Int,
     width: Float,
@@ -694,22 +727,40 @@ object MeasurementStore {
     maxFontSizeMultiplier: Float,
     density: Float,
     rtl: Boolean,
+    withheldAtEnd: (MeasureInput) -> Boolean = ::streamingWithholds,
   ): Long? {
-    // Text appended without `streaming` measures in full, so it has its height on the first commit.
-    if (!input.config.streaming) {
-      previousInputs.remove(id)
-      return null
-    }
+    val streaming = input.streaming
     val markdown = input.markdown
+    val kept = streamMeasures[id]
+    // Text appended without `streaming` measures in full, so it has its height on the first commit.
+    if (!streaming && kept == null) return null
     val layoutKey = streamLayoutKey(id, input, splitTableSegments, allowFontScaling, fontScale, maxFontSizeMultiplier, density, rtl)
-
-    val inputs = MeasuredInputs(markdown, layoutKey, width)
-    var earlier: List<MeasuredInputs>? = null
-    previousInputs.compute(id) { _, list ->
-      earlier = list
-      listOf(inputs) + list.orEmpty().filter { it.widthPx != width }.take(1)
+    // The end is one more update, as the whole document takes longest to measure there; what follows
+    // it measures in full, as does an end that streaming held back part of: the view's size lacks it.
+    val withheld = !streaming && kept?.ended == null && withheldAtEnd(input)
+    val current = MeasuredInputs(markdown, layoutKey, width)
+    var before: List<MeasuredInputs>? = null
+    var endsNow = false
+    streamMeasures.compute(id) { _, old ->
+      val ended = old?.ended
+      if (!streaming && (old == null || withheld || (ended != null && (ended.markdown != markdown || ended.layoutKey != layoutKey)))) {
+        return@compute null
+      }
+      before = old?.inputs
+      endsNow = !streaming && ended == null
+      StreamMeasures(
+        listOf(current) +
+          old
+            ?.inputs
+            .orEmpty()
+            .filter { it.widthPx != width }
+            .take(1),
+        // A new stream leaves the one that ended behind.
+        if (streaming) null else ended ?: EndedStream(markdown, layoutKey),
+      )
     }
-    val previous = earlier?.let { list -> list.firstOrNull { it.widthPx == width } ?: list.firstOrNull() } ?: return null
+    val measured = before ?: return null
+    val previous = measured.firstOrNull { it.widthPx == width } ?: measured.firstOrNull() ?: return null
     // The view's size counts for an earlier state of this stream, not a document it replaced.
     val laidOut = laidOutSizes[id]?.takeIf { it.isFor(width) && markdownExtends(it.markdown, markdown) }
     val source =
@@ -726,6 +777,11 @@ object MeasurementStore {
         // An answer the view's size gave stands only while that size does.
         samePreviousWidth = previous.size != null && previous.widthPx == width && (laidOut != null || !previous.fromLaidOut),
       )
+    // The end has only the view's size to check the stream's last answer against: a view with no
+    // size for this width (narrower than it was measured at) may have changed since, as an image
+    // that failed while the last chunk rendered. Like iOS, which never keeps the previous answer
+    // once the view asked.
+    if (endsNow && source == MeasurementSource.PREVIOUS && laidOut == null) return null
     val size =
       when (source) {
         MeasurementSource.LAID_OUT -> laidOut?.size
@@ -769,7 +825,7 @@ object MeasurementStore {
     layoutKey: StreamLayoutKey,
     slotIds: List<String>,
   ): Long? {
-    if (!input.config.streaming) return null
+    if (!input.streaming) return null
     val previous = slotMeasurements[id] ?: return null
     val markdown = input.markdown
     if (abs(previous.widthPx - width) >= 1f || previous.layoutKey != layoutKey || previous.slotIds != slotIds ||
@@ -836,9 +892,12 @@ object MeasurementStore {
     fromLaidOut: Boolean = false,
   ) {
     lastMeasured[id] = Measured(width, size)
-    previousInputs.computeIfPresent(
-      id,
-    ) { _, inputs -> listOf(inputs.first().copy(size = size, fromLaidOut = fromLaidOut)) + inputs.drop(1) }
+    streamMeasures.computeIfPresent(id) { _, measures ->
+      StreamMeasures(
+        listOf(measures.inputs.first().copy(size = size, fromLaidOut = fromLaidOut)) + measures.inputs.drop(1),
+        measures.ended,
+      )
+    }
   }
 
   /** Whether [current] keeps all of [previous] and only adds to it, as every update of a stream does. */
@@ -861,9 +920,12 @@ object MeasurementStore {
   // snapshot. The modes come with the layout props (conversions.h), so the first measurement
   // and one after a mode change prepare exactly what the view renders.
   private fun renderableMarkdown(input: MeasureInput): String {
-    if (!input.config.streaming) return input.markdown
+    if (!input.streaming) return input.markdown
     return renderableResult(input).markdown
   }
+
+  // Whether the streaming session holds back part of the markdown: the view shows less than the end.
+  private fun streamingWithholds(input: MeasureInput): Boolean = renderableResult(input).markdown != input.markdown
 
   // The streaming session's snapshot of the markdown.
   private fun renderableResult(input: MeasureInput): StreamingFilterResult =
@@ -989,7 +1051,7 @@ object MeasurementStore {
     blockSlotIds: List<String>,
   ): Long {
     val config = input.config
-    val isStreaming = config.streaming
+    val isStreaming = input.streaming
     val md4cFlags = config.md4cFlags
     val markdown = renderableMarkdown(input)
     val wrapped =
