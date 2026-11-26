@@ -242,13 +242,16 @@ class StreamMeasurementTest {
     assertEquals(laidOut, streamUpdate("Streaming **markdown**", streaming = false))
   }
 
+  // Nothing to check the last measurement against: the end measures in full, its repeats take that.
   @Test
-  fun anEndWithoutALaidOutSizeTakesTheSizeOfTheLastMeasurement() {
+  fun anEndWithoutALaidOutSizeMeasuresInFull() {
     streamUpdate("Streaming **markdown**")
-    val measured = YogaMeasureOutput.make(360f, 1000f)
-    recordMeasured(measured)
+    recordMeasured(YogaMeasureOutput.make(360f, 1000f))
 
-    assertEquals(measured, streamUpdate("Streaming **markdown**", streaming = false))
+    assertNull(streamUpdate("Streaming **markdown**", streaming = false))
+    val full = YogaMeasureOutput.make(360f, 1100f)
+    recordMeasured(full)
+    assertEquals(full, streamUpdate("Streaming **markdown**", streaming = false))
   }
 
   // Yoga measures at the flex basis and at the width the node gets: the end takes the stream's
@@ -412,6 +415,76 @@ class StreamMeasurementTest {
       assertEquals(laidOut, streamUpdate(markdown, width = 320f))
       MeasurementStore.storeLaidOutSize(viewId, 304f, laidOut, markdown, fitsWiderWidths = true)
     }
+  }
+
+  // A view narrower than it was measured at publishes a size for its own width only. Its end has
+  // nothing to check the stream's last answer against, so it measures in full; the end's repeats
+  // take that answer, until an image that loads or fails changes the content (#1222).
+  @Test
+  fun aNarrowerViewsEndMeasuresInFullAndAgainAfterAContentResize() {
+    val markdown = "The build is ![passing](https://example.com/x.png) and the rest wraps."
+    streamUpdate(markdown, width = 320f)
+    recordMeasured(YogaMeasureOutput.make(360f, 1000f), width = 320f)
+    MeasurementStore.storeLaidOutSize(viewId, 280f, laidOut, markdown)
+
+    assertNull(streamUpdate(markdown, width = 320f, streaming = false))
+    val full = YogaMeasureOutput.make(360f, 1100f)
+    recordMeasured(full, width = 320f)
+    assertEquals(full, streamUpdate(markdown, width = 320f, streaming = false))
+
+    MeasurementStore.storeLaidOutSize(viewId, 280f, YogaMeasureOutput.make(280f, 1200f), markdown)
+    MeasurementStore.invalidateForContentResize(viewId)
+    assertNull(streamUpdate(markdown, width = 320f, streaming = false))
+  }
+
+  @Test
+  fun aNarrowerViewsContentResizeWhileStreamingMeasuresTheNextUpdateInFull() {
+    streamUpdate("Streaming **mark", width = 320f)
+    recordMeasured(YogaMeasureOutput.make(360f, 1000f), width = 320f)
+    MeasurementStore.storeLaidOutSize(viewId, 280f, laidOut, "Streaming **mark")
+    MeasurementStore.invalidateForContentResize(viewId)
+
+    assertNull(streamUpdate("Streaming **mark", width = 320f))
+  }
+
+  // A view at the measured width has just published its new size: the stream takes it, as on main.
+  @Test
+  fun aContentResizeAtTheMeasuredWidthKeepsTheStreamUpdate() {
+    MeasurementStore.storeLaidOutSize(viewId, widthPx, laidOut, "Streaming **mark")
+    streamUpdate("Streaming **mark")
+    recordMeasured(laidOut)
+    val resized = YogaMeasureOutput.make(360f, 2600f)
+    MeasurementStore.storeLaidOutSize(viewId, widthPx, resized, "Streaming **mark")
+    MeasurementStore.invalidateForContentResize(viewId)
+
+    assertEquals(resized, streamUpdate("Streaming **mark"))
+    assertEquals(resized, streamUpdate("Streaming **mark", streaming = false))
+  }
+
+  // Resizes come in bursts (every span of a failed image reports), after the render's own invalidate.
+  @Test
+  fun repeatedContentResizesAtTheMeasuredWidthKeepTheStreamUpdate() {
+    MeasurementStore.storeLaidOutSize(viewId, widthPx, laidOut, "Streaming **mark")
+    streamUpdate("Streaming **mark")
+    recordMeasured(laidOut)
+    val resized = YogaMeasureOutput.make(360f, 2600f)
+    MeasurementStore.storeLaidOutSize(viewId, widthPx, resized, "Streaming **mark")
+    MeasurementStore.invalidate(viewId)
+    MeasurementStore.invalidateForContentResize(viewId)
+    MeasurementStore.invalidateForContentResize(viewId)
+
+    assertEquals(resized, streamUpdate("Streaming **mark"))
+  }
+
+  // The end's own height update invalidates the store too, and must keep the shortcut.
+  @Test
+  fun aPlainInvalidateKeepsTheEndsShortcut() {
+    MeasurementStore.storeLaidOutSize(viewId, widthPx, laidOut, "Streaming **mark")
+    streamUpdate("Streaming **mark")
+    assertEquals(laidOut, streamUpdate("Streaming **markdown**", streaming = false))
+    MeasurementStore.invalidate(viewId)
+
+    assertEquals(laidOut, streamUpdate("Streaming **markdown**", streaming = false))
   }
 
   // A line that now wraps at the view's width might not at the measured one.

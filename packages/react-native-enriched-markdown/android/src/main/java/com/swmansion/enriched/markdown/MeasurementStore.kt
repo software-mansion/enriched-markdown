@@ -462,6 +462,21 @@ object MeasurementStore {
     lastMeasured.remove(id)
   }
 
+  // The content changed size without new markdown (an image loaded or failed, a code block wrapped).
+  // A view narrower than it was measured at publishes no size for the measured width, so a
+  // stream's next measure, or its end's, would keep its last answer: it measures in full instead.
+  // A view at the measured width has just published its size, and the next measure takes that.
+  // Not in [invalidate]: the end's own height update calls that, and keeps the shortcut.
+  fun invalidateForContentResize(id: Int) {
+    // The width from the stream's own record: [invalidate] forgets lastMeasured, and resizes come
+    // in bursts ahead of the next measure (every span of a failed image reports).
+    val laidOut = laidOutSizes[id]
+    streamMeasures.computeIfPresent(id) { _, measures ->
+      measures.takeIf { laidOut?.isFor(it.inputs.first().widthPx) == true }
+    }
+    invalidate(id)
+  }
+
   // Content-box width (px) the measure pass last wrapped at; the display view insets to match (#805).
   fun contentBoxWidthPx(id: Int): Float? = lastMeasured[id]?.widthPx ?: data[id]?.cachedWidth
 
@@ -725,12 +740,14 @@ object MeasurementStore {
     val withheld = !streaming && kept?.ended == null && withheldAtEnd(input)
     val current = MeasuredInputs(markdown, layoutKey, width)
     var before: List<MeasuredInputs>? = null
+    var endsNow = false
     streamMeasures.compute(id) { _, old ->
       val ended = old?.ended
       if (!streaming && (old == null || withheld || (ended != null && (ended.markdown != markdown || ended.layoutKey != layoutKey)))) {
         return@compute null
       }
       before = old?.inputs
+      endsNow = !streaming && ended == null
       StreamMeasures(
         listOf(current) +
           old
@@ -760,6 +777,11 @@ object MeasurementStore {
         // An answer the view's size gave stands only while that size does.
         samePreviousWidth = previous.size != null && previous.widthPx == width && (laidOut != null || !previous.fromLaidOut),
       )
+    // The end has only the view's size to check the stream's last answer against: a view with no
+    // size for this width (narrower than it was measured at) may have changed since, as an image
+    // that failed while the last chunk rendered. Like iOS, which never keeps the previous answer
+    // once the view asked.
+    if (endsNow && source == MeasurementSource.PREVIOUS && laidOut == null) return null
     val size =
       when (source) {
         MeasurementSource.LAID_OUT -> laidOut?.size
