@@ -9,7 +9,6 @@ import android.text.Layout
 import android.text.Spanned
 import android.text.TextPaint
 import android.text.style.LeadingMarginSpan
-import android.text.style.LineBackgroundSpan
 import android.text.style.MetricAffectingSpan
 import androidx.core.graphics.withSave
 import com.swmansion.enriched.markdown.renderer.SpanStyleCache
@@ -21,7 +20,8 @@ import com.swmansion.enriched.markdown.utils.text.extensions.applyColorPreservin
  * Draws the commonmark-flavor code block box as per-line strips. The visual
  * conventions (half-stroke border inset, radius reduced by that inset) must
  * stay in sync with the whole-rect box the github flavor draws in
- * CodeBlockContainerView.
+ * CodeBlockContainerView. [TextBackgroundDrawer] draws them, from the layout
+ * that knows each paragraph's direction.
  */
 class CodeBlockSpan(
   private val codeBlockStyle: CodeBlockStyle,
@@ -32,7 +32,6 @@ class CodeBlockSpan(
   val code: String = "",
   val language: String = "",
 ) : MetricAffectingSpan(),
-  LineBackgroundSpan,
   LeadingMarginSpan {
   /** The innermost list item holding this block, whose marker span this is; copy-as-markdown nests the block under it. */
   internal var listItem: BaseListSpan? = null
@@ -84,18 +83,21 @@ class CodeBlockSpan(
 
   override fun updateDrawState(tp: TextPaint) = applyTextStyle(tp)
 
-  override fun drawBackground(
+  /**
+   * Draws the box's strip for the line from [start] to [end], across [left] to [right]. Inside a list
+   * item the box starts at the item's indent: on the left, or on the right for a [rightToLeft] block,
+   * where the layout puts its leading margin.
+   */
+  internal fun drawBackground(
     canvas: Canvas,
-    p: Paint,
     left: Int,
     right: Int,
     top: Int,
-    baseline: Int,
     bottom: Int,
     text: CharSequence,
     start: Int,
     end: Int,
-    lineNum: Int,
+    rightToLeft: Boolean,
   ) {
     if (text !is Spanned) return
 
@@ -108,10 +110,12 @@ class CodeBlockSpan(
 
     val inset = codeBlockStyle.borderWidth / 2f
 
+    val startIndent = if (rightToLeft) 0 else leadingIndent
+    val endIndent = if (rightToLeft) leadingIndent else 0
     rect.set(
-      left.toFloat() + leadingIndent + inset,
+      left.toFloat() + startIndent + inset,
       top.toFloat() + (if (isFirstLine) inset else 0f),
-      right.toFloat() - inset,
+      right.toFloat() - endIndent - inset,
       bottom.toFloat() - (if (isLastLine) inset else 0f),
     )
     if (rect.left >= rect.right) return
