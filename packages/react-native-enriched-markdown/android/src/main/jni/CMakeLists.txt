@@ -56,9 +56,7 @@ set_target_properties(enrmrkd_lib PROPERTIES
 )
 
 file(GLOB LIB_CODEGEN_SRCS CONFIGURE_DEPENDS ${LIB_ANDROID_GENERATED_JNI_DIR}/*.cpp ${LIB_ANDROID_GENERATED_COMPONENTS_DIR}/*.cpp)
-# Only the component sources: no source file lives directly in jni/. A jni/*.cpp glob
-# would also compile a stale EnrichedMarkdownTextSpec.cpp (the codegen stub shipped up
-# to 1.1) and define EnrichedMarkdownTextSpec_ModuleProvider twice (#1216).
+# Not jni/*.cpp: a stub left there by 1.1 would duplicate the codegen provider (#1216).
 file(GLOB LIB_CUSTOM_JNI_SRCS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/react/renderer/components/${LIB_LITERAL}/*.cpp)
 
 add_library(
