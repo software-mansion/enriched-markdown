@@ -277,10 +277,11 @@ class CodeBlockContainerView(
       MeasureSpec.makeMeasureSpec(paneWidth, MeasureSpec.EXACTLY),
       MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED),
     )
-    val buttonSpec = MeasureSpec.makeMeasureSpec(headerButtonSize, MeasureSpec.EXACTLY)
-    copyButton.measure(buttonSpec, buttonSpec)
-    wrapButton.measure(buttonSpec, buttonSpec)
-    val headerButtonsLeft = copyButtonRight(measuredWidth) - headerButtonSize * (if (showsWrapButton) 2 else 1)
+    val buttonWidth = headerButtonWidth(measuredWidth)
+    val buttonSpec = MeasureSpec.makeMeasureSpec(buttonWidth, MeasureSpec.EXACTLY)
+    copyButton.measure(buttonSpec, MeasureSpec.makeMeasureSpec(headerButtonSize, MeasureSpec.EXACTLY))
+    wrapButton.measure(buttonSpec, MeasureSpec.makeMeasureSpec(headerButtonSize, MeasureSpec.EXACTLY))
+    val headerButtonsLeft = copyButtonRight(measuredWidth) - buttonWidth * headerButtonCount
     val labelMaxWidth = (headerButtonsLeft - inset).coerceAtLeast(0)
     languageView.measure(
       MeasureSpec.makeMeasureSpec(labelMaxWidth, MeasureSpec.AT_MOST),
@@ -308,31 +309,41 @@ class CodeBlockContainerView(
     )
 
     val copyRight = copyButtonRight(width)
+    val buttonWidth = headerButtonWidth(width)
     val buttonTop = (headerCenterY - headerButtonSize / 2f).roundToInt().coerceAtLeast(0)
     // headerH + inset: where the first line of code starts.
     val buttonBottom = minOf(buttonTop + headerButtonSize, headerH + inset)
-    layoutHeaderButton(copyButton, copyRight - headerButtonSize, buttonTop, buttonBottom, width - inset - copyIconWidth / 2f, headerCenterY)
-    val wrapLeft = (copyRight - headerButtonSize * 2).coerceAtLeast(0)
-    layoutHeaderButton(wrapButton, wrapLeft, buttonTop, buttonBottom, wrapLeft + headerButtonSize / 2f, headerCenterY)
+    val copyLeft = copyRight - buttonWidth
+    layoutHeaderButton(copyButton, copyLeft, buttonWidth, buttonTop, buttonBottom, width - inset - copyIconWidth / 2f, headerCenterY)
+    val wrapLeft = copyLeft - buttonWidth
+    layoutHeaderButton(wrapButton, wrapLeft, buttonWidth, buttonTop, buttonBottom, wrapLeft + buttonWidth / 2f, headerCenterY)
 
     scrollView.layout(borderW, headerH, width - borderW, bottom - top - borderW)
   }
 
   private val copyIconWidth: Int get() = copyButton.drawable?.intrinsicWidth ?: 0
 
-  private fun copyButtonRight(width: Int): Int = minOf(width, (width - inset - copyIconWidth / 2f + headerButtonSize / 2f).roundToInt())
+  private fun copyButtonRight(width: Int): Int =
+    minOf(width, (width - inset - copyIconWidth / 2f + headerButtonSize / 2f).roundToInt()).coerceAtLeast(0)
+
+  private val headerButtonCount: Int get() = if (showsWrapButton) 2 else 1
+
+  // A block too narrow for every button at full width shares the room up to the copy button's right
+  // edge, so the buttons never overlap nor leave the block.
+  private fun headerButtonWidth(width: Int): Int = minOf(headerButtonSize, copyButtonRight(width) / headerButtonCount)
 
   // setPadding during layout is safe: the values depend only on the size and style, and layout() follows.
   private fun layoutHeaderButton(
     button: View,
     left: Int,
+    width: Int,
     top: Int,
     bottom: Int,
     iconCenterX: Float,
     iconCenterY: Float,
   ) {
-    val right = left + headerButtonSize
-    val padLeft = (iconCenterX - left).roundToInt()
+    val right = left + width
+    val padLeft = (iconCenterX.coerceIn(left.toFloat(), right.toFloat()) - left).roundToInt()
     val padTop = (iconCenterY - top).roundToInt()
     val halfWidth = minOf(padLeft, right - padLeft - left)
     val halfHeight = minOf(padTop, bottom - padTop - top)

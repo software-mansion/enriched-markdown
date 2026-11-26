@@ -79,6 +79,28 @@ class CodeBlockHeaderButtonsTest {
   // starts a header and a padding down (on a device the default style gives the full 48 dp).
   private val style get() = styleConfig(codeBlock = mapOf("fontSize" to 14.0, "padding" to 24.0))
 
+  // Too narrow for two 48 dp targets, or for one: the buttons share the room and stay apart, inside the block.
+  @Test
+  fun aNarrowBlockKeepsItsButtonsApartAndInside() {
+    for ((widthDp, showsWrap) in listOf(80 to true, 60 to true, 40 to false, 40 to true)) {
+      val view =
+        CodeBlockContainerView(context, style).apply {
+          showsWrapButton = showsWrap
+          applyCodeBlockNode(codeNode)
+          val width = (widthDp * density).toInt()
+          measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
+          layout(0, 0, measuredWidth, measuredHeight)
+        }
+      val (copy, wrap) = headerButtons(view)
+      val shown = if (showsWrap) listOf(copy, wrap) else listOf(copy)
+      for (button in shown) {
+        assertTrue("$widthDp dp: inside the block", button.left >= 0 && button.right <= view.width)
+        assertTrue("$widthDp dp: has a width", button.width > 0)
+      }
+      if (showsWrap) assertFalse("$widthDp dp: overlap", Rect.intersects(bounds(copy), bounds(wrap)))
+    }
+  }
+
   // A tap in the part of the target the old, header-sized button didn't cover reaches the button.
   @Test
   fun aTapBelowTheHeaderReachesTheWrapButton() {
