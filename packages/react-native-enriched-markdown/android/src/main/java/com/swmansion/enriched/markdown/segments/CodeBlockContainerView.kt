@@ -63,9 +63,8 @@ class CodeBlockContainerView(
   private val borderW = borderPx(codeBlockStyle)
   private val headerH = headerHeight(codeBlockStyle)
 
-  // Each header button is a touch target 48 dp wide (Android's minimum) or the header height if that is
-  // larger, and as tall, down to the first line of code (#1243). The icons keep their size and the
-  // header its height, so a button reaches into the code pane's top padding.
+  // Header buttons are 48 dp touch targets (Android's minimum), reaching below the header but never
+  // past the first line of code (#1243).
   private val headerButtonSize = maxOf(headerH, ceil(MIN_TOUCH_TARGET_DP * resources.displayMetrics.density).toInt())
 
   override val segmentMarginTop: Int get() = codeBlockStyle.marginTop.toInt()
@@ -308,10 +307,9 @@ class CodeBlockContainerView(
       labelTop + languageView.measuredHeight,
     )
 
-    // The copy icon's right edge sits at the content inset; the wrap button is right next to it.
     val copyRight = copyButtonRight(width)
     val buttonTop = (headerCenterY - headerButtonSize / 2f).roundToInt().coerceAtLeast(0)
-    // The first line of code starts the code text's top padding (inset) below the header.
+    // headerH + inset: where the first line of code starts.
     val buttonBottom = minOf(buttonTop + headerButtonSize, headerH + inset)
     layoutHeaderButton(copyButton, copyRight - headerButtonSize, buttonTop, buttonBottom, width - inset - copyIconWidth / 2f, headerCenterY)
     val wrapLeft = (copyRight - headerButtonSize * 2).coerceAtLeast(0)
@@ -322,12 +320,9 @@ class CodeBlockContainerView(
 
   private val copyIconWidth: Int get() = copyButton.drawable?.intrinsicWidth ?: 0
 
-  // The copy button's right edge: its icon keeps its place, the button grows around it, within the view.
   private fun copyButtonRight(width: Int): Int = minOf(width, (width - inset - copyIconWidth / 2f + headerButtonSize / 2f).roundToInt())
 
-  // Lays [button] out headerButtonSize wide from [left], from [top] to [bottom], with its icon centred on
-  // [iconCenterX], [iconCenterY] (ScaleType.CENTER centres it in the padded box). setPadding during
-  // layout is safe: the values depend only on the size and style, and layout() follows at once.
+  // setPadding during layout is safe: the values depend only on the size and style, and layout() follows.
   private fun layoutHeaderButton(
     button: View,
     left: Int,
@@ -339,7 +334,6 @@ class CodeBlockContainerView(
     val right = left + headerButtonSize
     val padLeft = (iconCenterX - left).roundToInt()
     val padTop = (iconCenterY - top).roundToInt()
-    // Equal padding on both sides of the icon's centre, as far as the button reaches on the nearer side.
     val halfWidth = minOf(padLeft, right - padLeft - left)
     val halfHeight = minOf(padTop, bottom - padTop - top)
     button.setPadding(padLeft - halfWidth, padTop - halfHeight, right - left - padLeft - halfWidth, bottom - top - padTop - halfHeight)
