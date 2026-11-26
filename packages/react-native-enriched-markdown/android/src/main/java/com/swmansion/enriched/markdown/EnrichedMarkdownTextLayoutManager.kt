@@ -16,7 +16,14 @@ class EnrichedMarkdownTextLayoutManager(
     val layout = view.layout.takeIf { view.isStreaming && !view.isJustified }
     val heightChanged =
       layout?.let { MeasurementStore.storeLaidOut(view.id, it, changedFrom, view.trailingMarginBottomPx(), view.renderedMarkdown) }
-        ?: MeasurementStore.store(view.id, view.text, view.paint, view.trailingMarginBottomPx(), view.renderedMarkdown)
+        ?: MeasurementStore.store(
+          view.id,
+          view.text,
+          view.paint,
+          view.trailingMarginBottomPx(),
+          view.renderedMarkdown,
+          viewWidthPx = view.layout?.width ?: (view.width - view.compoundPaddingLeft - view.compoundPaddingRight).coerceAtLeast(0),
+        )
     if (!heightChanged) return
     val stateWrapper = view.stateWrapper ?: return
     val state = Arguments.createMap()

@@ -48,7 +48,9 @@ import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.getBooleanOrDefault
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
+import com.swmansion.enriched.markdown.utils.text.extensions.hasMathInlineSpans
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
+import com.swmansion.enriched.markdown.utils.text.span.hasWidthAwareSpans
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
 import com.swmansion.enriched.markdown.utils.text.view.isAdoptedText
 import java.util.concurrent.ConcurrentHashMap
@@ -322,6 +324,8 @@ object MeasurementStore {
     paint: TextPaint,
     trailingMarginBottomPx: Float = 0f,
     renderedMarkdown: String = "",
+    // The width the view lays its text out at, 0 when unknown.
+    viewWidthPx: Int = 0,
   ): Boolean {
     val cached = data[id]
     val last = lastMeasured[id]
@@ -330,10 +334,21 @@ object MeasurementStore {
     val existingHash = cached?.markdownHash ?: 0
     val paintParams = PaintParams(paint.typeface ?: Typeface.DEFAULT, paint.textSize)
 
+    // Yoga can measure a width the view doesn't lay out at (a flex row's basis): the layout below
+    // sizes the view's images and pills for it, so they go back to what the view draws: images
+    // sized for its width, and pills' limits and reserved widths as they were.
+    val foreignWidth = viewWidthPx > 0 && width > 0f && ceil(width).toInt() != viewWidthPx
+    val pills = if (foreignWidth) LinkPillSpan.saveUiStates(spannable) else null
     var newSize = measure(width, spannable, paint, id)
-    // A view's adopted buffer changes in place as patches land, on the main thread: a later
-    // measurement at another width renders the markdown again instead of laying it out.
-    val keptText = spannable.takeUnless { isAdoptedText(it) }
+    if (foreignWidth) {
+      prepareWidthAwareSpans(spannable, viewWidthPx)
+      pills?.restore()
+    }
+    // A view's adopted buffer changes in place as patches land, on the main thread. A line-clamped
+    // view's text is a copy that shares its spans, and images and inline math keep the state of the
+    // layout they were last laid out in, which the view draws from: a later measurement at another
+    // width, off the main thread, renders the markdown again instead of laying it out (#1147).
+    val keptText = spannable.takeUnless { isAdoptedText(it) || drawsFromLayoutState(it) }
     if (trailingMarginBottomPx > 0f) {
       newSize =
         YogaMeasureOutput.make(
@@ -414,9 +429,7 @@ object MeasurementStore {
       val end = layout.getLineEnd(line)
       if (end <= 0 || text[end - 1] != '\n') return false
     }
-    val spanned = text as? Spanned ?: return true
-    return spanned.getSpans(0, spanned.length, ImageSpan::class.java).isEmpty() &&
-      spanned.getSpans(0, spanned.length, LinkPillSpan::class.java).isEmpty()
+    return !hasWidthAwareSpans(text)
   }
 
   /** The content size [id]'s view laid out [markdown] at, laid out for [widthPx]. */
@@ -479,6 +492,12 @@ object MeasurementStore {
 
   // Content-box width (px) the measure pass last wrapped at; the display view insets to match (#805).
   fun contentBoxWidthPx(id: Int): Float? = lastMeasured[id]?.widthPx ?: data[id]?.cachedWidth
+
+  // Spans that keep the state of the layout they were last laid out in, which the view draws from.
+  private fun drawsFromLayoutState(text: CharSequence?): Boolean {
+    val spanned = text as? Spanned ?: return false
+    return spanned.getSpans(0, spanned.length, ImageSpan::class.java).isNotEmpty() || spanned.hasMathInlineSpans()
+  }
 
   /** Main entry point for ShadowNode measurement. */
   fun getMeasureById(
@@ -703,14 +722,30 @@ object MeasurementStore {
 
     // Width changed - re-measure with cached spannable
     if (cached.cachedWidth != width) {
-      val spannable =
-        cached.spannable ?: return measureAndCache(context, safeId, width, input, allowFontScaling, fontScale, maxFontSizeMultiplier)
-      val newSize = measure(width, spannable, cached.paintParams, safeId)
-      data[safeId] = cached.copy(cachedWidth = width, cachedSize = newSize)
-      return newSize
+      return measureKeptText(safeId, width, cached)
+        ?: measureAndCache(context, safeId, width, input, allowFontScaling, fontScale, maxFontSizeMultiplier)
     }
 
     return cached.cachedSize
+  }
+
+  // The text kept for [id] laid out at another [width], or null when none was kept.
+  internal fun measureKeptTextAtWidth(
+    id: Int,
+    width: Float,
+  ): Long? = data[id]?.let { measureKeptText(id, width, it) }
+
+  // From the [cached] entry the caller checked, not the map again: a store() on the main thread
+  // may have replaced it since with another render's text.
+  private fun measureKeptText(
+    id: Int,
+    width: Float,
+    cached: MeasurementParams,
+  ): Long? {
+    val spannable = cached.spannable ?: return null
+    val newSize = measure(width, spannable, cached.paintParams, id)
+    data[id] = cached.copy(cachedWidth = width, cachedSize = newSize)
+    return newSize
   }
 
   // A stream's update, or its end (`streaming` turns off): the markdown only grew and nothing else

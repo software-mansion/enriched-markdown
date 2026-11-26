@@ -66,6 +66,19 @@ class LinkPillSpan(
   // The view's text is also re-measured by Yoga off the main thread, at widths that may
   // never be committed. Each side keeps its own state so that pass cannot change what
   // the visible layout reserved and draws.
+  internal class UiStates(
+    private val pills: Array<LinkPillSpan>,
+    private val availableWidths: FloatArray,
+    private val reservedWidths: IntArray,
+  ) {
+    fun restore() {
+      pills.forEachIndexed { i, pill ->
+        pill.uiState.availableWidth = availableWidths[i]
+        pill.uiState.reservedWidth = reservedWidths[i]
+      }
+    }
+  }
+
   private val uiState = LayoutState()
   private val backgroundState = LayoutState()
   private val state: LayoutState
@@ -351,6 +364,23 @@ class LinkPillSpan(
     private val drawMetrics = Paint.FontMetrics()
     private val rect = RectF()
     private val innerRect = RectF()
+
+    /**
+     * The main-thread layout state of every pill in [text], to [UiStates.restore] after a layout the
+     * view doesn't draw from (a measurement at another width) overwrote it.
+     */
+    internal fun saveUiStates(text: CharSequence?): UiStates? {
+      val spanned = text as? Spanned ?: return null
+      val pills = spanned.getSpans(0, spanned.length, LinkPillSpan::class.java)
+      if (pills.isEmpty()) return null
+      return UiStates(
+        pills,
+        FloatArray(pills.size) {
+          pills[it].uiState.availableWidth
+        },
+        IntArray(pills.size) { pills[it].uiState.reservedWidth },
+      )
+    }
 
     /**
      * Gives every pill in [text] its width limit. Layout sites reach this through
