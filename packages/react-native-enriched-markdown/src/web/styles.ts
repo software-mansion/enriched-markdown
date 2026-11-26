@@ -521,7 +521,9 @@ export function bulletStyle(
   const { bulletSize: size, bulletColor: color } = style.list;
   const shape: CSSProperties =
     depth === 1
-      ? { border: `${Math.max(1, size * 0.15)}px solid ${color}` }
+      ? {
+          border: `${Math.min(size / 2, Math.max(1, size * 0.15))}px solid ${color}`,
+        }
       : { backgroundColor: color, borderRadius: depth === 0 ? '50%' : 0 };
   return {
     display: 'inline-block',

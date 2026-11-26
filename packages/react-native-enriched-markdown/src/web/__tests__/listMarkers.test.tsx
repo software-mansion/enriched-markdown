@@ -54,6 +54,14 @@ it('draws bullets in bulletColor and bulletSize, shaped by depth', async () => {
   });
   expect(ring!.props.style.border).toBe('1.5px solid rgb(1, 2, 3)');
   expect(square!.props.style.borderRadius).toBe(0);
+
+  const hidden = await render({
+    markdown: '- a\n  - b',
+    markdownStyle: { list: { bulletSize: 0 } },
+  });
+  expect(marker(find(hidden, 'li')[1]!).props.style.border).toBe(
+    '0px solid #6B7280'
+  );
 });
 
 it('numbers an ordered list from its start in the marker style', async () => {

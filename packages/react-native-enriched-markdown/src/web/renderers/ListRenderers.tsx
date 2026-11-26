@@ -67,12 +67,7 @@ function ListRenderer({
   const ordered = ListTag === 'ol';
   const start = Math.max(0, Number(node.attributes?.start ?? 1) || 0);
   const listRef = useRef<HTMLOListElement & HTMLUListElement>(null);
-  const numbers = useNumberColumn(
-    listRef,
-    ordered,
-    node.children?.length ?? 0,
-    style.list
-  );
+  const numbers = useNumberColumn(listRef, ordered, node.children, style.list);
 
   const { markerMinWidth, bulletSize, fontSize } = style.list;
   const baseColumn = Math.max(
@@ -109,7 +104,7 @@ function ListRenderer({
 function useNumberColumn(
   listRef: RefObject<HTMLElement | null>,
   ordered: boolean,
-  itemCount: number,
+  items: ASTNode[] | undefined,
   listStyle: object
 ): { widest: number; base: number } | null {
   const [size, setSize] = useState<{ widest: number; base: number } | null>(
@@ -145,7 +140,7 @@ function useNumberColumn(
     const observer = new ResizeObserver(measure);
     boxes.forEach((box) => observer.observe(box));
     return () => observer.disconnect();
-  }, [listRef, ordered, itemCount, listStyle]);
+  }, [listRef, ordered, items, listStyle]);
   return ordered ? size : null;
 }
 
