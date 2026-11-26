@@ -507,6 +507,13 @@ export function leadingCodeBlockMarkerTop(
   return borderWidth + padding + (lineHeight - style.list.lineHeight) / 2;
 }
 
+export function leadingHeadingMarkerTop(
+  style: MarkdownStyleInternal,
+  level: string
+): number {
+  return (style[toHeadingLevel(level)].lineHeight - style.list.lineHeight) / 2;
+}
+
 export const ORDERED_MARKER_NUMBER_STYLE: CSSProperties = { gridArea: '1 / 1' };
 
 export const ORDERED_MARKER_SIZER_STYLE: CSSProperties = {
@@ -533,6 +540,10 @@ export function bulletStyle(
     borderRadius: '50%',
     verticalAlign: 'middle',
     marginInlineEnd: -size / 2,
+    marginTop: -size / 2,
+    marginBottom: -size / 2,
+    printColorAdjust: 'exact',
+    WebkitPrintColorAdjust: 'exact',
     ...shape,
   };
 }

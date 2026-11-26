@@ -51,6 +51,9 @@ it('draws bullets in bulletColor and bulletSize, shaped by depth', async () => {
     width: 10,
     backgroundColor: 'rgb(1, 2, 3)',
     borderRadius: '50%',
+    marginTop: -5,
+    marginBottom: -5,
+    printColorAdjust: 'exact',
   });
   expect(ring!.props.style.border).toBe('1.5px solid rgb(1, 2, 3)');
   expect(square!.props.style.borderRadius).toBe(0);
@@ -110,7 +113,9 @@ it('keeps lists native and hides only their own markers', async () => {
   expect(list!.props['data-enrm-list']).toBe(true);
   const css = document.getElementById('enrm-list-markers')!.textContent;
   expect(css).toContain('[data-enrm-list] > li::marker');
-  expect(css).toContain('@media (forced-colors: active)');
+  expect(css).toContain(
+    '@media (forced-colors: active) { .enrm-text [data-enrm-marker] { visibility: hidden; } }'
+  );
 });
 
 it('lines the marker up with the first line of a leading code block', async () => {
@@ -121,6 +126,16 @@ it('lines the marker up with the first line of a leading code block', async () =
 
   const [item] = find(root, 'li');
   expect((item!.children[0] as TestInstance).props.style.top).toBe(15);
+});
+
+it('lines the marker up with the first line of a leading heading', async () => {
+  const root = await render({
+    markdown: '1. # Heading',
+    markdownStyle: { h1: { lineHeight: 40 }, list: { lineHeight: 26 } },
+  });
+
+  const [item] = find(root, 'li');
+  expect((item!.children[0] as TestInstance).props.style.top).toBe(7);
 });
 
 it('keeps a leading nested list clear of the number', async () => {

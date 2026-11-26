@@ -25,7 +25,7 @@ const RULES: ReadonlyArray<readonly [id: string, css: string]> = [
   [
     'enrm-list-markers',
     `.${ENRM_TEXT_CLASS} [${ENRM_LIST_ATTR}] > li::marker { color: transparent; } ` +
-      `@media (forced-colors: active) { .${ENRM_TEXT_CLASS} [${ENRM_LIST_MARKER_ATTR}] { display: none; } }`,
+      `@media (forced-colors: active) { .${ENRM_TEXT_CLASS} [${ENRM_LIST_MARKER_ATTR}] { visibility: hidden; } }`,
   ],
   [
     'enrm-selection-style',

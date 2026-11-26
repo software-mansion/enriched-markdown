@@ -19,6 +19,7 @@ import {
   bulletStyle,
   checkedTaskTextStyle,
   leadingCodeBlockMarkerTop,
+  leadingHeadingMarkerTop,
   listGap,
   listItemStyle,
   listMarkerStyle,
@@ -191,6 +192,17 @@ function isNestedList(child: ASTNode): boolean {
   return NESTED_LIST_TYPES.has(child.type);
 }
 
+function markerTop(
+  style: RendererProps['style'],
+  first: ASTNode | undefined
+): number {
+  if (first?.type === 'CodeBlock') return leadingCodeBlockMarkerTop(style);
+  if (first?.type === 'Heading') {
+    return leadingHeadingMarkerTop(style, first.attributes?.level ?? '1');
+  }
+  return 0;
+}
+
 function ListItemRenderer({
   node,
   style,
@@ -246,11 +258,7 @@ function ListItemRenderer({
         list={list}
         style={style}
         index={index ?? 0}
-        top={
-          inlineNode.children?.[0]?.type === 'CodeBlock'
-            ? leadingCodeBlockMarkerTop(style)
-            : 0
-        }
+        top={markerTop(style, inlineNode.children?.[0])}
       />
     ) : null;
   const nestedOffset = !(marker && list)
