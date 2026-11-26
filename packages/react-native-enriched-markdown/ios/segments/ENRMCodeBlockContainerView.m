@@ -607,28 +607,35 @@ static const CGFloat kENRMCodeOverdraw = 64;
 // larger.
 - (void)setupBox
 {
+  _fillView = [[UIView alloc] init];
+  _fillView.userInteractionEnabled = NO;
+  [self insertSubview:_fillView atIndex:0];
+
+  _dividerView = [[UIView alloc] init];
+  _dividerView.userInteractionEnabled = NO;
+  // Under the code, as drawRect: draws them.
+  [self insertSubview:_dividerView belowSubview:_scrollView];
+
+  _labelView = [[ENRMCodeBlockHeaderLabelView alloc] init];
+  [self insertSubview:_labelView belowSubview:_scrollView];
+  [self applyBoxAppearance];
+}
+
+// From _config at every layout, as drawRect: drew it: the document reuses this block when new
+// markdown comes with a markdownStyle change, which updates the config it shares in place.
+// UIBezierPath's rounded rect, which drawRect: used, has continuous corners.
+- (void)applyBoxAppearance
+{
   CGFloat borderWidth = [_config codeBlockBorderWidth];
   CGFloat radius = [_config codeBlockBorderRadius];
   self.layer.cornerRadius = radius > 0 ? radius + borderWidth / 2 : 0;
   self.layer.cornerCurve = kCACornerCurveContinuous;
   self.layer.borderWidth = [_config codeBlockBorderColor] ? borderWidth : 0;
   [self applyBorderColor];
-
-  _fillView = [[UIView alloc] init];
-  _fillView.userInteractionEnabled = NO;
   _fillView.backgroundColor = [_config codeBlockBackgroundColor];
   _fillView.layer.cornerRadius = radius;
   _fillView.layer.cornerCurve = kCACornerCurveContinuous;
-  [self insertSubview:_fillView atIndex:0];
-
-  _dividerView = [[UIView alloc] init];
-  _dividerView.userInteractionEnabled = NO;
   _dividerView.backgroundColor = [[_config codeBlockColor] colorWithAlphaComponent:kENRMHeaderDividerAlpha];
-  // Under the code, as drawRect: draws them.
-  [self insertSubview:_dividerView belowSubview:_scrollView];
-
-  _labelView = [[ENRMCodeBlockHeaderLabelView alloc] init];
-  [self insertSubview:_labelView belowSubview:_scrollView];
 }
 
 // A layer takes a resolved color: resolved again when the appearance changes.
@@ -648,6 +655,7 @@ static const CGFloat kENRMCodeOverdraw = 64;
 
 - (void)layoutBox
 {
+  [self applyBoxAppearance];
   CGFloat borderWidth = [_config codeBlockBorderWidth];
   CGFloat inset = [self contentInset];
   CGFloat headerH = [self headerHeight];

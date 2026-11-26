@@ -210,6 +210,40 @@ static UIWindow *ENRMCodeTilesKeyWindow(void)
                 NSStringFromCGRect(covered), NSStringFromCGRect(shown));
 }
 
+static BOOL ENRMCodeTilesSameColor(UIColor *a, UIColor *b)
+{
+  CGFloat ar, ag, ab, aa, br, bg, bb, ba;
+  if (![a getRed:&ar green:&ag blue:&ab alpha:&aa] || ![b getRed:&br green:&bg blue:&bb alpha:&ba]) {
+    return NO;
+  }
+  return fabs(ar - br) < 0.01 && fabs(ag - bg) < 0.01 && fabs(ab - bb) < 0.01 && fabs(aa - ba) < 0.01;
+}
+
+// The document reuses a block when new markdown comes with a markdownStyle change, which updates
+// the config it shares in place: the box follows the new style, as drawRect: drew it.
+- (void)testAReusedBlockTakesTheNewStyle
+{
+  [self render:ENRMCodeTilesCode(10, 4, @"", NO)];
+  StyleConfig *config = [_codeBlock valueForKey:@"_config"];
+  [config setCodeBlockBackgroundColor:UIColor.redColor];
+  [config setCodeBlockBorderColor:UIColor.blueColor];
+  [config setCodeBlockBorderWidth:3];
+  [config setCodeBlockColor:UIColor.greenColor];
+  [_codeBlock applyCodeBlockNode:ENRMCodeTilesCodeBlockNode(ENRMCodeTilesCode(10, 4, @" // more", NO))];
+  [_codeBlock layoutIfNeeded];
+
+  UIView *fill = [_codeBlock valueForKey:@"_fillView"];
+  UIView *divider = [_codeBlock valueForKey:@"_dividerView"];
+  XCTAssertTrue(ENRMCodeTilesSameColor(fill.backgroundColor, UIColor.redColor), @"%@", fill.backgroundColor);
+  XCTAssertEqual(_codeBlock.layer.borderWidth, 3);
+  XCTAssertTrue(ENRMCodeTilesSameColor([UIColor colorWithCGColor:_codeBlock.layer.borderColor], UIColor.blueColor));
+  XCTAssertTrue(CGRectEqualToRect(fill.frame, CGRectInset(_codeBlock.bounds, 1.5, 1.5)), @"%@",
+                NSStringFromCGRect(fill.frame));
+  CGFloat red, green, blue, alpha;
+  [divider.backgroundColor getRed:&red green:&green blue:&blue alpha:&alpha];
+  XCTAssertTrue(green > 0.9 && red < 0.1, @"%@", divider.backgroundColor);
+}
+
 - (void)testATallBlockDrawsOnlyNearTheScreenInTiles
 {
   [self render:ENRMCodeTilesMarkdown(800, 26)];
