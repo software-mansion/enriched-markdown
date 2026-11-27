@@ -14,9 +14,9 @@ private typealias HandleGetter = (TextView) -> Drawable?
 private typealias HandleSetter = (TextView, Drawable) -> Unit
 
 /**
- * Applies selection highlight and (where supported) handle tinting to a [TextView].
+ * Applies selection highlight and (where supported) handle coloring to a [TextView].
  *
- * Handle drawables are only tinted on API 29+ where the framework exposes getters;
+ * Handle drawables are only colored on API 29+ where the framework exposes getters;
  * on older versions the handle theme defaults remain unchanged.
  */
 fun TextView.applySelectionColors(
@@ -53,7 +53,7 @@ fun TextView.applySelectionHandleColor(
       }
       setter(this, handle)
     } catch (e: LinkageError) {
-      Log.w(TAG, "Selection handle tint skipped: ${e.message}")
+      Log.w(TAG, "Selection handle color skipped: ${e.message}")
     }
   }
 }
