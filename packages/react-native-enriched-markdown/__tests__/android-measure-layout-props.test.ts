@@ -30,6 +30,7 @@ const NOT_LAYOUT = new Set([
   'contextMenuItems',
   'linkContextMenuItems',
   'selectionMenuConfig',
+  'copyLinksAs',
   'accessibilityLabels',
   'admonitionTitles',
   'lineBreakStrategyIOS',

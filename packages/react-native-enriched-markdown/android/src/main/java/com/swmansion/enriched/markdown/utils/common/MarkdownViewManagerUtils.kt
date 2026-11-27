@@ -144,12 +144,13 @@ fun emitSelectionCopy(
   format: SelectionCopyFormat,
   selectionStart: Int,
   selectionEnd: Int,
+  markdown: String,
 ) {
   val context = view.context as com.facebook.react.bridge.ReactContext
   val surfaceId = UIManagerHelper.getSurfaceId(context)
   val eventDispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, view.id)
   eventDispatcher?.dispatchEvent(
-    SelectionCopyEvent(surfaceId, view.id, text, format.value, selectionStart, selectionEnd),
+    SelectionCopyEvent(surfaceId, view.id, text, format.value, selectionStart, selectionEnd, markdown),
   )
 }
 

@@ -21,7 +21,7 @@ import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
 /**
  * Runtime-mutable block props that a prop update can flip WITHOUT recreating the
  * segment tree (the reconcile path, reset = false): the block context-menu gate,
- * the code-block tap gate, the copy menu labels, and the copy/tap callbacks.
+ * the code-block tap gate, the copy menu labels, copyLinksAs, and the copy/tap callbacks.
  *
  * The root owns one instance and mutates it in place; every view down the tree
  * holds the same reference (SegmentViewConfig.dynamicProps) and reads a field at use-time
@@ -40,6 +40,7 @@ class DynamicBlockProps {
   var enableCodeBlockPress: Boolean = false
   var copyLabel: String = ""
   var copyAsMarkdownLabel: String = ""
+  var copiesLinksAsMarkdown: Boolean = false
   var onCopyPress: ((code: String, language: String) -> Unit)? = null
   var onCodeBlockPress: ((code: String, language: String) -> Unit)? = null
 
@@ -120,6 +121,7 @@ object SegmentViewCreators {
         config.onTaskListItemPress?.invoke(taskIndex, checked, itemText)
       }
       onSelectionCopyCallback = config.onSelectionCopy
+      dynamicProps = config.dynamicProps
 
       if (config.contextMenuItemTexts.isNotEmpty()) {
         val onPress = config.onContextMenuItemPress

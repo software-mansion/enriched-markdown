@@ -212,6 +212,7 @@ static CGFloat ENRMFirstContentBaseline(RCTUIView *view, StyleConfig *config)
 #endif
 @property (nonatomic, copy) NSString *cachedMarkdown;
 @property (nonatomic, copy) NSString *cachedPlainText;
+@property (nonatomic, copy) NSString *cachedLinkedPlainText;
 @end
 
 @implementation ENRMListContainerView {
@@ -274,6 +275,7 @@ static CGFloat ENRMFirstContentBaseline(RCTUIView *view, StyleConfig *config)
   _resolvedLayoutDirection = segment.resolvedLayoutDirection;
   self.cachedMarkdown = markdownFromASTNode(segment.node);
   self.cachedPlainText = plainTextFromASTNode(segment.node);
+  self.cachedLinkedPlainText = plainTextWithMarkdownLinksFromASTNode(segment.node);
   NSArray<ENRMListMarkerDescriptor *> *markers = ENRMListMarkers(segment, self.config);
   NSUInteger index = 0;
   for (MarkdownASTNode *node in segment.node.children) {
@@ -464,7 +466,7 @@ static CGFloat ENRMFirstContentBaseline(RCTUIView *view, StyleConfig *config)
 {
   if (_cachedPlainText.length > 0) {
     NSMutableDictionary *items = [NSMutableDictionary dictionary];
-    items[kUTIPlainText] = _cachedPlainText;
+    items[kUTIPlainText] = self.config.copyLinksAsMarkdown ? _cachedLinkedPlainText : _cachedPlainText;
     if (_cachedMarkdown.length > 0) {
       items[kUTIMarkdown] = _cachedMarkdown;
     }

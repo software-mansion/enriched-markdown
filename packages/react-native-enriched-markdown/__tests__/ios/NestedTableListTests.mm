@@ -42,6 +42,10 @@ static void ENRMCollectViews(UIView *view, Class type, NSMutableArray *result)
     ENRMCollectViews(child, type, result);
 }
 
+@interface ENRMListContainerView (ENRMListClipboardTesting)
+- (void)copyPlainTextToPasteboard;
+@end
+
 @interface ENRMNestedTableListTests : XCTestCase
 @end
 
@@ -345,4 +349,34 @@ static void ENRMCollectViews(UIView *view, Class type, NSMutableArray *result)
                          .lastObject.signature;
   XCTAssertNotEqual(shifted, checked);
 }
+- (void)testListCopyHonorsLiveCopyLinksAsSetting
+{
+  MarkdownASTNode *label = ENRMTestNode(MarkdownNodeTypeText, @[]);
+  label.content = @"Docs";
+  MarkdownASTNode *link = ENRMTestNode(MarkdownNodeTypeLink, @[ label ]);
+  link.attributes[@"url"] = @"https://example.com/docs";
+  MarkdownASTNode *item =
+      ENRMTestNode(MarkdownNodeTypeListItem, @[ ENRMTestNode(MarkdownNodeTypeParagraph, @[ link ]), ENRMTestTable() ]);
+  MarkdownASTNode *document =
+      ENRMTestNode(MarkdownNodeTypeDocument, @[ ENRMTestNode(MarkdownNodeTypeUnorderedList, @[ item ]) ]);
+  StyleConfig *config = [StyleConfig new];
+  ENRMRenderedSegment *segment =
+      ENRMRenderSegmentsFromAST(document, config, NO, YES, 0, NSLineBreakStrategyNone, NO, 0).firstObject;
+  ENRMListContainerView *view = [[ENRMListContainerView alloc] initWithConfig:config];
+  [view applyListSegment:segment.listSegment];
+  UIPasteboard *pasteboard = UIPasteboard.generalPasteboard;
+  NSArray *originalItems = pasteboard.items;
+  @try {
+    for (NSNumber *enabled in @[ @NO, @YES, @NO ]) {
+      [config setCopyLinksAsMarkdown:enabled.boolValue];
+      [view copyPlainTextToPasteboard];
+      NSString *copied = pasteboard.string;
+      XCTAssertTrue([copied containsString:@"Docs"]);
+      XCTAssertEqual([copied containsString:@"[Docs](https://example.com/docs)"], enabled.boolValue);
+    }
+  } @finally {
+    pasteboard.items = originalItems;
+  }
+}
+
 @end

@@ -5,7 +5,7 @@
 static void serializeNode(MarkdownASTNode *node, NSMutableString *buffer);
 static void serializeChildren(MarkdownASTNode *node, NSMutableString *buffer);
 static void appendBlockNode(MarkdownASTNode *node, NSMutableString *buffer);
-static void appendPlainText(MarkdownASTNode *node, NSMutableString *buffer);
+static void appendPlainText(MarkdownASTNode *node, NSMutableString *buffer, BOOL linksAsMarkdown);
 
 static void serializeChildren(MarkdownASTNode *node, NSMutableString *buffer)
 {
@@ -281,7 +281,41 @@ static void appendBlockNode(MarkdownASTNode *node, NSMutableString *buffer)
   }
 }
 
-static void appendPlainText(MarkdownASTNode *node, NSMutableString *buffer)
+static NSString *ENRMEscaped(NSString *text, NSString *pattern)
+{
+  return [text stringByReplacingOccurrencesOfString:pattern
+                                         withString:@"\\\\$0"
+                                            options:NSRegularExpressionSearch
+                                              range:NSMakeRange(0, text.length)];
+}
+
+// A destination with spaces or angle brackets goes in <...>; otherwise only \ and parentheses are escaped.
+static NSString *ENRMLinkDestination(NSString *url)
+{
+  NSCharacterSet *needsBrackets = [NSCharacterSet characterSetWithCharactersInString:@"<> \t\n\r"];
+  if ([url rangeOfCharacterFromSet:needsBrackets].location != NSNotFound ||
+      [url rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location != NSNotFound) {
+    return [NSString stringWithFormat:@"<%@>", ENRMEscaped(url, @"[\\\\<>]")];
+  }
+  return ENRMEscaped(url, @"[\\\\()]");
+}
+
+// `<https://x.dev>`, a bare URL, `www.x.dev` or an email, as the parser writes them: the label alone still
+// pastes as the same link.
+static BOOL ENRMIsAutolink(NSString *label, NSString *url)
+{
+  return [url isEqualToString:label] || [url isEqualToString:[@"mailto:" stringByAppendingString:label]] ||
+         ([label hasPrefix:@"www."] && [url isEqualToString:[@"http://" stringByAppendingString:label]]);
+}
+
+NSString *ENRMMarkdownLink(NSString *label, NSString *url)
+{
+  if (ENRMIsAutolink(label, url))
+    return label;
+  return [NSString stringWithFormat:@"[%@](%@)", ENRMEscaped(label, @"[\\\\\\[\\]]"), ENRMLinkDestination(url)];
+}
+
+static void appendPlainText(MarkdownASTNode *node, NSMutableString *buffer, BOOL linksAsMarkdown)
 {
   switch (node.type) {
     case MarkdownNodeTypeSoftBreak:
@@ -298,16 +332,27 @@ static void appendPlainText(MarkdownASTNode *node, NSMutableString *buffer)
     case MarkdownNodeTypeParagraph:
     case MarkdownNodeTypeHeading:
       for (MarkdownASTNode *child in node.children) {
-        appendPlainText(child, buffer);
+        appendPlainText(child, buffer, linksAsMarkdown);
       }
       [buffer appendString:@"\n"];
       break;
+    case MarkdownNodeTypeLink:
+      if (linksAsMarkdown) {
+        NSMutableString *label = [NSMutableString stringWithString:node.content ?: @""];
+        for (MarkdownASTNode *child in node.children) {
+          appendPlainText(child, label, linksAsMarkdown);
+        }
+        [buffer appendString:ENRMMarkdownLink(label, node.attributes[@"url"] ?: @"")];
+        break;
+      }
+      // Without linksAsMarkdown a link is plain text like any other node.
+      __attribute__((fallthrough));
     default:
       if (node.content.length > 0) {
         [buffer appendString:node.content];
       }
       for (MarkdownASTNode *child in node.children) {
-        appendPlainText(child, buffer);
+        appendPlainText(child, buffer, linksAsMarkdown);
       }
       break;
   }
@@ -377,11 +422,21 @@ NSString *markdownFromBlockquoteNode(MarkdownASTNode *node)
   return [result copy];
 }
 
-NSString *plainTextFromASTNode(MarkdownASTNode *node)
+static NSString *ENRMPlainText(MarkdownASTNode *node, BOOL linksAsMarkdown)
 {
   if (!node)
     return @"";
   NSMutableString *buffer = [NSMutableString string];
-  appendPlainText(node, buffer);
+  appendPlainText(node, buffer, linksAsMarkdown);
   return [[buffer copy] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+}
+
+NSString *plainTextFromASTNode(MarkdownASTNode *node)
+{
+  return ENRMPlainText(node, NO);
+}
+
+NSString *plainTextWithMarkdownLinksFromASTNode(MarkdownASTNode *node)
+{
+  return ENRMPlainText(node, YES);
 }

@@ -1,7 +1,9 @@
 #import "PasteboardUtils.h"
 #import "ENRMImageAttachment.h"
 #import "ENRMLinkPillText.h"
+#import "ENRMTextLinkAttributes.h"
 #import "HTMLGenerator.h"
+#import "MarkdownASTSerializer.h"
 #import "MarkdownExtractor.h"
 #import "RTFExportUtils.h"
 #import "StyleConfig.h"
@@ -85,6 +87,29 @@ void copyItemsToPasteboard(NSDictionary<NSString *, id> *items)
 #endif
 }
 
+/// Plain text with each link as `[label](url)`, for `copyLinksAs: 'markdown'`. Only what would break the link is
+/// escaped. Recognized links and autolinks (the label is the URL) stay as their text.
+NSString *ENRMPlainTextWithMarkdownLinks(NSAttributedString *text)
+{
+  NSMutableString *result = [NSMutableString string];
+  [text enumerateAttribute:NSLinkAttributeName
+                   inRange:NSMakeRange(0, text.length)
+                   options:0
+                usingBlock:^(id link, NSRange linkRange, BOOL *stop) {
+                  NSString *url = [link isKindOfClass:NSURL.class] ? [link absoluteString] : link;
+                  // A recognized link next to an explicit one with the same URL is a separate run.
+                  [text enumerateAttribute:ENRMRecognizedLinkAttributeName
+                                   inRange:linkRange
+                                   options:0
+                                usingBlock:^(id recognized, NSRange range, BOOL *innerStop) {
+                                  NSString *run = [text.string substringWithRange:range];
+                                  BOOL plain = ![url isKindOfClass:NSString.class] || recognized != nil;
+                                  [result appendString:plain ? run : ENRMMarkdownLink(run, url)];
+                                }];
+                }];
+  return result;
+}
+
 NSString *_Nullable copyAttributedStringToPasteboard(NSAttributedString *attributedString, NSString *_Nullable markdown,
                                                      StyleConfig *_Nullable styleConfig)
 {
@@ -96,7 +121,9 @@ NSString *_Nullable copyAttributedStringToPasteboard(NSAttributedString *attribu
 
   NSMutableDictionary *items = [NSMutableDictionary dictionary];
 
-  items[kUTIPlainText] = attributedString.string;
+  NSString *plainText =
+      styleConfig.copyLinksAsMarkdown ? ENRMPlainTextWithMarkdownLinks(attributedString) : attributedString.string;
+  items[kUTIPlainText] = plainText;
 
   if (markdown.length > 0) {
     items[kUTIMarkdown] = markdown;
@@ -114,7 +141,7 @@ NSString *_Nullable copyAttributedStringToPasteboard(NSAttributedString *attribu
   addRTFData(items, rtfPrepared, rtfRange, NSRTFTextDocumentType, kUTIRTF);
 
   copyItemsToPasteboard(items);
-  return attributedString.string;
+  return plainText;
 }
 
 #pragma mark - Content Extraction

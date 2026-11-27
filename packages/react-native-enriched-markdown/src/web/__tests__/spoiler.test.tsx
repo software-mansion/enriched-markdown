@@ -261,7 +261,7 @@ it('moves focus to the link when Enter reveals a spoiler inside it', () => {
   expect(document.activeElement).toBe(container.querySelector('a'));
 });
 
-it('keeps an image in a spoiler with text unpressable until revealed, under a block cover', () => {
+it('keeps an inline image in a spoiler with text unpressable until revealed', () => {
   render({
     markdown: '||photo ![tree](https://example.com/tree.png) here||',
     markdownStyle: { spoiler: { color: 'rgb(1, 2, 3)' } },
@@ -270,8 +270,9 @@ it('keeps an image in a spoiler with text unpressable until revealed, under a bl
 
   const spoiler = onlySpoiler();
   const img = container.querySelector('img')!;
-  expect(img.style.display).toBe('block');
-  expect(spoiler.style.display).toBe('block');
+  // Inline beside its text, as on native (#1081), so the cover stays inline.
+  expect(img.style.display).not.toBe('block');
+  expect(spoiler.style.display).not.toBe('block');
   expect(spoiler.style.backgroundColor).toBe('rgb(1, 2, 3)');
   expect(img.hasAttribute('role')).toBe(false);
 

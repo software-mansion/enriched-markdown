@@ -86,6 +86,5 @@ exception: it is mapped to `data-testid`.
 
 - Editor features — see [Web Editor](WEB_INPUT.md#not-supported-on-web) for what `EnrichedMarkdownTextInput` does not support on web.
 - Particle spoilers — every spoiler uses the solid cover.
-- Inline images inside formatting — an image next to text renders inline only as a direct child of its paragraph. Inside a spoiler, link or emphasis it renders as a block image, and a spoiler holding one becomes a full-width block.
 - Configurable link `target` — all links open in a new tab (`target="_blank"`). Use `onLinkPress` for custom navigation.
 - Link pills — `linkVariants[pattern].pill` is ignored; such links render as ordinary links with the variant's colors and font.

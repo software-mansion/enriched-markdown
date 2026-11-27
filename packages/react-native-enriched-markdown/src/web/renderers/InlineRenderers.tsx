@@ -1,7 +1,7 @@
 import { useContext, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react';
 import type { ASTNode, RendererProps, RendererMap } from '../types';
-import { extractNodeText, hasBlockImage, hasNonImageContent } from '../utils';
+import { extractNodeText, hasNonImageContent } from '../utils';
 import { KaTeXRenderer } from './KaTeXRenderer';
 import {
   ConcealedSpoilerContext,
@@ -93,15 +93,11 @@ function SpoilerRenderer({ node, styles, renderChildren }: RendererProps) {
 
   const isActive = !isRevealed && !isAncestorConcealed;
   const isImageOnly = !hasNonImageContent(node);
-  const baseCoverStyle = isRevealed
+  const coverStyle = isRevealed
     ? styles.spoilerRevealed
     : isImageOnly
       ? { ...styles.spoilerRevealed, cursor: 'pointer' }
       : styles.spoiler;
-  const coverStyle =
-    !isImageOnly && hasBlockImage(node)
-      ? { ...baseCoverStyle, display: 'block' }
-      : baseCoverStyle;
 
   return (
     <span
@@ -136,6 +132,15 @@ function CodeRenderer({ node, styles, renderChildren }: RendererProps) {
   );
 }
 
+const URL_SCHEME = /^([a-z][a-z0-9+.-]*):/i;
+const BROWSER_SCHEMES = new Set(['http', 'https', 'mailto', 'tel', 'sms']);
+
+// Relative URLs and the schemes above are links the browser can open itself.
+function isBrowserOpenable(url: string): boolean {
+  const scheme = URL_SCHEME.exec(url.trim())?.[1];
+  return !scheme || BROWSER_SCHEMES.has(scheme.toLowerCase());
+}
+
 function LinkRenderer({
   node,
   style,
@@ -158,6 +163,11 @@ function LinkRenderer({
   }
 
   const handleClick = (event: MouseEvent) => {
+    // As in web routers, a modified click (new tab, new window) stays with the browser.
+    const isModified =
+      event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+    if (isModified && isBrowserOpenable(url)) return;
+
     if (callbacks.onLinkPress) {
       event.preventDefault();
       callbacks.onLinkPress({ url });

@@ -228,6 +228,7 @@ export const EnrichedMarkdownText = ({
   streamingConfig,
   onStreamingEnd,
   spoilerOverlay = 'particles',
+  copyLinksAs = 'label',
   contextMenuItems,
   linkContextMenuItems,
   imageRequestHeaders,
@@ -469,11 +470,13 @@ export const EnrichedMarkdownText = ({
 
   const handleSelectionCopy = useCallback(
     (e: NativeSyntheticEvent<NativeSelectionCopyEvent>) => {
-      const { text, format, selectionStart, selectionEnd } = e.nativeEvent;
+      const { text, format, selectionStart, selectionEnd, markdown } =
+        e.nativeEvent;
       onSelectionCopy?.({
         text,
         format: format as SelectionCopyEvent['format'],
         selection: { start: selectionStart, end: selectionEnd },
+        markdown,
       });
     },
     [onSelectionCopy]
@@ -651,6 +654,7 @@ export const EnrichedMarkdownText = ({
     streamingConfig: normalizedStreamingConfig,
     onStreamingEnd: handleStreamingEnd,
     spoilerOverlay,
+    copyLinksAs,
     style: containerStyle,
     contextMenuItems: nativeContextMenuItems,
     linkContextMenuItems: nativeLinkContextMenuItems,

@@ -220,9 +220,17 @@ Only fires when `flavor="github"` — the copy button is part of the GitHub flav
 />
 ```
 
+### `copyLinksAs`
+
+How links appear in copied plain text: a copied selection, and a table's or quote's long-press **Copy**. `'label'` copies the link's text; `'markdown'` copies `[label](url)`, escaping only what would break the link, so the URL survives a paste. Other clipboard formats and **Copy as Markdown** are unchanged. Recognized links (`linkRecognition`) and autolinks, whose text is the URL, copy as their text either way.
+
+| Type                      | Default Value | Platform    |
+| ------------------------- | ------------- | ----------- |
+| `'label' \| 'markdown'`   | `'label'`     | Both, macOS |
+
 ### `onSelectionCopy`
 
-Callback after a text selection is copied, from the selection menu's **Copy**, **Copy as Markdown**, or **Copy Image URL** item, the keyboard shortcut (⌘C / Ctrl+C), or TalkBack's copy action. Receives `text` (the copied plain text), `format` (`'plain'`, also used by keyboard and TalkBack copies, `'markdown'`, or `'imageUrls'`), and `selection` (`{ start, end }` in the rendered text; with `flavor="github"`, they restart at each block that renders as its own view, such as a table, code block or quote, so consecutive paragraphs count as one run of text). Code block copies are reported by `onCopyPress` instead.
+Callback after a text selection is copied, from the selection menu's **Copy**, **Copy as Markdown**, or **Copy Image URL** item, the keyboard shortcut (⌘C / Ctrl+C), or TalkBack's copy action. Receives `text` (the copied plain text), `markdown` (the copied selection as Markdown, whatever the format), `format` (`'plain'`, also used by keyboard and TalkBack copies, `'markdown'`, or `'imageUrls'`), and `selection` (`{ start, end }` in the rendered text; with `flavor="github"`, they restart at each block that renders as its own view, such as a table, code block or quote, so consecutive paragraphs count as one run of text). Code block copies are reported by `onCopyPress` instead.
 
 | Type                                    | Default Value | Platform    |
 | --------------------------------------- | ------------- | ----------- |

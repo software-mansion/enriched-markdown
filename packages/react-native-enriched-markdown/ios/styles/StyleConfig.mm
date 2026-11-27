@@ -154,6 +154,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   NSDictionary<NSString *, NSString *> *_imageRequestHeaders;
   NSDictionary<NSString *, ENRMImageSourceOverride *> *_imageSourceOverrides;
   NSDictionary<NSString *, LinkPillContent *> *_linkPillContent;
+  BOOL _copyLinksAsMarkdown;
   // Video properties
   CGFloat _videoMarginTop;
   CGFloat _videoMarginBottom;
@@ -469,6 +470,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   copy->_imageRequestHeaders = [_imageRequestHeaders copy];
   copy->_imageSourceOverrides = [_imageSourceOverrides copy];
   copy->_linkPillContent = [_linkPillContent copy];
+  copy->_copyLinksAsMarkdown = _copyLinksAsMarkdown;
   copy->_videoMarginTop = _videoMarginTop;
   copy->_videoMarginBottom = _videoMarginBottom;
   copy->_videoBorderRadius = _videoBorderRadius;
@@ -1598,6 +1600,16 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 - (void)setImageMarginBottom:(CGFloat)newValue
 {
   _imageMarginBottom = newValue;
+}
+
+- (BOOL)copyLinksAsMarkdown
+{
+  return _copyLinksAsMarkdown;
+}
+
+- (void)setCopyLinksAsMarkdown:(BOOL)newValue
+{
+  _copyLinksAsMarkdown = newValue;
 }
 
 - (NSDictionary<NSString *, NSString *> *)imageRequestHeaders

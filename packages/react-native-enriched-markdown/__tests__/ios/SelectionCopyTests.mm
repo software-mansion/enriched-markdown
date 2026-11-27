@@ -1,11 +1,13 @@
 #import "../../ios/attachments/ENRMImageAttachment.h"
 #import "../../ios/parser/ENRMMarkdownParser.h"
+#import "../../ios/parser/ENRMTextLinkAttributes.h"
 #import "../../ios/parser/MarkdownASTNode.h"
 #import "../../ios/segments/ENRMBlockquoteContainerView.h"
 #import "../../ios/styles/StyleConfig.h"
 #import "../../ios/utils/ENRMAccessibilityLabels.h"
 #import "../../ios/utils/ENRMTextRenderer.h"
 #import "../../ios/utils/EditMenuUtils.h"
+#import "../../ios/utils/MarkdownASTSerializer.h"
 #import "../../ios/utils/PasteboardUtils.h"
 #import "../../ios/views/EnrichedMarkdownInternalText.h"
 #import <XCTest/XCTest.h>
@@ -15,19 +17,23 @@
 
 @implementation ENRMSelectionCopyTests {
   NSMutableArray<NSDictionary *> *_copies;
+  NSMutableArray<NSString *> *_markdowns;
 }
 
 - (void)setUp
 {
   _copies = [NSMutableArray array];
+  _markdowns = [NSMutableArray array];
   [UIPasteboard generalPasteboard].string = @"";
 }
 
 - (ENRMSelectionCopyHandler)recorder
 {
   NSMutableArray<NSDictionary *> *copies = _copies;
-  return ^(NSString *text, NSString *format, NSRange range) {
+  NSMutableArray<NSString *> *markdowns = _markdowns;
+  return ^(NSString *text, NSString *format, NSRange range, NSString *markdown) {
     [copies addObject:@{@"text" : text, @"format" : format, @"range" : [NSValue valueWithRange:range]}];
+    [markdowns addObject:markdown];
   };
 }
 
@@ -84,6 +90,52 @@ static void ENRMPerform(UIAction *action)
 
   XCTAssertEqualObjects(_copies, (@[ ENRMCopy(@"42", ENRMSelectionCopyFormatPlain, NSMakeRange(7, 2)) ]));
   XCTAssertEqualObjects([UIPasteboard generalPasteboard].string, @"42");
+}
+
+// copyLinksAs: 'markdown' keeps each link's URL in the plain text, escaping only what would break it.
+- (void)testCopyLinksAsMarkdownWritesLinksIntoThePlainText
+{
+  StyleConfig *config = [[StyleConfig alloc] init];
+  ENRMRenderResult *result = ENRMRenderASTNodes(
+      ENRMParse(@"See [a \\[b\\] c](https://x.y/p\\(1\\)) and [sp](<https://x.y/a b>) at <https://a.b>").children,
+      config, NO, YES, 0, NSLineBreakStrategyStandard, 0);
+  EnrichedMarkdownInternalText *view = [[EnrichedMarkdownInternalText alloc] initWithConfig:config];
+  [view applyAttributedText:result.attributedText context:result.context];
+  view.onSelectionCopy = [self recorder];
+  NSRange all = NSMakeRange(0, view.textView.textStorage.length);
+  view.textView.selectedRange = all;
+
+  [view.textView copy:nil];
+  XCTAssertEqualObjects([UIPasteboard generalPasteboard].string, @"See a [b] c and sp at https://a.b");
+  // The event's Markdown keeps the URLs either way.
+  XCTAssertTrue([_markdowns.lastObject containsString:@"(https://x.y/p(1))"], @"%@", _markdowns.lastObject);
+
+  [config setCopyLinksAsMarkdown:YES];
+  [view.textView copy:nil];
+  NSString *expected = @"See [a \\[b\\] c](https://x.y/p\\(1\\)) and [sp](<https://x.y/a b>) at https://a.b";
+  XCTAssertEqualObjects([UIPasteboard generalPasteboard].string, expected);
+  XCTAssertEqualObjects(_copies.lastObject, ENRMCopy(expected, ENRMSelectionCopyFormatPlain, all));
+}
+
+// Quote and table Copy build their plain text from the AST with the same rule.
+- (void)testBlockPlainTextWritesLinksAsMarkdown
+{
+  MarkdownASTNode *quote =
+      ENRMParse(@"> see [x](https://x.y/p(1)) at <https://a.b>, [intranet](https://intranet) and www.example.com\n")
+          .children.firstObject;
+  XCTAssertEqualObjects(plainTextFromASTNode(quote), @"see x at https://a.b, intranet and www.example.com");
+  XCTAssertEqualObjects(
+      plainTextWithMarkdownLinksFromASTNode(quote),
+      @"see [x](https://x.y/p\\(1\\)) at https://a.b, [intranet](https://intranet) and www.example.com");
+}
+
+// A recognized link touching an explicit one with the same URL stays text; the explicit one keeps its URL.
+- (void)testRecognizedLinkNextToAnExplicitOneWithTheSameURL
+{
+  NSMutableAttributedString *text = [[NSMutableAttributedString alloc] initWithString:@"ab"];
+  [text addAttribute:NSLinkAttributeName value:@"https://u.v" range:NSMakeRange(0, 2)];
+  [text addAttribute:ENRMRecognizedLinkAttributeName value:@YES range:NSMakeRange(0, 1)];
+  XCTAssertEqualObjects(ENRMPlainTextWithMarkdownLinks(text), @"a[b](https://u.v)");
 }
 
 - (void)testCopyKeyCommandWithoutSelectionReportsNothing

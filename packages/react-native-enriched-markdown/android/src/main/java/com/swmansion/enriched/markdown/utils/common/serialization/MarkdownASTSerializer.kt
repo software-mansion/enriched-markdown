@@ -56,19 +56,51 @@ object MarkdownASTSerializer {
     return sb.toString()
   }
 
+  /** `[label](url)`, escaping only what would break the link; an autolink (the label is the URL) stays as its label. */
+  fun markdownLink(
+    label: String,
+    url: String,
+  ): String = if (isAutolink(label, url)) label else "[${escapeLinkLabel(label)}](${linkDestination(url)})"
+
+  private val linkLabelSpecials = Regex("""[\\\[\]]""")
+  private val bracketedDestinationSpecials = Regex("""[\\<>]""")
+  private val destinationSpecials = Regex("""[\\()]""")
+
+  // `<https://x.dev>`, a bare URL, `www.x.dev` or an email, as the parser writes them: the label alone still
+  // pastes as the same link.
+  private fun isAutolink(
+    label: String,
+    url: String,
+  ): Boolean = url == label || url == "mailto:$label" || (label.startsWith("www.") && url == "http://$label")
+
+  private fun escapeLinkLabel(label: String): String = label.replace(linkLabelSpecials, """\\$0""")
+
+  // A destination with spaces or angle brackets goes in <...>; otherwise only \ and parentheses are escaped.
+  private fun linkDestination(url: String): String =
+    if (url.any { it.isWhitespace() || it == '<' || it == '>' || it.isISOControl() }) {
+      "<" + url.replace(bracketedDestinationSpecials, """\\$0""") + ">"
+    } else {
+      url.replace(destinationSpecials, """\\$0""")
+    }
+
   /**
    * Extracts the plain text content of an AST node recursively.
    * Inserts newlines between block-level children and handles soft/hard breaks.
+   * With [linksAsMarkdown], each link is written as `[label](url)` (`copyLinksAs: 'markdown'`).
    */
-  fun plainText(node: MarkdownASTNode): String {
+  fun plainText(
+    node: MarkdownASTNode,
+    linksAsMarkdown: Boolean = false,
+  ): String {
     val buffer = StringBuilder()
-    appendPlainText(node, buffer)
+    appendPlainText(node, buffer, linksAsMarkdown)
     return buffer.toString().trim()
   }
 
   private fun appendPlainText(
     node: MarkdownASTNode,
     buffer: StringBuilder,
+    linksAsMarkdown: Boolean,
   ) {
     when (node.type) {
       NodeType.SoftBreak -> {
@@ -86,22 +118,30 @@ object MarkdownASTSerializer {
 
       NodeType.Paragraph -> {
         for (child in node.children) {
-          appendPlainText(child, buffer)
+          appendPlainText(child, buffer, linksAsMarkdown)
         }
         buffer.append("\n")
       }
 
       NodeType.Heading -> {
         for (child in node.children) {
-          appendPlainText(child, buffer)
+          appendPlainText(child, buffer, linksAsMarkdown)
         }
         buffer.append("\n")
+      }
+
+      NodeType.Link -> {
+        val label = StringBuilder(node.content)
+        for (child in node.children) {
+          appendPlainText(child, label, linksAsMarkdown)
+        }
+        buffer.append(if (linksAsMarkdown) markdownLink(label.toString(), node.getAttribute("url") ?: "") else label)
       }
 
       else -> {
         buffer.append(node.content)
         for (child in node.children) {
-          appendPlainText(child, buffer)
+          appendPlainText(child, buffer, linksAsMarkdown)
         }
       }
     }
