@@ -1,8 +1,8 @@
 #pragma once
 
-// Android exposes generated/jni/react/renderer/components (the spec folder by
-// name, so no other generated header is reachable bare); iOS generates the JSI
-// header flat under ios/generated/ReactCodegen.
+// Android exposes the codegen jni/react/renderer/components folder (the spec
+// folder by name, so no other generated header is reachable bare); iOS has the
+// JSI header flat at the root of the app's ReactCodegen pod.
 #if __has_include("EnrichedMarkdownTextSpec/EnrichedMarkdownTextSpecJSI.h")
 #include "EnrichedMarkdownTextSpec/EnrichedMarkdownTextSpecJSI.h"
 #else
@@ -10,13 +10,14 @@
 #endif
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace facebook::react {
 
 using EnrichedMarkdownParserBlockSlot =
     NativeEnrichedMarkdownParserNativeBlockSlot<std::string, std::string, std::string, std::string, std::string,
-                                                std::string, std::string>;
+                                                std::string, std::string, std::string, std::string, bool>;
 template <>
 struct Bridging<EnrichedMarkdownParserBlockSlot>
     : NativeEnrichedMarkdownParserNativeBlockSlotBridging<EnrichedMarkdownParserBlockSlot> {};
@@ -27,8 +28,14 @@ template <>
 struct Bridging<EnrichedMarkdownParserImageOccurrence>
     : NativeEnrichedMarkdownParserNativeImageOccurrenceBridging<EnrichedMarkdownParserImageOccurrence> {};
 
+using EnrichedMarkdownParserLinkOccurrence =
+    NativeEnrichedMarkdownParserNativeLinkOccurrence<std::string, std::string, std::string>;
+template <>
+struct Bridging<EnrichedMarkdownParserLinkOccurrence>
+    : NativeEnrichedMarkdownParserNativeLinkOccurrenceBridging<EnrichedMarkdownParserLinkOccurrence> {};
+
 using EnrichedMarkdownParserMd4cFlags =
-    NativeEnrichedMarkdownParserNativeMd4cFlags<bool, bool, bool, bool, bool, bool, bool, bool>;
+    NativeEnrichedMarkdownParserNativeMd4cFlags<bool, bool, bool, bool, bool, bool, bool, bool, bool>;
 template <>
 struct Bridging<EnrichedMarkdownParserMd4cFlags>
     : NativeEnrichedMarkdownParserNativeMd4cFlagsBridging<EnrichedMarkdownParserMd4cFlags> {};
@@ -41,7 +48,8 @@ struct Bridging<EnrichedMarkdownParserStreamingOptions>
 
 using EnrichedMarkdownParserCollectedBlocks =
     NativeEnrichedMarkdownParserNativeCollectedBlocks<std::vector<EnrichedMarkdownParserBlockSlot>,
-                                                      std::vector<EnrichedMarkdownParserImageOccurrence>>;
+                                                      std::vector<EnrichedMarkdownParserImageOccurrence>,
+                                                      std::vector<EnrichedMarkdownParserLinkOccurrence>>;
 template <>
 struct Bridging<EnrichedMarkdownParserCollectedBlocks>
     : NativeEnrichedMarkdownParserNativeCollectedBlocksBridging<EnrichedMarkdownParserCollectedBlocks> {};
@@ -51,14 +59,27 @@ struct Bridging<EnrichedMarkdownParserCollectedBlocks>
  * It filters and parses through the DocumentStore the native hosts use, so the
  * tick's measurement and render reuse its document and see the same ids. Shared
  * by iOS (EnrichedMarkdownParserProvider) and Android (parser-module/CMakeLists.txt).
+ * It also keeps the text of JS's markdown streams (ENRMMarkdownStreams).
  */
 class EnrichedMarkdownParser : public NativeEnrichedMarkdownParserCxxSpec<EnrichedMarkdownParser> {
 public:
   explicit EnrichedMarkdownParser(std::shared_ptr<CallInvoker> jsInvoker);
+  ~EnrichedMarkdownParser() override;
 
   EnrichedMarkdownParserCollectedBlocks collect(jsi::Runtime &rt, std::string markdown,
                                                 EnrichedMarkdownParserMd4cFlags flags, bool isGFM,
                                                 EnrichedMarkdownParserStreamingOptions streaming);
+  EnrichedMarkdownParserCollectedBlocks collectStream(jsi::Runtime &rt, double streamId, double length,
+                                                      EnrichedMarkdownParserMd4cFlags flags, bool isGFM,
+                                                      EnrichedMarkdownParserStreamingOptions streaming);
+  double createStream(jsi::Runtime &rt, std::string text);
+  double appendToStream(jsi::Runtime &rt, double streamId, std::string chunk);
+  std::string readStream(jsi::Runtime &rt, double streamId);
+  void disposeStream(jsi::Runtime &rt, double streamId);
+
+private:
+  // This runtime's streams: a JS reload drops them without dispose().
+  std::unordered_set<int> streamIds_;
 };
 
 } // namespace facebook::react

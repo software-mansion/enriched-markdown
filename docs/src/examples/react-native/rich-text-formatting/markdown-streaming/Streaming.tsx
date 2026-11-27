@@ -29,11 +29,12 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
+  // Streaming ends once the whole document has arrived.
   return (
     <EnrichedMarkdownText
       markdown={markdown}
       flavor="github"
-      streamingAnimation
+      streaming={markdown.length < full.length}
       streamingConfig={{ tableMode: 'hidden', codeBlockMode: 'progressive' }}
     />
   );

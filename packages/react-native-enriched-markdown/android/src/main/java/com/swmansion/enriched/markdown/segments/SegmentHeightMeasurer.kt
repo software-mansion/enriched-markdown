@@ -8,6 +8,7 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import com.swmansion.enriched.markdown.CodeBlockWrapCursor
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.utils.common.BoundsForWidthUtils
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
 import kotlin.math.ceil
@@ -77,6 +78,7 @@ object SegmentHeightMeasurer {
     slotMeasurer: BlockSlotMeasurer? = null,
     originXPx: Float = 0f,
     originYPx: Float = 0f,
+    quoteRightToLeft: Boolean? = null,
   ): Float =
     measure(
       segments,
@@ -92,6 +94,7 @@ object SegmentHeightMeasurer {
       originXPx,
       originYPx,
       nested = true,
+      quoteRightToLeft = quoteRightToLeft,
     ).heightPx
 
   private fun measure(
@@ -108,6 +111,7 @@ object SegmentHeightMeasurer {
     originXPx: Float,
     originYPx: Float,
     nested: Boolean,
+    quoteRightToLeft: Boolean? = null,
   ): StackMeasurement {
     val widthPx = ceil(contentWidthPx).toInt().coerceAtLeast(1)
     val lastIndex = segments.lastIndex
@@ -120,8 +124,10 @@ object SegmentHeightMeasurer {
 
       when (segment) {
         is RenderedSegment.Text -> {
-          segment.styledText.replaceMathSpansWithPlaceholders(context)
-          val layout = createStaticLayout(segment.styledText, fontSizePx, widthPx, breakStrategy)
+          // Measured segments come from a full render, never a patch.
+          val styledText = requireNotNull(segment.styledText)
+          styledText.replaceMathSpansWithPlaceholders(context)
+          val layout = createStaticLayout(styledText, fontSizePx, widthPx, breakStrategy)
           totalHeightPx += layout.height
           val widestLine = (0 until layout.lineCount).maxOfOrNull { layout.getLineWidth(it) } ?: 0f
           maxContentWidthPx = maxOf(maxContentWidthPx, ceil(widestLine))
@@ -178,6 +184,7 @@ object SegmentHeightMeasurer {
               slotMeasurer,
               originXPx,
               originYPx + totalHeightPx,
+              quoteRightToLeft,
             )
           maxContentWidthPx = contentWidthPx
           if (!nested && includeBottomMargin) totalHeightPx += style.blockquoteStyle.marginBottom.toInt()
@@ -229,6 +236,7 @@ object SegmentHeightMeasurer {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
           setUseLineSpacingFromFallbacks(true)
         }
+        BoundsForWidthUtils.applyTo(this)
       }.build()
   }
 }

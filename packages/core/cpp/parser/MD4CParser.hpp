@@ -11,6 +11,7 @@ struct Md4cFlags {
   bool latexMath = true;
   bool superscript = false;
   bool subscript = false;
+  bool strikethrough = false;
   bool highlight = false;
   bool permissiveAutolinks = true;
   bool hardSoftBreaks = false;
@@ -19,7 +20,7 @@ struct Md4cFlags {
 
   bool operator==(const Md4cFlags &other) const {
     return underline == other.underline && latexMath == other.latexMath && superscript == other.superscript &&
-           subscript == other.subscript && highlight == other.highlight &&
+           subscript == other.subscript && strikethrough == other.strikethrough && highlight == other.highlight &&
            permissiveAutolinks == other.permissiveAutolinks && hardSoftBreaks == other.hardSoftBreaks &&
            preserveBlankLines == other.preserveBlankLines && admonitions == other.admonitions;
   }

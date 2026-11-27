@@ -1,27 +1,22 @@
 #import "ENRMClipboardCoordinator.h"
 #import "ENRMBlockStore.h"
 #import "ENRMFormattingStore.h"
-#import "ENRMInputFormatter.h"
 #import "ENRMMarkdownSerializer.h"
-#import "styles/ENRMBlockHandler.h"
 
 @implementation ENRMClipboardCoordinator {
   ENRMFormattingStore *_formattingStore;
   ENRMBlockStore *_blockStore;
   id<ENRMTransientRangeProvider> _transientRangeProvider;
-  ENRMInputFormatter *_formatter;
 }
 
 - (instancetype)initWithFormattingStore:(ENRMFormattingStore *)formattingStore
                              blockStore:(ENRMBlockStore *)blockStore
                  transientRangeProvider:(id<ENRMTransientRangeProvider>)transientRangeProvider
-                              formatter:(ENRMInputFormatter *)formatter
 {
   if (self = [super init]) {
     _formattingStore = formattingStore;
     _blockStore = blockStore;
     _transientRangeProvider = transientRangeProvider;
-    _formatter = formatter;
   }
   return self;
 }
@@ -41,14 +36,7 @@
                      ranges:(NSArray<ENRMFormattingRange *> *)ranges
                 blockRanges:(NSArray<ENRMBlockRange *> *)blockRanges
 {
-  ENRMInputFormatter *formatter = _formatter;
-  return [ENRMMarkdownSerializer serializePlainText:text
-                                             ranges:ranges
-                                        blockRanges:blockRanges
-                                blockPrefixProvider:^NSString *(ENRMBlockRange *blockRange) {
-                                  id<ENRMBlockHandler> handler = [formatter handlerForBlockType:blockRange.type];
-                                  return [handler markdownLinePrefixForBlockRange:blockRange];
-                                }];
+  return [ENRMMarkdownSerializer serializePlainText:text ranges:ranges blockRanges:blockRanges];
 }
 
 - (NSString *)serializeFullDocument:(NSString *)plainText
@@ -88,7 +76,10 @@
     NSUInteger clippedStart = MAX(rangeStart, selection.location);
     NSUInteger clippedEnd = MIN(rangeEnd, selEnd);
     NSRange shifted = NSMakeRange(clippedStart - selection.location, clippedEnd - clippedStart);
-    [clippedBlockRanges addObject:[ENRMBlockRange rangeWithType:blockRange.type range:shifted level:blockRange.level]];
+    ENRMBlockRange *clipped = [ENRMBlockRange rangeWithType:blockRange.type range:shifted level:blockRange.level];
+    // The core writes the ordinal it is given, so a copy of items 3 and 4 keeps "3." and "4.".
+    clipped.ordinal = blockRange.ordinal;
+    [clippedBlockRanges addObject:clipped];
   }
 
   return [self serializeText:selectedText ranges:clippedRanges blockRanges:clippedBlockRanges];

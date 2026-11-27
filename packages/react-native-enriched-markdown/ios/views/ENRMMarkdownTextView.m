@@ -2,6 +2,7 @@
 #import "ENRMLinkPillAttachment.h"
 #import "ENRMLinkPillText.h"
 #import "ENRMTextHitTest.h"
+#import "ENRMTextTiles.h"
 #import "LinkTapUtils.h"
 #import "PasteboardUtils.h"
 
@@ -15,17 +16,79 @@
   // stands in for it: it would show through that image.
   ENRMLinkPillAttachment *_liftedPill;
   NSUInteger _pillMenuIndex;
+  // The text storage of the TextKit 1 stack built in initWithFrame:; the text view keeps only its
+  // container.
+  NSTextStorage *_ownTextStorage;
+  ENRMTextTiles *_tiles;
+}
+
+// A TextKit 1 stack whose container the viewport can hold at the size it sets (see
+// ENRMTextViewportContainer).
+- (instancetype)initWithFrame:(CGRect)frame
+{
+  NSTextStorage *textStorage = [[NSTextStorage alloc] init];
+  NSLayoutManager *layoutManager = [[NSLayoutManager alloc] init];
+  ENRMTextViewportContainer *textContainer =
+      [[ENRMTextViewportContainer alloc] initWithSize:CGSizeMake(frame.size.width, CGFLOAT_MAX)];
+  textContainer.widthTracksTextView = YES;
+  [layoutManager addTextContainer:textContainer];
+  [textStorage addLayoutManager:layoutManager];
+  if (self = [self initWithFrame:frame textContainer:textContainer]) {
+    _ownTextStorage = textStorage;
+  }
+  return self;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame textContainer:(NSTextContainer *)textContainer
 {
   if (self = [super initWithFrame:frame textContainer:textContainer]) {
+    _tiles = [[ENRMTextTiles alloc] initWithTextView:self];
     _pillLift = [[ENRMLinkMenuLift alloc] init];
     __weak ENRMMarkdownTextView *weakSelf = self;
     _pillLift.onEnd = ^{ [weakSelf restoreLiftedPill]; };
     [self addInteraction:[[UIContextMenuInteraction alloc] initWithDelegate:self]];
   }
   return self;
+}
+
+#pragma mark - Drawing
+
+- (void)setDrawnRect:(CGRect)rect
+{
+  [_tiles setDrawnRect:rect];
+}
+
+- (void)setNeedsDisplayFromGlyphIndex:(NSUInteger)glyphIndex
+{
+  [_tiles setNeedsDisplayFromGlyphIndex:glyphIndex];
+}
+
+- (void)setNeedsDisplayFromCharacterIndex:(NSUInteger)characterIndex
+{
+  [_tiles setNeedsDisplayFromCharacterIndex:characterIndex];
+}
+
+- (void)layoutSubviews
+{
+  [super layoutSubviews];
+  [_tiles layout];
+}
+
+- (ENRMStreamingEffects *)streamingEffects
+{
+  return _tiles.streamingEffects;
+}
+
+- (void)didMoveToWindow
+{
+  [super didMoveToWindow];
+  // The effects link stops off a window; what still animates goes on from here.
+  [_tiles streamingEffectsChanged];
+}
+
+- (void)streamingEffectsChanged
+{
+  [_tiles streamingEffectsChanged];
 }
 
 /// New text moves or replaces the pill under its lifted image.

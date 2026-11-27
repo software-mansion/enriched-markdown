@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.renderer
 
 import android.content.Context
 import android.text.SpannableStringBuilder
+import com.swmansion.enriched.markdown.AdmonitionTitles
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.plugin.PluginSnapshot
@@ -15,6 +16,7 @@ class Renderer {
   private var cachedImageRequestHeaders: Map<String, String> = emptyMap()
   private var cachedOnPluginEvent: PluginEventSink? = null
   private var cachedPlugins: PluginSnapshot? = null
+  private var cachedAdmonitionTitles: AdmonitionTitles = AdmonitionTitles.Default
 
   private var lastElementMarginBottom: Float = 0f
 
@@ -24,12 +26,14 @@ class Renderer {
     imageRequestHeaders: Map<String, String> = emptyMap(),
     onPluginEvent: PluginEventSink? = null,
     plugins: PluginSnapshot,
+    admonitionTitles: AdmonitionTitles = AdmonitionTitles.Default,
   ) {
     if (cachedStyle === style &&
       cachedContext === context &&
       cachedImageRequestHeaders == imageRequestHeaders &&
       cachedOnPluginEvent === onPluginEvent &&
-      cachedPlugins === plugins
+      cachedPlugins === plugins &&
+      cachedAdmonitionTitles == admonitionTitles
     ) {
       return
     }
@@ -39,9 +43,10 @@ class Renderer {
     cachedImageRequestHeaders = imageRequestHeaders
     cachedOnPluginEvent = onPluginEvent
     cachedPlugins = plugins
+    cachedAdmonitionTitles = admonitionTitles
     cachedFactory =
       RendererFactory(
-        RendererConfig(style, imageRequestHeaders, onPluginEvent),
+        RendererConfig(style, imageRequestHeaders, onPluginEvent, admonitionTitles),
         context,
         plugins,
       )

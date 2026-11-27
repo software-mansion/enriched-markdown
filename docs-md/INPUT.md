@@ -2,7 +2,7 @@
 
 `EnrichedMarkdownTextInput` is a rich text input component that outputs Markdown. It is an uncontrolled input — it doesn't use any state or props to store its value, but instead directly interacts with the underlying platform-specific components. Thanks to this, the component is really performant and simple to use.
 
-It also runs on web, as an [![Experimental](https://img.shields.io/badge/-experimental-orange "Experimental: this feature is still taking shape and may get breaking changes, including in nightly releases.")](WEB_INPUT.md#experimental-status) editor with a smaller feature set; see [Web Editor](WEB_INPUT.md).
+It also runs on web, as an editor with a smaller feature set; see [Web Editor](WEB_INPUT.md).
 
 ## Usage
 

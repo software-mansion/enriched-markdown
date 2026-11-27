@@ -54,13 +54,27 @@
 //   already were not, and `~~` inside a fence is not one either. With
 //   `inlineMath` off a lone `$` is currency, so `$5 and *x` closes; the
 //   reference treats every `$` as math.
+// - A `-` or `=` line inside an open fence is not a setext underline.
+// - Closers are inserted before trailing whitespace, not only before newlines.
+// - A fence closes only with a run at least as long as its opener, so a ```
+//   line inside a ```` fence is content. The reference toggles on every ```.
+// - A link URL is read as the parser reads it (nested parentheses, `<...>`,
+//   titles): incomplete while the text ends inside it, prose when other text
+//   follows the destination. The reference ends the link at any `)` after
+//   `](` and drops everything after a `](` with none.
+// - A `[` left open more than 512 bytes before the end is a stray bracket in
+//   prose, not a link label.
+// - An HTML block that may interrupt a paragraph (`<div`, `<pre`, `<!--` and
+//   the like) ends one, as a heading or a fence does.
+// - An escaped `\!` before `[` starts no image.
 // The affected recorded cases in the test data are marked as ours.
 //
 // Additions with no reference counterpart: closers for spoilers, highlight,
-// superscript and subscript (RepairExtensions.cpp).
+// superscript and subscript (RepairExtensions.cpp) and the `withhold` options
+// (RepairWithhold.cpp).
 //
-// When wiring this into a renderer, default `inlineMath` to the parser's
-// latexMath flag: with `$…$` math enabled an open `$x` should be closed too.
+// When wiring this into a renderer, set `inlineMath` and `displayMath` from
+// the parser's latexMath flag.
 //
 // All text is UTF-8. Positions are byte offsets.
 #pragma once
@@ -101,6 +115,13 @@ struct RepairOptions {
   bool highlight = false;
   bool superscript = false;
   bool subscript = false;
+
+  // Remove half-written syntax at the end of a streamed prefix instead of
+  // closing it; withholdMath also reads `$` with the parser's rules. With
+  // withholdIncomplete, a `[label]` that ends the text shows without its
+  // brackets until the `(` of a link may follow.
+  bool withholdIncomplete = false;
+  bool withholdMath = false;
 };
 
 // Equivalent to the reference's top-level function.

@@ -8,6 +8,7 @@
 #define RCTUIColor UIColor
 #define RCTUIImage UIImage
 #define RCTUIView UIView
+#define RCTPlatformView UIView
 #define RCTUIScrollView UIScrollView
 #define RCTUIGraphicsImageRenderer UIGraphicsImageRenderer
 #define RCTUIGraphicsImageRendererContext UIGraphicsImageRendererContext
@@ -345,15 +346,6 @@ static inline void ENRMRefreshTextViewLayout(ENRMPlatformTextView *textView)
     [textView.layoutManager ensureLayoutForTextContainer:textView.textContainer];
   }
   ENRMSetNeedsDisplay(textView);
-}
-
-/// Refreshes a text view's layout and display after it is attached to a window.
-/// Sets the frame and text container to the given bounds, invalidates layout for
-/// any existing content, then triggers a redraw.
-static inline void ENRMRefreshTextViewAfterWindowAttach(ENRMPlatformTextView *textView, CGRect bounds)
-{
-  textView.frame = bounds;
-  ENRMRefreshTextViewLayout(textView);
 }
 
 /// Cross-platform text deselection: UITextView uses selectedTextRange (nullable);

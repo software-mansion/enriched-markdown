@@ -259,12 +259,23 @@ function videoStyle(style: MarkdownStyleInternal): CSSProperties {
   return base;
 }
 
+// Browsers without the `cap` would drop the whole declaration.
+const SUPPORTS_CAP_UNIT =
+  typeof CSS !== 'undefined' &&
+  typeof CSS.supports === 'function' &&
+  CSS.supports('vertical-align', '1cap');
+
 function inlineImageStyle(style: MarkdownStyleInternal): CSSProperties {
   const size = style.inlineImage.size;
   return {
     width: size,
     height: size,
-    verticalAlign: 'middle',
+    objectFit: 'contain',
+    // Centre on the cap height: lift the bottom edge to half the cap height
+    // minus half the image. Without `cap`, the middle.
+    verticalAlign: SUPPORTS_CAP_UNIT
+      ? `calc(0.5cap - ${size / 2}px)`
+      : 'middle',
     display: 'inline',
   };
 }
@@ -399,6 +410,25 @@ function highlightStyle(style: MarkdownStyleInternal): CSSProperties {
   };
 }
 
+function spoilerStyle(style: MarkdownStyleInternal): CSSProperties {
+  return {
+    backgroundColor: style.spoiler.color,
+    borderRadius: style.spoiler.solid.borderRadius,
+    boxDecorationBreak: 'clone',
+    WebkitBoxDecorationBreak: 'clone',
+    cursor: 'pointer',
+  };
+}
+
+function spoilerRevealedStyle(style: MarkdownStyleInternal): CSSProperties {
+  return {
+    backgroundColor: 'transparent',
+    borderRadius: style.spoiler.solid.borderRadius,
+    boxDecorationBreak: 'clone',
+    WebkitBoxDecorationBreak: 'clone',
+  };
+}
+
 function mathInlineStyle(style: MarkdownStyleInternal): CSSProperties {
   return { color: style.inlineMath.color };
 }
@@ -509,6 +539,10 @@ function tableWrapperStyle(style: MarkdownStyleInternal): CSSProperties {
   return {
     overflowX: 'auto',
     overflowY: 'hidden',
+    // Opt out of an `overflow-wrap: anywhere` set through `containerStyle`: it
+    // would let the columns shrink below their words instead of the table
+    // scrolling.
+    overflowWrap: 'normal',
     marginTop: table.marginTop,
     marginBottom: table.marginBottom,
     ...alignment,
@@ -580,6 +614,8 @@ export interface Styles {
   superscript: CSSProperties;
   subscript: CSSProperties;
   highlight: CSSProperties;
+  spoiler: CSSProperties;
+  spoilerRevealed: CSSProperties;
   mathInline: CSSProperties;
   mathDisplay: CSSProperties;
   table: CSSProperties;
@@ -633,6 +669,8 @@ export function buildStyles(style: MarkdownStyleInternal): Styles {
     superscript: superscriptStyle(style),
     subscript: subscriptStyle(style),
     highlight: highlightStyle(style),
+    spoiler: spoilerStyle(style),
+    spoilerRevealed: spoilerRevealedStyle(style),
     mathInline: mathInlineStyle(style),
     mathDisplay: mathDisplayStyle(style),
     table: tableStyle(style),

@@ -102,6 +102,8 @@ web-build/
 packages/core/cpp/highlight/vendor/tree-sitter/
 packages/core/cpp/highlight/vendor/grammars/
 packages/core/cpp/highlight/vendor/generated/
+# Every vendored grammar under #if ENRM_GRAMMAR_<ID>, for the SwiftPM build (Package.swift).
+packages/core/cpp/highlight/vendor/guarded/
 # Per-app registry for a custom code-highlight language set (iOS, generated-<app-slug>);
 # kept out of the committed generated/ dir so a custom build never clobbers the default,
 # and keyed per app so monorepo apps with different sets never clobber each other.

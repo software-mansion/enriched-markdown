@@ -187,6 +187,7 @@ public struct MarkdownStyleConfiguration: Equatable, Sendable {
   public var heading1: ElementStyle   // … through heading6
   public var codeBlock: CodeBlockStyle
   public var blockquote: BlockquoteStyle
+  public var linkVariants: [LinkVariantStyle]   // one per Link(matching:) pattern
   // … one record per element: link, strong, emphasis, strikethrough, underline,
   // superscript, subscript, highlight, spoiler, code, image, inlineImage,
   // thematicBreak, list, taskList, table
@@ -227,7 +228,8 @@ public enum MarkdownRenderer {
     imageRequestHeaders: [String: String] = [:],
     writingDirection: MarkdownWritingDirection = .firstStrong,
     layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight,
-    codeBlockLayout: MarkdownCodeBlockLayout = .wrapping
+    codeBlockLayout: MarkdownCodeBlockLayout = .wrapping,
+    admonitionTitles: MarkdownAdmonitionTitles = .default
   ) -> NSAttributedString
 }
 ```
@@ -284,6 +286,12 @@ The interface direction that `.firstStrong` paragraphs without a strong directio
 Whether fenced code blocks wrap as selectable text or become horizontally scrolling panels - see [`.markdownCodeBlockLayout`](/ios/api-reference/enriched-markdown-text#markdowncodeblocklayout). With `.scrollable`, each code block is a text attachment whose panel only a TextKit 2 text view lays out.
 
 <PropInfo type="MarkdownCodeBlockLayout" default=".wrapping" />
+
+#### `admonitionTitles`
+
+The admonition header titles - see [`.markdownAdmonitionTitles`](/ios/api-reference/enriched-markdown-text#markdownadmonitiontitles).
+
+<PropInfo type="MarkdownAdmonitionTitles" default=".default" />
 
 :::caution
 The attributed string is **not the whole rendering**. List bullets and numbers, task list checkboxes, blockquote and admonition bars and icons, code block backgrounds, and spoiler overlays are drawn by `EnrichedMarkdownText` around the text, not stored as attributes - so dropping this string into a plain `UITextView` gives you the text without them. The string also ends at its last visible character: the last block's bottom margin is the view's to lay out (see [`.markdownBottomMargin`](/ios/api-reference/enriched-markdown-text#markdownbottommargin)), not part of the text. See [UIKit interop](/ios/guides/uikit-interop) for what survives and what to do instead.

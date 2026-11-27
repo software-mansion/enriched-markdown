@@ -7,19 +7,23 @@ import { EnrichedMarkdownText } from '../src/native/EnrichedMarkdownText';
 import type {
   NativeBlockSlot,
   NativeImageOccurrence,
+  NativeLinkOccurrence,
   NativeStreamingOptions,
 } from '../src/NativeEnrichedMarkdownParser';
+import type { MarkdownCodeBlock } from '../src/types/markdownBlocks';
 
 type CollectArgs = [string, unknown, boolean, NativeStreamingOptions];
 let mockSlots: ReadonlyArray<NativeBlockSlot> = [];
 let mockImages: ReadonlyArray<NativeImageOccurrence> = [];
+let mockLinks: ReadonlyArray<NativeLinkOccurrence> = [];
 const mockCollect = jest.fn<
   {
     slots: ReadonlyArray<NativeBlockSlot>;
     images: ReadonlyArray<NativeImageOccurrence>;
+    links: ReadonlyArray<NativeLinkOccurrence>;
   },
   CollectArgs
->(() => ({ slots: mockSlots, images: mockImages }));
+>(() => ({ slots: mockSlots, images: mockImages, links: mockLinks }));
 
 jest.mock('../src/NativeEnrichedMarkdownParser', () => ({
   __esModule: true,
@@ -51,6 +55,9 @@ const IMAGE_BLOCK: NativeBlockSlot = {
   title: '',
   placement: 'root',
   occurrenceId: 'img:0123456789abcdef:0',
+  language: '',
+  code: '',
+  isComplete: true,
 };
 
 const VIDEO_BLOCK: NativeBlockSlot = {
@@ -61,6 +68,9 @@ const VIDEO_BLOCK: NativeBlockSlot = {
   title: '',
   placement: 'blockquote',
   occurrenceId: '',
+  language: '',
+  code: '',
+  isComplete: true,
 };
 
 function render(element: ReactElement): Root {
@@ -93,6 +103,7 @@ beforeEach(() => {
   mockCollect.mockClear();
   mockSlots = [IMAGE_BLOCK, VIDEO_BLOCK];
   mockImages = [];
+  mockLinks = [];
 });
 
 it('mounts one slot child per block the renderer replaced, keyed by id', () => {
@@ -175,7 +186,7 @@ it('passes the streaming filter settings so the collector sees the rendered docu
     <EnrichedMarkdownText
       markdown="x"
       flavor="github"
-      streamingAnimation
+      streaming
       streamingConfig={{ mediaMode: 'hidden', tableMode: 'hidden' }}
       renderers={{ image: () => <View /> }}
     />
@@ -186,6 +197,120 @@ it('passes the streaming filter settings so the collector sees the rendered docu
     codeBlockMode: 'progressive',
     mediaMode: 'hidden',
   });
+});
+
+it('takes the deprecated streamingAnimation as streaming', () => {
+  render(
+    <EnrichedMarkdownText
+      markdown="x"
+      flavor="github"
+      streamingAnimation
+      renderers={{ image: () => <View /> }}
+    />
+  );
+  expect(mockCollect).toHaveBeenCalledWith(
+    'x',
+    expect.anything(),
+    true,
+    expect.objectContaining({ enabled: true })
+  );
+});
+
+it('passes streaming and the animation to the native view', () => {
+  const root = render(
+    <EnrichedMarkdownText markdown="x" flavor="github" streaming />
+  );
+  expect(host(root).props.streaming).toBe(true);
+  expect(host(root).props.streamingConfig.animation).toBe('fade');
+  act(() =>
+    root.render(
+      <EnrichedMarkdownText
+        markdown="x"
+        flavor="github"
+        streaming
+        streamingConfig={{ animation: 'none' }}
+      />
+    )
+  );
+  expect(host(root).props.streamingConfig.animation).toBe('none');
+});
+
+it('passes smooth pacing to the native view, off by default', () => {
+  const root = render(
+    <EnrichedMarkdownText markdown="x" flavor="github" streaming />
+  );
+  expect(host(root).props.streamingConfig.smooth).toBe(false);
+  act(() =>
+    root.render(
+      <EnrichedMarkdownText
+        markdown="x"
+        flavor="github"
+        streaming
+        streamingConfig={{ smooth: true }}
+      />
+    )
+  );
+  expect(host(root).props.streamingConfig.smooth).toBe(true);
+});
+
+it('calls onStreamingEnd when the native view stops streaming', () => {
+  const onStreamingEnd = jest.fn();
+  const root = render(
+    <EnrichedMarkdownText
+      markdown="x"
+      flavor="github"
+      streaming
+      onStreamingEnd={onStreamingEnd}
+    />
+  );
+  act(() => host(root).props.onStreamingEnd({ nativeEvent: null }));
+  expect(onStreamingEnd).toHaveBeenCalledTimes(1);
+});
+
+it('sends the deprecated streamingAnimation to the native view as streaming', () => {
+  const root = render(
+    <EnrichedMarkdownText markdown="x" flavor="github" streamingAnimation />
+  );
+  expect(host(root).props.streaming).toBe(true);
+});
+
+it('warns once in development that streamingAnimation is deprecated', () => {
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  // A fresh module: an earlier test already set the flag that keeps it to once.
+  jest.isolateModules(() => {
+    const { act: freshAct } = require('react');
+    const { createRoot: freshRoot } = require('test-renderer');
+    const {
+      EnrichedMarkdownText: Fresh,
+    } = require('../src/native/EnrichedMarkdownText');
+    freshAct(() => {
+      freshRoot().render(<Fresh markdown="x" streamingAnimation />);
+      freshRoot().render(<Fresh markdown="y" streamingAnimation={false} />);
+    });
+  });
+  const deprecations = warn.mock.calls.filter(([message]) =>
+    String(message).includes('`streamingAnimation` is deprecated')
+  );
+  expect(deprecations).toHaveLength(1);
+  warn.mockRestore();
+});
+
+it('lets streaming override the deprecated streamingAnimation', () => {
+  render(
+    <EnrichedMarkdownText
+      markdown="x"
+      flavor="github"
+      streaming={false}
+      streamingAnimation
+      renderers={{ image: () => <View /> }}
+    />
+  );
+  expect(mockCollect).toHaveBeenCalledWith(
+    'x',
+    expect.anything(),
+    true,
+    expect.objectContaining({ enabled: false })
+  );
 });
 
 it('parses once per flag values, not per md4cFlags object identity', () => {
@@ -365,6 +490,86 @@ const OCCURRENCES: ReadonlyArray<NativeImageOccurrence> = [
     placement: 'list',
   },
 ];
+
+it('reports the document links on mount and again only when they change', () => {
+  const docs = { url: 'https://e.com/docs', label: 'docs', title: '' };
+  const bare = {
+    url: 'https://e.com/bare',
+    label: 'https://e.com/bare',
+    title: '',
+  };
+  mockSlots = [];
+  mockLinks = [docs];
+  const onLinksChange = jest.fn();
+  const root = render(
+    <EnrichedMarkdownText
+      markdown="See [docs](https://e.com/docs)"
+      flavor="github"
+      onLinksChange={onLinksChange}
+    />
+  );
+  expect(mockCollect).toHaveBeenCalled();
+  expect(onLinksChange).toHaveBeenCalledTimes(1);
+  expect(onLinksChange).toHaveBeenLastCalledWith([docs]);
+
+  // A streaming tick with the same links, and a new handler, report nothing.
+  mockLinks = [{ ...docs }];
+  const nextHandler = jest.fn();
+  act(() =>
+    root.render(
+      <EnrichedMarkdownText
+        markdown="See [docs](https://e.com/docs) and"
+        flavor="github"
+        onLinksChange={nextHandler}
+      />
+    )
+  );
+  expect(onLinksChange).toHaveBeenCalledTimes(1);
+  expect(nextHandler).not.toHaveBeenCalled();
+
+  mockLinks = [docs, bare];
+  act(() =>
+    root.render(
+      <EnrichedMarkdownText
+        markdown="See [docs](https://e.com/docs) and https://e.com/bare"
+        flavor="github"
+        onLinksChange={nextHandler}
+      />
+    )
+  );
+  expect(nextHandler).toHaveBeenCalledTimes(1);
+  expect(nextHandler).toHaveBeenLastCalledWith([docs, bare]);
+});
+
+it('reports no links, not an empty list, when nothing was collected', () => {
+  mockLinks = [{ url: 'https://e.com', label: 'e', title: '' }];
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  const onLinksChange = jest.fn();
+  render(
+    <EnrichedMarkdownText
+      markdown="[e](https://e.com)"
+      flavor="commonmark"
+      onLinksChange={onLinksChange}
+    />
+  );
+  expect(mockCollect).not.toHaveBeenCalled();
+  expect(onLinksChange).not.toHaveBeenCalled();
+  warn.mockRestore();
+});
+
+it('reports an empty list for a document with no links', () => {
+  mockSlots = [];
+  const onLinksChange = jest.fn();
+  render(
+    <EnrichedMarkdownText
+      markdown="No links"
+      flavor="github"
+      onLinksChange={onLinksChange}
+    />
+  );
+  expect(onLinksChange).toHaveBeenCalledTimes(1);
+  expect(onLinksChange).toHaveBeenLastCalledWith([]);
+});
 
 it('resolves each image once and keeps settled sources across markdown changes', async () => {
   mockSlots = [];
@@ -736,5 +941,122 @@ it('subscribes to a source started by an update render that was thrown away', as
     id: 'image:b:0',
     uri: 'https://cdn/b.png',
     headers: [],
+  });
+});
+
+it('does not recollect when strikethrough changes under github', () => {
+  const image = () => undefined;
+  const tree = (strikethrough: boolean) => (
+    <EnrichedMarkdownText
+      markdown="~~struck~~"
+      flavor="github"
+      md4cFlags={{ strikethrough }}
+      renderers={{ image }}
+    />
+  );
+  const root = render(tree(false));
+  act(() => root.render(tree(true)));
+  expect(mockCollect).toHaveBeenCalledTimes(1);
+  expect(mockCollect.mock.calls[0]![1]).toEqual(
+    expect.objectContaining({ strikethrough: false })
+  );
+});
+
+describe('code renderers', () => {
+  const codeSlot = (
+    language: string,
+    overrides: Partial<NativeBlockSlot> = {}
+  ): NativeBlockSlot => ({
+    id: `code:${language || 'none'}:0`,
+    kind: 'code',
+    url: '',
+    altText: '',
+    title: '',
+    placement: 'root',
+    occurrenceId: '',
+    language,
+    code: `${language} source`,
+    isComplete: true,
+    ...overrides,
+  });
+
+  const slotIds = (root: Root) => slots(root).map((slot) => slot.props.slotId);
+
+  it('passes the block and keeps the native block for an undefined result', () => {
+    mockSlots = [
+      codeSlot('mermaid', { placement: 'blockquote' }),
+      codeSlot('ts'),
+    ];
+    const code = jest.fn((block: MarkdownCodeBlock) =>
+      block.language === 'mermaid' ? <View testID="diagram" /> : undefined
+    );
+    const root = render(
+      <EnrichedMarkdownText markdown="x" flavor="github" renderers={{ code }} />
+    );
+    expect(code).toHaveBeenCalledTimes(2);
+    expect(code).toHaveBeenCalledWith({
+      kind: 'code',
+      id: 'code:mermaid:0',
+      language: 'mermaid',
+      code: 'mermaid source',
+      isComplete: true,
+      placement: 'blockquote',
+    });
+    expect(slotIds(root)).toEqual(['code:mermaid:0']);
+  });
+
+  it('takes one function for every code block', () => {
+    mockSlots = [codeSlot('ts'), codeSlot('')];
+    const code = jest.fn(() => <View />);
+    const root = render(
+      <EnrichedMarkdownText markdown="x" flavor="github" renderers={{ code }} />
+    );
+    expect(code).toHaveBeenCalledTimes(2);
+    expect(slotIds(root)).toEqual(['code:ts:0', 'code:none:0']);
+  });
+
+  it('does not render unchanged blocks again', () => {
+    mockSlots = [codeSlot('mermaid'), codeSlot('ts')];
+    const code = jest.fn(() => <View />);
+    const tree = (markdown: string) => (
+      <EnrichedMarkdownText
+        markdown={markdown}
+        flavor="github"
+        renderers={{ code }}
+      />
+    );
+    const root = render(tree('a'));
+    act(() => root.render(tree('ab')));
+    expect(code).toHaveBeenCalledTimes(2);
+  });
+
+  it('re-renders a streaming fence in place until it completes', () => {
+    mockSlots = [codeSlot('ts', { code: 'let', isComplete: false })];
+    const code = jest.fn(() => <View />);
+    const renderers = { code };
+    const root = render(
+      <EnrichedMarkdownText
+        markdown="a"
+        flavor="github"
+        renderers={renderers}
+      />
+    );
+    const first = slots(root)[0]!;
+
+    mockSlots = [codeSlot('ts', { code: 'let a;', isComplete: true })];
+    act(() =>
+      root.render(
+        <EnrichedMarkdownText
+          markdown="ab"
+          flavor="github"
+          renderers={renderers}
+        />
+      )
+    );
+    expect(code).toHaveBeenCalledTimes(2);
+    expect(code).toHaveBeenLastCalledWith(
+      expect.objectContaining({ code: 'let a;', isComplete: true })
+    );
+    expect(slots(root)[0]).toBe(first);
   });
 });

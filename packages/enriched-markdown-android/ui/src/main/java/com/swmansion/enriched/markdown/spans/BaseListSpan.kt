@@ -22,6 +22,7 @@ abstract class BaseListSpan(
   protected val blockStyle: BlockStyle,
   protected val marginLeft: Float,
   protected val gapWidth: Float,
+  internal val drawsMarker: Boolean = true,
   internal val ancestorMarkerOffset: Float = 0f,
   internal val parentMarkerWidth: Float? = null,
 ) : MetricAffectingSpan(),
@@ -76,6 +77,7 @@ abstract class BaseListSpan(
     first: Boolean,
     layout: Layout?,
   ) {
+    if (!drawsMarker) return
     if (!first || shouldSkipDrawing(text, start) || !hasContent(text, start, end)) return
 
     // Only draw the marker on the true first line of this span.

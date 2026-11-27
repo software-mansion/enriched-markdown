@@ -20,6 +20,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 file(GLOB ENRMRKD_SOURCES "${CPP_ROOT}/enrmrkd/*.c")
 file(GLOB PARSER_SOURCES "${CPP_ROOT}/parser/*.cpp")
+file(GLOB REPAIR_SOURCES "${CPP_ROOT}/repair/*.cpp")
 file(GLOB HIGHLIGHT_SOURCES "${CPP_ROOT}/highlight/*.cpp")
 
 add_library(enrmrkd_lib STATIC ${ENRMRKD_SOURCES})
@@ -35,6 +36,7 @@ add_library(
   react_codegen_EnrichedMarkdownTextSpec
   SHARED
   ${PARSER_SOURCES}
+  ${REPAIR_SOURCES}
   ${HIGHLIGHT_SOURCES}
   "${LIB_ANDROID_CPP_DIR}/jni-adapter.cpp"
 )
@@ -44,6 +46,7 @@ target_include_directories(
   PRIVATE
   "${CPP_ROOT}/enrmrkd"
   "${CPP_ROOT}/parser"
+  "${CPP_ROOT}/repair"
   "${CPP_ROOT}/highlight"
 )
 

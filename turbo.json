@@ -5,6 +5,10 @@
   "tasks": {
     "build:android": {
       "env": ["ANDROID_HOME", "ORG_GRADLE_PROJECT_newArchEnabled"],
+      "passThroughEnv": [
+        "CMAKE_C_COMPILER_LAUNCHER",
+        "CMAKE_CXX_COMPILER_LAUNCHER"
+      ],
       "inputs": [
         "package.json",
         "android/**",
@@ -13,7 +17,6 @@
         "src/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/android/**",
         "!$TURBO_ROOT$/packages/react-native-enriched-markdown/android/build/**",
-        "!$TURBO_ROOT$/packages/react-native-enriched-markdown/android/generated/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/src/**",
         "$TURBO_ROOT$/packages/core/cpp/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/package.json"
@@ -21,6 +24,7 @@
       "outputs": []
     },
     "build:ios": {
+      "passThroughEnv": ["CCACHE_DIR", "CCACHE_MAXSIZE", "XCODE_XCCONFIG_FILE"],
       "env": [
         "RCT_NEW_ARCH_ENABLED",
         "RCT_REMOVE_LEGACY_ARCH",
@@ -32,6 +36,8 @@
         "ios/**",
         "!ios/build/**",
         "!ios/Pods/**",
+        "!ios/Podfile.lock",
+        "!ios/.xcode.env.local",
         "src/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/ios/**",
         "!$TURBO_ROOT$/packages/react-native-enriched-markdown/ios/build/**",
@@ -39,6 +45,26 @@
         "$TURBO_ROOT$/packages/core/cpp/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/*.podspec",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/package.json"
+      ],
+      "outputs": []
+    },
+    "build:ios-spm": {
+      "env": ["SPM_XCODE_VERSION"],
+      "passThroughEnv": ["CCACHE_DIR", "CCACHE_MAXSIZE", "XCODE_XCCONFIG_FILE"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/ios/**",
+        "!$TURBO_ROOT$/packages/react-native-enriched-markdown/ios/build/**",
+        "!$TURBO_ROOT$/packages/react-native-enriched-markdown/ios/vendor/**",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/common/**",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/src/*NativeComponent.ts",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/src/Native*.ts",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/Package.swift",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/spm-plugin.js",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/react-native.config.js",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/package.json",
+        "$TURBO_ROOT$/packages/core/cpp/**",
+        "$TURBO_ROOT$/vendor/**"
       ],
       "outputs": []
     },
@@ -52,7 +78,6 @@
         "src/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/android/**",
         "!$TURBO_ROOT$/packages/react-native-enriched-markdown/android/build/**",
-        "!$TURBO_ROOT$/packages/react-native-enriched-markdown/android/generated/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/src/**",
         "$TURBO_ROOT$/packages/core/cpp/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/package.json"
@@ -60,7 +85,7 @@
       "outputs": []
     },
     "test:ios": {
-      "passThroughEnv": ["IOS_SIMULATOR_UDID"],
+      "passThroughEnv": ["IOS_SIMULATOR_UDID", "CCACHE_DIR", "CCACHE_MAXSIZE", "XCODE_XCCONFIG_FILE"],
       "env": [
         "RCT_NEW_ARCH_ENABLED",
         "RCT_REMOVE_LEGACY_ARCH",
@@ -72,6 +97,8 @@
         "ios/**",
         "!ios/build/**",
         "!ios/Pods/**",
+        "!ios/Podfile.lock",
+        "!ios/.xcode.env.local",
         "src/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/ios/**",
         "!$TURBO_ROOT$/packages/react-native-enriched-markdown/ios/build/**",
@@ -84,7 +111,11 @@
       "outputs": []
     },
     "build:android-native": {
-      "env": ["ANDROID_HOME"],
+      "env": ["ANDROID_HOME", "ORG_GRADLE_PROJECT_enrichedMarkdownArchitectures"],
+      "passThroughEnv": [
+        "CMAKE_C_COMPILER_LAUNCHER",
+        "CMAKE_CXX_COMPILER_LAUNCHER"
+      ],
       "inputs": [
         "package.json",
         "app/**",

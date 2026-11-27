@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.swmansion.enriched.markdown.compose.AdmonitionTitles
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
 import com.swmansion.enriched.markdown.compose.MarkdownOptions
 import java.io.File
@@ -62,6 +63,7 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
   var blockImageUri by remember { mutableStateOf<String?>(null) }
   var inlineImageUri by remember { mutableStateOf<String?>(null) }
   var spoilerOverlay by remember { mutableStateOf(PlaygroundSpoilerOverlay.Particles) }
+  var polishAdmonitionTitles by remember { mutableStateOf(false) }
 
   LaunchedEffect(Unit) {
     blockImageUri = assetImageUri(context, "logo.png")
@@ -145,6 +147,25 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
       )
     }
 
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+      PlaygroundButton(
+        label = "Insert Admonitions",
+        onClick = {
+          markdown = if (markdown.isNotBlank()) "$markdown\n\n$AdmonitionsMarkdown" else AdmonitionsMarkdown
+        },
+        testTag = "insert-admonitions-button",
+      )
+      PlaygroundButton(
+        label = "Titles: ${if (polishAdmonitionTitles) "PL" else "EN"}",
+        onClick = { polishAdmonitionTitles = !polishAdmonitionTitles },
+        testTag = "admonition-titles-button",
+        isActive = polishAdmonitionTitles,
+      )
+    }
+
     Button(
       onClick = {
         rawInput = ""
@@ -209,6 +230,7 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
               admonitions = true,
             ),
           spoilerOverlay = spoilerOverlay.overlay,
+          admonitionTitles = if (polishAdmonitionTitles) PolishAdmonitionTitles else AdmonitionTitles.Default,
           onLinkClick = { url ->
             Toast.makeText(context, "Link pressed: $url", Toast.LENGTH_SHORT).show()
           },
@@ -275,6 +297,33 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
     }
   }
 }
+
+private val AdmonitionsMarkdown =
+  """
+  > [!NOTE]
+  > Useful information that users should know, even when skimming content.
+
+  > [!TIP]
+  > Helpful advice for doing things better or more easily.
+
+  > [!IMPORTANT]
+  > Key information users need to know to achieve their goal.
+
+  > [!WARNING]
+  > Urgent info that needs immediate user attention to avoid problems.
+
+  > [!CAUTION]
+  > Advises about risks or negative outcomes of certain actions.
+  """.trimIndent()
+
+private val PolishAdmonitionTitles =
+  AdmonitionTitles(
+    note = "Uwaga",
+    tip = "Wskazówka",
+    important = "Ważne",
+    warning = "Ostrzeżenie",
+    caution = "Przestroga",
+  )
 
 @Composable
 private fun RowScope.PlaygroundButton(

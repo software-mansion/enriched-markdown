@@ -523,10 +523,10 @@ export const EnrichedMarkdownTextInput = ({
       hitSlop,
       onPress: (event: GestureResponderEvent) => {
         onPress?.(event);
-        if (editable !== false) {
-          // Same call TextInput's host focus() makes. A tap on the text view
-          // focuses it natively, which makes this a no-op; it matters when the
-          // press lands outside the native view, e.g. in the hitSlop area.
+        if (editable !== false && Platform.OS !== 'ios') {
+          // Same call TextInput's host focus() makes. It matters when the press
+          // lands outside the native view, e.g. in the hitSlop area. On iOS the
+          // native view takes those touches itself.
           TextInputState.focusTextInput(nativeRef.current);
         }
       },

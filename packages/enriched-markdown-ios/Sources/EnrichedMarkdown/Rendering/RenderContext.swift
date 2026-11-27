@@ -31,6 +31,9 @@ enum MarkdownAttribute {
     static let superscript = NSAttributedString.Key("EnrichedMarkdownSuperscript")
     static let `subscript` = NSAttributedString.Key("EnrichedMarkdownSubscript")
     static let highlight = NSAttributedString.Key("EnrichedMarkdownHighlight")
+    static let inlineBackground = NSAttributedString.Key("EnrichedMarkdownInlineBackground")
+    static let drawnHighlight = NSAttributedString.Key("EnrichedMarkdownDrawnHighlight")
+    static let inlineBorderWidth = NSAttributedString.Key("EnrichedMarkdownInlineBorderWidth")
     /// `true` on concealed `||spoiler||` text, `false` once revealed.
     static let spoiler = NSAttributedString.Key("EnrichedMarkdownSpoiler")
     /// Colors a concealed run had, restored on reveal.
@@ -52,6 +55,8 @@ enum MarkdownAttribute {
     /// Present on an admonition's title paragraph; the value is the type's
     /// raw string. The title's head indent reserves the icon column.
     static let admonitionHeader = NSAttributedString.Key("EnrichedMarkdownAdmonitionHeader")
+    /// The whole title on the same paragraph, for exports of a partial selection.
+    static let admonitionTitle = NSAttributedString.Key("EnrichedMarkdownAdmonitionTitle")
     static let listDepth = NSAttributedString.Key("EnrichedMarkdownListDepth")
     static let listType = NSAttributedString.Key("EnrichedMarkdownListType")
     static let listItemNumber = NSAttributedString.Key("EnrichedMarkdownListItemNumber")

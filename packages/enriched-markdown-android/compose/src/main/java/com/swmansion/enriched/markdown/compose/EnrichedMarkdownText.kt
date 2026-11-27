@@ -2,9 +2,9 @@ package com.swmansion.enriched.markdown.compose
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -13,9 +13,7 @@ import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.viewinterop.AndroidView
 import com.swmansion.enriched.markdown.compose.style.StyleResolveContext
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
-import com.swmansion.enriched.markdown.styles.StyleConfig
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.swmansion.enriched.markdown.AdmonitionTitles as AdmonitionTitlesInternal
 import com.swmansion.enriched.markdown.CodeBlockCopy as CodeBlockCopyInternal
 import com.swmansion.enriched.markdown.CodeBlockLayout as CodeBlockLayoutInternal
 import com.swmansion.enriched.markdown.EnrichedMarkdown as NativeMarkdownView
@@ -25,6 +23,11 @@ import com.swmansion.enriched.markdown.plugin.MarkdownPlugin as MarkdownPluginIn
 import com.swmansion.enriched.markdown.plugin.PluginEvent as PluginEventInternal
 
 typealias MarkdownOptions = MarkdownOptionsInternal
+
+typealias AdmonitionTitles = AdmonitionTitlesInternal
+
+val LocalAdmonitionTitles =
+  staticCompositionLocalOf { AdmonitionTitles.Default }
 
 typealias CodeBlockLayout = CodeBlockLayoutInternal
 
@@ -48,6 +51,10 @@ typealias MarkdownPlugin = MarkdownPluginInternal
  * [codeBlockLayout] set to [CodeBlockLayout.Scrollable] keeps long code lines intact and scrolls
  * them horizontally, for code blocks at the top level of the document. Those blocks leave the text
  * selection and copy with a long-press instead. Blocks inside a list item or a quote always wrap.
+ *
+ * [admonitionTitles] renames or translates the GitHub alert titles. It defaults to
+ * [LocalAdmonitionTitles], so a screen can set them once for every view below it. A title too wide
+ * for the callout ends in an ellipsis.
  *
  * [onCodeBlockCopy] is called after such a block's copy button or long-press Copy puts its code on
  * the clipboard, for example to show a "Copied" snackbar. Copy as Markdown does not call it.
@@ -84,25 +91,17 @@ fun EnrichedMarkdownText(
   spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles(),
   includeLastBlockMargin: Boolean = false,
   plugins: List<MarkdownPlugin> = LocalMarkdownPlugins.current,
+  admonitionTitles: AdmonitionTitles = LocalAdmonitionTitles.current,
   onPluginEvent: (PluginEvent) -> Unit = {},
 ) {
   val context = LocalContext.current
   val configuration = LocalConfiguration.current
   val density = LocalDensity.current
   val fontFamilyResolver = LocalFontFamilyResolver.current
-  val defaultStyle = remember(context) { StyleConfig.default(context) }
-  val styleConfig by produceState(defaultStyle, style, configuration, density, fontFamilyResolver) {
-    val resolveContext =
-      StyleResolveContext(
-        context = context,
-        density = density,
-        fontFamilyResolver = fontFamilyResolver,
-      )
-    value =
-      withContext(Dispatchers.Default) {
-        style.resolve(resolveContext)
-      }
-  }
+  val styleConfig =
+    remember(style, configuration, context, density, fontFamilyResolver) {
+      style.resolve(StyleResolveContext(context, density, fontFamilyResolver))
+    }
 
   val onLinkClickState by rememberUpdatedState(onLinkClick)
   val onLinkLongClickState by rememberUpdatedState(onLinkLongClick)
@@ -128,6 +127,7 @@ fun EnrichedMarkdownText(
         setIsSelectable(selectable)
         setCodeBlockLayout(codeBlockLayout)
         setImageRequestHeaders(imageRequestHeaders)
+        setAdmonitionTitles(admonitionTitles)
         setMarkdownContent(markdown)
       }
     },
@@ -146,6 +146,7 @@ fun EnrichedMarkdownText(
       view.setIsSelectable(selectable)
       view.setCodeBlockLayout(codeBlockLayout)
       view.setImageRequestHeaders(imageRequestHeaders)
+      view.setAdmonitionTitles(admonitionTitles)
       view.setMarkdownContent(markdown)
     },
     onReset = { view -> view.prepareForViewReuse() },

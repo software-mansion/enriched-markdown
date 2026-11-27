@@ -168,6 +168,7 @@ final class TableGridView: UIView {
     private let model: TableModel
     private let layout: TableAttachmentLayout
     private let style: TableAttachmentStyle
+    private var linkLayouts: [Int: InlineBackgroundDrawer.Layout] = [:]
 
     init(model: TableModel, layout: TableAttachmentLayout, style: TableAttachmentStyle) {
         self.model = model
@@ -212,8 +213,16 @@ final class TableGridView: UIView {
                 context.stroke(cellRect)
 
                 if column < row.count {
-                    row[column].attributedText.draw(
-                        with: textRect(column: column, xOffset: xOffset, yOffset: yOffset, rowHeight: rowHeight),
+                    let textRect = textRect(column: column, xOffset: xOffset, yOffset: yOffset, rowHeight: rowHeight)
+                    let key = rowIndex * model.columnCount + column
+                    let links = linkLayouts[key] ?? InlineBackgroundDrawer.layout(of: row[column].attributedText, width: textRect.width)
+                    linkLayouts[key] = links
+                    context.saveGState()
+                    context.translateBy(x: textRect.minX, y: textRect.minY)
+                    InlineBackgroundDrawer.paint(links, in: context)
+                    context.restoreGState()
+                    row[column].drawnText.draw(
+                        with: textRect,
                         options: [.usesLineFragmentOrigin, .usesFontLeading],
                         context: nil
                     )
@@ -234,12 +243,9 @@ final class TableGridView: UIView {
             return nil
         }
 
-        let storage = NSTextStorage(attributedString: cell.text)
-        let layoutManager = NSLayoutManager()
-        let container = NSTextContainer(size: cell.textRect.size)
-        container.lineFragmentPadding = 0
-        layoutManager.addTextContainer(container)
-        storage.addLayoutManager(layoutManager)
+        let stack = TextKit1Stack(text: cell.text, size: cell.textRect.size)
+        let layoutManager = stack.layoutManager
+        let container = stack.container
 
         let glyphIndex = layoutManager.glyphIndex(for: local, in: container)
         guard glyphIndex < layoutManager.numberOfGlyphs else { return nil }

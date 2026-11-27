@@ -1,6 +1,7 @@
 import { Fragment, isValidElement, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { MarkdownBlock, MarkdownRenderers } from './types/markdownBlocks';
+import { isDev } from './utils/isDev';
 
 // What a renderer may return at runtime from plain JS, beyond its typed
 // `ReactElement | undefined`.
@@ -39,7 +40,7 @@ export function renderBlock(
   try {
     element = render(block);
   } catch (error) {
-    if (__DEV__) {
+    if (isDev) {
       console.error(
         `[EnrichedMarkdownText] renderers.${block.kind} threw for ${block.id}; keeping the native block.`,
         error
@@ -49,7 +50,7 @@ export function renderBlock(
   }
   if (element == null || typeof element === 'boolean') return undefined;
   if (isRenderableChild(element)) return element;
-  if (__DEV__) {
+  if (isDev) {
     console.warn(
       `[EnrichedMarkdownText] renderers.${block.kind} returned ${
         Array.isArray(element) ? 'an array with text' : `a ${typeof element}`
@@ -69,7 +70,8 @@ export function hasRenderers(
   return (
     typeof renderers?.image === 'function' ||
     typeof renderers?.video === 'function' ||
-    typeof renderers?.link === 'function'
+    typeof renderers?.link === 'function' ||
+    typeof renderers?.code === 'function'
   );
 }
 
@@ -102,10 +104,11 @@ export function useRenderedBlocks(
   const image = enabled ? renderers?.image : undefined;
   const video = enabled ? renderers?.video : undefined;
   const link = enabled ? renderers?.link : undefined;
+  const code = enabled ? renderers?.code : undefined;
   const cache = useMemo(
     () => new Map<string, RenderedBlock>(),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one cache per renderer set
-    [image, video, link]
+    [image, video, link, code]
   );
   return useMemo(() => {
     if (!enabled) return NO_BLOCKS;
@@ -114,7 +117,10 @@ export function useRenderedBlocks(
     for (const block of blocks) {
       let entry = cache.get(block.id);
       if (entry == null || !sameBlock(entry.block, block)) {
-        entry = { block, element: renderBlock({ image, video, link }, block) };
+        entry = {
+          block,
+          element: renderBlock({ image, video, link, code }, block),
+        };
         cache.set(block.id, entry);
       }
       seen.add(block.id);
@@ -124,5 +130,5 @@ export function useRenderedBlocks(
       if (!seen.has(id)) cache.delete(id);
     }
     return rendered;
-  }, [blocks, cache, enabled, image, video, link]);
+  }, [blocks, cache, enabled, image, video, link, code]);
 }
