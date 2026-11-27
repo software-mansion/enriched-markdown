@@ -4,6 +4,7 @@
 #import "../../ios/segments/TableContainerView.h"
 #import "../../ios/styles/StyleConfig.h"
 #import "../../ios/utils/ENRMHorizontalScrollView.h"
+#import <React/RCTSurfaceTouchHandler.h>
 #import <XCTest/XCTest.h>
 
 static id ENRMFindSubview(UIView *view, Class cls)
@@ -74,7 +75,7 @@ static id ENRMFindSubview(UIView *view, Class cls)
   return [_table hasPressableItemAtPoint:[_grid convertPoint:gridPoint toView:_table] includeImages:includeImages];
 }
 
-- (void)testOnlyLinksAndPressableImagesAreTheTables
+- (void)testOnlyLinksAndPressableImagesBelongToTheTable
 {
   ENRMTableIOSItemHit *link = [self firstHitOfKind:ENRMTableIOSItemKindLink];
   ENRMTableIOSItemHit *image = [self firstHitOfKind:ENRMTableIOSItemKindImage];
@@ -99,6 +100,59 @@ static id ENRMFindSubview(UIView *view, Class cls)
   scrollView.contentOffset = CGPointMake(offset, 0);
   XCTAssertTrue([_table hasPressableItemAtPoint:CGPointMake(unscrolled.x - offset, unscrolled.y) includeImages:YES]);
   XCTAssertFalse([_table hasPressableItemAtPoint:unscrolled includeImages:YES]);
+}
+
+@end
+
+@interface ENRMHorizontalScrollView (TablePressableItemTests)
+- (void)enrm_handlePan:(UIPanGestureRecognizer *)pan;
+@end
+
+@interface ENRMRecordingTouchHandler : RCTSurfaceTouchHandler
+@property (nonatomic) NSInteger disableCount;
+@end
+
+@implementation ENRMRecordingTouchHandler
+- (void)setEnabled:(BOOL)enabled
+{
+  if (!enabled) {
+    self.disableCount++;
+  }
+  [super setEnabled:enabled];
+}
+@end
+
+@interface ENRMBeganPan : UIPanGestureRecognizer
+@end
+
+@implementation ENRMBeganPan
+- (UIGestureRecognizerState)state
+{
+  return UIGestureRecognizerStateBegan;
+}
+@end
+
+@interface ENRMHorizontalScrollTouchCancelTests : XCTestCase
+@end
+
+@implementation ENRMHorizontalScrollTouchCancelTests
+
+// A horizontal block's pan doesn't prevent React Native's touch handler, so it cancels the touch itself;
+// otherwise a drag across a wide table ends in a parent Pressable's onPress.
+- (void)testAHorizontalPanCancelsTheReactNativeTouch
+{
+  UIView *surface = [[UIView alloc] init];
+  ENRMRecordingTouchHandler *handler = [[ENRMRecordingTouchHandler alloc] init];
+  [handler attachToView:surface];
+  UIView *block = [[UIView alloc] init];
+  [surface addSubview:block];
+  ENRMHorizontalScrollView *scrollView = [[ENRMHorizontalScrollView alloc] initWithFrame:CGRectMake(0, 0, 100, 50)];
+  [block addSubview:scrollView];
+
+  [scrollView enrm_handlePan:[[ENRMBeganPan alloc] init]];
+
+  XCTAssertEqual(handler.disableCount, 1);
+  XCTAssertTrue(handler.enabled);
 }
 
 @end
