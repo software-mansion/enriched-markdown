@@ -9,6 +9,7 @@ import type {
   CodeBlockPressEvent,
 } from '../types/events';
 import type { KaTeXInstance } from './katex';
+import type { ResolvedAdmonitionTitles } from '../admonitionDefaults';
 
 export type NodeType =
   | 'Document'
@@ -108,6 +109,7 @@ export interface RenderCapabilities {
    * first strong character, like native; `undefined` inherits a forced root `dir`.
    */
   blockDir: 'auto' | undefined;
+  admonitionTitles?: ResolvedAdmonitionTitles;
 }
 
 export interface RendererProps {

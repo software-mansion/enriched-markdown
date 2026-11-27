@@ -9,6 +9,7 @@ import com.facebook.react.uimanager.events.NativeGestureUtil
 import com.swmansion.enriched.markdown.events.ImagePressEvent
 import com.swmansion.enriched.markdown.events.LinkLongPressEvent
 import com.swmansion.enriched.markdown.events.LinkPressEvent
+import com.swmansion.enriched.markdown.events.StreamingEndEvent
 import com.swmansion.enriched.markdown.events.TextPressEvent
 
 fun View.emitLinkPressEvent(url: String) {
@@ -36,6 +37,13 @@ fun View.emitTextPressEvent(
   val surfaceId = UIManagerHelper.getSurfaceId(reactContext)
   val dispatcher = UIManagerHelper.getEventDispatcherForReactTag(reactContext, id)
   dispatcher?.dispatchEvent(TextPressEvent(surfaceId, id, index, text))
+}
+
+fun View.emitStreamingEndEvent() {
+  val reactContext = context as? ReactContext ?: return
+  val surfaceId = UIManagerHelper.getSurfaceId(reactContext)
+  val dispatcher = UIManagerHelper.getEventDispatcherForReactTag(reactContext, id)
+  dispatcher?.dispatchEvent(StreamingEndEvent(surfaceId, id))
 }
 
 fun View.emitLinkLongPressEvent(url: String) {

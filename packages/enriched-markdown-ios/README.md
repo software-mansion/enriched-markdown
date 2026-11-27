@@ -193,9 +193,9 @@ For custom families, `.bold()` and `.italic()` pick the matching face from the s
 
 Element-specific modifiers include:
 
-- **Link:** `.underline(_:)`, `.background` / `.backgroundStyle`. `Link(matching: "^user:")` styles only links whose URL matches the pattern, such as mentions. The pattern is a regular expression. Anything left unset comes from `Link()`, and the longest matching pattern wins
+- **Link:** `.underline(_:)`, `.background` / `.backgroundStyle`, `.cornerRadius`, `.border(_:width:)`. `Link(matching: "^user:")` styles only links whose URL matches the pattern, such as mentions. The pattern is a regular expression. Anything left unset comes from `Link()`, and the longest matching pattern wins. Inside a `==highlight==`, a link with a fill of its own keeps it
 - **Code / CodeBlock / Blockquote / Highlight:** `.background` / `.backgroundStyle`
-- **CodeBlock / Blockquote / Table:** `.border(_:width:)` — color and width together, as SwiftUI's modifier; leave `width` out to recolor a border a lower layer sized, or use `.border(width:)` to resize one a lower layer colored
+- **CodeBlock / Blockquote / Table / Link:** `.border(_:width:)` — color and width together, as SwiftUI's modifier; leave `width` out to recolor a border a lower layer sized, or use `.border(width:)` to resize one a lower layer colored
 - **CodeBlock / Blockquote:** `.padding` / `.gapWidth`, `.cornerRadius` (CodeBlock), `.headerForegroundStyle` (CodeBlock: the scrollable panel's language label and copy button, see [Code blocks](#code-blocks))
 - **Admonition:** `.foregroundStyle` (the accent bar, icon, and title tint) and `.background` / `.backgroundStyle` — the only modifiers; font, spacing, and geometry follow `Blockquote`. Types: `.note`, `.tip`, `.important`, `.warning`, `.caution`; the defaults are GitHub's palette with no fill
 - **List:** `.bulletColor`, `.markerColor`, `.bulletSize`, `.markerMinWidth`, `.gapWidth`, `.marginLeading`
@@ -466,6 +466,31 @@ EnrichedMarkdownText(markdown)
 
 `{n}` is a 1-based index and `{content}` the comma-joined cell text of a table row; translations must keep the placeholder names. Defaults use the cardinal form ("List item 2") so one template works in every language without plural rules. The math label lives in the LaTeX module: `.markdownLaTeX(accessibilityLabel: "Formel: {speech}")`, or `.markdownLaTeX { latex in … }` for a custom converter.
 
+### `.markdownAdmonitionTitles`
+
+```swift
+public struct MarkdownAdmonitionTitles: Equatable, Sendable {
+  public var note: String       // "Note"
+  public var tip: String        // "Tip"
+  public var important: String  // "Important"
+  public var warning: String    // "Warning"
+  public var caution: String    // "Caution"
+
+  public static let `default`: MarkdownAdmonitionTitles
+}
+
+extension View {
+  func markdownAdmonitionTitles(_ titles: MarkdownAdmonitionTitles) -> some View
+}
+```
+
+Renames or translates the GitHub alert titles. A type you leave out keeps its English title, and an empty string shows the icon alone. The header is one line high, so a title too wide for the callout ends in an ellipsis. `MarkdownRenderer.render`, `renderLaTeX`, and `renderSyntaxHighlighted` take the same value as `admonitionTitles:`.
+
+```swift
+EnrichedMarkdownText(markdown, options: MarkdownParsingOptions(admonitions: true))
+    .markdownAdmonitionTitles(MarkdownAdmonitionTitles(note: "Uwaga", warning: "Ostrzeżenie"))
+```
+
 ### `.markdownImageRequestHeaders`
 
 ```swift
@@ -601,7 +626,7 @@ Three things worth knowing:
 - `.cornerRadius` rounds the drawn image, not the box, so with `.fit`, `.scaleDown` or `.original` the corners follow the image.
 - `.scaleDown` and `.original` draw the decoded image, and decoding is capped at the screen's pixel width, so a very large image is not drawn at its full pixel size.
 
-Inline images ignore all four modifiers. They are always a square of `InlineImage().size`.
+Inline images ignore the sizing and content mode modifiers. They always take a square of `InlineImage().size`, and the image is scaled up or down to fit inside it, keeping its proportions, as with `.fit`. `.cornerRadius` still rounds them, at most into a circle.
 
 ## Accessibility
 

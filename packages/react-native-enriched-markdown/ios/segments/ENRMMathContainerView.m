@@ -1,5 +1,6 @@
 #import "ENRMMathContainerView.h"
 #import "ENRMAccessibilityLabels.h"
+#import "ENRMDroppableContent.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMHorizontalScrollView.h"
 #include <TargetConditionals.h>
@@ -7,7 +8,9 @@
 #if ENRICHED_MARKDOWN_MATH
 #import "ENRMMathFallback.h"
 #import "PasteboardUtils.h"
-#if __has_include("ReactNativeEnrichedMarkdown-Swift.h")
+#if SWIFT_PACKAGE
+@import ReactNativeEnrichedMarkdownMath;
+#elif __has_include("ReactNativeEnrichedMarkdown-Swift.h")
 #import "ReactNativeEnrichedMarkdown-Swift.h"
 #elif __has_include(<ReactNativeEnrichedMarkdown/ReactNativeEnrichedMarkdown-Swift.h>)
 #import <ReactNativeEnrichedMarkdown/ReactNativeEnrichedMarkdown-Swift.h>
@@ -19,7 +22,7 @@
 
 #if ENRICHED_MARKDOWN_MATH
 
-@interface ENRMRaTeXCanvasView : RCTUIView
+@interface ENRMRaTeXCanvasView : RCTUIView <ENRMDroppableContent>
 @property (nonatomic, strong, nullable) ENRMRaTeXRenderResult *renderResult;
 // Visible-source fallback when RaTeX cannot parse the block, drawn wrapped;
 // see ENRMMathFallback.h.

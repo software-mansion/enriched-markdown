@@ -1,6 +1,6 @@
 {
   "name": "react-native-enriched-markdown",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Markdown-based Rich Text solution for React Native",
   "main": "./lib/module/index",
   "module": "./lib/module/index",
@@ -16,6 +16,8 @@
     "cpp",
     "common",
     "*.podspec",
+    "Package.swift",
+    "spm-plugin.js",
     "jest.js",
     "jest.d.ts",
     "react-native.config.js",
@@ -147,6 +149,9 @@
         }
       ]
     ]
+  },
+  "swiftpmConfig": {
+    "autolinkingPlugin": "./spm-plugin.js"
   },
   "codegenConfig": {
     "name": "EnrichedMarkdownTextSpec",

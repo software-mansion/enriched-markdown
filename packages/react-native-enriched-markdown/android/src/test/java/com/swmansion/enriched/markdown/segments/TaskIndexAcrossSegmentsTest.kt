@@ -154,7 +154,7 @@ class TaskIndexAcrossSegmentsTest {
   private fun render(document: MarkdownASTNode): List<RenderedSegment> =
     MarkdownSegmentRenderer.render(splitASTIntoSegments(document), style, context, null, null)
 
-  private fun taskIndices(segment: RenderedSegment): List<Int> = taskIndices((segment as RenderedSegment.Text).styledText)
+  private fun taskIndices(segment: RenderedSegment): List<Int> = taskIndices((segment as RenderedSegment.Text).styledText!!)
 
   private fun taskIndices(text: Spanned): List<Int> =
     text

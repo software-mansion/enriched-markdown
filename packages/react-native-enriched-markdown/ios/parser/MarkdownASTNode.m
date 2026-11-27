@@ -1,6 +1,9 @@
 #import "MarkdownASTNode.h"
+#import <stdatomic.h>
 
-@implementation MarkdownASTNode
+@implementation MarkdownASTNode {
+  _Atomic(uint64_t) _cachedSignature;
+}
 
 - (instancetype)initWithType:(MarkdownNodeType)type
 {
@@ -21,6 +24,16 @@
 - (void)setAttribute:(NSString *)key value:(NSString *)value
 {
   _attributes[key] = value;
+}
+
+- (uint64_t)cachedSignature
+{
+  return atomic_load(&_cachedSignature);
+}
+
+- (void)setCachedSignature:(uint64_t)cachedSignature
+{
+  atomic_store(&_cachedSignature, cachedSignature);
 }
 
 - (NSString *)description

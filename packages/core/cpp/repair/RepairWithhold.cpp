@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <vector>
 
 #include "RepairInternal.hpp"
@@ -150,11 +151,40 @@ void withholdImageLabel(RepairContext &ctx) {
     return;
   }
   const size_t open = findMatchingOpeningBracket(text, close);
-  if (open == npos || open == 0 || text[open - 1] != '!' || isEscaped(text, open - 1) || ctx.code().inside(open) ||
-      !ctx.openerCanStillClose(open)) {
+  if (open == npos || !isImageBang(text, open) || ctx.code().inside(open) || !ctx.openerCanStillClose(open)) {
     return;
   }
   eraseFrom(ctx, text, open - 1);
+}
+
+// `[label]` as the very last characters: the `(` of a link may come next, so
+// the brackets wait and the label shows as text. Left alone inside a bracket
+// that is still open, which the link handler repairs.
+void withholdLinkLabel(RepairContext &ctx) {
+  const std::string_view text = ctx.text();
+  if (text.empty() || text.back() != ']') {
+    return;
+  }
+  const size_t close = text.size() - 1;
+  if (isEscaped(text, close) || ctx.code().inside(close)) {
+    return;
+  }
+  const size_t open = findMatchingOpeningBracket(text, close);
+  if (open == npos || open + 1 == close || isImageBang(text, open) || ctx.code().inside(open) ||
+      isBracketNotALink(text, open, ctx.markers()) || !ctx.openerCanStillClose(open)) {
+    return;
+  }
+  const size_t windowStart = openLabelWindowStart(text);
+  if (open < windowStart) {
+    return;
+  }
+  for (size_t i = std::max(ctx.lastBlockStart(), windowStart); i < open; ++i) {
+    if (text[i] == '[' && !isEscaped(text, i) && !ctx.code().inside(i) && findMatchingClosingBracket(text, i) == npos) {
+      return;
+    }
+  }
+  ctx.erase(close, 1);
+  ctx.erase(open, 1);
 }
 
 size_t mathScopeStart(RepairContext &ctx, std::string_view text) {
@@ -173,18 +203,17 @@ size_t mathScopeStart(RepairContext &ctx, std::string_view text) {
   return start;
 }
 
-void withholdUnclosedMath(RepairContext &ctx, bool inlineDollar, bool displayDollar) {
-  const std::string_view text = body(ctx);
-  if (text.find('$') == npos) {
-    return;
-  }
-  struct Opener {
-    size_t index;
-    size_t length;
-  };
-  std::vector<Opener> openers;
+struct MathOpener {
+  size_t index;
+  size_t length;
+};
+
+// The math openers still unclosed where the scan reaches `end`.
+std::vector<MathOpener> unclosedMath(RepairContext &ctx, std::string_view text, size_t end, bool inlineDollar,
+                                     bool displayDollar) {
+  std::vector<MathOpener> openers;
   size_t i = mathScopeStart(ctx, text);
-  while (i < text.size()) {
+  while (i < end) {
     if (text[i] != '$' || isEscaped(text, i) || ctx.code().inside(i)) {
       ++i;
       continue;
@@ -199,6 +228,49 @@ void withholdUnclosedMath(RepairContext &ctx, bool inlineDollar, bool displayDol
     }
     i += run.length;
   }
+  return openers;
+}
+
+// Whether the `$` run that ends the text closes math opened before it. A space
+// before the run, other than a line's indent, leaves it free to open math.
+bool closesMath(RepairContext &ctx, std::string_view text, size_t start, bool inlineDollar, bool displayDollar) {
+  const size_t length = text.size() - start;
+  if (start == 0 || (length == 1 && !inlineDollar) || (length == 2 && !displayDollar) ||
+      (isSpaceOrTab(text[start - 1]) && lineBefore(text, start).find_first_not_of(" \t>") != npos)) {
+    return false;
+  }
+  const std::vector<MathOpener> openers = unclosedMath(ctx, text, start, inlineDollar, displayDollar);
+  return !openers.empty() && openers.back().length == length;
+}
+
+// A `$` run that ends the text may still open math or grow into `$$`: it
+// waits for the next character, unless it closes math or, like `5$`, follows
+// a character after which no math opens.
+void withholdTrailingDollars(RepairContext &ctx, bool inlineDollar, bool displayDollar) {
+  const std::string_view text = ctx.text();
+  size_t start = text.size();
+  while (start > 0 && text.size() - start < 2 && text[start - 1] == '$') {
+    --start;
+  }
+  if (start == text.size() || (start > 0 && text[start - 1] == '$') || isEscaped(text, start) ||
+      ctx.code().inside(start)) {
+    return;
+  }
+  const uint32_t before = codePointBefore(text, start);
+  const bool mayOpen = before == kNoCodePoint || isJsWhitespace(before) || isUnicodePunctuation(before);
+  if (!mayOpen || closesMath(ctx, text, start, inlineDollar, displayDollar)) {
+    return;
+  }
+  eraseFrom(ctx, text, start);
+}
+
+void withholdUnclosedMath(RepairContext &ctx, bool inlineDollar, bool displayDollar) {
+  withholdTrailingDollars(ctx, inlineDollar, displayDollar);
+  const std::string_view text = body(ctx);
+  if (text.find('$') == npos) {
+    return;
+  }
+  const std::vector<MathOpener> openers = unclosedMath(ctx, text, text.size(), inlineDollar, displayDollar);
   if (!openers.empty()) {
     eraseFrom(ctx, text, openers.back().index);
   }
@@ -206,7 +278,7 @@ void withholdUnclosedMath(RepairContext &ctx, bool inlineDollar, bool displayDol
 
 } // namespace
 
-void withhold(RepairContext &ctx, const RepairOptions &options) {
+void withhold(RepairContext &ctx, const RepairOptions &options, bool endsInText) {
   const Fence fence = unclosedFence(ctx.text());
   if (fence.c != 0) {
     if (options.withholdIncomplete) {
@@ -224,6 +296,9 @@ void withhold(RepairContext &ctx, const RepairOptions &options) {
   do {
     size = ctx.text().size();
     withholdImageLabel(ctx);
+    if (endsInText) {
+      withholdLinkLabel(ctx);
+    }
     withholdEmptyOpener(ctx);
     withholdMarkerLine(ctx);
   } while (ctx.text().size() != size);

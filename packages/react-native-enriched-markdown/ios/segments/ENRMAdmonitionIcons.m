@@ -74,20 +74,3 @@ CGPathRef ENRMAdmonitionIconPath(NSString *type)
 {
   return (__bridge CGPathRef)ENRMAdmonitionIconPaths()[type];
 }
-
-NSString *ENRMAdmonitionTitle(NSString *type)
-{
-  static NSDictionary<NSString *, NSString *> *titles;
-  static dispatch_once_t once;
-  dispatch_once(&once, ^{
-    titles = @{
-      @"note" : @"Note",
-      @"tip" : @"Tip",
-      @"important" : @"Important",
-      @"warning" : @"Warning",
-      @"caution" : @"Caution",
-    };
-  });
-  NSString *title = titles[type];
-  return title ?: type.capitalizedString;
-}

@@ -50,13 +50,13 @@ static NSArray<NSString *> *ENRMRotorOrderHeadingLabels(NSArray *elements)
 
   MarkdownASTNode *before = ENRMRotorOrderQuoteNode(@"> # Alpha\n>\n> text\n");
   XCTAssertNotNil(before);
-  [quote applyBlockquoteNode:before];
+  [quote applyBlockquoteNode:before taskIndexOffset:0];
   [quote layoutIfNeeded];
   XCTAssertEqualObjects(ENRMRotorOrderHeadingLabels(@[ quote ]), (@[ @"Alpha" ]));
 
   MarkdownASTNode *after = ENRMRotorOrderQuoteNode(@"> # Beta\n>\n> ```\n> code\n> ```\n>\n> # Alpha\n>\n> text\n");
   XCTAssertNotNil(after);
-  [quote applyBlockquoteNode:after];
+  [quote applyBlockquoteNode:after taskIndexOffset:0];
   [quote layoutIfNeeded];
 
   // The reused "Alpha" view was attached before the new "Beta" one.

@@ -213,15 +213,6 @@ class ImageLineLayoutTest {
     assertTrue(neighbour.sizeQueries > 0)
   }
 
-  @Test
-  fun redrawingAPillDoesNotLayTheTextOutAgain() {
-    val (view, neighbour, _) = viewShowingPendingPill("https://example.com/icon-redrawn.png")
-
-    LinkPillSpan.redraw(view, 0, view.text.length)
-
-    assertEquals(0, neighbour.sizeQueries)
-  }
-
   // Issue #932: the component measures with its own spans. When that happens before the image
   // is cached it reports maxHeight, and only the displayed image can ask it to measure again.
   // These follow the order seen on a device: register, image available, onMeasure, posted check.

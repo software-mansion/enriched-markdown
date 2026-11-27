@@ -105,7 +105,8 @@ public extension MarkdownRenderer {
         imageRequestHeaders: [String: String] = [:],
         accessibilityLabel: String = "Math: {speech}",
         writingDirection: MarkdownWritingDirection = .firstStrong,
-        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
+        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight,
+        admonitionTitles: MarkdownAdmonitionTitles = .default
     ) -> NSAttributedString {
         renderLaTeX(
             markdown,
@@ -114,7 +115,8 @@ public extension MarkdownRenderer {
             imageRequestHeaders: imageRequestHeaders,
             accessibilityLabel: LaTeXRenderPlugin.label(template: accessibilityLabel),
             writingDirection: writingDirection,
-            layoutDirection: layoutDirection
+            layoutDirection: layoutDirection,
+            admonitionTitles: admonitionTitles
         )
     }
 
@@ -125,7 +127,8 @@ public extension MarkdownRenderer {
         imageRequestHeaders: [String: String] = [:],
         accessibilityLabel: @escaping (String) -> String,
         writingDirection: MarkdownWritingDirection = .firstStrong,
-        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
+        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight,
+        admonitionTitles: MarkdownAdmonitionTitles = .default
     ) -> NSAttributedString {
         render(
             markdown,
@@ -134,7 +137,8 @@ public extension MarkdownRenderer {
             imageRequestHeaders: imageRequestHeaders,
             plugins: [LaTeXRenderPlugin(accessibilityLabel: accessibilityLabel)],
             writingDirection: writingDirection,
-            layoutDirection: layoutDirection
+            layoutDirection: layoutDirection,
+            admonitionTitles: admonitionTitles
         )
     }
 }

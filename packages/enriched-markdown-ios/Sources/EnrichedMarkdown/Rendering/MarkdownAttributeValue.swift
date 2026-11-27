@@ -25,6 +25,10 @@ enum MarkdownAttributeValue {
         attrs[.link] ?? attrs[MarkdownAttribute.spoilerLink]
     }
 
+    static func baselineOffset(in attributes: [NSAttributedString.Key: Any]) -> CGFloat {
+        CGFloat((attributes[.baselineOffset] as? NSNumber)?.doubleValue ?? 0)
+    }
+
     static func boolValue(from value: Any?) -> Bool {
         if let bool = value as? Bool {
             return bool

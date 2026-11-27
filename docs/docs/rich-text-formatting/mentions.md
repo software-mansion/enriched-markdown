@@ -57,10 +57,12 @@ EnrichedMarkdownText(content)
     Link(matching: "^user:")
       .foregroundStyle(.blue)
       .background(Color.blue.opacity(0.12))
+      .cornerRadius(4)
       .underline(false)
     Link(matching: "^channel:")
       .foregroundStyle(.green)
       .background(Color.green.opacity(0.12))
+      .cornerRadius(4)
       .underline(false)
   }
   .environment(\.openURL, OpenURLAction { url in
@@ -74,7 +76,7 @@ EnrichedMarkdownText(content)
   })
 ```
 
-When several patterns match, the longest one wins. So `^user://alice` can sit next to `^user:`.
+When several patterns match, the longest one wins. So `^user://alice` can sit next to `^user:`. `.cornerRadius(_:)` rounds the fill and `.border(_:width:)` outlines it; there is no label, icon or padding.
 
 </Tab>
 <Tab label="Android">

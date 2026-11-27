@@ -1,11 +1,13 @@
 package com.swmansion.enriched.markdown.accessibility
 
+import android.content.Context
 import android.graphics.Rect
 import android.os.Bundle
 import android.text.Layout
 import android.text.Spanned
 import android.view.View
 import android.view.ViewTreeObserver
+import android.view.accessibility.AccessibilityManager
 import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
@@ -69,6 +71,9 @@ class MarkdownAccessibilityHelper(
 
   fun invalidateAccessibilityItems() {
     needsRebuild = true
+    // Building the items reads the whole text, and a stream changes it many times a second.
+    // With no accessibility service on, nothing reads them: a query builds them first.
+    if (!isAccessibilityEnabled()) return
     if (textView.layout != null) {
       rebuildIfNeeded()
       invalidateRoot()
@@ -76,6 +81,9 @@ class MarkdownAccessibilityHelper(
       schedulePostLayoutRebuild()
     }
   }
+
+  private fun isAccessibilityEnabled(): Boolean =
+    (textView.context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)?.isEnabled == true
 
   private fun schedulePostLayoutRebuild() {
     if (pendingLayoutListener != null) return
@@ -354,6 +362,7 @@ class MarkdownAccessibilityHelper(
     id: Int,
     node: AccessibilityNodeInfoCompat,
   ) {
+    rebuildIfNeeded()
     val item = items.getOrNull(id)
     if (item == null) {
       node.contentDescription = ""
@@ -375,6 +384,7 @@ class MarkdownAccessibilityHelper(
     action: Int,
     args: Bundle?,
   ): Boolean {
+    rebuildIfNeeded()
     val item = items.getOrNull(id) ?: return false
     if (action == AccessibilityNodeInfoCompat.ACTION_CLICK && item.isLink) {
       val spanned = textView.text as? Spanned ?: return false

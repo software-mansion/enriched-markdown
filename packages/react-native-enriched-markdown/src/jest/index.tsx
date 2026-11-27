@@ -17,7 +17,7 @@
  * the API gains a prop or ref method the mock does not cover -- it cannot
  * silently drift from the real component.
  */
-import { useImperativeHandle, useRef, useState } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { ComponentRef, ReactNode } from 'react';
 import { Text, TextInput } from 'react-native';
 import type {
@@ -32,10 +32,14 @@ import type {
   TaskListItemPressEvent,
 } from '../types/events';
 
+import { useMarkdownStreamSnapshot } from '../markdownStream';
+
 export {
   DEFAULT_ACCESSIBILITY_LABELS,
   resolveAccessibilityLabels,
 } from '../accessibilityLabelDefaults';
+export { createMarkdownStream } from '../markdownStream';
+export { DEFAULT_ADMONITION_TITLES } from '../admonitionDefaults';
 
 type AnyFn = (...args: any[]) => any;
 declare const jest: { fn: <T extends AnyFn>(impl?: T) => T };
@@ -289,6 +293,7 @@ function buildChildren(
 
 export const EnrichedMarkdownText = ({
   markdown,
+  stream,
   containerStyle,
   testID,
   accessible,
@@ -308,8 +313,10 @@ export const EnrichedMarkdownText = ({
   maxFontSizeMultiplier: _maxFontSizeMultiplier,
   allowTrailingMargin: _allowTrailingMargin,
   flavor: _flavor,
-  streamingAnimation: _streamingAnimation,
+  streaming,
+  streamingAnimation,
   streamingConfig: _streamingConfig,
+  onStreamingEnd,
   spoilerOverlay: _spoilerOverlay,
   contextMenuItems: _contextMenuItems,
   linkContextMenuItems: _linkContextMenuItems,
@@ -319,12 +326,25 @@ export const EnrichedMarkdownText = ({
   linkPillContent: _linkPillContent,
   selectionMenuConfig: _selectionMenuConfig,
   accessibilityLabels: _accessibilityLabels,
+  admonitionTitles: _admonitionTitles,
   selectionColor: _selectionColor,
   selectionHandleColor: _selectionHandleColor,
   textBreakStrategy: _textBreakStrategy,
   lineBreakStrategyIOS: _lineBreakStrategyIOS,
   writingDirection: _writingDirection,
 }: EnrichedMarkdownTextProps) => {
+  const streamSnapshot = useMarkdownStreamSnapshot(stream);
+  // Called when streaming turns off, or the stream ends, as the native view does.
+  const isStreaming =
+    streaming ??
+    streamingAnimation ??
+    (streamSnapshot != null && !streamSnapshot.ended);
+  const wasStreaming = useRef(isStreaming);
+  useEffect(() => {
+    if (wasStreaming.current && !isStreaming) onStreamingEnd?.();
+    wasStreaming.current = isStreaming;
+  }, [isStreaming, onStreamingEnd]);
+
   return (
     <Text
       style={containerStyle}
@@ -336,7 +356,7 @@ export const EnrichedMarkdownText = ({
       accessibilityState={accessibilityState}
       nativeID={nativeID}
     >
-      {buildChildren(markdown, {
+      {buildChildren(streamSnapshot?.text ?? markdown, {
         onLinkPress,
         onLinkLongPress,
         onTaskListItemPress,

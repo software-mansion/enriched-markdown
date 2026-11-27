@@ -117,7 +117,7 @@ The closure receives the raw source and runs on the render queue, so keep it che
 
 ## Rendering without a view {#rendering-without-a-view}
 
-`MarkdownRenderer.renderLaTeX` is [`MarkdownRenderer.render`](/ios/api-reference/markdown-theme#markdownrenderer) with math installed. It takes the same `config:`, `options:`, `imageRequestHeaders:`, `writingDirection:`, and `layoutDirection:` parameters plus `accessibilityLabel:` - a template string or a closure, exactly as on [`.markdownLaTeX`](#accessibility). It has **no `codeBlockLayout:` parameter**, so code blocks in its output are always laid out `.wrapping`.
+`MarkdownRenderer.renderLaTeX` is [`MarkdownRenderer.render`](/ios/api-reference/markdown-theme#markdownrenderer) with math installed. It takes the same `config:`, `options:`, `imageRequestHeaders:`, `writingDirection:`, `layoutDirection:`, and `admonitionTitles:` parameters plus `accessibilityLabel:` - a template string or a closure, exactly as on [`.markdownLaTeX`](#accessibility). It has **no `codeBlockLayout:` parameter**, so code blocks in its output are always laid out `.wrapping`.
 
 ```swift
 import EnrichedMarkdown

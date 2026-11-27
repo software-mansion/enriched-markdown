@@ -7,7 +7,9 @@ import {
   type ReactNode,
 } from 'react';
 import type { EnrichedMarkdownTextProps } from '../types/MarkdownTextProps.web';
+import { useMarkdownStreamSnapshot } from '../markdownStream';
 import { normalizeMarkdownStyle } from '../normalizeMarkdownStyle.web';
+import { useAdmonitionTitles } from '../admonitionDefaults';
 import {
   zeroTrailingMargins,
   parseErrorFallbackStyle,
@@ -46,8 +48,10 @@ interface ParseResult {
 const isParserReadyOnServer = () => false;
 
 export const EnrichedMarkdownText = ({
-  markdown,
+  markdown: markdownProp = '',
+  stream,
   markdownStyle = {},
+  admonitionTitles,
   md4cFlags = {},
   linkRecognition,
   onLinkPress,
@@ -67,10 +71,13 @@ export const EnrichedMarkdownText = ({
   testID,
   ...rest
 }: EnrichedMarkdownTextProps) => {
+  const streamSnapshot = useMarkdownStreamSnapshot(stream);
+  const markdown = streamSnapshot?.text ?? markdownProp;
   const normalizedStyle = useMemo(
     () => normalizeMarkdownStyle(markdownStyle),
     [markdownStyle]
   );
+  const resolvedAdmonitionTitles = useAdmonitionTitles(admonitionTitles);
 
   const renderersEnabled = hasRenderers(renderers);
   // Collecting hashes every image and link: only when something reads it.
@@ -210,8 +217,16 @@ export const EnrichedMarkdownText = ({
       blockSlots,
       imageSources,
       blockDir,
+      admonitionTitles: resolvedAdmonitionTitles,
     }),
-    [katex, enableTaskListItemToggle, blockSlots, imageSources, blockDir]
+    [
+      katex,
+      enableTaskListItemToggle,
+      blockSlots,
+      imageSources,
+      blockDir,
+      resolvedAdmonitionTitles,
+    ]
   );
 
   const lastChildStyle = useMemo(
@@ -233,6 +248,9 @@ export const EnrichedMarkdownText = ({
     () => ({
       display: 'flex',
       flexDirection: 'column',
+      // Break a word longer than the line (usually a URL) instead of letting
+      // it overflow, as native does.
+      overflowWrap: 'break-word',
       ...(containerStyle as CSSProperties),
       ...(selectable ? undefined : { userSelect: 'none' }),
       ...(selectionColor

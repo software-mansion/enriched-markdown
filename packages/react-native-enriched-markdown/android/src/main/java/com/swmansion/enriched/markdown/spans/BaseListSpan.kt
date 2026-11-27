@@ -99,11 +99,22 @@ abstract class BaseListSpan(
     layout: Layout?,
     start: Int,
   ) {
+    // A streaming effect's first character takes the marker with it.
+    val visibility = streamingVisibility(layout?.text, start, start + 1)
+    if (visibility <= 0f) return
+    val layer =
+      if (visibility < 1f) {
+        val bounds = canvas.clipBounds
+        canvas.saveLayerAlpha(bounds.left.toFloat(), top.toFloat(), bounds.right.toFloat(), bottom.toFloat(), (visibility * 255).toInt())
+      } else {
+        -1
+      }
     val originalStyle = paint.style
     val originalColor = paint.color
     drawMarker(canvas, paint, x, dir, top, baseline, bottom, layout, start)
     paint.style = originalStyle
     paint.color = originalColor
+    if (layer >= 0) canvas.restoreToCount(layer)
   }
 
   protected abstract fun drawMarker(

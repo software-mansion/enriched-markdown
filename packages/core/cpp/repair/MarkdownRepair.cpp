@@ -69,6 +69,8 @@ void repairInlineMarkdownInPlace(std::string &text, const RepairOptions &options
   if (text.empty()) {
     return;
   }
+  // Whitespace after a trailing `]` means no `(` can make it a link.
+  const bool endsInText = text.back() != ' ' && text.back() != '\t' && text.back() != '\n' && text.back() != '\r';
   // A single trailing space is dropped; two are a hard break and stay.
   if (endsWith(text, " ") && !endsWith(text, "  ")) {
     text.pop_back();
@@ -76,7 +78,7 @@ void repairInlineMarkdownInPlace(std::string &text, const RepairOptions &options
 
   RepairContext ctx(text, options.inlineMath, options.withholdMath);
   if (options.withholdIncomplete || options.withholdMath) {
-    RepairHandlers::withhold(ctx, options);
+    RepairHandlers::withhold(ctx, options, endsInText);
   }
   if (options.singleTilde && !options.subscript) { // with subscripts, `~x~` is markup
     RepairHandlers::singleTilde(ctx);

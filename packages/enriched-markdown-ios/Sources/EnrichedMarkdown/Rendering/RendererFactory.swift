@@ -7,6 +7,7 @@ final class RendererFactory {
     private let writingDirection: MarkdownWritingDirection
     private let layoutDirection: UIUserInterfaceLayoutDirection
     private let codeBlockLayout: MarkdownCodeBlockLayout
+    private let admonitionTitles: MarkdownAdmonitionTitles
     private var cache: [NodeType: NodeRenderer] = [:]
     private lazy var childrenOnlyRenderer = ChildrenOnlyRenderer(factory: self)
 
@@ -16,7 +17,8 @@ final class RendererFactory {
         plugins: [any MarkdownRenderPlugin] = [],
         writingDirection: MarkdownWritingDirection = .firstStrong,
         layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight,
-        codeBlockLayout: MarkdownCodeBlockLayout = .wrapping
+        codeBlockLayout: MarkdownCodeBlockLayout = .wrapping,
+        admonitionTitles: MarkdownAdmonitionTitles = .default
     ) {
         self.config = config
         self.imageRequestHeaders = imageRequestHeaders
@@ -24,6 +26,7 @@ final class RendererFactory {
         self.writingDirection = writingDirection
         self.layoutDirection = layoutDirection
         self.codeBlockLayout = codeBlockLayout
+        self.admonitionTitles = admonitionTitles
     }
 
     func renderer(for type: NodeType) -> NodeRenderer {
@@ -118,7 +121,7 @@ final class RendererFactory {
         case .codeBlock:
             return CodeBlockRenderer(factory: self, config: config, plugins: plugins, layout: codeBlockLayout)
         case .blockquote, .admonition:
-            return BlockquoteRenderer(factory: self, config: config)
+            return BlockquoteRenderer(factory: self, config: config, titles: admonitionTitles)
         case .unorderedList:
             return ListRenderer(factory: self, config: config, isOrdered: false)
         case .orderedList:

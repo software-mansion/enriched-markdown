@@ -4,6 +4,7 @@
 #import "ParagraphStyleUtils.h"
 #import "RenderContext.h"
 #import "StyleConfig.h"
+#import "TextViewLayoutManager.h"
 
 extern NSString *const ListItemMarkerStartAttribute;
 
@@ -96,6 +97,18 @@ static NSString *const kAppleColorEmojiFontName = @"AppleColorEmoji";
                                    font = [self defaultFont];
                                  }
 
+                                 // A streaming effect's first character takes the marker with it.
+                                 CGFloat visibility = 1;
+                                 if ([layoutManager isKindOfClass:[TextViewLayoutManager class]]) {
+                                   visibility = [(TextViewLayoutManager *)layoutManager
+                                       visibilityOfCharactersInRange:
+                                           [storage.string rangeOfComposedCharacterSequenceAtIndex:charRange.location]];
+                                 }
+                                 if (visibility <= 0)
+                                   return;
+                                 CGContextRef context = UIGraphicsGetCurrentContext();
+                                 CGContextSaveGState(context);
+                                 CGContextSetAlpha(context, visibility);
                                  for (ENRMListMarkerDescriptor *marker in markers) {
                                    CGFloat markerX = isRTL ? origin.x + container.size.width - marker.indent + gap
                                                            : origin.x + marker.indent - gap;
@@ -117,6 +130,7 @@ static NSString *const kAppleColorEmojiFontName = @"AppleColorEmoji";
                                                           isRTL:isRTL];
                                    }
                                  }
+                                 CGContextRestoreGState(context);
                                }];
 }
 

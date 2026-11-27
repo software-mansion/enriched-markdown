@@ -18,6 +18,7 @@ import Md4cLatexMathSrc from '!!raw-loader!@site/src/examples/react-native/api-r
 import Md4cHardSoftBreaksSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cHardSoftBreaks';
 import Md4cPreserveBlankLinesSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cPreserveBlankLines';
 import Md4cAdmonitionsSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cAdmonitions';
+import AdmonitionTitlesSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/AdmonitionTitles';
 import OnLinkPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnLinkPress';
 import OnLinkLongPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnLinkLongPress';
 import LinkPillContentSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/LinkPillContent';
@@ -37,7 +38,8 @@ import SelectionHandleColorSrc from '!!raw-loader!@site/src/examples/react-nativ
 import AllowFontScalingSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/AllowFontScaling';
 import MaxFontSizeMultiplierSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/MaxFontSizeMultiplier';
 import AllowTrailingMarginSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/AllowTrailingMargin';
-import StreamingAnimationSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/StreamingAnimation';
+import StreamingSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Streaming';
+import StreamSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Stream';
 import StreamingConfigSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/StreamingConfig';
 import SpoilerOverlaySrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/SpoilerOverlay';
 import ImageRequestHeadersSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/ImageRequestHeaders';
@@ -89,11 +91,37 @@ Each prop has a live playground below - edit the code and try it. Props marked w
 
 ### `markdown`
 
-The Markdown content to render. Which syntax elements are recognized depends on the [`flavor`](#flavor) and the [`md4cFlags`](#md4cflags) you set. To learn more, see [Feature support](/introduction/supported-features).
+The Markdown content to render. Which syntax elements are recognized depends on the [`flavor`](#flavor) and the [`md4cFlags`](#md4cflags) you set. To learn more, see [Feature support](/introduction/supported-features). Ignored while [`stream`](#stream) is set.
 
-<PropInfo type="string" required />
+<PropInfo type="string" />
 
 <LivePreview src={MarkdownSrc} />
+
+### `stream`
+
+Markdown arriving in pieces, from `createMarkdownStream()`: an alternative to `markdown` for text that grows, such as an LLM answer. Appending to the stream doesn't re-render your component; the view updates once per frame. On iOS and Android the text stays in native memory, so only each chunk crosses from JavaScript.
+
+```tsx
+import { createMarkdownStream, EnrichedMarkdownText } from 'react-native-enriched-markdown';
+
+const stream = createMarkdownStream();
+for await (const chunk of response) stream.append(chunk);
+stream.end();
+
+<EnrichedMarkdownText stream={stream} />;
+```
+
+- `append(chunk)` adds to the end of the text. After `end()` or `dispose()` it is ignored, with a warning in development.
+- `getText()` returns the text appended so far, for example to save or copy the message. After `dispose()` it is empty, even while a view still shows it.
+- `end()` marks the text complete: the view stops [`streaming`](#streaming) and shows everything.
+- `reset(text?)` replaces the text (empty by default) and streams again, for a retry or a regeneration. It also works after `dispose()`.
+- `dispose()` ends the stream, if `end()` wasn't called, and frees the text once no view shows it; a view that mounts after that shows nothing. Call it when the message is gone. A stream that JavaScript no longer references is freed too, where the engine supports `FinalizationRegistry`.
+
+The view streams until `end()`; an explicit `streaming` prop takes precedence. A task-list checkbox toggled while streaming is reset by the next update. Create the stream outside the component (for example next to the message in your store), so it outlives views that unmount and mount again, such as rows of a list. For the same reason, don't dispose it in an effect cleanup of the component that renders it: StrictMode runs cleanups during development.
+
+<PropInfo type="MarkdownStream" />
+
+<LivePreview src={StreamSrc} />
 
 ### `markdownStyle`
 
@@ -207,7 +235,7 @@ When `true`, preserves runs of consecutive blank lines from the source instead o
 
 Renders GitHub-style admonitions (also called alerts): a blockquote whose first line is `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, or `> [!CAUTION]` becomes a themed callout with an icon and a title header instead of a plain quote. Unlike the other flags, this one is **on by default**.
 
-Admonitions inherit the blockquote's geometry and override only its colors, so restyle them through [`markdownStyle.blockquote.admonitions`](/react-native/api-reference/style-properties#admonitions) - see that section for the per-type palette.
+Admonitions inherit the blockquote's geometry and override only its colors, so restyle them through [`markdownStyle.blockquote.admonitions`](/react-native/api-reference/style-properties#admonitions) - see that section for the per-type palette. To translate or rename the titles, use [`admonitionTitles`](#admonitiontitles).
 
 :::note
 Only takes effect with [`flavor="github"`](#flavor). Under `flavor="commonmark"` the flag is forced off and `> [!NOTE]` renders as an ordinary blockquote with the literal text.
@@ -216,6 +244,23 @@ Only takes effect with [`flavor="github"`](#flavor). Under `flavor="commonmark"`
 <PropInfo type="boolean" default="true" />
 
 <LivePreview src={Md4cAdmonitionsSrc} />
+
+### `admonitionTitles`
+
+The header titles of [admonitions](#admonitions), keyed by type, to localize or rename them. A type you leave out keeps its English title (`Note`, `Tip`, `Important`, `Warning`, `Caution`), and an empty string shows the icon without a title. The header is one line high, so a title wider than the callout ends in an ellipsis.
+
+The title is laid out in its own direction, so an Arabic or Hebrew title reads right to left even in a callout whose body is English. On web it is a `<bdi>`, which also keeps it from deciding the callout's direction.
+
+<PropInfo type="AdmonitionTitles" default="DEFAULT_ADMONITION_TITLES" />
+
+```ts
+type AdmonitionType = 'note' | 'tip' | 'important' | 'warning' | 'caution';
+type AdmonitionTitles = Partial<Record<AdmonitionType, string>>;
+```
+
+The package also exports `DEFAULT_ADMONITION_TITLES`, the English titles used for any type you leave out.
+
+<LivePreview src={AdmonitionTitlesSrc} />
 
 ### `enableTaskListItemToggle`
 
@@ -295,26 +340,39 @@ Whether to preserve the bottom margin of the last block element. When `false` (d
 
 <LivePreview src={AllowTrailingMarginSrc} />
 
-### `streamingAnimation`
+### `streaming`
 
-When `true`, newly appended content fades in during streaming updates. Only the tail is animated, and the tail is found by **length**, not by diffing: everything past the previous content's length fades in. Streaming therefore assumes append-only updates - replacing `markdown` wholesale (a retry or a regeneration) will not fade correctly. Recommended for LLM streaming use cases.
+Set to `true` while `markdown` is still arriving, for example an LLM answer streaming in. Incomplete syntax at the end of the document is held back or repaired instead of rendering as raw markdown (see [`streamingConfig`](#streamingconfig)), and new content fades in. Set it back to `false` when the stream ends: the final render shows everything, including content that was held back.
+
+New content is found by **length**, not by diffing: everything past the previous content's length counts as new. Streaming therefore assumes append-only updates - replacing `markdown` wholesale (a retry or a regeneration) will not fade correctly.
+
+`streamingAnimation` is the previous name of this prop. It still works, but is deprecated; when both are set, `streaming` wins.
 
 <PropInfo type="boolean" default="false" />
 
-<LivePreview src={StreamingAnimationSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - the fade-in animation is native. On macOS it degrades to an instant reveal.</>} />
+<LivePreview src={StreamingSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - streaming is native. On macOS the fade-in degrades to an instant reveal.</>} />
 
 ### `streamingConfig`
 
-Fine-grained control over how incomplete tables, fenced code blocks and media blocks are handled while streaming. Two conditions must both hold for it to do anything: `streamingAnimation` must be `true`, **and** the flavor must be `github` - the filter runs only on the segmented renderer, so under `flavor="commonmark"` you get the tail fade and nothing else.
+Fine-grained control over streaming: how incomplete tables, fenced code blocks and media blocks are handled, and how new content appears. Only takes effect while [`streaming`](#streaming) is `true`, in both flavors.
 
-<PropInfo type="StreamingConfig" default="{ tableMode: 'progressive', codeBlockMode: 'progressive', mediaMode: 'progressive' }" />
+<PropInfo type="StreamingConfig" default="{ tableMode: 'progressive', codeBlockMode: 'progressive', mediaMode: 'progressive', animation: 'fade', smooth: false }" />
 
 ```ts
 interface StreamingConfig {
   tableMode?: 'hidden' | 'progressive';
   codeBlockMode?: 'hidden' | 'progressive';
   mediaMode?: 'hidden' | 'progressive';
+  animation?: StreamingAnimation;
+  smooth?: boolean;
 }
+
+type StreamingAnimation =
+  | 'fade'
+  | 'gradient'
+  | 'none'
+  | { type: 'fade'; duration?: number }
+  | { type: 'gradient'; length?: number; startColor?: ColorValue; endColor?: ColorValue };
 ```
 
 <LivePreview src={StreamingConfigSrc} unavailable unavailableReason={<>iOS and Android only - streaming block handling is native.</>} />
@@ -328,6 +386,11 @@ interface StreamingConfig {
 - `mediaMode`
   - `'progressive'` **(default)** shows a trailing image paragraph, link paragraph or `<video>` block as soon as its syntax is complete (the closing `)` or `>`); until then the partial line is withheld instead of rendering as text. A bare URL on its own line can always grow, so it is withheld until the next line arrives.
   - `'hidden'` withholds the block until a blank line or another block follows it, like `tableMode: 'hidden'`, so it never appears before the content after it. Applies to native images and to blocks drawn by [`renderers`](#renderers) alike.
+- `animation` - how new content appears. Reduce Motion turns it off. See [Animations](/rich-text-formatting/markdown-streaming#animations).
+  - `'fade'` **(default)** fades each new word in over its own 200 ms (`duration` in milliseconds), and fades in new blocks and table rows and grows a block drawn by [`renderers`](#renderers) into place. `duration` applies to text only: blocks and table rows keep a 200 ms fade.
+  - `'gradient'` runs the last 20 characters (`length`) from their own color to transparent, following the end of the text. `startColor` replaces their own color, and `endColor` (transparent by default) is the newest character's color. Blocks fade in as with `'fade'`.
+  - `'none'` shows new content at once, as does a `duration` or `length` of 0.
+- `smooth` - reveals new text word by word at a steady pace instead of in the bursts it arrives in. The view shows the text revealed so far, so its layout, list items and blocks grow with the words. Each chunk spreads over the time until the next one, at most a second behind, and what is left shows within 200 ms when the stream ends. Works with every `animation`; with `'none'` words appear without fading. Reduce Motion keeps the pacing. Defaults to `false`. See [Smooth pacing](/rich-text-formatting/markdown-streaming#smooth-pacing).
 
 An unterminated block-math (`$$`) block is also withheld until its closing `$$` arrives. That behavior is unconditional and has no key here.
 
@@ -337,11 +400,9 @@ Controls how spoiler text (`||hidden text||`) is displayed before being revealed
 
 <PropInfo type="'particles' | 'solid'" default="'particles'" />
 
-:::danger
-The web build has no spoiler renderer at all, and an unhandled node is dropped **together with its subtree** - so `a ||secret|| b` renders as `a  b` with the concealed text missing, not concealed. Do not place content behind a spoiler if the same Markdown is also rendered on web.
-:::
+On web the prop is ignored: every spoiler is concealed by the solid cover, styled by [`markdownStyle.spoiler`](/react-native/api-reference/style-properties#spoiler-specific).
 
-<LivePreview src={SpoilerOverlaySrc} unavailable unavailableReason={<>iOS and Android only - the web build drops spoiler nodes entirely.</>} />
+<LivePreview src={SpoilerOverlaySrc} unavailable unavailableReason={<>iOS and Android only - the web build always draws the solid cover.</>} />
 
 - **`'particles'`**: animated particle overlay (CAEmitterLayer on iOS, Choreographer-driven Canvas particles on Android).
 - **`'solid'`**: opaque rectangle covering the text (Discord-style).
@@ -799,7 +860,7 @@ Callback fired when a task list checkbox is tapped. The checkbox is toggled nati
 
 ```ts
 interface TaskListItemPressEvent {
-  index: number; // 0-based item index
+  index: number; // 0-based index among all task items in the document, in document order
   checked: boolean; // checked state after toggling
   text: string; // the item's text
 }
@@ -878,6 +939,12 @@ interface LatexErrorEvent {
 ```
 
 <LivePreview src={OnLatexErrorSrc} unavailable unavailableReason={<>iOS and Android only - the web build renders math with KaTeX and does not report failures through this callback.</>} />
+
+### `onStreamingEnd`
+
+Callback fired when the view stops [`streaming`](#streaming): once `streaming` turns `false` or the [`stream`](#stream) ends, and with [`smooth`](#streamingconfig) pacing, once the last words have appeared. It fires after the final render shows the whole text, so a handler can scroll to the end or measure. Use it to save the finished message or show actions under it. It fires once per stream, and not when the view unmounts while streaming. iOS and Android only, like `streaming`.
+
+<PropInfo type="() => void" />
 
 ### `onLinksChange`
 
