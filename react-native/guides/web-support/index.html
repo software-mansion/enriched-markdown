@@ -11,7 +11,7 @@
 
 <link rel="icon" type="image/png" href="/enriched-markdown/img/favicon.png">
 <script>!function(){try{var e=location.pathname;if([].some(function(t){return e===t||0===e.indexOf(t+"/")}))return;var t=localStorage.getItem("swm.topbarbanner.v1.enriched-topbar-1.ea15c4216158c4097b65fe6504a4b3b7");if(!t)return;var r=JSON.parse(t);if(!r||"number"!=typeof r.height||r.height<5)return;if(Date.now()-r.timestamp>=2592e6)return;var n=document.documentElement;n.style.setProperty("--banner-height-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.height+"px"),"string"==typeof r.bgColor&&n.style.setProperty("--banner-bg-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.bgColor)}catch(e){}}()</script><link rel="stylesheet" href="/enriched-markdown/assets/css/styles.9863f435.css">
-<script src="/enriched-markdown/assets/js/runtime~main.af6f7c49.js" defer="defer"></script>
+<script src="/enriched-markdown/assets/js/runtime~main.725f6739.js" defer="defer"></script>
 <script src="/enriched-markdown/assets/js/main.4a2e8b3e.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -189,7 +189,6 @@ unknown DOM attributes. Use <code>id</code>, <code>aria-label</code> and CSS rat
 <li class="">Editor features - <code>EnrichedMarkdownTextInput</code> runs on web but covers less than on native. See <a class="" href="/enriched-markdown/react-native/guides/web-editor#not-supported-on-web">Web editor</a>.</li>
 <li class="">Code-block syntax highlighting - fenced code blocks render as plain monospaced text with no per-token colors, no header bar and no copy button</li>
 <li class="">Particle spoilers - every spoiler uses the solid cover, whatever <code>spoilerOverlay</code> says</li>
-<li class="">Inline images inside formatting - an image next to text renders inline only as a direct child of its paragraph. Inside a spoiler, link or emphasis it renders as a block image, and a spoiler holding one becomes a full-width block. Native draws such an image inline whenever anything precedes it in the paragraph</li>
 <li class="">Configurable link <code>target</code> - all links open in a new tab (<code>target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot;</code>). Use <code>onLinkPress</code> for custom navigation.</li>
 <li class="">Line clamping - <code>numberOfLines</code> and <code>ellipsizeMode</code> are native-only and are not part of the web props type</li>
 <li class="">Clipboard integration - the web build never writes to the clipboard, so none of the <a class="" href="/enriched-markdown/user-experience/copy-options">copy options</a> apply</li>
