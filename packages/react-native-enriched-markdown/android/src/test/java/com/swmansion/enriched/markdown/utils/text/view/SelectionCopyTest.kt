@@ -175,9 +175,22 @@ class SelectionCopyTest {
   // Quote and table Copy build their plain text from the AST with the same rule.
   @Test
   fun blockPlainTextWritesLinksAsMarkdown() {
-    val node = paragraph(text("see "), link("https://x.y/p(1)", text("x")), text(" at "), link("https://a.b", text("https://a.b")))
-    assertEquals("see x at https://a.b", MarkdownASTSerializer.plainText(node))
-    assertEquals("""see [x](https://x.y/p\(1\)) at https://a.b""", MarkdownASTSerializer.plainText(node, linksAsMarkdown = true))
+    val node =
+      paragraph(
+        text("see "),
+        link("https://x.y/p(1)", text("x")),
+        text(" at "),
+        link("https://a.b", text("https://a.b")),
+        text(", "),
+        link("https://intranet", text("intranet")),
+        text(" and "),
+        link("http://www.example.com", text("www.example.com")),
+      )
+    assertEquals("see x at https://a.b, intranet and www.example.com", MarkdownASTSerializer.plainText(node))
+    assertEquals(
+      """see [x](https://x.y/p\(1\)) at https://a.b, [intranet](https://intranet) and www.example.com""",
+      MarkdownASTSerializer.plainText(node, linksAsMarkdown = true),
+    )
   }
 
   @Test

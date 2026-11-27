@@ -66,11 +66,12 @@ object MarkdownASTSerializer {
   private val bracketedDestinationSpecials = Regex("""[\\<>]""")
   private val destinationSpecials = Regex("""[\\()]""")
 
-  // `<https://x.dev>`, a bare URL or an email: copying the URL alone keeps it a link where it is pasted.
+  // `<https://x.dev>`, a bare URL, `www.x.dev` or an email, as the parser writes them: the label alone still
+  // pastes as the same link.
   private fun isAutolink(
     label: String,
     url: String,
-  ): Boolean = url == label || url == "mailto:$label" || url == "http://$label" || url == "https://$label"
+  ): Boolean = url == label || url == "mailto:$label" || (label.startsWith("www.") && url == "http://$label")
 
   private fun escapeLinkLabel(label: String): String = label.replace(linkLabelSpecials, """\\$0""")
 

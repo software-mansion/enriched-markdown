@@ -1,5 +1,6 @@
 #import "../../ios/attachments/ENRMImageAttachment.h"
 #import "../../ios/parser/ENRMMarkdownParser.h"
+#import "../../ios/parser/ENRMTextLinkAttributes.h"
 #import "../../ios/parser/MarkdownASTNode.h"
 #import "../../ios/segments/ENRMBlockquoteContainerView.h"
 #import "../../ios/styles/StyleConfig.h"
@@ -119,9 +120,22 @@ static void ENRMPerform(UIAction *action)
 // Quote and table Copy build their plain text from the AST with the same rule.
 - (void)testBlockPlainTextWritesLinksAsMarkdown
 {
-  MarkdownASTNode *quote = ENRMParse(@"> see [x](https://x.y/p(1)) at <https://a.b>\n").children.firstObject;
-  XCTAssertEqualObjects(plainTextFromASTNode(quote), @"see x at https://a.b");
-  XCTAssertEqualObjects(plainTextWithMarkdownLinksFromASTNode(quote), @"see [x](https://x.y/p\\(1\\)) at https://a.b");
+  MarkdownASTNode *quote =
+      ENRMParse(@"> see [x](https://x.y/p(1)) at <https://a.b>, [intranet](https://intranet) and www.example.com\n")
+          .children.firstObject;
+  XCTAssertEqualObjects(plainTextFromASTNode(quote), @"see x at https://a.b, intranet and www.example.com");
+  XCTAssertEqualObjects(
+      plainTextWithMarkdownLinksFromASTNode(quote),
+      @"see [x](https://x.y/p\\(1\\)) at https://a.b, [intranet](https://intranet) and www.example.com");
+}
+
+// A recognized link touching an explicit one with the same URL stays text; the explicit one keeps its URL.
+- (void)testRecognizedLinkNextToAnExplicitOneWithTheSameURL
+{
+  NSMutableAttributedString *text = [[NSMutableAttributedString alloc] initWithString:@"ab"];
+  [text addAttribute:NSLinkAttributeName value:@"https://u.v" range:NSMakeRange(0, 2)];
+  [text addAttribute:ENRMRecognizedLinkAttributeName value:@YES range:NSMakeRange(0, 1)];
+  XCTAssertEqualObjects(ENRMPlainTextWithMarkdownLinks(text), @"a[b](https://u.v)");
 }
 
 - (void)testCopyKeyCommandWithoutSelectionReportsNothing

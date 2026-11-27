@@ -300,12 +300,12 @@ static NSString *ENRMLinkDestination(NSString *url)
   return ENRMEscaped(url, @"[\\\\()]");
 }
 
-// `<https://x.dev>`, a bare URL or an email: copying the URL alone keeps it a link where it is pasted.
+// `<https://x.dev>`, a bare URL, `www.x.dev` or an email, as the parser writes them: the label alone still
+// pastes as the same link.
 static BOOL ENRMIsAutolink(NSString *label, NSString *url)
 {
   return [url isEqualToString:label] || [url isEqualToString:[@"mailto:" stringByAppendingString:label]] ||
-         [url isEqualToString:[@"http://" stringByAppendingString:label]] ||
-         [url isEqualToString:[@"https://" stringByAppendingString:label]];
+         ([label hasPrefix:@"www."] && [url isEqualToString:[@"http://" stringByAppendingString:label]]);
 }
 
 NSString *ENRMMarkdownLink(NSString *label, NSString *url)

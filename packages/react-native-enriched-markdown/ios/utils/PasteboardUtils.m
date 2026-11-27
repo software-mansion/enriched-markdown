@@ -95,17 +95,17 @@ NSString *ENRMPlainTextWithMarkdownLinks(NSAttributedString *text)
   [text enumerateAttribute:NSLinkAttributeName
                    inRange:NSMakeRange(0, text.length)
                    options:0
-                usingBlock:^(id link, NSRange range, BOOL *stop) {
-                  NSString *run = [text.string substringWithRange:range];
-                  BOOL recognized = [text attribute:ENRMRecognizedLinkAttributeName
-                                               atIndex:range.location
-                                        effectiveRange:NULL] != nil;
+                usingBlock:^(id link, NSRange linkRange, BOOL *stop) {
                   NSString *url = [link isKindOfClass:NSURL.class] ? [link absoluteString] : link;
-                  if (![url isKindOfClass:NSString.class] || recognized) {
-                    [result appendString:run];
-                    return;
-                  }
-                  [result appendString:ENRMMarkdownLink(run, url)];
+                  // A recognized link next to an explicit one with the same URL is a separate run.
+                  [text enumerateAttribute:ENRMRecognizedLinkAttributeName
+                                   inRange:linkRange
+                                   options:0
+                                usingBlock:^(id recognized, NSRange range, BOOL *innerStop) {
+                                  NSString *run = [text.string substringWithRange:range];
+                                  BOOL plain = ![url isKindOfClass:NSString.class] || recognized != nil;
+                                  [result appendString:plain ? run : ENRMMarkdownLink(run, url)];
+                                }];
                 }];
   return result;
 }
