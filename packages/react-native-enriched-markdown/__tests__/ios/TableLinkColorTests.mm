@@ -62,10 +62,15 @@ static UIView *ENRMFindGrid(UIView *view)
   UIView *grid = ENRMFindGrid(_table);
   XCTAssertNotNil(grid);
 
+  // The grid draws in a subview, so render its layer tree rather than calling drawRect: on it.
+  [grid layoutIfNeeded];
+  for (UIView *subview in grid.subviews) {
+    [subview.layer displayIfNeeded];
+  }
   UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat];
   format.scale = 1;
   UIImage *image = [[[UIGraphicsImageRenderer alloc] initWithSize:grid.bounds.size format:format]
-      imageWithActions:^(UIGraphicsImageRendererContext *context) { [grid drawRect:grid.bounds]; }];
+      imageWithActions:^(UIGraphicsImageRendererContext *context) { [grid.layer renderInContext:context.CGContext]; }];
 
   CGImageRef cgImage = image.CGImage;
   size_t width = CGImageGetWidth(cgImage), height = CGImageGetHeight(cgImage);

@@ -43,6 +43,7 @@
 #import "ENRMSpoilerCapable.h"
 #import "ENRMSpoilerOverlayView.h"
 #import "ENRMSpoilerTapUtils.h"
+#import "ENRMTableIOSGridView.h"
 #import "ENRMUTF8.h"
 #import "ENRMViewFreeMeasurement.h"
 #import "ENRMVisibleArea.h"
@@ -69,7 +70,6 @@
 #import "StyleConfig.h"
 #import "StylePropsUtils.h"
 #import "TableContainerView.h"
-#import "ENRMTableIOSGridView.h"
 #import "TaskListTapUtils.h"
 #import "TextViewLayoutManager.h"
 #import <React/RCTUtils.h>
@@ -1921,8 +1921,10 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   _dynamicBlockProps.copyLabel = _selectionMenuLabels.copyLabel;
   _dynamicBlockProps.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
 #if !TARGET_OS_OSX
-  ENRMTableCellTextView *activeCell = _dynamicBlockProps.activeSelectionGrid.selectionView;
-  [activeCell refreshLegacyCopyMenu];
+  _dynamicBlockProps.copyTableLabel =
+      [[NSString alloc] initWithUTF8String:newViewProps.selectionMenuConfig.copyTableLabel.c_str()];
+  _dynamicBlockProps.copyTableAsMarkdownLabel =
+      [[NSString alloc] initWithUTF8String:newViewProps.selectionMenuConfig.copyTableAsMarkdownLabel.c_str()];
 #endif
 
   if (ENRMAccessibilityLabelsChanged(oldViewProps.accessibilityLabels, newViewProps.accessibilityLabels)) {
@@ -1968,7 +1970,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
   if (newViewProps.selectionColor != oldViewProps.selectionColor) {
 #if !TARGET_OS_OSX
-    ENRMApplySelectionColor(activeCell, newViewProps.selectionColor);
+    ENRMApplySelectionColor(_dynamicBlockProps.activeSelectionGrid.selectionView, newViewProps.selectionColor);
 #endif
     for (RCTUIView *segment in _segmentViews) {
       if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
@@ -2562,15 +2564,6 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
   ENRMApplySelectionColor(textView, props.selectionColor);
   __weak ENRMMarkdownTextView *weakView = textView;
   __weak EnrichedMarkdown *weakSelf = self;
-  if (@available(iOS 16.0, *)) {
-    // The native edit menu asks the text view delegate for its actions.
-  } else {
-    textView.legacyMenuConfig = ^ENRMSelectionMenuConfig {
-      EnrichedMarkdown *host = weakSelf;
-      return host ? host->_selectionMenuConfig : (ENRMSelectionMenuConfig){};
-    };
-    textView.onLegacyCopy = [self selectionCopyHandler];
-  }
   textView.copySelectionHandler = ^(NSRange range) {
     EnrichedMarkdown *host = weakSelf;
     NSAttributedString *text = weakView.attributedText;
@@ -2579,12 +2572,6 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
                         extractMarkdownFromAttributedString(text, range), host.config, [host selectionCopyHandler]);
     }
   };
-}
-
-- (void)textViewDidChangeSelection:(UITextView *)textView
-{
-  if ([textView isKindOfClass:ENRMTableCellTextView.class])
-    [(ENRMTableCellTextView *)textView refreshLegacyCopyMenu];
 }
 
 - (UIMenu *)textView:(UITextView *)textView

@@ -321,7 +321,6 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   ENRMLinkMenuLift *_linkMenuLift;
   UIEditMenuInteraction *_tableEditMenu API_AVAILABLE(ios(16.0));
   UIEditMenuConfiguration *_tableMenuConfiguration API_AVAILABLE(ios(16.0));
-  BOOL _ownsLegacyTableMenu;
 #endif
 }
 
@@ -646,6 +645,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     rowData.backgroundColor = [self backgroundColorForRowIsHeader:isHeaderRow bodyRowIndex:bodyRowIndex];
     rowData.cellTexts = [self attributedTextsForRow:rowCells];
     rowData.cellSignatures = [rowCells valueForKey:@"signature"];
+    rowData.sourceCellTexts = [rowCells valueForKey:@"attributedText"];
     [rowDataArray addObject:rowData];
 
     if (!isHeaderRow) {
@@ -736,7 +736,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   [_linkMenuLift end];
 }
 
-/// A link's menu lifts only the link, see `ENRMLinkMenuLift`.
+/// A link's menu lifts only the link, see `ENRMLinkMenuLift`; the table's own menu on iOS 15 (no link
+/// frame) lifts the whole grid.
 - (UITargetedPreview *)linkPreviewForInteraction:(UIContextMenuInteraction *)interaction
 {
   UIView *grid = interaction.view;
@@ -781,7 +782,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
-  ENRMTableIOSItemHit *link = [(ENRMTableIOSGridView *)_gridContainer linkAtPoint:location];
+  ENRMTableIOSGridView *grid = (ENRMTableIOSGridView *)_gridContainer;
+  ENRMTableIOSItemHit *link = [grid linkAtPoint:location];
   UIMenu *linkMenu = [self.dynamicProps.linkContextMenus menuForURL:link.url title:link.title];
   [_linkMenuLift end];
   // UIKit replaces a nil identifier with one of its own, so the frame tells the menus apart.
@@ -792,104 +794,29 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
                     previewProvider:nil
                      actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) { return linkMenu; }];
   }
-  return nil;
-}
-
-static __weak UIView *legacyTableMenuOwner;
-static NSArray<UIMenuItem *> *legacyTableMenuItems;
-static NSArray<UIMenuItem *> *previousLegacyMenuItems;
-
-void ENRMClearLegacyTableMenuItems(UIView *owner)
-{
-  if (legacyTableMenuOwner != owner || !legacyTableMenuItems)
-    return;
-  UIMenuController *menu = UIMenuController.sharedMenuController;
-  if ([menu.menuItems isEqualToArray:legacyTableMenuItems])
-    menu.menuItems = previousLegacyMenuItems;
-  legacyTableMenuOwner = nil;
-  legacyTableMenuItems = nil;
-  previousLegacyMenuItems = nil;
-}
-
-void ENRMSetLegacyTableMenuItems(UIView *owner, NSArray<UIMenuItem *> *items)
-{
-  UIMenuController *menu = UIMenuController.sharedMenuController;
-  if (legacyTableMenuOwner != owner || ![menu.menuItems isEqualToArray:legacyTableMenuItems]) {
-    ENRMClearLegacyTableMenuItems(legacyTableMenuOwner);
-    previousLegacyMenuItems = menu.menuItems;
-    legacyTableMenuOwner = owner;
+  // From iOS 16 the table's own menu is an edit menu, see -showTableMenuAtPoint:.
+  if (@available(iOS 16.0, *)) {
+    return nil;
   }
-  legacyTableMenuItems = items;
-  menu.menuItems = items;
-  if (menu.menuVisible)
-    [menu update];
-}
-
-- (BOOL)beginLegacyTableMenu
-{
-  if (!self.dynamicProps.enableBlockContextMenu)
-    return NO;
+  if (!self.dynamicProps.enableBlockContextMenu || [grid ownsCellInteractionAtPoint:location])
+    return nil;
   [self.dynamicProps.activeSelectionGrid clearSelectionView];
-  if (![self becomeFirstResponder])
-    return NO;
-  if (!_ownsLegacyTableMenu) {
-    [NSNotificationCenter.defaultCenter addObserver:self
-                                           selector:@selector(legacyTableMenuDidHide:)
-                                               name:UIMenuControllerDidHideMenuNotification
-                                             object:UIMenuController.sharedMenuController];
-  }
-  _ownsLegacyTableMenu = YES;
-  ENRMSetLegacyTableMenuItems(self, @[
-    [[UIMenuItem alloc] initWithTitle:self.dynamicProps.menuCopyLabel ?: @"Copy" action:@selector(copyWholeTable:)],
-    [[UIMenuItem alloc] initWithTitle:self.dynamicProps.menuCopyAsMarkdownLabel ?: @"Copy as Markdown"
-                             action:@selector(copyWholeTableAsMarkdown:)]
-  ]);
-  return YES;
+  NSArray<UIAction *> *actions = [self tableActionsWithTitle:self.dynamicProps.menuCopyLabel
+                                               markdownTitle:self.dynamicProps.menuCopyAsMarkdownLabel];
+  return [UIContextMenuConfiguration configurationWithIdentifier:nil
+                                                 previewProvider:nil
+                                                  actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
+                                                    return [UIMenu menuWithChildren:actions];
+                                                  }];
 }
 
 - (void)showTableMenuAtPoint:(CGPoint)point
 {
-  if (!self.dynamicProps.enableBlockContextMenu)
-    return;
   if (@available(iOS 16.0, *)) {
-    [_tableEditMenu presentEditMenuWithConfiguration:[UIEditMenuConfiguration configurationWithIdentifier:@"table"
-                                                                                              sourcePoint:point]];
-  } else if ([self beginLegacyTableMenu]) {
-    [UIMenuController.sharedMenuController showMenuFromView:_gridContainer rect:(CGRect){point, CGSizeZero}];
+    if (self.dynamicProps.enableBlockContextMenu)
+      [_tableEditMenu presentEditMenuWithConfiguration:[UIEditMenuConfiguration configurationWithIdentifier:@"table"
+                                                                                                sourcePoint:point]];
   }
-}
-
-- (void)didMoveToWindow
-{
-  [super didMoveToWindow];
-  if (!self.window)
-    [self endLegacyTableMenu];
-}
-
-- (void)legacyTableMenuDidHide:(NSNotification *)notification
-{
-  UIMenuController *menu = notification.object;
-  if (!menu.menuVisible)
-    [self resignFirstResponder];
-}
-
-- (void)endLegacyTableMenu
-{
-  if (!_ownsLegacyTableMenu)
-    return;
-  _ownsLegacyTableMenu = NO;
-  ENRMClearLegacyTableMenuItems(self);
-  [NSNotificationCenter.defaultCenter removeObserver:self
-                                                name:UIMenuControllerDidHideMenuNotification
-                                              object:UIMenuController.sharedMenuController];
-}
-
-- (BOOL)resignFirstResponder
-{
-  BOOL resigned = [super resignFirstResponder];
-  if (resigned)
-    [self endLegacyTableMenu];
-  return resigned;
 }
 
 - (UIMenu *)editMenuInteraction:(UIEditMenuInteraction *)interaction
@@ -924,12 +851,10 @@ void ENRMSetLegacyTableMenuItems(UIView *owner, NSArray<UIMenuItem *> *items)
 
 - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
 {
-  if (!self.isFirstResponder || !self.dynamicProps.enableBlockContextMenu)
-    return NO;
-  if (_ownsLegacyTableMenu)
-    return action == @selector(copyWholeTable:) || action == @selector(copyWholeTableAsMarkdown:);
-  if (@available(iOS 16.0, *))
-    return _tableMenuConfiguration && action == @selector(copy:);
+  if (@available(iOS 16.0, *)) {
+    return action == @selector(copy:) && _tableMenuConfiguration && self.isFirstResponder &&
+           self.dynamicProps.enableBlockContextMenu;
+  }
   return NO;
 }
 
@@ -937,21 +862,13 @@ void ENRMSetLegacyTableMenuItems(UIView *owner, NSArray<UIMenuItem *> *items)
 {
   [self copyTableToPasteboard];
 }
-- (void)copyWholeTable:(id)sender
-{
-  [self copyTableToPasteboard];
-}
-- (void)copyWholeTableAsMarkdown:(id)sender
-{
-  [self copyMarkdownToPasteboard];
-}
 
 - (NSArray<UIAction *> *)tableCopyActions
 {
   if (!self.dynamicProps.enableBlockContextMenu)
     return @[];
-  return [self tableActionsWithTitle:NSLocalizedString(@"Copy Table", nil)
-                    markdownTitle:NSLocalizedString(@"Copy Table as Markdown", nil)];
+  return [self tableActionsWithTitle:self.dynamicProps.menuCopyTableLabel
+                       markdownTitle:self.dynamicProps.menuCopyTableAsMarkdownLabel];
 }
 
 - (NSArray<UIAction *> *)tableActionsWithTitle:(NSString *)title markdownTitle:(NSString *)markdownTitle

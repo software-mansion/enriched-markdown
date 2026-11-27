@@ -135,6 +135,22 @@ export interface SelectionMenuConfig {
     label?: string;
     pluralLabels?: SelectionMenuPluralLabels;
   };
+  /**
+   * The "Copy Table" action added to a text selection inside a table cell. It
+   * copies the whole table and is shown when `enableBlockContextMenu` is on.
+   * Only its label is configurable.
+   * @default { label: "Copy Table" }
+   * @platform ios
+   */
+  copyTable?: { label?: string };
+  /**
+   * The "Copy Table as Markdown" action added to a text selection inside a
+   * table cell. It is shown when `enableBlockContextMenu` is on. Only its label
+   * is configurable.
+   * @default { label: "Copy Table as Markdown" }
+   * @platform ios
+   */
+  copyTableAsMarkdown?: { label?: string };
 }
 
 export interface StreamingConfig {

@@ -4,7 +4,6 @@
 #if !TARGET_OS_OSX
 
 #import "ENRMMarkdownTextView.h"
-#import "EditMenuUtils.h"
 #import <UIKit/UIKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -29,17 +28,17 @@ typedef NS_ENUM(NSInteger, ENRMTableIOSItemKind) {
 
 @interface ENRMTableIOSRowData : NSObject
 @property (nonatomic, strong) NSArray<NSAttributedString *> *cellTexts;
+/// The cell texts with their links, for the selection editor. `cellTexts` is what the grid draws.
+@property (nonatomic, strong, nullable) NSArray<NSAttributedString *> *sourceCellTexts;
 @property (nonatomic, strong, nullable) NSArray<NSNumber *> *cellSignatures;
 @property (nonatomic, strong) UIColor *backgroundColor;
 @end
 
 @class TableContainerView;
 
+/// The native text view placed over the touched cell, so that UIKit owns its selection and edit menu.
 @interface ENRMTableCellTextView : ENRMMarkdownTextView
 @property (nonatomic, weak) TableContainerView *table;
-@property (nonatomic, copy, nullable) ENRMSelectionMenuConfig (^legacyMenuConfig)(void);
-@property (nonatomic, copy, nullable) ENRMSelectionCopyHandler onLegacyCopy;
-- (void)refreshLegacyCopyMenu;
 @end
 
 /// Draws the entire table grid in a single drawRect: pass, avoiding

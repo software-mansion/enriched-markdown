@@ -3,6 +3,7 @@
 #import "../../ios/parser/MarkdownASTNode.h"
 #import "../../ios/segments/ENRMTableIOSGridView.h"
 #import "../../ios/segments/TableContainerView.h"
+#import "../../ios/utils/MarkdownExtractor.h"
 #import "../../ios/utils/PasteboardUtils.h"
 #import "../../ios/utils/RuntimeKeys.h"
 #import <React/RCTConversions.h>
@@ -33,8 +34,8 @@
 }
 @end
 
-@interface TableContainerView (ENRMTableSelectionTestMenu) <UIEditMenuInteractionDelegate, UIContextMenuInteractionDelegate>
-- (BOOL)beginLegacyTableMenu;
+@interface TableContainerView (ENRMTableSelectionTestMenu) <UIEditMenuInteractionDelegate,
+                                                            UIContextMenuInteractionDelegate>
 @end
 
 @interface ENRMTableIOSGridView (ENRMTableSelectionTestHit)
@@ -65,13 +66,13 @@ static void ENRMUpdateTestGrid(ENRMTableIOSGridView *grid, NSArray<ENRMTableIOSR
                                NSArray<NSNumber *> *widths, NSArray<NSNumber *> *heights)
 {
   [grid updateWithRows:rows
-                columnWidths:widths
-                  rowHeights:heights
-                 borderColor:UIColor.blackColor
-                 borderWidth:1
-       horizontalCellPadding:5
-         verticalCellPadding:5
-                cornerRadius:0];
+               columnWidths:widths
+                 rowHeights:heights
+                borderColor:UIColor.blackColor
+                borderWidth:1
+      horizontalCellPadding:5
+        verticalCellPadding:5
+               cornerRadius:0];
 }
 
 static MarkdownASTNode *ENRMParseTable(NSString *markdown)
@@ -138,7 +139,7 @@ static ENRMTableIOSGridView *ENRMFindTableGrid(UIView *view)
                                                              attributes:@{NSFontAttributeName : font}];
   nested.frame = CGRectMake(0, 0, 200, 50);
   ENRMUpdateTestGrid(nested, @[ ENRMTestRow(@[ text, [[NSAttributedString alloc] initWithString:@""] ]) ],
-                      @[ @100, @100 ], @[ @50 ]);
+                     @[ @100, @100 ], @[ @50 ]);
   UIEvent *touch = [ENRMTableTouchEvent new];
   CGPoint space = CGPointMake(5 + [@"A" sizeWithAttributes:@{NSFontAttributeName : font}].width * 1.5, 12);
   XCTAssertNotEqual([nested hitTest:space withEvent:touch], nested);
@@ -200,9 +201,9 @@ static ENRMTableIOSGridView *ENRMFindTableGrid(UIView *view)
   for (NSParagraphStyle *style in @[ centered, trailing, rightToLeft, automatic ]) {
     BOOL rtl = style.alignment == NSTextAlignmentNatural;
     NSString *string = rtl ? @"שלום עולם שלום\nסוף" : @"one two three ABC\nend";
-    NSAttributedString *text =
-        [[NSAttributedString alloc] initWithString:string
-                                       attributes:@{NSFontAttributeName : font, NSParagraphStyleAttributeName : style}];
+    NSAttributedString *text = [[NSAttributedString alloc]
+        initWithString:string
+            attributes:@{NSFontAttributeName : font, NSParagraphStyleAttributeName : style}];
     ENRMTableIOSRowData *row = ENRMTestRow(@[ empty, text ]);
     ENRMUpdateTestGrid(grid, @[ row ], @[ @80, @180 ], @[ @85 ]);
     // The second cell starts at x=60, with a final text width of 170. The short final line
@@ -210,8 +211,7 @@ static ENRMTableIOSGridView *ENRMFindTableGrid(UIView *view)
     [grid setShownColumnWidths:@[ @60, @95 ]];
     CGFloat anchor = style.alignment == NSTextAlignmentCenter ? 0.5 : (style == automatic ? 0 : 1);
     CGFloat textX = 65 - 85 * anchor;
-    UITextView *reference = [[UITextView alloc] initWithFrame:CGRectMake(textX, 5, 170, 75)
-                                               textContainer:nil];
+    UITextView *reference = [[UITextView alloc] initWithFrame:CGRectMake(textX, 5, 170, 75) textContainer:nil];
     reference.scrollEnabled = NO;
     reference.textContainerInset = UIEdgeInsetsZero;
     reference.textContainer.lineFragmentPadding = 0;
@@ -219,7 +219,7 @@ static ENRMTableIOSGridView *ENRMFindTableGrid(UIView *view)
     [reference.layoutManager ensureLayoutForTextContainer:reference.textContainer];
     NSUInteger lastGlyph = reference.layoutManager.numberOfGlyphs - 1;
     CGRect glyph = [reference.layoutManager boundingRectForGlyphRange:NSMakeRange(lastGlyph, 1)
-                                                       inTextContainer:reference.textContainer];
+                                                      inTextContainer:reference.textContainer];
     CGPoint point = CGPointMake(textX + CGRectGetMidX(glyph), 5 + CGRectGetMidY(glyph));
     XCTAssertTrue(point.x > 61 && point.x < 155, @"%@", NSStringFromCGPoint(point));
     XCTAssertGreaterThan(point.y, 24);
@@ -284,9 +284,11 @@ static ENRMTableIOSGridView *ENRMFindTableGrid(UIView *view)
     XCTAssertNotNil([table contextMenuInteraction:interaction previewForDismissingMenuWithConfiguration:menu]);
     [table applyTableNode:ENRMParseTable([markdown stringByAppendingString:@"\n| New row |"])];
     XCTAssertNil([table contextMenuInteraction:interaction previewForDismissingMenuWithConfiguration:menu]);
-    XCTAssertFalse([grid.subviews filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(UIView *view, NSDictionary *bindings) {
-      return [view isKindOfClass:UIImageView.class];
-    }]].count);
+    XCTAssertFalse([grid.subviews filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(
+                                                                               UIView *view, NSDictionary *bindings) {
+                                    return [view isKindOfClass:UIImageView.class];
+                                  }]]
+                       .count);
     window.hidden = YES;
   }
 }
@@ -307,8 +309,12 @@ static ENRMTableIOSGridView *ENRMFindTableGrid(UIView *view)
   NSString *header = @"| Cell |\n| --- |\n";
   [table applyTableNode:ENRMParseTable(header)];
   CGFloat headerHeight = [table measureHeight:300];
-  NSString *markdown =
-      [header stringByAppendingString:@"| Before ![Icon](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAIAAADkharWAAAAFUlEQVR4nGNIn7iNJMQwqmFUA3YEADu6QpBa8tAUAAAAAElFTkSuQmCC) after |"];
+  NSString *markdown = [header stringByAppendingString:
+                                   @"| Before "
+                                   @"![Icon](data:image/"
+                                   @"png;base64,"
+                                   @"iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAIAAADkharWAAAAFUlEQVR4nGNIn7iNJMQwqmFUA3YEADu6Qp"
+                                   @"Ba8tAUAAAAAElFTkSuQmCC) after |"];
   @try {
     [table applyTableNode:ENRMParseTable(markdown)];
     [table layoutIfNeeded];
@@ -324,7 +330,9 @@ static ENRMTableIOSGridView *ENRMFindTableGrid(UIView *view)
     XCTAssertNotEqual(imageIndex, NSNotFound);
     if (imageIndex == NSNotFound)
       return;
-    id oldAttachment = [editor.attributedText attribute:NSAttachmentAttributeName atIndex:imageIndex effectiveRange:NULL];
+    id oldAttachment = [editor.attributedText attribute:NSAttachmentAttributeName
+                                                atIndex:imageIndex
+                                         effectiveRange:NULL];
     XCTAssertNotNil(oldAttachment);
     NSString *appended = [markdown stringByAppendingString:@"\n| A new wider column entry |"];
     [table applyTableNode:ENRMParseTable(appended)];
@@ -332,7 +340,9 @@ static ENRMTableIOSGridView *ENRMFindTableGrid(UIView *view)
     XCTAssertEqual(grid.selectionView, editor);
     XCTAssertTrue(editor.isFirstResponder);
     XCTAssertTrue(NSEqualRanges(editor.selectedRange, NSMakeRange(0, 6)));
-    id newAttachment = [editor.attributedText attribute:NSAttachmentAttributeName atIndex:imageIndex effectiveRange:NULL];
+    id newAttachment = [editor.attributedText attribute:NSAttachmentAttributeName
+                                                atIndex:imageIndex
+                                         effectiveRange:NULL];
     XCTAssertNotNil(newAttachment);
     XCTAssertNotEqual(oldAttachment, newAttachment);
     XCTAssertEqual(objc_getAssociatedObject(editor.textContainer, kTextViewKey), editor);
@@ -430,82 +440,86 @@ static ENRMTableIOSGridView *ENRMFindTableGrid(UIView *view)
   [table removeFromSuperview];
 }
 
-- (void)testLegacySelectionAndBlankMenusRestorePreviousItemsAcrossResponders
+static NSArray<NSString *> *ENRMMenuTitles(UIMenu *menu)
 {
-  UIWindow *window = UIApplication.sharedApplication.delegate.window;
-  XCTAssertTrue(window.isKeyWindow);
-  TableContainerView *table = [[TableContainerView alloc] initWithConfig:[StyleConfig new]];
-  table.frame = window.bounds;
-  [table applyTableNode:ENRMParseTable(@"| Header |\n| --- |\n| Item |")];
-  [window addSubview:table];
-  ENRMTableCellTextView *editor = [[ENRMTableCellTextView alloc] initWithFrame:CGRectMake(0, 0, 140, 40)];
-  editor.table = table;
-  editor.editable = NO;
-  editor.selectable = YES;
-  editor.text = @"Text to copy";
-  [window addSubview:editor];
-  UITextView *paragraph = [[UITextView alloc] initWithFrame:CGRectMake(0, 80, 140, 40)];
-  [window addSubview:paragraph];
-  UIMenuController *controller = UIMenuController.sharedMenuController;
-  NSArray<UIMenuItem *> *savedItems = controller.menuItems;
-  NSArray *externalItems = @[ [[UIMenuItem alloc] initWithTitle:@"External" action:@selector(selectAll:)] ];
-  controller.menuItems = externalItems;
-  NSArray *savedContents = UIPasteboard.generalPasteboard.items;
-  @try {
-    __block BOOL markdownEnabled = YES;
-    editor.legacyMenuConfig = ^ENRMSelectionMenuConfig {
-      return (ENRMSelectionMenuConfig){.copyAsMarkdown = markdownEnabled,
-                                       .copyLabel = @"Duplicate",
-                                       .copyAsMarkdownLabel = @"Duplicate formatted"};
-    };
-    XCTAssertTrue([table beginLegacyTableMenu]);
-    XCTAssertEqualObjects([controller.menuItems valueForKey:@"title"], (@[ @"Copy", @"Copy as Markdown" ]));
-    XCTAssertTrue([table canPerformAction:@selector(copyWholeTableAsMarkdown:) withSender:nil]);
-    XCTAssertTrue([editor becomeFirstResponder]);
-    editor.selectedRange = NSMakeRange(0, 4);
-    [editor refreshLegacyCopyMenu];
-    XCTAssertFalse([table canPerformAction:@selector(copyWholeTableAsMarkdown:) withSender:nil]);
-    XCTAssertFalse([editor canPerformAction:@selector(copy:) withSender:nil]);
-    XCTAssertEqualObjects([controller.menuItems valueForKey:@"title"],
-                          (@[ @"Duplicate", @"Duplicate formatted", @"Copy Table", @"Copy Table as Markdown" ]));
-    for (UIMenuItem *item in controller.menuItems) {
-      XCTAssertTrue([editor canPerformAction:item.action withSender:nil]);
-    }
-    XCTAssertTrue([UIApplication.sharedApplication sendAction:@selector(enrmCopySelectedMarkdown:)
-                                                           to:nil from:controller forEvent:nil]);
-    XCTAssertEqualObjects(UIPasteboard.generalPasteboard.string, @"Text");
-    XCTAssertTrue([UIApplication.sharedApplication sendAction:@selector(enrmCopyTable:)
-                                                           to:nil from:controller forEvent:nil]);
-    XCTAssertEqualObjects(UIPasteboard.generalPasteboard.string, @"Header\nItem\n");
-    XCTAssertNotNil(UIPasteboard.generalPasteboard.items.firstObject[kUTIHTML]);
-
-    markdownEnabled = NO;
-    [editor refreshLegacyCopyMenu];
-    XCTAssertEqualObjects([controller.menuItems valueForKey:@"title"],
-                          (@[ @"Duplicate", @"Copy Table", @"Copy Table as Markdown" ]));
-    table.dynamicProps.enableBlockContextMenu = NO;
-    [editor refreshLegacyCopyMenu];
-    XCTAssertEqualObjects([controller.menuItems valueForKey:@"title"], (@[ @"Duplicate" ]));
-    XCTAssertTrue([paragraph becomeFirstResponder]);
-    XCTAssertEqualObjects(controller.menuItems, externalItems);
-    XCTAssertFalse([paragraph canPerformAction:@selector(enrmCopyTable:) withSender:nil]);
-
-    table.dynamicProps.enableBlockContextMenu = YES;
-    table.dynamicProps.copyAsMarkdownLabel = @"Duplicate formatted";
-    XCTAssertTrue([table beginLegacyTableMenu]);
-    XCTAssertEqualObjects([controller.menuItems valueForKey:@"title"], (@[ @"Copy", @"Duplicate formatted" ]));
-    [NSNotificationCenter.defaultCenter postNotificationName:UIMenuControllerDidHideMenuNotification object:controller];
-    XCTAssertEqualObjects(controller.menuItems, externalItems);
-    XCTAssertFalse(table.isFirstResponder);
-  } @finally {
-    [editor resignFirstResponder];
-    [table resignFirstResponder];
-    [paragraph resignFirstResponder];
-    controller.menuItems = savedItems;
-    UIPasteboard.generalPasteboard.items = savedContents;
-    [editor removeFromSuperview];
-    [table removeFromSuperview];
-    [paragraph removeFromSuperview];
+  NSMutableArray<NSString *> *titles = [NSMutableArray array];
+  for (UIMenuElement *child in menu.children) {
+    if ([child isKindOfClass:UIMenu.class])
+      [titles addObjectsFromArray:ENRMMenuTitles((UIMenu *)child)];
+    else
+      [titles addObject:child.title];
   }
+  return titles;
+}
+
+- (void)testCellSelectionKeepsLinksAndUsesConfiguredTableLabels
+{
+  UIWindow *window = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 320, 400)];
+  window.hidden = NO;
+  EnrichedMarkdown *document = [[ENRMSynchronousTableTestDocument alloc] initWithFrame:window.bounds];
+  [window addSubview:document];
+  auto defaults = std::make_shared<const facebook::react::EnrichedMarkdownProps>();
+  auto props = std::make_shared<facebook::react::EnrichedMarkdownProps>(*defaults);
+  props->markdown = "| Service |\n| --- |\n| Restart [api](https://example.com/api) now |";
+  props->isGFM = true;
+  props->selectable = true;
+  props->enableBlockContextMenu = true;
+  props->selectionMenuConfig.copyLabel = "Copy";
+  props->selectionMenuConfig.copyAsMarkdownLabel = "Copy as Markdown";
+  props->selectionMenuConfig.copyAsMarkdown = true;
+  props->selectionMenuConfig.copyTableLabel = "Tabelle kopieren";
+  props->selectionMenuConfig.copyTableAsMarkdownLabel = "Tabelle als Markdown kopieren";
+  [document updateProps:props oldProps:defaults];
+  [document finalizeUpdates:RNComponentViewUpdateMaskProps];
+  [document computeSegmentLayoutForWidth:320 applyFrames:YES];
+  [document layoutIfNeeded];
+  ENRMTableIOSGridView *grid = ENRMFindTableGrid(document);
+  XCTAssertNotNil(grid);
+  if (!grid)
+    return;
+
+  // The body row is the last one: scan upwards for its first plain-text point.
+  CGPoint textPoint = CGPointZero;
+  BOOL found = NO;
+  for (CGFloat y = CGRectGetMaxY(grid.bounds) - 1; y > 0 && !found; y -= 2) {
+    for (CGFloat x = 1; x < CGRectGetMaxX(grid.bounds) && !found; x += 2) {
+      if ([grid itemAtPoint:CGPointMake(x, y) allowsNearestLink:NO].kind == ENRMTableIOSItemKindText) {
+        textPoint = CGPointMake(x, y);
+        found = YES;
+      }
+    }
+  }
+  XCTAssertTrue(found);
+  [grid hitTest:textPoint withEvent:[ENRMTableTouchEvent new]];
+  ENRMTableCellTextView *editor = grid.selectionView;
+  XCTAssertNotNil(editor);
+  if (!editor)
+    return;
+
+  // The grid draws cell text without NSLinkAttributeName; the editor keeps it so a copied selection keeps its link.
+  NSAttributedString *text = editor.attributedText;
+  NSRange link = [text.string rangeOfString:@"api"];
+  XCTAssertNotEqual(link.location, NSNotFound);
+  XCTAssertNotNil([text attribute:NSLinkAttributeName atIndex:link.location effectiveRange:NULL]);
+  XCTAssertEqual(editor.linkTextAttributes.count, 0u);
+  NSString *markdown = extractMarkdownFromAttributedString(text, NSMakeRange(0, text.length));
+  XCTAssertTrue([markdown containsString:@"[api](https://example.com/api)"], @"%@", markdown);
+
+  if (@available(iOS 16.0, *)) {
+    UIMenu *menu = [(id<UITextViewDelegate>)document textView:editor
+                                       editMenuForTextInRange:NSMakeRange(0, 7)
+                                             suggestedActions:@[]];
+    NSArray<NSString *> *titles = ENRMMenuTitles(menu);
+    XCTAssertTrue([titles containsObject:@"Tabelle kopieren"], @"%@", titles);
+    XCTAssertTrue([titles containsObject:@"Tabelle als Markdown kopieren"], @"%@", titles);
+    XCTAssertFalse([titles containsObject:@"Copy Table"], @"%@", titles);
+
+    // From iOS 16 the whole-table menu is an edit menu, so the context menu stays out of the way.
+    UIContextMenuInteraction *interaction = [[UIContextMenuInteraction alloc] initWithDelegate:grid.table];
+    CGPoint blank = CGPointMake(CGRectGetMaxX(grid.bounds) - 2, CGRectGetMaxY(grid.bounds) - 2);
+    XCTAssertNil([grid.table contextMenuInteraction:interaction configurationForMenuAtLocation:blank]);
+  }
+  [grid clearSelectionView];
+  window.hidden = YES;
 }
 @end

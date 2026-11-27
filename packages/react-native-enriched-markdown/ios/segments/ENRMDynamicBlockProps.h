@@ -42,6 +42,11 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) BOOL enableCodeBlockPress;
 @property (nonatomic, copy, nullable, getter=menuCopyLabel) NSString *copyLabel;
 @property (nonatomic, copy, nullable, getter=menuCopyAsMarkdownLabel) NSString *copyAsMarkdownLabel;
+#if !TARGET_OS_OSX
+/// Labels of the whole-table actions added to a text selection in a table cell.
+@property (nonatomic, copy, getter=menuCopyTableLabel) NSString *copyTableLabel;
+@property (nonatomic, copy, getter=menuCopyTableAsMarkdownLabel) NSString *copyTableAsMarkdownLabel;
+#endif
 @end
 
 NS_ASSUME_NONNULL_END

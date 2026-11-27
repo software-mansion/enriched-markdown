@@ -27,8 +27,8 @@ planned, see the [Roadmap](/misc/roadmap); for the full per-feature matrix,
   the document is split into independent segments (tables, fenced code blocks,
   block math, blockquotes and admonitions each become their own view). This enables features like
   horizontal table scrolling and the block context menu. The tradeoff is that selection starts and
-  ends inside one segment. `flavor="commonmark"` renders a single text view and
-  selects across the whole document.
+  ends inside one segment - and inside a table, within one cell. `flavor="commonmark"`
+  renders a single text view and selects across the whole document.
 - **Clamping text with
   [`numberOfLines`](/react-native/api-reference/enriched-markdown-text#numberoflines)
   is CommonMark-only.** Under `flavor="github"` the content is laid out as

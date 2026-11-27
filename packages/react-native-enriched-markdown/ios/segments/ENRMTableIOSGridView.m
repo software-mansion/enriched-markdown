@@ -3,8 +3,6 @@
 #import "LinkTapUtils.h"
 
 #if !TARGET_OS_OSX
-#import "MarkdownExtractor.h"
-#import "PasteboardUtils.h"
 #import "RuntimeKeys.h"
 #import "TableContainerView.h"
 
@@ -14,8 +12,8 @@
 // Where text sits across its cell: 0 at the left, 0.5 centred, 1 at the right.
 static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
 {
-  NSParagraphStyle *style =
-      [text attribute:NSParagraphStyleAttributeName atIndex:0 effectiveRange:NULL] ?: NSParagraphStyle.defaultParagraphStyle;
+  NSParagraphStyle *style = [text attribute:NSParagraphStyleAttributeName atIndex:0 effectiveRange:NULL]
+                                ?: NSParagraphStyle.defaultParagraphStyle;
   switch (style.alignment) {
     case NSTextAlignmentCenter:
       return 0.5;
@@ -66,7 +64,7 @@ typedef struct {
   CGPoint origin = self.frame.origin;
   CGContextTranslateCTM(UIGraphicsGetCurrentContext(), -origin.x, -origin.y);
   [self.grid drawGridInRect:CGRectOffset(dirtyRect, origin.x, origin.y)
-       excludingSelectedText:self.drawsSelectionBackdrop];
+      excludingSelectedText:self.drawsSelectionBackdrop];
 }
 
 @end
@@ -89,9 +87,7 @@ typedef struct {
 @implementation ENRMTableIOSRowData
 @end
 
-@implementation ENRMTableCellTextView {
-  NSArray<UIMenuItem *> *_legacyCopyItems;
-}
+@implementation ENRMTableCellTextView
 
 - (instancetype)initWithFrame:(CGRect)frame
 {
@@ -104,125 +100,6 @@ typedef struct {
 - (void)dealloc
 {
   objc_setAssociatedObject(self.textContainer, kTextViewKey, nil, OBJC_ASSOCIATION_ASSIGN);
-}
-
-- (NSArray<UIMenuItem *> *)legacyCopyItems
-{
-  NSRange range = self.selectedRange;
-  ENRMSelectionMenuConfig config = self.legacyMenuConfig();
-  NSMutableArray<UIMenuItem *> *items = [NSMutableArray array];
-  if (config.copyLabel.length && ![config.copyLabel isEqualToString:@"Copy"]) {
-    [items addObject:[[UIMenuItem alloc] initWithTitle:config.copyLabel action:@selector(enrmCopySelectedText:)]];
-  }
-  if (config.copyAsMarkdown && extractMarkdownFromAttributedString(self.attributedText, range).length) {
-    [items addObject:[[UIMenuItem alloc] initWithTitle:config.copyAsMarkdownLabel
-                                             action:@selector(enrmCopySelectedMarkdown:)]];
-  }
-  NSUInteger imageCount = config.copyImageURL ? imageURLsInRange(self.attributedText, range).count : 0;
-  if (imageCount) {
-    [items addObject:[[UIMenuItem alloc] initWithTitle:ENRMResolveImageURLsTitle(config, imageCount)
-                                             action:@selector(enrmCopySelectedImageURLs:)]];
-  }
-  if (self.table.dynamicProps.enableBlockContextMenu) {
-    [items addObjectsFromArray:@[
-      [[UIMenuItem alloc] initWithTitle:NSLocalizedString(@"Copy Table", nil) action:@selector(enrmCopyTable:)],
-      [[UIMenuItem alloc] initWithTitle:NSLocalizedString(@"Copy Table as Markdown", nil)
-                               action:@selector(enrmCopyTableAsMarkdown:)]
-    ]];
-  }
-  return items;
-}
-
-- (void)refreshLegacyCopyMenu
-{
-  if (!self.legacyMenuConfig)
-    return;
-  NSRange range = self.selectedRange;
-  NSUInteger length = self.attributedText.length;
-  if (!self.isFirstResponder || !range.length || range.location >= length || range.length > length - range.location) {
-    [self clearLegacyCopyMenu];
-    return;
-  }
-  _legacyCopyItems = [self legacyCopyItems];
-  if (_legacyCopyItems.count)
-    ENRMSetLegacyTableMenuItems(self, _legacyCopyItems);
-  else
-    [self clearLegacyCopyMenu];
-}
-
-- (void)clearLegacyCopyMenu
-{
-  _legacyCopyItems = nil;
-  ENRMClearLegacyTableMenuItems(self);
-}
-
-- (BOOL)becomeFirstResponder
-{
-  BOOL became = [super becomeFirstResponder];
-  if (became)
-    [self refreshLegacyCopyMenu];
-  return became;
-}
-
-- (BOOL)resignFirstResponder
-{
-  BOOL resigned = [super resignFirstResponder];
-  if (resigned && self.legacyMenuConfig)
-    [self clearLegacyCopyMenu];
-  return resigned;
-}
-
-- (void)didMoveToWindow
-{
-  [super didMoveToWindow];
-  if (!self.window && self.legacyMenuConfig)
-    [self clearLegacyCopyMenu];
-}
-
-- (BOOL)canPerformAction:(SEL)action withSender:(id)sender
-{
-  if (self.legacyMenuConfig && self.isFirstResponder && self.selectedRange.length) {
-    for (UIMenuItem *item in _legacyCopyItems) {
-      if (item.action == action)
-        return YES;
-      if (item.action == @selector(enrmCopySelectedText:) && action == @selector(copy:) &&
-          ![sender isKindOfClass:UIKeyCommand.class])
-        return NO;
-    }
-  }
-  return [super canPerformAction:action withSender:sender];
-}
-
-- (void)enrmCopySelectedText:(id)sender
-{
-  [self copy:sender];
-}
-
-- (void)enrmCopySelectedMarkdown:(id)sender
-{
-  NSRange range = self.selectedRange;
-  NSString *markdown = extractMarkdownFromAttributedString(self.attributedText, range);
-  if (markdown.length)
-    ENRMCopySelectionString(markdown, ENRMSelectionCopyFormatMarkdown, range, self.onLegacyCopy);
-}
-
-- (void)enrmCopySelectedImageURLs:(id)sender
-{
-  NSRange range = self.selectedRange;
-  NSArray<NSString *> *urls = imageURLsInRange(self.attributedText, range);
-  if (urls.count)
-    ENRMCopySelectionString([urls componentsJoinedByString:@"\n"], ENRMSelectionCopyFormatImageURLs, range,
-                            self.onLegacyCopy);
-}
-
-- (void)enrmCopyTable:(id)sender
-{
-  [self.table copyTableToPasteboard];
-}
-
-- (void)enrmCopyTableAsMarkdown:(id)sender
-{
-  [self.table copyMarkdownToPasteboard];
 }
 
 @end
@@ -396,9 +273,9 @@ typedef struct {
   CGFloat shownWidth = cellRect.size.width;
   // Keep the final wrapping while the displayed column grows towards it.
   CGFloat shift = shownWidth == finalWidth ? 0 : (shownWidth - finalWidth) * ENRMTableTextAnchor(text);
-  CGRect layoutRect = CGRectInset(CGRectMake(cellRect.origin.x + shift, cellRect.origin.y, finalWidth,
-                                            cellRect.size.height),
-                                  _horizontalCellPadding, _verticalCellPadding);
+  CGRect layoutRect =
+      CGRectInset(CGRectMake(cellRect.origin.x + shift, cellRect.origin.y, finalWidth, cellRect.size.height),
+                  _horizontalCellPadding, _verticalCellPadding);
   CGRect visibleRect = layoutRect;
   if (_shownColumnWidths.count == _columnWidths.count) {
     CGRect clip = CGRectMake(CGRectGetMinX(cellRect) + _borderWidth, CGRectGetMinY(cellRect) + _borderWidth,
@@ -449,8 +326,8 @@ typedef struct {
       xOffset += columnWidth;
       if (xOffset <= CGRectGetMinX(dirtyCells))
         continue;
-      CGRect borderRect = CGRectMake(cellRect.origin.x, cellRect.origin.y, columnWidth + _borderWidth,
-                                     rowHeight + _borderWidth);
+      CGRect borderRect =
+          CGRectMake(cellRect.origin.x, cellRect.origin.y, columnWidth + _borderWidth, rowHeight + _borderWidth);
 
       [rowData.backgroundColor setFill];
       UIRectFill(borderRect);
@@ -523,7 +400,7 @@ typedef struct {
 }
 
 static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, ENRMTableTextGeometry geometry,
-                                                 CGPoint point, BOOL allowsNearestLink)
+                                                   CGPoint point, BOOL allowsNearestLink)
 {
   if (text.length == 0 || !CGRectContainsPoint(geometry.visibleRect, point))
     return nil;
@@ -555,7 +432,7 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, ENR
   if (!imageURL && (!linkURL || !allowsNearestLink)) {
     // A hold in unused space must reach the block menu, including in a cell ending in a link.
     CGRect glyphRect = [layoutManager boundingRectForGlyphRange:NSMakeRange(glyphIndex, 1)
-                                                 inTextContainer:textContainer];
+                                                inTextContainer:textContainer];
     if (!CGRectContainsPoint(glyphRect, local) ||
         [NSCharacterSet.newlineCharacterSet characterIsMember:[text.string characterAtIndex:charIndex]])
       return nil;
@@ -596,7 +473,8 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, ENR
   NSAttributedString *text = _tableRows[row].cellTexts[column];
   if (text.length == 0)
     return nil;
-  return itemInAttributedString(text, [self geometryForText:text column:column cellRect:rect], point, allowsNearestLink);
+  return itemInAttributedString(text, [self geometryForText:text column:column cellRect:rect], point,
+                                allowsNearestLink);
 }
 
 - (BOOL)ownsCellInteractionAtPoint:(CGPoint)point
@@ -683,12 +561,19 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, ENR
       mask.backgroundColor = UIColor.blackColor;
       _selectionView.maskView = mask;
     }
-    mask.frame = CGRectIsEmpty(geometry.visibleRect)
-        ? CGRectZero
-        : [_selectionView convertRect:geometry.visibleRect fromView:self];
+    mask.frame = CGRectIsEmpty(geometry.visibleRect) ? CGRectZero
+                                                     : [_selectionView convertRect:geometry.visibleRect fromView:self];
   }
   [_selectionView setDrawnRect:_selectionView.bounds];
   [self updateSelectionBackdrop];
+}
+
+// The drawn cell texts drop NSLinkAttributeName (see TableContainerView). The editor keeps it, so that
+// copying a selection keeps its links, as it does in a paragraph.
+- (NSAttributedString *)editorTextAtRow:(NSUInteger)row column:(NSUInteger)column
+{
+  NSArray<NSAttributedString *> *sources = _tableRows[row].sourceCellTexts;
+  return column < sources.count ? sources[column] : _tableRows[row].cellTexts[column];
 }
 
 - (uint64_t)cellSignatureAtRow:(NSUInteger)row column:(NSUInteger)column
@@ -706,7 +591,7 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, ENR
     [self clearSelectionView];
     return;
   }
-  NSAttributedString *text = _tableRows[_selectedRow].cellTexts[_selectedColumn];
+  NSAttributedString *text = [self editorTextAtRow:_selectedRow column:_selectedColumn];
   uint64_t signature = [self cellSignatureAtRow:_selectedRow column:_selectedColumn];
   if (![_selectedText isEqualToAttributedString:text]) {
     if (!signature || signature != _selectedCellSignature || ![_selectedText.string isEqualToString:text.string]) {
@@ -744,8 +629,7 @@ static BOOL ENRMTableHitsGrabber(CGPoint point, CGRect caret, CGFloat grabberY, 
     CGRect clip = editor.maskView.frame;
     CGRect bounds = editor.bounds;
     // Do not constrain the touch vertically. Visible grabbers can extend above or below the clip.
-    if (CGRectIsEmpty(clip) ||
-        (CGRectGetMinX(clip) > CGRectGetMinX(bounds) && MIN(x, point.x) < CGRectGetMinX(clip)) ||
+    if (CGRectIsEmpty(clip) || (CGRectGetMinX(clip) > CGRectGetMinX(bounds) && MIN(x, point.x) < CGRectGetMinX(clip)) ||
         (CGRectGetMaxX(clip) < CGRectGetMaxX(bounds) && MAX(x, point.x) > CGRectGetMaxX(clip)) ||
         (CGRectGetMinY(clip) > CGRectGetMinY(bounds) && CGRectGetMaxY(caret) <= CGRectGetMinY(clip)) ||
         (CGRectGetMaxY(clip) < CGRectGetMaxY(bounds) && CGRectGetMinY(caret) >= CGRectGetMaxY(clip)))
@@ -799,9 +683,11 @@ static BOOL ENRMTableHitsGrabber(CGPoint point, CGRect caret, CGFloat grabberY, 
     _selectionView.backgroundColor = UIColor.clearColor;
     _selectionView.textContainerInset = UIEdgeInsetsZero;
     _selectionView.textContainer.lineFragmentPadding = 0;
-    _selectedText = text;
+    // The text keeps NSLinkAttributeName for copying; draw links in their configured color, not the tint.
+    _selectionView.linkTextAttributes = @{};
+    _selectedText = [self editorTextAtRow:row column:column];
     _selectedCellSignature = [self cellSignatureAtRow:row column:column];
-    _selectionView.attributedText = text;
+    _selectionView.attributedText = _selectedText;
     [host configureTableSelectionView:_selectionView];
     [self addSubview:_selectionView];
     [self layoutSelectionViewWithGeometry:geometry];
