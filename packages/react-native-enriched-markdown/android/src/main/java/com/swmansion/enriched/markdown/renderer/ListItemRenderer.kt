@@ -121,9 +121,14 @@ class ListItemRenderer(
       builder.getSpans(anchor, anchor + 1, CodeBlockSpan::class.java).isEmpty() &&
         builder.getSpans(anchor, anchor + 1, BaseListSpan::class.java).none { it.depth > depth }
 
+    val codeBlocks = builder.getSpans(start, itemEnd, CodeBlockSpan::class.java)
+    // Nested items render first, so a code block keeps the innermost item that holds it.
+    for (block in codeBlocks) {
+      if (block.listItem == null) block.listItem = markerSpan
+    }
+
     val codeBlockRanges =
-      builder
-        .getSpans(start, itemEnd, CodeBlockSpan::class.java)
+      codeBlocks
         .map { builder.getSpanStart(it) to builder.getSpanEnd(it) }
         .filter { it.first < it.second }
         .sortedBy { it.first }

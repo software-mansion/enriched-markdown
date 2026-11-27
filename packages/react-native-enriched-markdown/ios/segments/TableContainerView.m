@@ -84,6 +84,7 @@ static NSMutableAttributedString *ENRMTableRenderCellNode(MarkdownASTNode *cellN
   RenderContext *context = [RenderContext new];
   context.allowFontScaling = allowFontScaling;
   context.maxFontSizeMultiplier = maxFontSizeMultiplier;
+  context.fontScale = cellConfig.fontScaleMultiplier;
 
   NSMutableAttributedString *attributedText = [renderer renderNodes:cellNode.children context:context block:nil];
 
@@ -329,7 +330,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   // a single drawRect: pass (no subview / layer compositing issues).
   ENRMTableGridView *gridView = [[ENRMTableGridView alloc] initWithFrame:CGRectZero];
   __weak TableContainerView *weakSelf = self;
-  gridView.menuProvider = ^NSMenu * {
+  gridView.menuProvider = ^NSMenu *
+  {
     TableContainerView *strongSelf = weakSelf;
     if (!strongSelf || !strongSelf.dynamicProps.enableBlockContextMenu)
       return nil;

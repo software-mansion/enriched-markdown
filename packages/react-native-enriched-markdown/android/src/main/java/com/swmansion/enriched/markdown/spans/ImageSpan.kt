@@ -20,6 +20,7 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withSave
 import com.swmansion.enriched.markdown.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.spoiler.spoilerTextAlpha
 import com.swmansion.enriched.markdown.styles.ImageSourceOverride
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
@@ -31,6 +32,7 @@ import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
 import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.math.roundToInt
 import android.text.style.ImageSpan as AndroidImageSpan
 import android.text.style.LineHeightSpan as AndroidLineHeightSpan
 
@@ -248,6 +250,14 @@ class ImageSpan(
     val view = viewRef?.get() ?: return
     TextBackgroundDrawer.noteReflow()
     val text = view.text
+    // An image that loads at the size it held keeps the spoiler's slices in place, so they have to
+    // be told their content changed.
+    if (text is Spanned) {
+      val start = text.getSpanStart(this)
+      if (start != -1) {
+        text.getSpans(start, text.getSpanEnd(this), SpoilerSpan::class.java).forEach { it.contentVersion++ }
+      }
+    }
     if (text is Spannable) {
       val start = text.getSpanStart(this)
       val end = text.getSpanEnd(this)
@@ -419,12 +429,26 @@ class ImageSpan(
     bottom: Int,
     paint: Paint,
   ) {
+    // A spoiler conceals text through the paint, which a drawable ignores, so the image fades with
+    // the text instead.
+    val visibility = (text as? Spanned)?.spoilerTextAlpha(start, end) ?: 1f
+    if (visibility <= 0f) return
     val drawable = getDrawable()
     canvas.withSave {
       if (isInline) {
         translate(x, y + inlineImageTop(paint))
       } else {
         translate(x, top.toFloat())
+      }
+      if (visibility < 1f) {
+        val bounds = drawable.bounds
+        saveLayerAlpha(
+          bounds.left.toFloat(),
+          bounds.top.toFloat(),
+          bounds.right.toFloat(),
+          bounds.bottom.toFloat(),
+          (visibility * 255f).roundToInt(),
+        )
       }
       drawable.draw(this)
     }

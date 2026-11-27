@@ -410,6 +410,25 @@ function highlightStyle(style: MarkdownStyleInternal): CSSProperties {
   };
 }
 
+function spoilerStyle(style: MarkdownStyleInternal): CSSProperties {
+  return {
+    backgroundColor: style.spoiler.color,
+    borderRadius: style.spoiler.solid.borderRadius,
+    boxDecorationBreak: 'clone',
+    WebkitBoxDecorationBreak: 'clone',
+    cursor: 'pointer',
+  };
+}
+
+function spoilerRevealedStyle(style: MarkdownStyleInternal): CSSProperties {
+  return {
+    backgroundColor: 'transparent',
+    borderRadius: style.spoiler.solid.borderRadius,
+    boxDecorationBreak: 'clone',
+    WebkitBoxDecorationBreak: 'clone',
+  };
+}
+
 function mathInlineStyle(style: MarkdownStyleInternal): CSSProperties {
   return { color: style.inlineMath.color };
 }
@@ -520,6 +539,10 @@ function tableWrapperStyle(style: MarkdownStyleInternal): CSSProperties {
   return {
     overflowX: 'auto',
     overflowY: 'hidden',
+    // Opt out of an `overflow-wrap: anywhere` set through `containerStyle`: it
+    // would let the columns shrink below their words instead of the table
+    // scrolling.
+    overflowWrap: 'normal',
     marginTop: table.marginTop,
     marginBottom: table.marginBottom,
     ...alignment,
@@ -591,6 +614,8 @@ export interface Styles {
   superscript: CSSProperties;
   subscript: CSSProperties;
   highlight: CSSProperties;
+  spoiler: CSSProperties;
+  spoilerRevealed: CSSProperties;
   mathInline: CSSProperties;
   mathDisplay: CSSProperties;
   table: CSSProperties;
@@ -644,6 +669,8 @@ export function buildStyles(style: MarkdownStyleInternal): Styles {
     superscript: superscriptStyle(style),
     subscript: subscriptStyle(style),
     highlight: highlightStyle(style),
+    spoiler: spoilerStyle(style),
+    spoilerRevealed: spoilerRevealedStyle(style),
     mathInline: mathInlineStyle(style),
     mathDisplay: mathDisplayStyle(style),
     table: tableStyle(style),

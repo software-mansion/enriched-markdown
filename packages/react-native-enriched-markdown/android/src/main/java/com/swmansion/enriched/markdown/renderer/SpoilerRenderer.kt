@@ -3,7 +3,6 @@ package com.swmansion.enriched.markdown.renderer
 import android.text.SpannableStringBuilder
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
-import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 
 class SpoilerRenderer : NodeRenderer {
   override fun render(
@@ -14,12 +13,9 @@ class SpoilerRenderer : NodeRenderer {
     factory: RendererFactory,
   ) {
     factory.renderWithSpan(builder, { factory.renderChildren(node, builder, onLinkPress, onLinkLongPress) }) { start, end, blockStyle ->
-      builder.setSpan(
-        SpoilerSpan(factory.styleCache, blockStyle),
-        start,
-        end,
-        SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
-      )
+      // Deferred so the span runs after every wrapper and block span that sets a text color;
+      // any of those would otherwise make the concealed text visible again.
+      factory.registerDeferredSpan(SpoilerSpan(factory.styleCache, blockStyle), start, end)
     }
   }
 }

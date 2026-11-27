@@ -18,6 +18,7 @@ import Md4cLatexMathSrc from '!!raw-loader!@site/src/examples/react-native/api-r
 import Md4cHardSoftBreaksSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cHardSoftBreaks';
 import Md4cPreserveBlankLinesSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cPreserveBlankLines';
 import Md4cAdmonitionsSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cAdmonitions';
+import AdmonitionTitlesSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/AdmonitionTitles';
 import OnLinkPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnLinkPress';
 import OnLinkLongPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnLinkLongPress';
 import LinkPillContentSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/LinkPillContent';
@@ -234,7 +235,7 @@ When `true`, preserves runs of consecutive blank lines from the source instead o
 
 Renders GitHub-style admonitions (also called alerts): a blockquote whose first line is `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, or `> [!CAUTION]` becomes a themed callout with an icon and a title header instead of a plain quote. Unlike the other flags, this one is **on by default**.
 
-Admonitions inherit the blockquote's geometry and override only its colors, so restyle them through [`markdownStyle.blockquote.admonitions`](/react-native/api-reference/style-properties#admonitions) - see that section for the per-type palette.
+Admonitions inherit the blockquote's geometry and override only its colors, so restyle them through [`markdownStyle.blockquote.admonitions`](/react-native/api-reference/style-properties#admonitions) - see that section for the per-type palette. To translate or rename the titles, use [`admonitionTitles`](#admonitiontitles).
 
 :::note
 Only takes effect with [`flavor="github"`](#flavor). Under `flavor="commonmark"` the flag is forced off and `> [!NOTE]` renders as an ordinary blockquote with the literal text.
@@ -243,6 +244,23 @@ Only takes effect with [`flavor="github"`](#flavor). Under `flavor="commonmark"`
 <PropInfo type="boolean" default="true" />
 
 <LivePreview src={Md4cAdmonitionsSrc} />
+
+### `admonitionTitles`
+
+The header titles of [admonitions](#admonitions), keyed by type, to localize or rename them. A type you leave out keeps its English title (`Note`, `Tip`, `Important`, `Warning`, `Caution`), and an empty string shows the icon without a title. The header is one line high, so a title wider than the callout ends in an ellipsis.
+
+The title is laid out in its own direction, so an Arabic or Hebrew title reads right to left even in a callout whose body is English. On web it is a `<bdi>`, which also keeps it from deciding the callout's direction.
+
+<PropInfo type="AdmonitionTitles" default="DEFAULT_ADMONITION_TITLES" />
+
+```ts
+type AdmonitionType = 'note' | 'tip' | 'important' | 'warning' | 'caution';
+type AdmonitionTitles = Partial<Record<AdmonitionType, string>>;
+```
+
+The package also exports `DEFAULT_ADMONITION_TITLES`, the English titles used for any type you leave out.
+
+<LivePreview src={AdmonitionTitlesSrc} />
 
 ### `enableTaskListItemToggle`
 
@@ -382,11 +400,9 @@ Controls how spoiler text (`||hidden text||`) is displayed before being revealed
 
 <PropInfo type="'particles' | 'solid'" default="'particles'" />
 
-:::danger
-The web build has no spoiler renderer at all, and an unhandled node is dropped **together with its subtree** - so `a ||secret|| b` renders as `a  b` with the concealed text missing, not concealed. Do not place content behind a spoiler if the same Markdown is also rendered on web.
-:::
+On web the prop is ignored: every spoiler is concealed by the solid cover, styled by [`markdownStyle.spoiler`](/react-native/api-reference/style-properties#spoiler-specific).
 
-<LivePreview src={SpoilerOverlaySrc} unavailable unavailableReason={<>iOS and Android only - the web build drops spoiler nodes entirely.</>} />
+<LivePreview src={SpoilerOverlaySrc} unavailable unavailableReason={<>iOS and Android only - the web build always draws the solid cover.</>} />
 
 - **`'particles'`**: animated particle overlay (CAEmitterLayer on iOS, Choreographer-driven Canvas particles on Android).
 - **`'solid'`**: opaque rectangle covering the text (Discord-style).

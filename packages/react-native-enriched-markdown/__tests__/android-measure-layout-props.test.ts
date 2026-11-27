@@ -13,6 +13,8 @@ const root = join(__dirname, '..');
 const NOT_LAYOUT = new Set([
   // The markdown goes with the keys, not the config; a stream's text arrives as the markdown.
   'markdown',
+  // Travels beside the keys (MarkdownMeasureKeys), so ending a stream keeps the config's key.
+  'streaming',
   'streamId',
   'streamLength',
   'enableImagePress',
@@ -29,6 +31,7 @@ const NOT_LAYOUT = new Set([
   'linkContextMenuItems',
   'selectionMenuConfig',
   'accessibilityLabels',
+  'admonitionTitles',
   'lineBreakStrategyIOS',
   // No-op on Android: each paragraph takes its first strong character's direction.
   'writingDirection',
@@ -95,6 +98,23 @@ const fieldsOf = (props: Prop[], name: string) =>
   (
     props.find((prop) => prop.name === name)?.typeAnnotation.properties ?? []
   ).map((field) => field.name);
+
+it('sends `streaming` beside the keys, and Kotlin reads it from them', () => {
+  const keys = read(
+    'android/src/main/jni/react/renderer/components/EnrichedMarkdownTextSpec/MarkdownMeasureSession.h'
+  );
+  expect(functionBody(keys, 'folly::dynamic toDynamic()')).toContain(
+    '("streaming", streaming)'
+  );
+  expect(keys).toContain('streaming = nextProps.streaming;');
+  const store = withoutComments(
+    read(
+      'android/src/main/java/com/swmansion/enriched/markdown/MeasurementStore.kt'
+    )
+  );
+  expect(store).toContain('STREAMING = "streaming"');
+  expect(store).toMatch(/getBooleanOrDefault\(STREAMING,/);
+});
 
 it('sends the streaming options that lay a document out, and Kotlin reads them', () => {
   const sent = [

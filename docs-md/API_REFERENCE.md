@@ -799,6 +799,31 @@ See [COPY_OPTIONS.md](./COPY_OPTIONS.md#localizing-menu-labels) for details.
 
 ---
 
+### `admonitionTitles`
+
+Header titles for GitHub admonitions/alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`), keyed by type, to localize or rename them. A type left out keeps its English title (`DEFAULT_ADMONITION_TITLES`); an empty string shows the icon alone. The header is one line high, so a title wider than the callout ends in an ellipsis. The title is laid out in its own direction, so a right-to-left title reads correctly in a left-to-right callout.
+
+| Type               | Default Value                                    | Platform           |
+| ------------------ | ------------------------------------------------ | ------------------ |
+| `AdmonitionTitles` | `Note`, `Tip`, `Important`, `Warning`, `Caution` | iOS, Android, macOS, Web |
+
+```ts
+type AdmonitionType = 'note' | 'tip' | 'important' | 'warning' | 'caution';
+type AdmonitionTitles = Partial<Record<AdmonitionType, string>>;
+```
+
+**Example:**
+
+```tsx
+<EnrichedMarkdownText
+  flavor="github"
+  markdown={content}
+  admonitionTitles={{ note: 'Uwaga', warning: 'Ostrzeżenie' }}
+/>
+```
+
+---
+
 ### `accessibilityLabels`
 
 Translates every string spoken by VoiceOver (iOS) and TalkBack (Android) when navigating the rendered markdown. All fields are optional; omitted fields fall back to the English defaults defined in `accessibilityLabelDefaults.ts`. See the [Accessibility guide](ACCESSIBILITY.md#translating-announcements--accessibilitylabels) for the full defaults table and placeholder syntax.

@@ -18,9 +18,10 @@
 CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segments, StyleConfig *config,
                                           CGFloat contentWidth, BOOL allowTrailingMargin, CGFloat pointScaleFactor,
                                           ENRMWritingDirectionMode writingDirectionMode,
-                                          NSWritingDirection resolvedLayoutDirection, BOOL allowFontScaling,
-                                          NSLineBreakStrategy lineBreakStrategy, ENRMCodeBlockWrapCursor *wrapCursor,
-                                          ENRMBlockSlotMeasurer *slotMeasurer, CGPoint origin)
+                                          NSWritingDirection resolvedLayoutDirection, NSWritingDirection quoteDirection,
+                                          BOOL allowFontScaling, NSLineBreakStrategy lineBreakStrategy,
+                                          ENRMCodeBlockWrapCursor *wrapCursor, ENRMBlockSlotMeasurer *slotMeasurer,
+                                          CGPoint origin)
 {
   if (segments.count == 0) {
     return 0;
@@ -73,6 +74,9 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
                                                      pointScaleFactor:pointScaleFactor
                                                      allowFontScaling:allowFontScaling
                                                     lineBreakStrategy:lineBreakStrategy
+                                                 writingDirectionMode:writingDirectionMode
+                                              resolvedLayoutDirection:resolvedLayoutDirection
+                                                       outerDirection:quoteDirection
                                                            wrapCursor:wrapCursor
                                                          slotMeasurer:slotMeasurer
                                                                origin:CGPointMake(origin.x, origin.y + totalHeight)];

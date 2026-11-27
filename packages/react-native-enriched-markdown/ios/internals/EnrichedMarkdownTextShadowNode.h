@@ -1,7 +1,7 @@
 #pragma once
 #include "ENRMReactHeaders.h"
+#include "EnrichedMarkdownTextState.h"
 #include "MeasurementCache.h"
-#include <ReactNativeEnrichedMarkdown/EnrichedMarkdownTextState.h>
 #include <react/renderer/components/EnrichedMarkdownTextSpec/EventEmitters.h>
 #include <react/renderer/components/EnrichedMarkdownTextSpec/Props.h>
 
@@ -25,8 +25,7 @@ public:
 
   Size measureContent(const LayoutContext &layoutContext, const LayoutConstraints &layoutConstraints) const override;
 
-  static ShadowNodeTraits BaseTraits()
-  {
+  static ShadowNodeTraits BaseTraits() {
     auto traits = ConcreteViewShadowNode::BaseTraits();
     traits.set(ShadowNodeTraits::Trait::LeafYogaNode);
     traits.set(ShadowNodeTraits::Trait::MeasurableYogaNode);

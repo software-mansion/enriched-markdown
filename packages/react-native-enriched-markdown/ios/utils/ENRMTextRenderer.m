@@ -26,6 +26,7 @@ static ENRMRenderResult *ENRMRenderASTNodesCore(NSArray<MarkdownASTNode *> *node
   RenderContext *context = [RenderContext new];
   context.allowFontScaling = allowFontScaling;
   context.maxFontSizeMultiplier = maxFontSizeMultiplier;
+  context.fontScale = config.fontScaleMultiplier;
   context.taskItemCount = startingTaskIndex;
 
   NSMutableAttributedString *attributedText = [[NSMutableAttributedString alloc] init];
@@ -108,6 +109,7 @@ ENRMRenderResult *ENRMRenderASTNodesResuming(NSArray<MarkdownASTNode *> *nodes, 
   RenderContext *context = [RenderContext new];
   context.allowFontScaling = allowFontScaling;
   context.maxFontSizeMultiplier = maxFontSizeMultiplier;
+  context.fontScale = config.fontScaleMultiplier;
   context.taskItemCount = previous.blockTaskStarts[from].integerValue;
 
   // Positions in `tail` are `start - kResumeSeedLength` ahead of the whole text's.
@@ -131,8 +133,8 @@ ENRMRenderResult *ENRMRenderASTNodesResuming(NSArray<MarkdownASTNode *> *nodes, 
   [context applyImageAttributesToString:tail];
   ENRMApplyLineBreakStrategyToParagraphStyles(tail, lineBreakStrategy);
   // A renderer that changed the text before the tail would have changed it in the whole text too.
-  if (tail.length < kResumeSeedLength || ![[tail attributedSubstringFromRange:NSMakeRange(0, kResumeSeedLength)]
-                                             isEqualToAttributedString:seed]) {
+  if (tail.length < kResumeSeedLength ||
+      ![[tail attributedSubstringFromRange:NSMakeRange(0, kResumeSeedLength)] isEqualToAttributedString:seed]) {
     return nil;
   }
   [tail deleteCharactersInRange:NSMakeRange(0, kResumeSeedLength)];

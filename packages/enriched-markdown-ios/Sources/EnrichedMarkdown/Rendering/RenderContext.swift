@@ -55,6 +55,8 @@ enum MarkdownAttribute {
     /// Present on an admonition's title paragraph; the value is the type's
     /// raw string. The title's head indent reserves the icon column.
     static let admonitionHeader = NSAttributedString.Key("EnrichedMarkdownAdmonitionHeader")
+    /// The whole title on the same paragraph, for exports of a partial selection.
+    static let admonitionTitle = NSAttributedString.Key("EnrichedMarkdownAdmonitionTitle")
     static let listDepth = NSAttributedString.Key("EnrichedMarkdownListDepth")
     static let listType = NSAttributedString.Key("EnrichedMarkdownListType")
     static let listItemNumber = NSAttributedString.Key("EnrichedMarkdownListItemNumber")

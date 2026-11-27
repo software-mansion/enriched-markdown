@@ -41,4 +41,9 @@ StreamingSnapshot streamingSnapshot(const std::string &source, const StreamingOp
 // Repair options for a stream parsed with `flags`.
 RepairOptions streamingRepairOptions(const Md4cFlags &flags);
 
+// finishedListItems() of a snapshot, as offsets into its markdown. Both are finishedBytes when
+// there is none, or when the snapshot does not show the items as the source wrote them.
+FinishedListItems streamingListItems(const std::string &source, const StreamingSnapshot &snapshot,
+                                     const StreamingOptions &options);
+
 } // namespace Markdown

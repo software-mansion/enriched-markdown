@@ -98,7 +98,8 @@ Each element follows the **paragraph it belongs to**, not a global flag, so a si
 | **Paragraphs and headings** | Base direction set per paragraph from first-strong (or forced by the prop). |
 | **Unordered / ordered lists** | Bullet or number drawn on the side that matches the item's paragraph direction. |
 | **Task lists** | Checkbox drawn on the matching side; the tap hit-test follows the same side. |
-| **Blockquotes** | Accent bar drawn on the side that matches the quoted paragraph. |
+| **Blockquotes** | Accent bar drawn on the side that matches the quoted paragraph. Under `flavor="github"` a quote outside a list takes one side for the whole box instead, its nested quotes included. The side comes from the first strong character inside it (nested quotes and tables count, code blocks, images and math do not), as web's `dir="auto"` does. On iOS, `writingDirection` `'ltr'` or `'rtl'` forces that side and `'auto'` takes the app's; Android ignores the prop. |
+| **Admonitions** (`flavor="github"`) | Icon and title drawn on the bar's side. The title does not set the side; the body does. |
 | **Tables** (`flavor="github"`) | On iOS, each cell resolves its own direction from its content. **On Android, cells are pinned to the device locale** (`TEXT_DIRECTION_LOCALE`), and column order and alignment follow the app's locale layout direction rather than the view's - so an Arabic cell in an English-locale app lays out LTR. On **web**, each cell resolves its own direction and column order follows the container. |
 | **Code blocks** | Always LTR on iOS and web, and on Android under `flavor="github"` (the container pins it). Under `flavor="commonmark"` Android has no pin, so a code block whose first strong character is RTL takes an RTL base direction. |
 | **Inline code** | Inherits its paragraph's direction on native; characters flow correctly via the platform Bidi algorithm. On **web** it is pinned `direction: ltr` with `unicode-bidi: embed`, so it does not inherit. |
@@ -114,7 +115,7 @@ Under every case other than `.natural`, each element follows the **paragraph it 
 | **Unordered / ordered lists** | Bullet or number drawn on the side that matches the item's paragraph direction. |
 | **Task lists** | Checkbox drawn on the matching side. |
 | **Blockquotes** | Accent bar drawn on the side that matches the quoted paragraph. |
-| **Admonitions** | The title takes the direction of the body it introduces. |
+| **Admonitions** | The title takes the direction of the first strong character in the body below it. A table does not count, so a callout holding only a table follows the layout direction. |
 | **Code blocks** | Always left-to-right. |
 
 See [Writing direction](/ios/api-reference/element-structure#writing-direction).
@@ -127,7 +128,8 @@ See [Writing direction](/ios/api-reference/element-structure#writing-direction).
 | **Paragraphs and headings** | Base direction set per paragraph from first-strong. |
 | **Unordered / ordered lists** | Bullet or number drawn on the side that matches the item's paragraph direction. |
 | **Task lists** | Checkbox drawn on the matching side. |
-| **Blockquotes** | Accent bar drawn on the side that matches the quoted paragraph. The box **background fill does not mirror**. |
+| **Blockquotes** | Accent bar drawn on the side that matches the quoted paragraph. |
+| **Admonitions** | The header takes the direction of the body it introduces. |
 | **Tables** | Mirror by the **device locale** (`Configuration.layoutDirection`), not per paragraph or per cell content; cells are pinned to `TEXT_DIRECTION_LOCALE`. An Arabic cell in an English-locale app lays out left-to-right. |
 | **Code blocks** | **Not** pinned left-to-right: a code block takes first-strong like any paragraph, so one whose first strong character is RTL lays out right-to-left. |
 
@@ -136,7 +138,7 @@ See [Writing direction](/ios/api-reference/element-structure#writing-direction).
 
 ## Neutral content
 
-In the React Native package, for paragraphs with no strong directional character (digits, punctuation), the direction falls back to the view's resolved layout direction. So `"123 456."` inside a `<View style={{ direction: 'rtl' }}>` right-aligns, and left-aligns otherwise - letting you place an LTR document in an RTL screen (or vice versa) without surprises. On web, such a block gets no `dir` and inherits the container's direction. In the standalone iOS SDK, the fallback is the SwiftUI `layoutDirection` environment value.
+In the React Native package, for paragraphs with no strong directional character (digits, punctuation), the direction falls back to the view's resolved layout direction. So `"123 456."` inside a `<View style={{ direction: 'rtl' }}>` right-aligns, and left-aligns otherwise - letting you place an LTR document in an RTL screen (or vice versa) without surprises. The exception is a `flavor="github"` quote with no strong character on Android: its bar follows the app's locale layout direction (its resource configuration, not the view), so in an English-locale app the bar of `> 2024` stays on the left even inside an RTL view. On web, such a block gets no `dir` and inherits the container's direction. In the standalone iOS SDK, the fallback is the SwiftUI `layoutDirection` environment value.
 
 ## Copy-as-HTML caveat
 

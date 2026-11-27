@@ -61,6 +61,14 @@ StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown
 // follows it; a later `[r]: url` can still change how the bytes before parse.
 size_t finishedBlocksEnd(std::string_view markdown, bool latexMath = true);
 
+// `end` is the start of the last line that begins an item of a top-level list after other items
+// of that list, 0 when there is none; `lastItem` is the start of the item before it.
+struct FinishedListItems {
+  size_t end = 0;
+  size_t lastItem = 0;
+};
+FinishedListItems finishedListItems(std::string_view markdown, bool latexMath = true);
+
 // Whether a line that follows a blank line at the top level starts a block of its own, whatever came
 // before it: not indented, and no list marker, reference definition, footnote or HTML that could
 // belong to the block above. finishedBlocksEnd() ends at such a line.

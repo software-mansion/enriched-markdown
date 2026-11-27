@@ -56,7 +56,7 @@ static void ENRMHookCaptures(void)
   Class viewClass = [UIView class];
   SEL drawSelector = @selector(drawViewHierarchyInRect:afterScreenUpdates:);
   Method draw = class_getInstanceMethod(viewClass, drawSelector);
-  BOOL (*drawOriginal)(id, SEL, CGRect, BOOL) = (BOOL (*)(id, SEL, CGRect, BOOL))method_getImplementation(draw);
+  BOOL (*drawOriginal)(id, SEL, CGRect, BOOL) = (BOOL(*)(id, SEL, CGRect, BOOL))method_getImplementation(draw);
   method_setImplementation(draw, imp_implementationWithBlock(^BOOL(UIView *view, CGRect rect, BOOL afterUpdates) {
                              NSArray<id<ENRMCaptureParticipant>> *begun = ENRMBeginCapture(view, afterUpdates);
                              @try {

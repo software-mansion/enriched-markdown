@@ -38,7 +38,8 @@ Size MarkdownTextShadowNode::measureContent(const LayoutContext &layoutContext,
 }
 
 const MarkdownMeasureKeys &MarkdownTextShadowNode::measureKeys() const {
-  measureKeys_.update<EnrichedMarkdownTextProps>(getProps(), [](const auto &props) { return measureLayoutConfig(props); });
+  measureKeys_.update<EnrichedMarkdownTextProps>(getProps(),
+                                                 [](const auto &props) { return measureLayoutConfig(props); });
   return measureKeys_;
 }
 

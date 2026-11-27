@@ -38,6 +38,52 @@ void expect(const std::string &markdown, const std::string &expected, const std:
   check(got == expected, what + "\n  expected: [" + expected + "]\n  got:      [" + got + "]");
 }
 
+void expectItems(const std::string &markdown, const std::string &end, const std::string &lastItem,
+                 const std::string &what) {
+  Markdown::FinishedListItems items = Markdown::finishedListItems(markdown);
+  size_t expectedEnd = end.empty() ? 0 : markdown.find(end);
+  size_t expectedLastItem = lastItem.empty() ? 0 : markdown.find(lastItem);
+  check(items.end == expectedEnd && items.lastItem == expectedLastItem,
+        what + "\n  expected: " + std::to_string(expectedEnd) + ", " + std::to_string(expectedLastItem) +
+            "\n  got:      " + std::to_string(items.end) + ", " + std::to_string(items.lastItem));
+}
+
+void checkFinishedListItems() {
+  expectItems("- one", "", "", "a single item is not finished");
+  expectItems("- one\n- two", "- two", "- one", "an item finishes the one before it");
+  expectItems("- one\n- two\n- three\n", "- three", "- two", "the last item of three");
+  expectItems("Intro\n\n- one\n- two", "- two", "- one", "a list after a paragraph");
+  expectItems("# Steps\n1. one\n2. two", "2. two", "1. one", "a list right after a heading");
+  expectItems("1) one\n2) two", "2) two", "1) one", "an ordered list with parentheses");
+  expectItems("- one\n\n- two", "- two", "- one", "a loose list");
+  expectItems("- one\n  more\n\n  second paragraph\n- two", "- two", "- one", "an item of several lines");
+  expectItems("- one\n  - nested a\n  - nested b\n- two", "- two", "- one", "nested items are the item's content");
+  expectItems("- one\n  ```\n  - code\n  - code\n  ```\n- two", "- two", "- one", "a fence inside an item");
+  expectItems(
+      "- one\n  ```go\n  func main() {\n\tfmt.Println()\n  }\n  ```\n- two\n  ```sh\n  go run .\n  ```\n- three",
+      "- three", "- two", "a tab-indented line inside an item's fence");
+  expectItems("- one\n- two\n\ntext\n\n- three\n- four", "- four", "- three", "a second list");
+  expectItems("- one\n- two\n\n* three", "- two", "- one", "another bullet starts another list");
+  expectItems("- one\n- two\n\nAfter the list.", "- two", "- one", "text after the list keeps its last item");
+
+  expectItems("- one\n- ", "", "", "a marker still arriving may become a thematic break");
+  expectItems("- one\n- -", "", "", "so may a marker followed by its own character");
+  expectItems("- one\n- - -\n", "", "", "a thematic break is not an item");
+  expectItems("- one\n- - x", "- - x", "- one", "text after the marker makes it an item");
+  expectItems("1. one\n2.", "", "", "a number without its space is not a marker yet");
+  expectItems("- one\n* two", "", "", "another bullet right after an item is not followed");
+  expectItems("- one\nlazy\n- two", "", "", "a lazy line may have ended the list");
+  expectItems("Para\n1. one\n2. two", "", "", "a list that interrupts a paragraph is not followed");
+  expectItems("-\n\n  text\n- two\n- three", "", "", "a blank line ends an item without text");
+  expectItems("-\tone\n\n  text\n- two", "", "", "a tab after the marker moves the item's content");
+  expectItems("```\n- one\n- two\n", "", "", "lines of a code fence");
+  expectItems("<div>\n- one\n- two\n</div>", "", "", "lines of an HTML block");
+  expectItems("<!--\n\n- one\n- two\n", "", "", "lines of a comment");
+  expectItems("> - one\n> - two", "", "", "a quoted list");
+  expectItems("$$\n\n- one\n- two\n", "", "", "lines of block math");
+  check(Markdown::finishedListItems("$$\n\n- one\n- two\n", false).end == 10, "block math only with LaTeX on");
+}
+
 } // namespace
 
 int main() {
@@ -211,12 +257,16 @@ int main() {
         "a waiting fence is cut as a hidden one would be");
   check(!Markdown::renderableMarkdownForStreaming("A\n\n```mer", {}).endsInsideOpenCodeFence,
         "a waiting fence is not flagged");
+  check(Markdown::renderableMarkdownForStreaming("- one\n  ```go\n\tfmt.Println()\n", {}).endsInsideOpenCodeFence,
+        "a tab-indented line stays inside an item's fence");
   expect("", "", "empty input");
   expect("\r\n" + img + "\r\n", "\r\n" + img + "\r\n", "CRLF: complete image kept (progressive)");
   expect("\r\n" + img + "\r\n\r", "\r\n", "CRLF: trailing CR line is blank, image still open (hidden)", H);
 
   check(Markdown::streamingBlockModeFromName("hidden") == H && Markdown::streamingBlockModeFromName("x") == P,
         "mode names");
+
+  checkFinishedListItems();
 
   if (failures == 0) {
     std::cout << "    streaming filter ok\n";

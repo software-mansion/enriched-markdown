@@ -2,6 +2,7 @@ import type { ColorValue, ViewProps, ViewStyle, TextStyle } from 'react-native';
 import type { MarkdownStream } from '../markdownStream';
 import type { MarkdownStyle, Md4cFlags } from './MarkdownStyle';
 import type { AccessibilityLabels } from './AccessibilityLabels';
+import type { AdmonitionTitles } from './admonitionTitles';
 import type {
   LinkPressEvent,
   LinkLongPressEvent,
@@ -502,7 +503,8 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    *   Choreographer-driven Canvas particles on Android).
    * - `'solid'`: opaque rectangle covering the text (Discord-style).
    *
-   * Both modes support tap-to-reveal.
+   * Both modes support tap-to-reveal. Web ignores this prop and always draws
+   * the solid cover.
    * @default 'particles'
    * @platform ios, android
    */
@@ -581,6 +583,12 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android, macos
    */
   onSelectionCopy?: (event: SelectionCopyEvent) => void;
+  /**
+   * Admonition header titles by type. Omitted types keep the English title;
+   * an empty string shows the icon only.
+   * @platform ios, android, macos, web
+   */
+  admonitionTitles?: AdmonitionTitles;
   /**
    * Translations for VoiceOver / TalkBack announcements (list items, table
    * rows, math, and the iOS rotor). All keys are optional and fall back to

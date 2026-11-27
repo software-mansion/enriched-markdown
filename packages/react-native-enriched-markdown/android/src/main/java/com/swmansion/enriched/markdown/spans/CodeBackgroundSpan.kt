@@ -6,7 +6,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.text.Layout
 import android.text.Spanned
-import com.swmansion.enriched.markdown.spoiler.isConcealedBySpoiler
+import com.swmansion.enriched.markdown.spoiler.spoilerTextAlpha
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import kotlin.math.max
 import kotlin.math.min
@@ -52,9 +52,10 @@ class CodeBackgroundSpan(
   ) {
     if (spanEnd <= lineStart || spanStart >= lineEnd) return
 
-    // The spoiler overlay only covers the text's glyph box, so a background drawn to the line's bounds
-    // would outline the hidden code around it.
-    if (text.isConcealedBySpoiler(maxOf(spanStart, lineStart), minOf(spanEnd, lineEnd))) return
+    // A background under a concealed spoiler would outline the hidden code, so it fades in with
+    // the text instead.
+    val spoilerVisibility = text.spoilerTextAlpha(maxOf(spanStart, lineStart), minOf(spanEnd, lineEnd))
+    if (spoilerVisibility <= 0f) return
 
     val rightToLeft = layout.getParagraphDirection(line) == Layout.DIR_RIGHT_TO_LEFT
     val top = layout.getLineTop(line)
@@ -73,8 +74,8 @@ class CodeBackgroundSpan(
       val endX = drawer.x(layout, line, lineStart, lineEnd, if (isLast) rangeEnd else lineEnd)
       rect.set(min(startX, endX), top.toFloat(), max(startX, endX), bottom.toFloat())
 
-      // A streaming effect's characters take their box with them.
-      val visibility = streamingVisibility(text, max(rangeStart, lineStart), min(rangeEnd, lineEnd))
+      // A streaming effect's characters take their box with them, as does a revealing spoiler.
+      val visibility = streamingVisibility(text, max(rangeStart, lineStart), min(rangeEnd, lineEnd)) * spoilerVisibility
       if (visibility <= 0f) return
       val codeStyle = styleConfig.codeStyle
       sharedBackgroundPaint.color = codeStyle.backgroundColor.withVisibility(visibility)

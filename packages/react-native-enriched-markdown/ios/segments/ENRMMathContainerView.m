@@ -8,7 +8,9 @@
 #if ENRICHED_MARKDOWN_MATH
 #import "ENRMMathFallback.h"
 #import "PasteboardUtils.h"
-#if __has_include("ReactNativeEnrichedMarkdown-Swift.h")
+#if SWIFT_PACKAGE
+@import ReactNativeEnrichedMarkdownMath;
+#elif __has_include("ReactNativeEnrichedMarkdown-Swift.h")
 #import "ReactNativeEnrichedMarkdown-Swift.h"
 #elif __has_include(<ReactNativeEnrichedMarkdown/ReactNativeEnrichedMarkdown-Swift.h>)
 #import <ReactNativeEnrichedMarkdown/ReactNativeEnrichedMarkdown-Swift.h>

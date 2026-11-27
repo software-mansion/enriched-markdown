@@ -1,0 +1,20 @@
+appId: swmansion.enriched.markdown.example
+---
+# Sets ${VALUE} through the Set Raw Markdown modal, reads it back with
+# getMarkdown() and asserts the alert shows ${EXPECTED} (a regex, matched against
+# the whole alert body). Expects the playground screen to be open.
+- tapOn:
+    id: set-markdown-button
+- waitForAnimationToEnd
+
+- tapOn:
+    id: set-markdown-input
+- inputText: ${VALUE}
+- tapOn:
+    id: set-markdown-confirm
+- waitForAnimationToEnd
+
+- tapOn:
+    id: get-markdown-button
+- assertVisible: ${EXPECTED}
+- tapOn: 'OK'

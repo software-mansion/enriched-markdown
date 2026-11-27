@@ -30,6 +30,11 @@ export type {
   MarkdownLinkOccurrence,
 } from './types/markdownBlocks';
 export type { MarkdownStyle, Md4cFlags } from './types/MarkdownStyle';
+export type {
+  AdmonitionTitles,
+  AdmonitionType,
+} from './types/admonitionTitles';
+export { DEFAULT_ADMONITION_TITLES } from './admonitionDefaults';
 export type { MarkdownTextInputStyle } from './types/MarkdownTextInputStyle';
 export type {
   LinkPressEvent,

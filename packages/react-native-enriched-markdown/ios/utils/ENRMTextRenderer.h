@@ -1,6 +1,6 @@
 #pragma once
+#import "ENRMUIKit.h"
 #import "ParagraphStyleUtils.h"
-#import <Foundation/Foundation.h>
 
 @class AccessibilityInfo;
 @class MarkdownASTNode;

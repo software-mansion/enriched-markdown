@@ -10,8 +10,7 @@ namespace facebook::react {
 // The streaming options that change what is laid out: the modes decide what the streaming filter
 // withholds, smooth pacing how much the view shows. The animation draws over the same layout, so
 // it stays out and changing it measures nothing again.
-template <typename StreamingConfig>
-folly::dynamic streamingLayoutConfig(const StreamingConfig &config) {
+template <typename StreamingConfig> folly::dynamic streamingLayoutConfig(const StreamingConfig &config) {
   return folly::dynamic::object("tableMode", config.tableMode)("codeBlockMode", config.codeBlockMode)(
       "mediaMode", config.mediaMode)("smooth", config.smooth);
 }
@@ -29,7 +28,6 @@ inline folly::dynamic measureLayoutConfig(const EnrichedMarkdownTextProps &props
   serializedProps["maxFontSizeMultiplier"] = props.maxFontSizeMultiplier;
   serializedProps["allowTrailingMargin"] = props.allowTrailingMargin;
   serializedProps["textBreakStrategy"] = props.textBreakStrategy;
-  serializedProps["streaming"] = props.streaming;
   serializedProps["streamingConfig"] = streamingLayoutConfig(props.streamingConfig);
   serializedProps["numberOfLines"] = props.numberOfLines;
   serializedProps["ellipsizeMode"] = props.ellipsizeMode;
@@ -61,7 +59,6 @@ inline folly::dynamic measureLayoutConfig(const EnrichedMarkdownProps &props) {
   serializedProps["maxFontSizeMultiplier"] = props.maxFontSizeMultiplier;
   serializedProps["allowTrailingMargin"] = props.allowTrailingMargin;
   serializedProps["textBreakStrategy"] = props.textBreakStrategy;
-  serializedProps["streaming"] = props.streaming;
   serializedProps["streamingConfig"] = streamingLayoutConfig(props.streamingConfig);
   // A `<video>` block only exists under GFM; CommonMark measures it as text.
   serializedProps["isGFM"] = props.isGFM;

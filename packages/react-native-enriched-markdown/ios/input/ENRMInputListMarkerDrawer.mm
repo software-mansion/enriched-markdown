@@ -266,6 +266,12 @@ static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, C
 
   CGFloat baselineOffset = isEmptyListLine ? self.listItemSpacing + font.ascender
                                            : [layoutManager locationForGlyphAtIndex:glyphRange.location].y;
+  if (isAttributedListLine && [string characterAtIndex:charRange.location] == '\n') {
+    NSNumber *textBaselineOffset = [storage attribute:NSBaselineOffsetAttributeName
+                                              atIndex:charRange.location
+                                       effectiveRange:NULL];
+    baselineOffset += font.descender - textBaselineOffset.doubleValue;
+  }
   CGFloat baselineY = origin.y + rect.origin.y + baselineOffset;
 
   BOOL isRTL = isEmptyListLine ? self.emptyBulletRTL

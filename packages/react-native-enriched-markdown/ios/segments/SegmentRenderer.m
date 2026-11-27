@@ -161,7 +161,8 @@ static ENRMRenderedSegment *ENRMRenderTextSegment(NSArray<MarkdownASTNode *> *no
                                                   NSInteger taskIndexOffset, NSInteger taskItemCount,
                                                   ENRMTextRenderCache *cache)
 {
-  ENRMRenderResult * (^render)(void) = ^ENRMRenderResult * {
+  ENRMRenderResult * (^render)(void) = ^ENRMRenderResult *
+  {
     return blockquoteContent ? ENRMRenderBlockquoteContentNodes(nodes, config, allowFontScaling, maxFontSizeMultiplier,
                                                                 lineBreakStrategy, taskIndexOffset)
                              : ENRMRenderASTNodes(nodes, config, allowTrailingMargin, allowFontScaling,

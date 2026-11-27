@@ -74,13 +74,13 @@
 #import <React/RCTUtils.h>
 #import <objc/runtime.h>
 
-#import <ReactNativeEnrichedMarkdown/EnrichedMarkdownComponentDescriptor.h>
+#import "EnrichedMarkdownComponentDescriptor.h"
 #import <react/renderer/components/EnrichedMarkdownTextSpec/EventEmitters.h>
 #import <react/renderer/components/EnrichedMarkdownTextSpec/Props.h>
 #import <react/renderer/components/EnrichedMarkdownTextSpec/RCTComponentViewHelpers.h>
 
-#import "RCTFabricComponentsPlugins.h"
 #import <React/RCTConversions.h>
+#import <React/RCTFabricComponentsPlugins.h>
 #import <React/RCTFont.h>
 #import <React/RCTI18nUtil.h>
 #import <React/RCTMountingTransactionObserving.h>
@@ -483,9 +483,14 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
                             return view;
                           }
                           updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
-                            [(ENRMBlockquoteContainerView *)view
-                                applyBlockquoteNode:segment.blockquoteSegment.blockquoteNode
-                                    taskIndexOffset:segment.blockquoteSegment.taskIndexOffset];
+                            ENRMBlockquoteContainerView *quoteView = (ENRMBlockquoteContainerView *)view;
+                            EnrichedMarkdown *strongSelf = weakSelf;
+                            if (strongSelf) {
+                              ENRMSetWritingDirection(quoteView, strongSelf->_writingDirectionMode,
+                                                      strongSelf->_resolvedLayoutDirection);
+                            }
+                            [quoteView applyBlockquoteNode:segment.blockquoteSegment.blockquoteNode
+                                           taskIndexOffset:segment.blockquoteSegment.taskIndexOffset];
                           }]];
 
   [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindBlockSlot
@@ -543,6 +548,7 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
 - (ENRMBlockquoteContainerView *)createBlockquoteViewForSegment:(ENRMBlockquoteSegment *)blockquoteSegment
 {
   ENRMBlockquoteContainerView *view = [[ENRMBlockquoteContainerView alloc] initWithConfig:_config];
+  ENRMSetWritingDirection(view, _writingDirectionMode, _resolvedLayoutDirection);
   view.allowFontScaling = _fontScaleObserver.allowFontScaling;
   view.lineBreakStrategy = _lineBreakStrategy;
   view.dynamicProps = _dynamicBlockProps;
@@ -1029,8 +1035,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   for (RCTUIView *segment in _segmentViews) {
     if ([segment isKindOfClass:[TableContainerView class]]) {
       TableContainerView *tableView = (TableContainerView *)segment;
-      tableView.writingDirectionMode = _writingDirectionMode;
-      tableView.resolvedLayoutDirection = _resolvedLayoutDirection;
+      ENRMSetWritingDirection(tableView, _writingDirectionMode, _resolvedLayoutDirection);
     }
   }
 }
@@ -1458,7 +1463,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
                                   selectionEnd:selectionEnd];
         });
     return buildEditMenuForSelection(textView.textStorage, textView.selectedRange, segmentMarkdown, strongSelf->_config,
-                                     @[ baseMenu ], customItems, strongSelf->_selectionMenuConfig,
+                                     @[ baseMenu ], customItems, strongSelf -> _selectionMenuConfig,
                                      [strongSelf selectionCopyHandler]);
   }];
 #endif
@@ -1474,8 +1479,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   tableView.maxFontSizeMultiplier = _maxFontSizeMultiplier;
   tableView.enableLinkPreview = _enableLinkPreview;
   tableView.dynamicProps = _dynamicBlockProps;
-  tableView.writingDirectionMode = _writingDirectionMode;
-  tableView.resolvedLayoutDirection = _resolvedLayoutDirection;
+  ENRMSetWritingDirection(tableView, _writingDirectionMode, _resolvedLayoutDirection);
   tableView.accessibilityLabels = _accessibilityLabels;
 
   __weak EnrichedMarkdown *weakSelf = self;
@@ -1505,8 +1509,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
 - (void)updateTableView:(TableContainerView *)view withSegment:(ENRMTableSegment *)tableSegment
 {
-  view.writingDirectionMode = _writingDirectionMode;
-  view.resolvedLayoutDirection = _resolvedLayoutDirection;
+  ENRMSetWritingDirection(view, _writingDirectionMode, _resolvedLayoutDirection);
   NSUInteger previousRowCount = view.rowCount;
   NSArray<NSNumber *> *previousWidths = view.shownColumnWidths;
   [view applyTableNode:tableSegment.tableNode];
@@ -1754,6 +1757,20 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     if (!markdownChanged) {
       _dirtyFlags |= ENRMDirtyRecreateSegments;
     }
+  }
+
+  const auto &titles = newViewProps.admonitionTitles;
+  const auto &oldTitles = oldViewProps.admonitionTitles;
+  if (titles.note != oldTitles.note || titles.tip != oldTitles.tip || titles.important != oldTitles.important ||
+      titles.warning != oldTitles.warning || titles.caution != oldTitles.caution) {
+    [_config setAdmonitionTitles:@{
+      @"note" : RCTNSStringFromString(titles.note),
+      @"tip" : RCTNSStringFromString(titles.tip),
+      @"important" : RCTNSStringFromString(titles.important),
+      @"warning" : RCTNSStringFromString(titles.warning),
+      @"caution" : RCTNSStringFromString(titles.caution),
+    }];
+    _dirtyFlags |= ENRMDirtyRender | ENRMDirtyRecreateSegments;
   }
 
   _selectable = newViewProps.selectable;
