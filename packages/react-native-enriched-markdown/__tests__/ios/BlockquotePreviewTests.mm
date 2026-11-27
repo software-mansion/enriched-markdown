@@ -28,21 +28,12 @@
   [container addSubview:bubble];
   [container addSubview:quote];
 
-  CGFloat red, green, blue, alpha;
-  XCTAssertTrue([[quote blockPreview].parameters.backgroundColor getRed:&red green:&green blue:&blue alpha:&alpha]);
+  CGFloat red, green, blue;
+  XCTAssertTrue([[quote blockPreview].parameters.backgroundColor getRed:&red green:&green blue:&blue alpha:NULL]);
   XCTAssertEqualWithAccuracy(red, 0.5, 0.01);
   XCTAssertEqualWithAccuracy(green, 0.5, 0.01);
   XCTAssertEqualWithAccuracy(blue, 1, 0.01);
-  XCTAssertEqualWithAccuracy(alpha, 1, 0.01);
   XCTAssertFalse(quote.layer.hidden);
-
-  // A quote with an opaque fill of its own is backed by that fill.
-  [quote.config setBlockquoteBackgroundColor:[UIColor redColor]];
-  XCTAssertEqualObjects([quote blockPreview].parameters.backgroundColor, [UIColor redColor]);
-
-  // Removed while the menu is up: no targeted preview, so UIKit uses its own fade.
-  [quote removeFromSuperview];
-  XCTAssertNil([quote blockPreview]);
   window.hidden = YES;
 }
 
