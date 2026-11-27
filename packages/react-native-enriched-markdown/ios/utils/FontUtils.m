@@ -58,32 +58,39 @@ UIFontWeight ENRMFontWeightFromString(NSString *weightString)
   return UIFontWeightRegular;
 }
 
-@implementation ENRMFont
+#if !TARGET_OS_OSX
+// The same table as Fabric's RCTFontUtils, matched case-insensitively like it.
+static UIFontDescriptorSystemDesign _Nullable ENRMSystemDesignForFamily(NSString *_Nullable family)
+{
+  static NSDictionary<NSString *, UIFontDescriptorSystemDesign> *designs;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    designs = @{
+      @"system-ui" : UIFontDescriptorSystemDesignDefault,
+      @"ui-sans-serif" : UIFontDescriptorSystemDesignDefault,
+      @"ui-serif" : UIFontDescriptorSystemDesignSerif,
+      @"ui-rounded" : UIFontDescriptorSystemDesignRounded,
+      @"ui-monospace" : UIFontDescriptorSystemDesignMonospaced,
+    };
+  });
+  return family.length > 0 ? designs[family.lowercaseString] : nil;
+}
+#endif
 
-+ (UIFont *)updateFont:(UIFont *)font
-            withFamily:(NSString *)family
-                  size:(NSNumber *)size
-                weight:(NSString *)weight
-                 style:(NSString *)style
-               variant:(NSArray *)variant
-       scaleMultiplier:(CGFloat)scaleMultiplier
+UIFont *ENRMUpdateFont(UIFont *font, NSString *family, NSNumber *size, NSString *weight, NSString *style,
+                       CGFloat scaleMultiplier)
 {
 #if !TARGET_OS_OSX
-  // A restyled run (bold or italic inside code) passes its current font and no family. The system
-  // monospaced face has a hidden family name that RCTFont does not recognise.
-  BOOL systemMonospaced = family ? [family isEqualToString:@"ui-monospace"]
-                                 : (font && [font.familyName hasPrefix:@"."] &&
-                                    (font.fontDescriptor.symbolicTraits & UIFontDescriptorTraitMonoSpace));
-  if (systemMonospaced) {
+  UIFontDescriptorSystemDesign design = ENRMSystemDesignForFamily(family);
+  if (design) {
     UIFont *base = [RCTFont updateFont:font
                             withFamily:@"System"
                                   size:size
                                 weight:weight
                                  style:style
-                               variant:variant
+                               variant:nil
                        scaleMultiplier:scaleMultiplier];
-    UIFontDescriptor *descriptor =
-        [base.fontDescriptor fontDescriptorWithDesign:UIFontDescriptorSystemDesignMonospaced];
+    UIFontDescriptor *descriptor = [base.fontDescriptor fontDescriptorWithDesign:design];
     return descriptor ? [UIFont fontWithDescriptor:descriptor size:base.pointSize] : base;
   }
 #endif
@@ -92,8 +99,6 @@ UIFontWeight ENRMFontWeightFromString(NSString *weightString)
                         size:size
                       weight:weight
                        style:style
-                     variant:variant
+                     variant:nil
              scaleMultiplier:scaleMultiplier];
 }
-
-@end

@@ -1,7 +1,6 @@
 #import "RenderContext.h"
 #import "CodeBackground.h"
 #import "FontUtils.h"
-#import <React/RCTFont.h>
 
 @implementation BlockStyle
 @end
@@ -96,13 +95,7 @@ static NSArray<NSString *> *ENRMScopedKeyPaths(void)
 
   NSString *effectiveWeight = (fontWeight.length > 0) ? fontWeight : nil;
 
-  UIFont *font = [ENRMFont updateFont:nil
-                           withFamily:fontFamily
-                                 size:@(fontSize)
-                               weight:effectiveWeight
-                                style:nil
-                              variant:nil
-                      scaleMultiplier:effectiveMultiplier];
+  UIFont *font = ENRMUpdateFont(nil, fontFamily, @(fontSize), effectiveWeight, nil, effectiveMultiplier);
 
   if (font) {
     _fontCache[key] = font;

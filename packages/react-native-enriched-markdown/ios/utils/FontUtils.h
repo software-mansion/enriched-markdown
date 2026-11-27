@@ -24,20 +24,13 @@ extern CGFloat ENRMCapFontScale(CGFloat fontScale, CGFloat maxFontSizeMultiplier
  *  Returns UIFontWeightRegular for unrecognised or nil input. */
 extern UIFontWeight ENRMFontWeightFromString(NSString *_Nullable weightString);
 
+/** RCTFont's updateFont, plus the CSS generic families React Native's Fabric text accepts
+ *  (system-ui, ui-sans-serif, ui-serif, ui-rounded, ui-monospace) and RCTFont does not. */
+extern UIFont *ENRMUpdateFont(UIFont *_Nullable font, NSString *_Nullable family, NSNumber *_Nullable size,
+                              NSString *_Nullable weight, NSString *_Nullable style, CGFloat scaleMultiplier);
+
 #ifdef __cplusplus
 }
 #endif
-
-/** RCTFont's updateFont, plus the CSS generic family `ui-monospace` (the system monospaced font),
- *  which React Native's Fabric text accepts but the legacy RCTFont does not. */
-@interface ENRMFont : NSObject
-+ (UIFont *)updateFont:(nullable UIFont *)font
-            withFamily:(nullable NSString *)family
-                  size:(nullable NSNumber *)size
-                weight:(nullable NSString *)weight
-                 style:(nullable NSString *)style
-               variant:(nullable NSArray *)variant
-       scaleMultiplier:(CGFloat)scaleMultiplier;
-@end
 
 NS_ASSUME_NONNULL_END
