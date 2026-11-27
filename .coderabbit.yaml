@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit PR review config. Reference: https://docs.coderabbit.ai/reference/configuration
+
+language: en-US
+
+reviews:
+  # `chill` keeps comments focused on real problems rather than style nits.
+  profile: chill
+  # The PR template already asks for a summary of the change.
+  high_level_summary: false
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    # Lockfiles
+    - '!**/yarn.lock'
+    - '!**/Podfile.lock'
+    - '!**/Gemfile.lock'
+    # Screenshot baselines for the Maestro E2E tests
+    - '!.maestro/**/screenshots/**'
+    # Vendored third-party code
+    - '!packages/enriched-markdown-ios/Sources/EnrichedMarkdownLaTeX/Vendor/**'
+  path_instructions:
+    - path: 'packages/core/cpp/**'
+      instructions: >-
+        The shared C++ core (md4c parser and Markdown AST). The React Native package, the
+        iOS package, the Android package and the web (WASM) build all compile these same
+        sources, so a change here affects every platform. Check that it does not break any
+        of them.
+    - path: 'packages/react-native-enriched-markdown/{ios,android,src/web}/**'
+      instructions: >-
+        The React Native package ships one API on three implementations: iOS (`ios/`),
+        Android (`android/`) and web (`src/web/`). Flag behavior added or changed on one
+        platform without a matching change on the others, unless the PR says why.
+    - path: 'packages/react-native-enriched-markdown/src/**/*.{ts,tsx}'
+      instructions: >-
+        Public API changes must be reflected in the native component specs, all platform
+        implementations and the documentation (`docs/` and `docs-md/`).
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
