@@ -20,7 +20,7 @@ export const ENRM_MARKER_COLOR_VAR = '--enrm-marker-color';
 export const ENRM_MARKER_WEIGHT_VAR = '--enrm-marker-weight';
 export const ENRM_TASK_CHECKBOX_CLASS = 'enrm-task-checkbox';
 export const ENRM_CHECKMARK_COLOR_VAR = '--enrm-checkmark-color';
-export const ENRM_CHECKMARK_MASK_VAR = '--enrm-checkmark-mask';
+export const ENRM_CHECKMARK_SHAPE_VAR = '--enrm-checkmark-shape';
 
 const RULES: ReadonlyArray<readonly [id: string, css: string]> = [
   [
@@ -53,8 +53,7 @@ const RULES: ReadonlyArray<readonly [id: string, css: string]> = [
     `.${ENRM_TEXT_CLASS} .${ENRM_TASK_CHECKBOX_CLASS}:checked::before { ` +
       'content: ""; position: absolute; inset: 0; ' +
       `background-color: var(${ENRM_CHECKMARK_COLOR_VAR}); ` +
-      `-webkit-mask: var(${ENRM_CHECKMARK_MASK_VAR}) center / 100% 100% no-repeat; ` +
-      `mask: var(${ENRM_CHECKMARK_MASK_VAR}) center / 100% 100% no-repeat; }`,
+      `clip-path: var(${ENRM_CHECKMARK_SHAPE_VAR}); }`,
   ],
   [
     'enrm-task-checkbox-forced-colors',

@@ -7,6 +7,7 @@ import { TextEncoder } from 'util';
 import type { EnrichedMarkdownTextProps } from '../../types/MarkdownTextProps.web';
 import {
   ENRM_CHECKMARK_COLOR_VAR,
+  ENRM_CHECKMARK_SHAPE_VAR,
   ENRM_TASK_CHECKBOX_CLASS,
 } from '../globalStyles';
 import { loadParser } from '../parseMarkdown';
@@ -57,6 +58,12 @@ it('draws the checkbox in the taskList colors', async () => {
     WebkitPrintColorAdjust: 'exact',
   });
   expect(done!.props.className).toBe(ENRM_TASK_CHECKBOX_CLASS);
+});
+
+it('draws the checkmark without loading an image', async () => {
+  const [done] = await renderCheckboxes({ markdown: '- [x] done' });
+
+  expect(done!.props.style[ENRM_CHECKMARK_SHAPE_VAR]).toMatch(/^polygon\(/);
 });
 
 it('fills the checkbox together with its checked state when toggled', async () => {

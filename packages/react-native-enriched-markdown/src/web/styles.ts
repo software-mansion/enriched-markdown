@@ -6,7 +6,7 @@ import type {
 import {
   ENRM_BULLET_COLOR_VAR,
   ENRM_CHECKMARK_COLOR_VAR,
-  ENRM_CHECKMARK_MASK_VAR,
+  ENRM_CHECKMARK_SHAPE_VAR,
   ENRM_MARKER_COLOR_VAR,
   ENRM_MARKER_WEIGHT_VAR,
 } from './globalStyles';
@@ -526,21 +526,52 @@ function taskCheckboxStyle(style: MarkdownStyleInternal): CSSProperties {
   };
 }
 
-function taskCheckboxCheckedStyle(style: MarkdownStyleInternal): CSSProperties {
-  const { checkboxSize: size, checkedColor, checkmarkColor } = style.taskList;
+type Point = readonly [x: number, y: number];
+
+const checkmarkPolygons = new Map<number, string>();
+
+function checkmarkPolygon(size: number): string {
+  const cached = checkmarkPolygons.get(size);
+  if (cached !== undefined) return cached;
+
   const border = checkboxBorderWidth(size);
   const inner = size - border * 2;
-  const stroke = Math.max(1.5, size * 0.12);
-  const check =
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${border} ${border} ${inner} ${inner}">` +
-    `<path d="M${size * 0.22} ${size / 2}L${size * 0.45} ${size * 0.78}L${size * 0.78} ${size * 0.22}" ` +
-    `fill="none" stroke="#000" stroke-width="${stroke}" ` +
-    'stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const half = Math.max(1.5, size * 0.12) / 2;
+  const start: Point = [size * 0.22, size * 0.5];
+  const corner: Point = [size * 0.45, size * 0.78];
+  const end: Point = [size * 0.78, size * 0.22];
+  const down = Math.atan2(corner[1] - start[1], corner[0] - start[0]);
+  const up = Math.atan2(end[1] - corner[1], end[0] - corner[0]);
+  const points: Point[] = [];
+  const arc = ([x, y]: Point, from: number, sweep: number) => {
+    const steps = Math.ceil(Math.abs(sweep) / (Math.PI / 8));
+    for (let i = 0; i <= steps; i++) {
+      const angle = from + (sweep * i) / steps;
+      points.push([x + half * Math.cos(angle), y + half * Math.sin(angle)]);
+    }
+  };
+  arc(start, down - Math.PI / 2, -Math.PI);
+  arc(corner, down + Math.PI / 2, up - down);
+  arc(end, up + Math.PI / 2, -Math.PI);
+  const miter = half / (1 + Math.cos(up - down));
+  points.push([
+    corner[0] + miter * (Math.sin(down) + Math.sin(up)),
+    corner[1] - miter * (Math.cos(down) + Math.cos(up)),
+  ]);
+  const percent = (value: number) =>
+    `${+(((value - border) / inner) * 100).toFixed(2)}%`;
+  const polygon = `polygon(${points.map(([x, y]) => `${percent(x)} ${percent(y)}`).join(', ')})`;
+  checkmarkPolygons.set(size, polygon);
+  return polygon;
+}
+
+function taskCheckboxCheckedStyle(style: MarkdownStyleInternal): CSSProperties {
+  const { checkboxSize, checkedColor, checkmarkColor } = style.taskList;
   return {
     borderColor: 'transparent',
     backgroundColor: checkedColor,
     [ENRM_CHECKMARK_COLOR_VAR]: checkmarkColor,
-    [ENRM_CHECKMARK_MASK_VAR]: `url("data:image/svg+xml,${encodeURIComponent(check)}")`,
+    [ENRM_CHECKMARK_SHAPE_VAR]: checkmarkPolygon(checkboxSize),
   } as CSSProperties;
 }
 
