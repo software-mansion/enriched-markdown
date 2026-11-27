@@ -1,5 +1,6 @@
 package com.swmansion.enriched.markdown.input.layout
 
+import androidx.annotation.VisibleForTesting
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.uimanager.events.Event
@@ -33,6 +34,10 @@ class InputEventEmitter(
   private var prevUnorderedList: Pair<Boolean, Int> = false to 0
   private var prevOrderedList: Pair<Boolean, Int> = false to 0
   private var prevCaretRect: CaretRect? = null
+
+  @VisibleForTesting
+  internal val lastEmittedStyleState: Map<StyleType, Boolean>
+    get() = prevState
 
   fun emitChangeText() {
     // The empty-list-line ZWSP anchor is an internal editing detail — never leak
