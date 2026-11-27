@@ -11,6 +11,7 @@ class SelectionCopyEvent(
   private val format: String,
   private val selectionStart: Int,
   private val selectionEnd: Int,
+  private val markdown: String,
 ) : Event<SelectionCopyEvent>(surfaceId, viewId) {
   override fun getEventName(): String = EVENT_NAME
 
@@ -22,6 +23,7 @@ class SelectionCopyEvent(
       putString("format", format)
       putInt("selectionStart", selectionStart)
       putInt("selectionEnd", selectionEnd)
+      putString("markdown", markdown)
     }
 
   companion object {

@@ -885,13 +885,13 @@ interface CopyPressEvent {
 
 ### `copyLinksAs`
 
-How links appear in the plain text of a copied selection. With `'label'` (the default) a link copies as its text. With `'markdown'` it copies as `[label](url)`, so the URL survives a paste into a plain-text field. Only what would break the link is escaped: `\`, `[` and `]` in the label, and parentheses in the URL, which goes in `<...>` when it has spaces or angle brackets. The HTML, rich-text and Markdown formats on the clipboard are unchanged, and so is **Copy as Markdown**. Links found by [`linkRecognition`](#linkrecognition) copy as their text either way, since the source has no link syntax, and so do autolinks, whose text is already the URL. To add your own clipboard data, use [`onSelectionCopy`](#onselectioncopy), which receives this text. iOS, Android, and macOS only - the web build leaves copying to the browser.
+How links appear in copied plain text: a copied selection, and the **Copy** item of a table's or quote's long-press menu. With `'label'` (the default) a link copies as its text. With `'markdown'` it copies as `[label](url)`, so the URL survives a paste into a plain-text field. Only what would break the link is escaped: `\`, `[` and `]` in the label, and parentheses in the URL, which goes in `<...>` when it has spaces or angle brackets. The HTML, rich-text and Markdown formats on the clipboard are unchanged, and so is **Copy as Markdown**. Links found by [`linkRecognition`](#linkrecognition) copy as their text either way, since the source has no link syntax, and so do autolinks, whose text is already the URL. To add your own clipboard data, use [`onSelectionCopy`](#onselectioncopy), which receives this text and the selection's Markdown, with its URLs, either way. iOS, Android, and macOS only - the web build leaves copying to the browser.
 
 <PropInfo type="'label' | 'markdown'" default="'label'" />
 
 ### `onSelectionCopy`
 
-Callback fired after a text selection is copied - from the selection menu's **Copy**, **Copy as Markdown**, or **Copy Image URL** item, the keyboard shortcut (⌘C / Ctrl+C), or TalkBack's copy action. Keyboard and TalkBack copies report `format: 'plain'`, the same as **Copy**. `text` is what was put on the clipboard as plain text. Code copied from a code block's header button or long-press menu is reported by [`onCopyPress`](#oncopypress) instead.
+Callback fired after a text selection is copied - from the selection menu's **Copy**, **Copy as Markdown**, or **Copy Image URL** item, the keyboard shortcut (⌘C / Ctrl+C), or TalkBack's copy action. Keyboard and TalkBack copies report `format: 'plain'`, the same as **Copy**. `text` is what was put on the clipboard as plain text, and `markdown` is the copied selection as Markdown, whatever the format, so links keep their URLs there even when `text` has only their labels. Code copied from a code block's header button or long-press menu is reported by [`onCopyPress`](#oncopypress) instead.
 
 The `selection` offsets index the rendered text, not the Markdown source. With `flavor="github"` they restart at each block that renders as its own view, such as a table, code block or quote, so consecutive paragraphs count as one run of text.
 
@@ -902,6 +902,7 @@ interface SelectionCopyEvent {
   text: string; // the copied plain text
   format: 'plain' | 'markdown' | 'imageUrls'; // Copy, Copy as Markdown, Copy Image URL
   selection: { start: number; end: number }; // the copied range
+  markdown: string; // the copied selection as Markdown, whatever the format
 }
 ```
 

@@ -24,6 +24,12 @@ NSString *markdownFromBlockquoteNode(MarkdownASTNode *node);
 /// Extracts plain text content from an AST node recursively (no markdown syntax).
 NSString *plainTextFromASTNode(MarkdownASTNode *node);
 
+/// Like plainTextFromASTNode, with each link as `[label](url)` (`copyLinksAs: 'markdown'`); autolinks stay as their text.
+NSString *plainTextWithMarkdownLinksFromASTNode(MarkdownASTNode *node);
+
+/// `[label](url)`, escaping only what would break the link; an autolink (the label is the URL) stays as its label.
+NSString *ENRMMarkdownLink(NSString *label, NSString *url);
+
 #ifdef __cplusplus
 }
 #endif

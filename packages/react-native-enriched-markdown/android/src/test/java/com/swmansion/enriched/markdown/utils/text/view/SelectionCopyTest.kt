@@ -25,6 +25,7 @@ import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport
 import com.swmansion.enriched.markdown.test.TestAstFactory.link
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
+import com.swmansion.enriched.markdown.utils.common.serialization.MarkdownASTSerializer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -63,7 +64,7 @@ class SelectionCopyTest {
     view.applyStyledText(MarkdownRenderTestSupport.render(style, paragraph(text("Value: "), strong)))
     Selection.setSelection(view.text as Spannable, start, end)
     val copies = mutableListOf<Copy>()
-    view.onSelectionCopyCallback = { text, format, s, e -> copies += Copy(text, format, s, e) }
+    view.onSelectionCopyCallback = { text, format, s, e, _ -> copies += Copy(text, format, s, e) }
     return view to copies
   }
 
@@ -78,7 +79,7 @@ class SelectionCopyTest {
     view.text = "Hello world"
     Selection.setSelection(view.text as Spannable, start, end)
     val copies = mutableListOf<Copy>()
-    view.onSelectionCopyCallback = { text, format, s, e -> copies += Copy(text, format, s, e) }
+    view.onSelectionCopyCallback = { text, format, s, e, _ -> copies += Copy(text, format, s, e) }
     return view to copies
   }
 
@@ -151,18 +152,32 @@ class SelectionCopyTest {
     val props = DynamicBlockProps()
     view.dynamicProps = props
     val copies = mutableListOf<Copy>()
-    view.onSelectionCopyCallback = { text, format, s, e -> copies += Copy(text, format, s, e) }
+    var markdown = ""
+    view.onSelectionCopyCallback = { text, format, s, e, md ->
+      copies += Copy(text, format, s, e)
+      markdown = md
+    }
     val end = view.text.length
     Selection.setSelection(view.text as Spannable, 0, end)
 
     clickMenuItem(view, "Copy")
     assertEquals("See a [b] c and sp at https://a.b", clipboardText())
+    // The event's Markdown keeps the URLs either way.
+    assertTrue(markdown, markdown.contains("(https://x.y/p(1))"))
 
     props.copiesLinksAsMarkdown = true
     clickMenuItem(view, "Copy")
     val expected = """See [a \[b\] c](https://x.y/p\(1\)) and [sp](<https://x.y/a b>) at https://a.b"""
     assertEquals(expected, clipboardText())
     assertEquals(Copy(expected, SelectionCopyFormat.PLAIN, 0, end), copies.last())
+  }
+
+  // Quote and table Copy build their plain text from the AST with the same rule.
+  @Test
+  fun blockPlainTextWritesLinksAsMarkdown() {
+    val node = paragraph(text("see "), link("https://x.y/p(1)", text("x")), text(" at "), link("https://a.b", text("https://a.b")))
+    assertEquals("see x at https://a.b", MarkdownASTSerializer.plainText(node))
+    assertEquals("""see [x](https://x.y/p\(1\)) at https://a.b""", MarkdownASTSerializer.plainText(node, linksAsMarkdown = true))
   }
 
   @Test
@@ -188,11 +203,17 @@ class SelectionCopyTest {
   @Test
   fun ctrlCCopiesABackwardSelection() {
     val (view, copies) = segmentSelecting(9, 7)
+    var markdown = ""
+    view.onSelectionCopyCallback = { text, format, s, e, md ->
+      copies += Copy(text, format, s, e)
+      markdown = md
+    }
 
     assertTrue(pressCtrlC(view))
 
     assertEquals(listOf(Copy("42", SelectionCopyFormat.PLAIN, 7, 9)), copies)
     assertEquals("42", clipboardText())
+    assertEquals("**42**", markdown)
   }
 
   @Test
@@ -202,7 +223,7 @@ class SelectionCopyTest {
     view.text = "Hello world"
     Selection.setSelection(view.text as Spannable, 6, 11)
     val copies = mutableListOf<Copy>()
-    view.onSelectionCopyCallback = { text, format, s, e -> copies += Copy(text, format, s, e) }
+    view.onSelectionCopyCallback = { text, format, s, e, _ -> copies += Copy(text, format, s, e) }
 
     assertTrue(pressCtrlC(view))
 
@@ -238,7 +259,7 @@ class SelectionCopyTest {
     view.applyStyledText(styled)
     Selection.setSelection(view.text as Spannable, 0, 3)
     val copies = mutableListOf<Copy>()
-    view.onSelectionCopyCallback = { text, format, s, e -> copies += Copy(text, format, s, e) }
+    view.onSelectionCopyCallback = { text, format, s, e, _ -> copies += Copy(text, format, s, e) }
     view.selectionMenuConfig = SelectionMenuConfig(copyImageUrlLabel = "Copy Image URL")
 
     clickMenuItem(view, "Copy Image URL")

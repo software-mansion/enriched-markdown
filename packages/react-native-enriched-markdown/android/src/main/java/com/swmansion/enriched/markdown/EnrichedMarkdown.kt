@@ -700,8 +700,9 @@ class EnrichedMarkdown(
     format: SelectionCopyFormat,
     selectionStart: Int,
     selectionEnd: Int,
+    markdown: String,
   ) {
-    onSelectionCopyCallback?.invoke(text, format, selectionStart, selectionEnd)
+    onSelectionCopyCallback?.invoke(text, format, selectionStart, selectionEnd, markdown)
   }
 
   private fun recreateStyleConfig() {

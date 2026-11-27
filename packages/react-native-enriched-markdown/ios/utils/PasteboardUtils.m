@@ -3,6 +3,7 @@
 #import "ENRMLinkPillText.h"
 #import "ENRMTextLinkAttributes.h"
 #import "HTMLGenerator.h"
+#import "MarkdownASTSerializer.h"
 #import "MarkdownExtractor.h"
 #import "RTFExportUtils.h"
 #import "StyleConfig.h"
@@ -86,33 +87,6 @@ void copyItemsToPasteboard(NSDictionary<NSString *, id> *items)
 #endif
 }
 
-static NSString *ENRMEscaped(NSString *text, NSString *pattern)
-{
-  return [text stringByReplacingOccurrencesOfString:pattern
-                                         withString:@"\\\\$0"
-                                            options:NSRegularExpressionSearch
-                                              range:NSMakeRange(0, text.length)];
-}
-
-// A destination with spaces or angle brackets goes in <...>; otherwise only \ and parentheses are escaped.
-static NSString *ENRMLinkDestination(NSString *url)
-{
-  NSCharacterSet *needsBrackets = [NSCharacterSet characterSetWithCharactersInString:@"<> \t\n\r"];
-  if ([url rangeOfCharacterFromSet:needsBrackets].location != NSNotFound ||
-      [url rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location != NSNotFound) {
-    return [NSString stringWithFormat:@"<%@>", ENRMEscaped(url, @"[\\\\<>]")];
-  }
-  return ENRMEscaped(url, @"[\\\\()]");
-}
-
-// `<https://x.dev>`, a bare URL or an email: copying the URL alone keeps it a link where it is pasted.
-static BOOL ENRMIsAutolink(NSString *label, NSString *url)
-{
-  return [url isEqualToString:label] || [url isEqualToString:[@"mailto:" stringByAppendingString:label]] ||
-         [url isEqualToString:[@"http://" stringByAppendingString:label]] ||
-         [url isEqualToString:[@"https://" stringByAppendingString:label]];
-}
-
 /// Plain text with each link as `[label](url)`, for `copyLinksAs: 'markdown'`. Only what would break the link is
 /// escaped. Recognized links and autolinks (the label is the URL) stay as their text.
 NSString *ENRMPlainTextWithMarkdownLinks(NSAttributedString *text)
@@ -127,11 +101,11 @@ NSString *ENRMPlainTextWithMarkdownLinks(NSAttributedString *text)
                                                atIndex:range.location
                                         effectiveRange:NULL] != nil;
                   NSString *url = [link isKindOfClass:NSURL.class] ? [link absoluteString] : link;
-                  if (![url isKindOfClass:NSString.class] || recognized || ENRMIsAutolink(run, url)) {
+                  if (![url isKindOfClass:NSString.class] || recognized) {
                     [result appendString:run];
                     return;
                   }
-                  [result appendFormat:@"[%@](%@)", ENRMEscaped(run, @"[\\\\\\[\\]]"), ENRMLinkDestination(url)];
+                  [result appendString:ENRMMarkdownLink(run, url)];
                 }];
   return result;
 }

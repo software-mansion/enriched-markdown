@@ -6,6 +6,7 @@
 #import "../../ios/utils/ENRMAccessibilityLabels.h"
 #import "../../ios/utils/ENRMTextRenderer.h"
 #import "../../ios/utils/EditMenuUtils.h"
+#import "../../ios/utils/MarkdownASTSerializer.h"
 #import "../../ios/utils/PasteboardUtils.h"
 #import "../../ios/views/EnrichedMarkdownInternalText.h"
 #import <XCTest/XCTest.h>
@@ -15,19 +16,23 @@
 
 @implementation ENRMSelectionCopyTests {
   NSMutableArray<NSDictionary *> *_copies;
+  NSMutableArray<NSString *> *_markdowns;
 }
 
 - (void)setUp
 {
   _copies = [NSMutableArray array];
+  _markdowns = [NSMutableArray array];
   [UIPasteboard generalPasteboard].string = @"";
 }
 
 - (ENRMSelectionCopyHandler)recorder
 {
   NSMutableArray<NSDictionary *> *copies = _copies;
-  return ^(NSString *text, NSString *format, NSRange range) {
+  NSMutableArray<NSString *> *markdowns = _markdowns;
+  return ^(NSString *text, NSString *format, NSRange range, NSString *markdown) {
     [copies addObject:@{@"text" : text, @"format" : format, @"range" : [NSValue valueWithRange:range]}];
+    [markdowns addObject:markdown];
   };
 }
 
@@ -101,12 +106,22 @@ static void ENRMPerform(UIAction *action)
 
   [view.textView copy:nil];
   XCTAssertEqualObjects([UIPasteboard generalPasteboard].string, @"See a [b] c and sp at https://a.b");
+  // The event's Markdown keeps the URLs either way.
+  XCTAssertTrue([_markdowns.lastObject containsString:@"(https://x.y/p(1))"], @"%@", _markdowns.lastObject);
 
   [config setCopyLinksAsMarkdown:YES];
   [view.textView copy:nil];
   NSString *expected = @"See [a \\[b\\] c](https://x.y/p\\(1\\)) and [sp](<https://x.y/a b>) at https://a.b";
   XCTAssertEqualObjects([UIPasteboard generalPasteboard].string, expected);
   XCTAssertEqualObjects(_copies.lastObject, ENRMCopy(expected, ENRMSelectionCopyFormatPlain, all));
+}
+
+// Quote and table Copy build their plain text from the AST with the same rule.
+- (void)testBlockPlainTextWritesLinksAsMarkdown
+{
+  MarkdownASTNode *quote = ENRMParse(@"> see [x](https://x.y/p(1)) at <https://a.b>\n").children.firstObject;
+  XCTAssertEqualObjects(plainTextFromASTNode(quote), @"see x at https://a.b");
+  XCTAssertEqualObjects(plainTextWithMarkdownLinksFromASTNode(quote), @"see [x](https://x.y/p\\(1\\)) at https://a.b");
 }
 
 - (void)testCopyKeyCommandWithoutSelectionReportsNothing

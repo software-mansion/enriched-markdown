@@ -23,6 +23,8 @@
 @interface TableCellData : NSObject
 @property (nonatomic, strong) NSMutableAttributedString *attributedText;
 @property (nonatomic, copy) NSString *plainText;
+// plainText with links as `[label](url)`, for `copyLinksAs: 'markdown'`; nil when that changes nothing.
+@property (nonatomic, copy, nullable) NSString *linkedPlainText;
 @property (nonatomic, copy) NSString *markdownText;
 @property (nonatomic, assign) BOOL isHeader;
 @property (nonatomic, assign) NSTextAlignment alignment;
@@ -63,14 +65,16 @@ static NSTextAlignment ENRMTableTextAlignmentFromString(NSString *align)
   return NSTextAlignmentLeft;
 }
 
-static NSString *ENRMTablePlainTextFromNode(MarkdownASTNode *node)
+static NSString *ENRMTablePlainTextFromNode(MarkdownASTNode *node, BOOL linksAsMarkdown)
 {
   if (!node)
     return @"";
   NSMutableString *buffer = [node.content mutableCopy] ?: [NSMutableString string];
   for (MarkdownASTNode *child in node.children) {
-    [buffer appendString:ENRMTablePlainTextFromNode(child)];
+    [buffer appendString:ENRMTablePlainTextFromNode(child, linksAsMarkdown)];
   }
+  if (linksAsMarkdown && node.type == MarkdownNodeTypeLink)
+    return ENRMMarkdownLink(buffer, node.attributes[@"url"] ?: @"");
   return [buffer copy];
 }
 
@@ -181,7 +185,9 @@ static NSArray<NSArray<TableCellData *> *> *ENRMTableBuildRows(MarkdownASTNode *
         TableCellData *cell = [[TableCellData alloc] init];
         cell.isHeader = isSectionHead || (cellNode.type == MarkdownNodeTypeTableHeaderCell);
         cell.alignment = ENRMTableTextAlignmentFromString(cellNode.attributes[@"align"]);
-        cell.plainText = ENRMTablePlainTextFromNode(cellNode);
+        cell.plainText = ENRMTablePlainTextFromNode(cellNode, NO);
+        NSString *linkedPlainText = ENRMTablePlainTextFromNode(cellNode, YES);
+        cell.linkedPlainText = [linkedPlainText isEqualToString:cell.plainText] ? nil : linkedPlainText;
         cell.markdownText = markdownFromASTNodeChildren(cellNode);
 
         StyleConfig *cellConfig = cell.isHeader ? headerCellConfig : bodyCellConfig;
@@ -865,7 +871,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     NSMutableArray<NSString *> *rowContent = [NSMutableArray arrayWithCapacity:row.count];
 
     for (TableCellData *cell in row) {
-      [rowContent addObject:cell.plainText ?: @""];
+      NSString *text = (self.config.copyLinksAsMarkdown ? cell.linkedPlainText : nil) ?: cell.plainText;
+      [rowContent addObject:text ?: @""];
     }
 
     [result appendFormat:@"%@\n", [rowContent componentsJoinedByString:@"\t"]];

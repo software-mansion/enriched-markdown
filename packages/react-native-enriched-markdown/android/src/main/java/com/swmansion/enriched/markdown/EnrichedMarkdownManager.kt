@@ -58,8 +58,8 @@ class EnrichedMarkdownManager :
     view.onContextMenuItemPressCallback = { itemText, selectedText, selectionStart, selectionEnd ->
       emitContextMenuItemPress(view, itemText, selectedText, selectionStart, selectionEnd)
     }
-    view.onSelectionCopyCallback = { text, format, selectionStart, selectionEnd ->
-      emitSelectionCopy(view, text, format, selectionStart, selectionEnd)
+    view.onSelectionCopyCallback = { text, format, selectionStart, selectionEnd, markdown ->
+      emitSelectionCopy(view, text, format, selectionStart, selectionEnd, markdown)
     }
 
     view.setOnLinkPressCallback { url ->

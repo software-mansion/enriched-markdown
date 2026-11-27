@@ -356,6 +356,7 @@ export interface SelectionCopyEvent {
   format: string;
   selectionStart: CodegenTypes.Int32;
   selectionEnd: CodegenTypes.Int32;
+  markdown: string;
 }
 
 export interface AccessibilityLabelsListProps {
