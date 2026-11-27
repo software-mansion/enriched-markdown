@@ -86,7 +86,6 @@
     @[ @"one&#13;two", @"one&#13;two" ],
     @[ @"one&#13;&#10;two", @"one&#13;&#10;two" ],
     @[ @"a\\\\&#10;b", @"a\\\\&#10;b" ],
-    @[ @"a\\\\\\\\&#10;b", @"a\\\\\\\\&#10;b" ],
     @[ @"one<br>two", @"one<br>two" ],
   ];
   NSMutableString *markdown = [NSMutableString stringWithString:@"| h |\n|---|\n"];

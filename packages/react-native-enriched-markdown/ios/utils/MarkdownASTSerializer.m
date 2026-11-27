@@ -335,9 +335,11 @@ NSString *markdownFromASTNodeChildren(MarkdownASTNode *node)
 
 NSString *markdownFromTableCellNode(MarkdownASTNode *node)
 {
+  static NSCharacterSet *lineEndings;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{ lineEndings = [NSCharacterSet characterSetWithCharactersInString:@"\r\n"]; });
   NSString *markdown = markdownFromASTNodeChildren(node);
-  if ([markdown rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"\r\n"]].location ==
-      NSNotFound)
+  if ([markdown rangeOfCharacterFromSet:lineEndings].location == NSNotFound)
     return markdown;
   markdown = [markdown stringByReplacingOccurrencesOfString:@"(?<!\\\\)\\\\+(?=[\r\n])"
                                                  withString:@"$0$0"
