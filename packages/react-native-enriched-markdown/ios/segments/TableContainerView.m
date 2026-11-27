@@ -517,6 +517,15 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   return totalHeight;
 }
 
+#if !TARGET_OS_OSX
+- (BOOL)hasPressableItemAtPoint:(CGPoint)point includeImages:(BOOL)includeImages
+{
+  ENRMTableIOSGridView *gridView = (ENRMTableIOSGridView *)_gridContainer;
+  ENRMTableIOSItemHit *hit = [gridView itemAtPoint:[self convertPoint:point toView:gridView]];
+  return hit != nil && (hit.kind == ENRMTableIOSItemKindLink || includeImages);
+}
+#endif
+
 - (void)renderGrid
 {
 #if !TARGET_OS_OSX

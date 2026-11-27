@@ -2338,7 +2338,11 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
       CGPoint segmentPoint = [self convertPoint:point toView:segment];
 #if !TARGET_OS_OSX
       if ([segment pointInside:segmentPoint withEvent:nil]) {
-        return nil;
+        // Only links and images the table handles itself, so a parent still gets taps on plain cells, as on text.
+        if ([(TableContainerView *)segment hasPressableItemAtPoint:segmentPoint includeImages:_enableImagePress]) {
+          return nil;
+        }
+        break;
       }
 #else
       if (CGRectContainsPoint(segment.bounds, segmentPoint)) {

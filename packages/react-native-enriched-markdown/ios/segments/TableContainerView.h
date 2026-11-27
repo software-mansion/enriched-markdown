@@ -56,6 +56,12 @@ typedef void (^TableLinkPressBlock)(NSString *url);
 
 @property (nonatomic, readonly) NSUInteger rowCount;
 
+#if !TARGET_OS_OSX
+/// Whether a link, or an image when `includeImages` is set, lies under `point` (in this view's coordinates).
+/// The table handles taps on these itself; other points of the table are plain content.
+- (BOOL)hasPressableItemAtPoint:(CGPoint)point includeImages:(BOOL)includeImages;
+#endif
+
 - (void)animateNewRowsFromPreviousCount:(NSUInteger)previousRowCount duration:(NSTimeInterval)duration;
 /// Shows rows that are still fading in at once.
 - (void)finishRowFade;
