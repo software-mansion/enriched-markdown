@@ -333,4 +333,6 @@ Opening a pull request fills the description from our [pull request template](ht
 
 The checklist is where most review rounds are saved. It asks you to confirm that the code compiles and runs on **both** iOS and Android, that you ran the example app to see the change, that the documentation is updated if the change is user-facing, and that the E2E tests pass and cover the new behavior. Those last two items matter more than they look: nothing in CI runs the E2E suites for you (see [What CI will run](#what-ci-will-run)), so an unticked box there is the only signal a reviewer gets.
 
+Every pull request that is not a draft is also reviewed by [CodeRabbit](https://www.coderabbit.ai), configured in [`.coderabbit.yaml`](https://github.com/software-mansion/enriched-markdown/blob/main/.coderabbit.yaml). Its comments are suggestions, not a merge requirement - reply to them or resolve them as you would a human review. Comment `@coderabbitai review` to ask for a review again.
+
 [`CONTRIBUTING.md`](https://github.com/software-mansion/enriched-markdown/blob/main/CONTRIBUTING.md) in the repository covers two things this page does not: **publishing to npm**, and the complete script list. This page is the only written description of the CI model, so the two are complements rather than one being a subset of the other.
