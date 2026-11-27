@@ -779,20 +779,49 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
                    }];
 }
 
-// The quote has no background of its own, so a lift of the bare view draws its
-// text straight over the dimmed thread. Back it with what it sits on.
+// An admonition, or a quote themed with a transparent background, draws no fill of its own, so a
+// lift of the bare view would draw its text straight over the dimmed screen. Back the lift with
+// what is drawn behind the quote: the window sampled at its center with the quote hidden. The
+// quote's superviews can't tell: React Native mounts a chat bubble's children as its siblings.
+static UIColor *ENRMBlockquoteBackingColor(ENRMBlockquoteContainerView *quote)
+{
+  CGPoint center = [quote convertPoint:CGPointMake(CGRectGetMidX(quote.bounds), CGRectGetMidY(quote.bounds))
+                                toView:quote.window];
+  uint8_t pixel[4] = {0, 0, 0, 0};
+  CGColorSpaceRef space = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+  CGContextRef context = CGBitmapContextCreate(pixel, 1, 1, 8, 4, space, kCGImageAlphaPremultipliedLast);
+  CGColorSpaceRelease(space);
+  CGContextTranslateCTM(context, -center.x, -center.y);
+  BOOL hidden = quote.layer.hidden;
+  quote.layer.hidden = YES;
+  [quote.window.layer renderInContext:context];
+  quote.layer.hidden = hidden;
+  CGContextRelease(context);
+
+  // A window that isn't opaque there leaves the rest to the system background.
+  CGFloat red, green, blue;
+  [[[UIColor systemBackgroundColor] resolvedColorWithTraitCollection:quote.traitCollection] getRed:&red
+                                                                                             green:&green
+                                                                                              blue:&blue
+                                                                                             alpha:NULL];
+  CGFloat rest = 1 - pixel[3] / 255.0;
+  return [UIColor colorWithRed:pixel[0] / 255.0 + red * rest
+                         green:pixel[1] / 255.0 + green * rest
+                          blue:pixel[2] / 255.0 + blue * rest
+                         alpha:1];
+}
+
 - (UITargetedPreview *)blockPreview
 {
-  if (self.window == nil)
+  // UITargetedPreview needs a view in a window; without one UIKit falls back to its fade.
+  if (self.window == nil) {
     return nil;
+  }
   UIPreviewParameters *parameters = [[UIPreviewParameters alloc] init];
-  parameters.backgroundColor = [UIColor systemBackgroundColor];
-  for (UIView *view = self; view; view = view.superview) {
-    UIColor *color = view.backgroundColor;
-    if (color && CGColorGetAlpha(color.CGColor) > 0) {
-      parameters.backgroundColor = color;
-      break;
-    }
+  parameters.backgroundColor = ENRMBlockquoteBackingColor(self);
+  CGFloat radius = self.config.blockquoteBorderRadius;
+  if (radius > 0) {
+    parameters.visiblePath = [UIBezierPath bezierPathWithRoundedRect:self.bounds cornerRadius:radius];
   }
   return [[UITargetedPreview alloc] initWithView:self parameters:parameters];
 }
