@@ -3,6 +3,7 @@
 #include "CodeBlockLanguages.hpp"
 #include "LatexSpeech.hpp"
 #include "MD4CParser.hpp"
+#include "StreamingSession.hpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -30,6 +31,10 @@ namespace {
 
 const Markdown::MarkdownASTNode *asNode(const void *node) {
   return static_cast<const Markdown::MarkdownASTNode *>(node);
+}
+
+Markdown::StreamingBlockMode streamingMode(int hidden) {
+  return hidden != 0 ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
 }
 
 } // namespace
@@ -154,6 +159,45 @@ char *em_latex_spoken_form(const char *latex) {
 
 void em_string_release(char *string) {
   std::free(string);
+}
+
+void em_streaming_snapshot(const char *markdown, int latexMath, int superscript, int subscript, int highlight,
+                           int hideTables, int hideCodeBlocks, int hideMedia, EMCStreamingSnapshot *snapshot) {
+  if (!snapshot) {
+    return;
+  }
+  *snapshot = EMCStreamingSnapshot{};
+  if (!markdown) {
+    return;
+  }
+  Markdown::StreamingOptions options;
+  options.blocks.tableMode = streamingMode(hideTables);
+  options.blocks.codeBlockMode = streamingMode(hideCodeBlocks);
+  options.blocks.mediaMode = streamingMode(hideMedia);
+  options.flags.latexMath = latexMath != 0;
+  options.flags.superscript = superscript != 0;
+  options.flags.subscript = subscript != 0;
+  options.flags.highlight = highlight != 0;
+  try {
+    const std::string source(markdown);
+    Markdown::StreamingSnapshot result = Markdown::streamingSnapshot(source, options);
+    Markdown::FinishedListItems items = Markdown::streamingListItems(source, result, options);
+    snapshot->finishedBytes = result.finishedBytes;
+    snapshot->finishedItemsBytes = items.end;
+    snapshot->lastItemBytes = items.lastItem;
+    snapshot->endsInsideOpenCodeFence = result.endsInsideOpenCodeFence ? 1 : 0;
+    snapshot->mayDefineLinkReference = Markdown::mayDefineLinkReference(result.markdown) ? 1 : 0;
+    snapshot->tail = strdup(result.markdown.c_str() + result.finishedBytes);
+  } catch (...) {
+    *snapshot = EMCStreamingSnapshot{};
+  }
+}
+
+void em_streaming_snapshot_release(EMCStreamingSnapshot *snapshot) {
+  if (snapshot) {
+    std::free(snapshot->tail);
+    snapshot->tail = nullptr;
+  }
 }
 
 } // extern "C"

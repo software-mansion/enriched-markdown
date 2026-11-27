@@ -33,7 +33,7 @@ The project is a monorepo managed with [Yarn workspaces](https://yarnpkg.com/fea
 |---|---|
 | `packages/react-native-enriched-markdown/` | The React Native library published to npm - the JS API, its iOS and Android bridging code, and the web build. |
 | `packages/core/` | The shared C++ core: the [md4c](https://github.com/mity/md4c) parser and the Markdown AST. Every other package compiles these same sources - there is exactly one parser in the repository. |
-| `packages/enriched-markdown-ios/` | The standalone iOS package - a SwiftPM package wrapping the core in a Swift API, plus two optional products: `EnrichedMarkdownLaTeX` for math and `EnrichedMarkdownSyntaxHighlighting` for code-block highlighting. |
+| `packages/enriched-markdown-ios/` | The standalone iOS package - a SwiftPM package wrapping the core in a Swift API, plus three optional products: `EnrichedMarkdownLaTeX` for math, `EnrichedMarkdownSyntaxHighlighting` for code-block highlighting and `EnrichedMarkdownStreaming` for Markdown that is still arriving. |
 | `packages/enriched-markdown-android/` | The standalone Android package - Gradle modules for the span-based `ui` renderer and its `compose` wrapper, over a `parser` module that is a JNI binding to the core, plus two optional modules: `math`, which renders LaTeX, and `code-highlight`, which colors fenced code blocks. |
 
 The two native packages are standalone libraries for native iOS and Android apps. They render with their own platform text stack but parse through the same core as the React Native package, so a parser fix lands for every platform at once. They trail React Native in features, so parity work is always welcome.
@@ -136,7 +136,7 @@ yarn workspace @enriched-markdown/ios lint:ios-native   # swiftlint lint --stric
 ```
 
 :::note
-Both optional products build from gitignored sources that are restored on demand. `EnrichedMarkdownLaTeX` reaches the RaTeX engine's Swift sources and the KaTeX fonts through symlinks into the React Native package's `ios/vendor/`, restored by `node vendor/vendor-ratex.mjs`. `EnrichedMarkdownSyntaxHighlighting` compiles tree-sitter and its grammars through symlinks into `packages/core/cpp/highlight/vendor/`, restored by `node vendor/vendor-grammars.mjs`. `yarn prepare` runs both. CI runs both scripts before every iOS job - build, tests, and lint - so do the same before building the package with a fresh checkout. (The RaTeX binary itself is a `binaryTarget` SwiftPM downloads from its pinned release, not a vendored file.)
+The LaTeX and syntax-highlighting products build from gitignored sources that are restored on demand. `EnrichedMarkdownLaTeX` reaches the RaTeX engine's Swift sources and the KaTeX fonts through symlinks into the React Native package's `ios/vendor/`, restored by `node vendor/vendor-ratex.mjs`. `EnrichedMarkdownSyntaxHighlighting` compiles tree-sitter and its grammars through symlinks into `packages/core/cpp/highlight/vendor/`, restored by `node vendor/vendor-grammars.mjs`. `yarn prepare` runs both. CI runs both scripts before every iOS job - build, tests, and lint - so do the same before building the package with a fresh checkout. (The RaTeX binary itself is a `binaryTarget` SwiftPM downloads from its pinned release, not a vendored file.)
 :::
 
 ### Android package

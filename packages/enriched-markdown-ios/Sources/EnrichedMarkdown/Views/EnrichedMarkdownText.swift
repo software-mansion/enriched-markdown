@@ -25,6 +25,7 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.markdownCodeBlockLayout) private var codeBlockLayout
     @Environment(\.markdownCodeBlockCopyHandler) private var onCodeBlockCopy
     @Environment(\.markdownBottomMarginVisibility) private var bottomMarginVisibility
+    @Environment(\.markdownStreamingPlugin) private var streaming
     // The fallback for paragraphs with no strong directional character.
     @Environment(\.layoutDirection) private var layoutDirection
     @StateObject private var renderStore = MarkdownRenderStore()
@@ -58,10 +59,13 @@ public struct EnrichedMarkdownText: View {
             writingDirection: writingDirection,
             layoutDirection: layoutDirection,
             codeBlockLayout: codeBlockLayout,
-            admonitionTitles: admonitionTitles
+            admonitionTitles: admonitionTitles,
+            streaming: streaming
         )
         return MarkdownTextViewRepresentable(
             attributedText: renderStore.attributedText,
+            streamingLineage: renderStore.lineage,
+            streamingTransition: streaming?.transition,
             source: renderStore.source,
             isBottomMarginEnabled: bottomMarginVisibility == .visible,
             styleConfig: config,

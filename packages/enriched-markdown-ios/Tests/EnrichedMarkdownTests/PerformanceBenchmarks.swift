@@ -136,6 +136,21 @@ final class PerformanceBenchmarks: XCTestCase {
         }
     }
 
+    // MARK: - Updates
+
+    func testTailEditDisplayOfLongList() {
+        displaying(MarkdownRenderer.render(Self.longList, config: Self.config)) { textView in
+            textView.enclosingScrollView?.contentOffset = CGPoint(x: 0, y: textView.bounds.height - 844)
+            textView.layoutIfNeeded()
+            autoreleasepool { CATransaction.flush() }
+            measure {
+                textView.textStorage.replaceCharacters(in: NSRange(location: textView.textStorage.length, length: 0), with: " more")
+                textView.layoutIfNeeded()
+                autoreleasepool { CATransaction.flush() }
+            }
+        }
+    }
+
     // MARK: - Memory
 
     func testMemoryOfRenderedLongList() {

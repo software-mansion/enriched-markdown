@@ -3,6 +3,8 @@ import UIKit
 
 struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let attributedText: NSAttributedString
+    var streamingLineage: StreamingLineage?
+    var streamingTransition: (any ViewTransition)?
     let source: RenderedSource?
     let isBottomMarginEnabled: Bool
     let styleConfig: MarkdownStyleConfiguration
@@ -47,7 +49,8 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         textView.onCodeBlockCopy = onCodeBlockCopy
         textView.accessibilityLabels = accessibilityLabels
         textView.isBottomMarginEnabled = isBottomMarginEnabled
-        textView.setMarkdownAttributedText(attributedText)
+        textView.streamingTransitions.transition = streamingTransition
+        textView.setMarkdownAttributedText(attributedText, lineage: streamingLineage)
     }
 
     static func dismantleUIView(_ uiView: MarkdownTextView, coordinator: Coordinator) {
@@ -58,7 +61,8 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: MarkdownTextView, context: Context) -> CGSize? {
-        let width = proposal.width ?? UIScreen.main.bounds.width
+        let scale = max(uiView.traitCollection.displayScale, 1)
+        let width = ((proposal.width ?? UIScreen.main.bounds.width) * scale).rounded() / scale
         let size = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
         return CGSize(width: width, height: size.height)
     }

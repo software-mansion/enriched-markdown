@@ -1,6 +1,6 @@
 import UIKit
 
-struct TrailingSpacing: Hashable {
+package struct TrailingSpacing: Hashable {
     var margin: CGFloat = 0
     var padding: CGFloat = 0
 
@@ -16,7 +16,7 @@ struct TrailingSpacing: Hashable {
 }
 
 extension TrailingSpacing {
-    static func strip(from output: NSMutableAttributedString, codeBlockPadding: CGFloat) {
+    package static func strip(from output: NSMutableAttributedString, codeBlockPadding: CGFloat) {
         let string = output.mutableString
         let lastVisible = string.rangeOfCharacter(from: ParagraphStyleHelpers.nonNewlines, options: .backwards)
         guard lastVisible.location != NSNotFound else { return }
@@ -30,7 +30,7 @@ extension TrailingSpacing {
         let attributes = output.attributes(at: lastVisible.location, effectiveRange: nil)
         if let rule = attributes[.attachment] as? ThematicBreakAttachment {
             spacing.margin = max(spacing.margin, rule.marginBottom)
-            rule.marginBottom = 0
+            output.addAttribute(.attachment, value: rule.withoutMarginBottom(), range: lastVisible)
         }
         if MarkdownAttributeValue.boolValue(from: attributes[MarkdownAttribute.codeBlock]) {
             spacing.padding = codeBlockPadding

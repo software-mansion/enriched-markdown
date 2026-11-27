@@ -215,7 +215,6 @@ HTML in the source is **not** rendered. An inline tag stays literal text - `<b>b
 
 | Element | Status |
 | --- | --- |
-| [Markdown streaming](/rich-text-formatting/markdown-streaming) | No public streaming API |
 | Image tap callbacks | Tapping an image does nothing; there is no callback for it |
 
 See the [roadmap](/misc/roadmap) for what is landing next.

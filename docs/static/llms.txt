@@ -10,7 +10,7 @@
 
 ## iOS
 
-- [Installation](https://docs.swmansion.com/enriched-markdown/ios/basics/installation): Swift Package Manager setup, version pinning for a 0.x package, and the three products (renderer, optional LaTeX, optional syntax highlighting) with their size cost.
+- [Installation](https://docs.swmansion.com/enriched-markdown/ios/basics/installation): Swift Package Manager setup, version pinning for a 0.x package, and the four products (renderer, optional LaTeX, syntax highlighting and streaming) with their size cost.
 - [Your first markdown screen](https://docs.swmansion.com/enriched-markdown/ios/basics/your-first-screen): Rendering Markdown in SwiftUI, handling links through `openURL`, and a first theme.
 - [EnrichedMarkdownText](https://docs.swmansion.com/enriched-markdown/ios/api-reference/enriched-markdown-text): The initializer, parsing options, and every view modifier - links, task lists, selection and copy, spoilers and custom spoiler overlays, code blocks, images, writing direction, bottom margin, accessibility labels.
 - [MarkdownTheme](https://docs.swmansion.com/enriched-markdown/ios/api-reference/markdown-theme): How themes layer through the environment, reusing theme fragments, adaptive values, `MarkdownStyleConfiguration`, and `MarkdownRenderer` for rendering without a view.
@@ -19,6 +19,7 @@
 - [Parser extensions](https://docs.swmansion.com/enriched-markdown/ios/guides/parser-extensions): The `MarkdownParsingOptions` switches, what is always on, and which options change the meaning of existing markers (`_`, `~`).
 - [LaTeX math](https://docs.swmansion.com/enriched-markdown/ios/guides/latex-math): The optional `EnrichedMarkdownLaTeX` product - enabling it, inline vs. display math, styling, VoiceOver labels, and rendering without a view.
 - [Syntax highlighting](https://docs.swmansion.com/enriched-markdown/ios/guides/syntax-highlighting): The optional `EnrichedMarkdownSyntaxHighlighting` product - supported languages and aliases, token theming and the default palette, the scrollable code-block panel, and caching.
+- [Markdown streaming](https://docs.swmansion.com/enriched-markdown/ios/guides/markdown-streaming): The optional `EnrichedMarkdownStreaming` product - showing an answer as it arrives, table and code block modes, and built-in and custom transitions.
 - [Images and caching](https://docs.swmansion.com/enriched-markdown/ios/guides/image-caching): Supported image sources and bundle lookup, block image sizing and content mode, the three caches, and request headers.
 - [Custom fonts](https://docs.swmansion.com/enriched-markdown/ios/guides/custom-fonts): How a font name resolves, which elements take a custom family, bold and italic faces, and Dynamic Type scaling.
 - [UIKit interop](https://docs.swmansion.com/enriched-markdown/ios/guides/uikit-interop): Hosting the SwiftUI view in UIKit and cells, sizing, rendering to `NSAttributedString` with `MarkdownRenderer`, and walking the parsed AST.

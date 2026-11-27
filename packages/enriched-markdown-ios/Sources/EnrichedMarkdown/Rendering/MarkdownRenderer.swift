@@ -37,8 +37,6 @@ public enum MarkdownRenderer {
         codeBlockLayout: MarkdownCodeBlockLayout = .wrapping,
         admonitionTitles: MarkdownAdmonitionTitles = .default
     ) -> NSAttributedString {
-        let ast = Parser.shared.parseMarkdown(markdown, options: effectiveParsingOptions(options, plugins: plugins))
-        let annotated = SourceOffsetAnnotator.annotate(ast, source: markdown)
         let renderer = AttributedRenderer(
             config: config,
             imageRequestHeaders: imageRequestHeaders,
@@ -48,7 +46,16 @@ public enum MarkdownRenderer {
             codeBlockLayout: codeBlockLayout,
             admonitionTitles: admonitionTitles
         )
-        return renderer.renderRoot(annotated)
+        return renderer.renderRoot(parse(markdown, options: effectiveParsingOptions(options, plugins: plugins)))
+    }
+
+    static func render(_ markdown: String, inputs: MarkdownRenderInputs) -> NSAttributedString {
+        let options = effectiveParsingOptions(inputs.options, plugins: inputs.plugins.values)
+        return AttributedRenderer(inputs: inputs).renderRoot(parse(markdown, options: options))
+    }
+
+    package static func parse(_ markdown: String, options: MarkdownParsingOptions) -> MarkdownASTNode {
+        SourceOffsetAnnotator.annotate(Parser.shared.parseMarkdown(markdown, options: options), source: markdown)
     }
 
     /// `options` after every plugin's adjustments — what the document is
