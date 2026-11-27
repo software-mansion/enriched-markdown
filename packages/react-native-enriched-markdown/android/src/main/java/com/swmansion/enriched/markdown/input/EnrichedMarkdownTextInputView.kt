@@ -60,7 +60,6 @@ import com.swmansion.enriched.markdown.input.spans.bodyLineMinimumFontMetrics
 import com.swmansion.enriched.markdown.input.toolbar.InputContextMenu
 import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.input.AutoCapitalizeUtils
-import com.swmansion.enriched.markdown.utils.text.view.applySelectionHandleColor
 import kotlin.math.ceil
 
 class EnrichedMarkdownTextInputView(
@@ -1184,10 +1183,6 @@ class EnrichedMarkdownTextInputView(
       }
       textCursorDrawable = cursorDrawable
     }
-  }
-
-  fun setSelectionHandleColor(colorInt: Int?) {
-    applySelectionHandleColor(colorInt)
   }
 
   fun setFontFamily(family: String?) {

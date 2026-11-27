@@ -979,7 +979,7 @@ Color of the text cursor.
 
 ### `selectionColor`
 
-Color of the text selection highlight.
+Color of the text selection highlight. On Android, use `selectionHandleColor` to color the handles.
 
 | Type         | Default Value | Platform |
 | ------------ | ------------- | -------- |
@@ -987,7 +987,7 @@ Color of the text selection highlight.
 
 ### `selectionHandleColor`
 
-Color of the selection handles (drag anchors). No-op on Android API levels below 29. On iOS the handles share a single tint with the caret and selection highlight, so use `selectionColor` there.
+Color of the selection handles: the drag anchors at both ends of a selection and the single handle under the caret. No-op on Android API levels below 29. On iOS the handles share a single tint with the caret and selection highlight, so use `selectionColor` there.
 
 | Type         | Default Value | Platform |
 | ------------ | ------------- | -------- |

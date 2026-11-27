@@ -37,6 +37,7 @@ import com.swmansion.enriched.markdown.input.toolbar.InputSelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.input.BorderPropsApplicator
 import com.swmansion.enriched.markdown.utils.input.MarkdownStyleParser
+import com.swmansion.enriched.markdown.utils.text.view.applySelectionHandleColor
 
 @ReactModule(name = EnrichedMarkdownTextInputManager.NAME)
 class EnrichedMarkdownTextInputManager :
@@ -216,7 +217,7 @@ class EnrichedMarkdownTextInputManager :
     view: EnrichedMarkdownTextInputView?,
     value: Int?,
   ) {
-    view?.setSelectionHandleColor(value)
+    view?.applySelectionHandleColor(value)
   }
 
   @ReactProp(name = "markdownStyle")

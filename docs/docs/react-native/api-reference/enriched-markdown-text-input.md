@@ -238,7 +238,7 @@ On **iOS** there is no separate caret color: both props map to the text view's s
 
 ### `selectionColor`
 
-Color of the text selection highlight. On Android and macOS it affects only the selection background. On iOS it shares a single tint with the caret and selection handles, so it also sets the caret color and takes precedence over [`cursorColor`](#cursorcolor).
+Color of the text selection highlight. On Android and macOS it affects only the selection background; on Android, color the handles with [`selectionHandleColor`](#selectionhandlecolor). On iOS it shares a single tint with the caret and selection handles, so it also sets the caret color and takes precedence over [`cursorColor`](#cursorcolor).
 
 <PropInfo type="ColorValue" typeHref="https://reactnative.dev/docs/colors" />
 
@@ -246,7 +246,7 @@ Color of the text selection highlight. On Android and macOS it affects only the 
 
 ### `selectionHandleColor` <AndroidBadge /> {#selectionhandlecolor}
 
-Color of the selection handles (the drag anchors at both ends of a selection). No-op on Android API levels below 29. On iOS the handles share a single tint with the caret and selection highlight, so set [`selectionColor`](#selectioncolor) there.
+Color of the selection handles: the drag anchors at both ends of a selection and the single handle under the caret. No-op on Android API levels below 29. On iOS the handles share a single tint with the caret and selection highlight, so set [`selectionColor`](#selectioncolor) there.
 
 <PropInfo type="ColorValue" typeHref="https://reactnative.dev/docs/colors" />
 

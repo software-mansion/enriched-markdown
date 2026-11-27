@@ -1,11 +1,12 @@
 package com.swmansion.enriched.markdown.utils.text.view
 
+import android.graphics.BlendMode
+import android.graphics.BlendModeColorFilter
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.util.Log
 import android.widget.TextView
 import androidx.annotation.ColorInt
-import androidx.core.graphics.drawable.DrawableCompat
 
 private const val TAG = "TextSelectionColors"
 
@@ -23,20 +24,14 @@ fun TextView.applySelectionColors(
   selectionHandleColor: Int?,
 ) {
   selectionColor?.let { highlightColor = it }
-  selectionHandleColor?.let { applySelectionHandleTint(it) }
+  selectionHandleColor?.let { applySelectionHandleColor(it) }
 }
 
 /**
- * Tints the selection handles of a [TextView] with [color], or clears a previously
- * applied tint when [color] is null (e.g. when the prop is removed).
+ * Colors the left, right and insertion handles with [color] on API 29+. A null [color]
+ * clears it, bringing back the theme's handle color, which is the drawables' own tint.
  */
 fun TextView.applySelectionHandleColor(
-  @ColorInt color: Int?,
-) {
-  applySelectionHandleTint(color)
-}
-
-private fun TextView.applySelectionHandleTint(
   @ColorInt color: Int?,
 ) {
   if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
@@ -50,11 +45,13 @@ private fun TextView.applySelectionHandleTint(
 
   handles.forEach { (getter, setter) ->
     try {
-      getter(this)
-        ?.mutate()
-        ?.also {
-          if (color != null) DrawableCompat.setTint(it, color) else DrawableCompat.setTintList(it, null)
-        }?.let { setter(this, it) }
+      val handle = getter(this)?.mutate() ?: return@forEach
+      if (color != null) {
+        handle.colorFilter = BlendModeColorFilter(color, BlendMode.SRC_IN)
+      } else {
+        handle.clearColorFilter()
+      }
+      setter(this, handle)
     } catch (e: LinkageError) {
       Log.w(TAG, "Selection handle tint skipped: ${e.message}")
     }
