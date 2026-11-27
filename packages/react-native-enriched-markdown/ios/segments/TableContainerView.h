@@ -11,7 +11,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 typedef void (^TableLinkPressBlock)(NSString *url);
 
-@interface TableContainerView : RCTUIView
+@interface TableContainerView : RCTUIView <ENRMWritingDirectionTarget>
 
 - (instancetype)initWithConfig:(StyleConfig *)config;
 
@@ -57,6 +57,12 @@ typedef void (^TableLinkPressBlock)(NSString *url);
 @property (nonatomic, readonly) NSUInteger rowCount;
 
 - (void)animateNewRowsFromPreviousCount:(NSUInteger)previousRowCount duration:(NSTimeInterval)duration;
+/// Shows rows that are still fading in at once.
+- (void)finishRowFade;
+/// The column widths as drawn now: moving from earlier ones while they animate.
+@property (nonatomic, readonly) NSArray<NSNumber *> *shownColumnWidths;
+/// Moves the columns from `widths` to the laid-out ones over `duration` instead of jumping.
+- (void)animateColumnWidthsFrom:(NSArray<NSNumber *> *)widths duration:(NSTimeInterval)duration;
 
 @end
 

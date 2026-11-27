@@ -5,6 +5,7 @@ package com.swmansion.enriched.markdown.renderer
 import android.content.Context
 import android.text.SpannableStringBuilder
 import android.text.style.CharacterStyle
+import com.swmansion.enriched.markdown.AdmonitionTitles
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
@@ -26,6 +27,7 @@ data class RendererConfig(
   val style: StyleConfig,
   val imageRequestHeaders: Map<String, String> = emptyMap(),
   val onPluginEvent: PluginEventSink? = null,
+  val admonitionTitles: AdmonitionTitles = AdmonitionTitles.Default,
 )
 
 class RendererFactory internal constructor(

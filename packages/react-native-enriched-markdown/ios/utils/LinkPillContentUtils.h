@@ -1,7 +1,7 @@
 #pragma once
 
+#import "ENRMUIKit.h"
 #import "StyleConfig.h"
-#import <Foundation/Foundation.h>
 
 #ifdef __cplusplus
 #import <React/RCTConversions.h>

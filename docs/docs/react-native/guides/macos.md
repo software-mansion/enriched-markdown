@@ -26,7 +26,7 @@ Today, the macOS build differs from iOS in these ways. See [the roadmap](/misc/r
 
 - **LaTeX math is unvalidated on macOS.** The math engine ([RaTeX](https://ratex.lites.dev/)) ships as a vendored XCFramework that does include a macOS slice, and there is no macOS gate in the podspec, so `enableMath` defaults to on and math compiles into a macOS app. Inline math has a working macOS render path; block math has the bug above. To opt out of the engine entirely, set `"enriched-markdown": { "enableMath": false }` in your app's `package.json` - see [Native assets](/react-native/guides/native-assets#optional-features).
 - **Link pills** (`linkVariants[pattern].pill`, [`linkPillContent`](/react-native/api-reference/enriched-markdown-text#linkpillcontent)) are not rendered; such links appear as ordinary links with the variant's colors and font. See [Link pills](/react-native/guides/link-pills).
-- **Tail fade-in animation** falls back to an instant reveal (there is no `CADisplayLink` on macOS). The content still appears; it just does not fade.
+- **Streaming animations** (`'fade'` and `'gradient'`) fall back to an instant reveal (there is no `CADisplayLink` on macOS). The content still appears; it just does not animate. `smooth` pacing works.
 - **VoiceOver** accessibility is stubbed, pending an `NSAccessibility` implementation - see [Accessibility](/user-experience/accessibility).
 - **Font-scale observation** does not respond to system font-size changes.
 - **`selectionColor`** affects only the selection background; the iOS-style caret and handle tinting is not available, since AppKit's `NSTextView` does not expose it via `tintColor`.
@@ -36,5 +36,5 @@ Today, the macOS build differs from iOS in these ways. See [the roadmap](/misc/r
 The `@platform` annotations in the prop reference name iOS and Android, but the same iOS code runs on macOS, so most iOS-marked props apply there too. Two to know about explicitly:
 
 - [`contextMenuItems`](/react-native/api-reference/enriched-markdown-text#contextmenuitems) **is** supported on macOS - custom items are prepended to the selection menu just as on iOS.
-- [`streamingAnimation`](/react-native/api-reference/enriched-markdown-text#streaminganimation) is honored but degraded, per the fade-in limitation above.
+- [`streaming`](/react-native/api-reference/enriched-markdown-text#streaming) is honored, but its animations are degraded, per the limitation above.
 - [`linkContextMenuItems`](/react-native/api-reference/enriched-markdown-text#linkcontextmenuitems) is **ignored** on macOS - it is an iOS 17+ feature. A long press on a link reaches `onLinkLongPress` instead; see [Link menus](/react-native/guides/link-menus).

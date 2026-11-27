@@ -60,7 +60,7 @@ Override any of these through the `markdownStyle` prop. The web build has its ow
 `react-native-enriched-markdown` uses a base block style architecture where all block elements (paragraphs, headings, lists, blockquotes, code blocks) share a common set of typography properties. This base block style includes:
 
 - `fontSize` - font size in points
-- `fontFamily` - font family name
+- `fontFamily` - font family name. On iOS, this and every other `fontFamily` key also take the generic families React Native's `Text` accepts: `system-ui`, `ui-sans-serif`, `ui-serif`, `ui-rounded` and `ui-monospace`
 - `fontWeight` - font weight
 - `color` - text color
 - `marginTop` - top margin
@@ -206,8 +206,8 @@ Each heading level (`h1`-`h6`) and `paragraph` is styled by its own key. Give ea
 
 | Property          | Type     | Default   | Description                              |
 | ----------------- | -------- | --------- | ---------------------------------------- |
-| `borderColor`     | `string` | `#D1D5DB` | Left border color                        |
-| `borderWidth`     | `number` | `3`       | Left border width                        |
+| `borderColor`     | `string` | `#D1D5DB` | Accent bar color                         |
+| `borderWidth`     | `number` | `3`       | Accent bar width                         |
 | `gapWidth`        | `number` | `16`      | Gap between border and text              |
 | `backgroundColor` | `string` | `#F9FAFB` | Background color                         |
 | `borderRadius`    | `number` | `0`       | Corner radius of the blockquote box      |
@@ -217,7 +217,7 @@ Each heading level (`h1`-`h6`) and `paragraph` is styled by its own key. Give ea
 
 ### Admonitions {#admonitions}
 
-A blockquote opening with `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, or `> [!CAUTION]` renders as a themed callout with an icon and title header. Admonitions nest under `blockquote` because they **inherit its geometry** - `borderWidth`, `gapWidth`, `padding`, `borderRadius`, font, and spacing all come from the blockquote style above - and override only the colors below.
+A blockquote opening with `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, or `> [!CAUTION]` renders as a themed callout with an icon and title header. Admonitions nest under `blockquote` because they **inherit its geometry** - `borderWidth`, `gapWidth`, `padding`, `borderRadius`, font, and spacing all come from the blockquote style above - and override only the colors below. The title text is not a style: set it with the [`admonitionTitles`](/react-native/api-reference/enriched-markdown-text#admonitiontitles) prop.
 
 | Property                                             | Type               | Default                       | Description              |
 | ---------------------------------------------------- | ------------------ | ----------------------------- | ------------------------ |
@@ -452,9 +452,9 @@ On native, requires [`flavor="github"`](/react-native/api-reference/enriched-mar
 
 ### Inline image-specific
 
-| Property | Type     | Default | Description         |
-| -------- | -------- | ------- | ------------------- |
-| `size`   | `number` | `20`    | Image size (square) |
+| Property | Type     | Default | Description                                                                                                               |
+| -------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `size`   | `number` | `20`    | Side length of the square the image is drawn in. The image is scaled up or down to fit inside it, keeping its proportions |
 
 <LivePreview src={InlineImageSrc} />
 
@@ -543,7 +543,7 @@ Styles for spoiler text (`||hidden text||`). The text is concealed behind an ove
 Which overlay preset is used - `'particles'` or `'solid'` - is not a style property; it is chosen with the [`spoilerOverlay`](/react-native/api-reference/enriched-markdown-text#spoileroverlay) prop on the component. The keys below only tune appearance: `color` applies to both presets, while `particles.*` and `solid.*` each affect only their matching preset.
 
 :::note
-The spoiler overlay is iOS and Android only - the web build does not render it, so none of the spoiler style properties below have any effect on web.
+The web build always draws the solid cover, so `color` and `solid.borderRadius` apply there while `particles.*` has no effect. The preview below runs the web build, so it shows the solid cover whatever `spoilerOverlay` says.
 :::
 
 | Property             | Type     | Default   | Description                                             |
@@ -553,7 +553,7 @@ The spoiler overlay is iOS and Android only - the web build does not render it, 
 | `particles.speed`    | `number` | `20`      | Speed of particle movement                              |
 | `solid.borderRadius` | `number` | `4`       | Corner radius of the solid spoiler overlay rectangles   |
 
-<LivePreview src={SpoilerSrc} unavailable unavailableReason={<>iOS and Android only - the web build does not render the spoiler overlay, so these properties have no visible effect here. The source is shown for reference.</>} />
+<LivePreview src={SpoilerSrc} />
 
 ### Superscript-specific
 

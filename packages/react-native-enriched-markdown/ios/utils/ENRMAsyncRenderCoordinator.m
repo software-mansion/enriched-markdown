@@ -6,6 +6,7 @@
   BOOL _workerScheduled;
   BOOL (^_pendingRender)(void);
   dispatch_block_t _pendingApply;
+  NSUInteger _firstApplicableRenderId;
 }
 
 - (instancetype)initWithQueueLabel:(const char *)label
@@ -49,7 +50,7 @@
           continue;
         dispatch_async(dispatch_get_main_queue(), ^{
           @synchronized(self) {
-            if (renderId != self->_currentRenderId)
+            if (renderId < self->_firstApplicableRenderId)
               return;
           }
           nextApply();
@@ -62,7 +63,7 @@
 - (void)invalidate
 {
   @synchronized(self) {
-    ++_currentRenderId;
+    _firstApplicableRenderId = ++_currentRenderId;
     _pendingRender = nil;
     _pendingApply = nil;
   }

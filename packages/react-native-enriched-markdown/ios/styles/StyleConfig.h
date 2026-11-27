@@ -278,6 +278,8 @@ NS_ASSUME_NONNULL_BEGIN
 // Inline image properties
 - (CGFloat)inlineImageSize;
 - (void)setInlineImageSize:(CGFloat)newValue;
+/// `inlineImageSize`, scaled with the font like the text around the image.
+- (CGFloat)scaledInlineImageSize;
 // Blockquote properties
 - (CGFloat)blockquoteFontSize;
 - (void)setBlockquoteFontSize:(CGFloat)newValue;
@@ -311,6 +313,9 @@ NS_ASSUME_NONNULL_BEGIN
            backgroundColors:(NSDictionary<NSString *, RCTUIColor *> *)backgroundColors;
 - (RCTUIColor *)admonitionColorForType:(NSString *)type;
 - (RCTUIColor *)admonitionBackgroundColorForType:(NSString *)type;
+// Per-admonition-type header titles; an empty one draws the icon only.
+- (void)setAdmonitionTitles:(NSDictionary<NSString *, NSString *> *)titles;
+- (NSString *)admonitionTitleForType:(NSString *)type;
 // List style properties (combined for both ordered and unordered lists)
 - (CGFloat)listStyleFontSize;
 - (void)setListStyleFontSize:(CGFloat)newValue;

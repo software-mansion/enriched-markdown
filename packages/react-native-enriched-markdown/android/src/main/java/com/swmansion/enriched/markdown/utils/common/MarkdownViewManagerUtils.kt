@@ -12,6 +12,7 @@ import com.swmansion.enriched.markdown.events.LatexErrorEvent
 import com.swmansion.enriched.markdown.events.LinkLongPressEvent
 import com.swmansion.enriched.markdown.events.LinkPressEvent
 import com.swmansion.enriched.markdown.events.SelectionCopyEvent
+import com.swmansion.enriched.markdown.events.StreamingEndEvent
 import com.swmansion.enriched.markdown.events.TaskListItemPressEvent
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.styles.ImageSourceOverride
@@ -36,6 +37,8 @@ fun markdownEventTypeConstants(): MutableMap<String, Any> {
     mapOf("registrationName" to LatexErrorEvent.EVENT_NAME)
   map[SelectionCopyEvent.EVENT_NAME] =
     mapOf("registrationName" to SelectionCopyEvent.EVENT_NAME)
+  map[StreamingEndEvent.EVENT_NAME] =
+    mapOf("registrationName" to StreamingEndEvent.EVENT_NAME)
   return map
 }
 
@@ -150,17 +153,18 @@ fun emitSelectionCopy(
   )
 }
 
+// The view and measurement parse the flags here, so both parse with the same defaults.
 fun parseMd4cFlags(flags: ReadableMap?): Md4cFlags =
   Md4cFlags(
-    underline = flags?.getBoolean("underline") ?: false,
-    latexMath = FeatureFlags.IS_MATH_ENABLED && (flags?.getBoolean("latexMath") ?: true),
-    superscript = flags?.getBoolean("superscript") ?: false,
-    subscript = flags?.getBoolean("subscript") ?: false,
-    strikethrough = flags?.getBoolean("strikethrough") ?: false,
-    highlight = flags?.getBoolean("highlight") ?: false,
-    hardSoftBreaks = flags?.getBoolean("hardSoftBreaks") ?: false,
-    preserveBlankLines = flags?.getBoolean("preserveBlankLines") ?: false,
-    admonitions = flags?.getBoolean("admonitions") ?: true,
+    underline = flags.getBooleanOrDefault("underline", false),
+    latexMath = FeatureFlags.IS_MATH_ENABLED && flags.getBooleanOrDefault("latexMath", true),
+    superscript = flags.getBooleanOrDefault("superscript", false),
+    subscript = flags.getBooleanOrDefault("subscript", false),
+    strikethrough = flags.getBooleanOrDefault("strikethrough", false),
+    highlight = flags.getBooleanOrDefault("highlight", false),
+    hardSoftBreaks = flags.getBooleanOrDefault("hardSoftBreaks", false),
+    preserveBlankLines = flags.getBooleanOrDefault("preserveBlankLines", false),
+    admonitions = flags.getBooleanOrDefault("admonitions", true),
   )
 
 fun parseContextMenuItems(value: ReadableArray?): List<String> =

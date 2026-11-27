@@ -149,7 +149,7 @@ class EnrichedMarkdownTextInputView(
   /** Typed `# `, `- `, `1. ` become blocks (opt-in per family from JS). */
   var markdownShortcuts: MarkdownShortcutsConfig = MarkdownShortcutsConfig()
 
-  private val clipboardCoordinator = ClipboardCoordinator(formattingStore, blockStore, detectorPipeline, formatter)
+  private val clipboardCoordinator = ClipboardCoordinator(formattingStore, blockStore, detectorPipeline)
 
   private var bodySizeBeforeHeadingOverridePx: Float? = null
   private var baseHintColor: Int? = null
@@ -453,9 +453,7 @@ class EnrichedMarkdownTextInputView(
       if (editSession.didTextChangeRecently) {
         editSession.didTextChangeRecently = false
       } else {
-        pendingStyles.clear()
-        pendingStyleRemovals.clear()
-        seedPendingStylesFromSelection(selStart, selEnd)
+        resetPendingStylesForSelection(selStart, selEnd)
       }
     }
 
@@ -490,6 +488,17 @@ class EnrichedMarkdownTextInputView(
       lastEmittedSelectionStart = start
       lastEmittedSelectionEnd = end
     }
+  }
+
+  // emitState checks pending styles before the store, so re-derive them from the store after a store
+  // change and before emitting.
+  private fun resetPendingStylesForSelection(
+    selStart: Int,
+    selEnd: Int,
+  ) {
+    pendingStyles.clear()
+    pendingStyleRemovals.clear()
+    seedPendingStylesFromSelection(selStart, selEnd)
   }
 
   /**
@@ -659,10 +668,8 @@ class EnrichedMarkdownTextInputView(
       }
       eventEmitter.emitState()
     } else {
+      resetPendingStylesForSelection(selStart, selEnd)
       applyFormattingAndEmit()
-      pendingStyles.clear()
-      pendingStyleRemovals.clear()
-      seedPendingStylesFromSelection(selStart, selEnd)
     }
   }
 
@@ -924,9 +931,15 @@ class EnrichedMarkdownTextInputView(
       for (block in parsed.blockRanges) {
         blockStore.setBlock(block.type, block.level, block.start + contentStart, block.end + contentStart, editable)
       }
+      // Empty list items arrive with their ZWSP anchor already seeded.
+      zwspAnchorCount += parsed.plainText.count { it == ZWSP }
       setSelection(selStart + plainText.length)
       detectorPipeline.processTextChange(editable, editable.toString(), selStart, plainText.length)
     }
+    // An empty item pasted into a line with text brings an anchor that line must not
+    // keep. The paste ran with the text watcher and the anchor pass suppressed, so
+    // strip it here, after the detectors saw the pasted lengths.
+    syncEmptyListAnchor()
   }
 
   /** Toggles a heading (H1-H6) on the cursor's paragraph(s); the active level toggles back to a paragraph. */
@@ -1123,7 +1136,8 @@ class EnrichedMarkdownTextInputView(
       blockStore.setRanges(parsed.blockRanges)
       setText(parsed.plainText)
       setSelection(text?.length ?: 0)
-      zwspAnchorCount = 0
+      // Empty list items arrive with their ZWSP anchor already seeded.
+      zwspAnchorCount = parsed.plainText.count { it == ZWSP }
       applyFormatting()
       forceScrollToSelection()
       // No invalidateLayout() needed: applyFormatting() already re-measures.

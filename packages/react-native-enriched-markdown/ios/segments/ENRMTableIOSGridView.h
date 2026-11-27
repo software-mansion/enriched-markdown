@@ -52,6 +52,11 @@ typedef NS_ENUM(NSInteger, ENRMTableIOSItemKind) {
              cornerRadius:(CGFloat)cornerRadius;
 
 - (void)fadeInRowsFrom:(NSUInteger)startRow duration:(NSTimeInterval)duration;
+/// Shows rows that are still fading in at once.
+- (void)finishRowFade;
+/// The column widths to draw while they move to the laid-out ones; nil draws those. Text keeps its
+/// laid-out width, cut at its cell.
+- (void)setShownColumnWidths:(nullable NSArray<NSNumber *> *)widths;
 
 @end
 

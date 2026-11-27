@@ -15,9 +15,18 @@ import type { StoryArgs, TextStory } from '../shared/storyTypes';
 
 // The blockquote style controls plus a boolean toggle wired to
 // md4cFlags.admonitions (on/off instead of an object).
-type AdmonitionControls = AdmonitionStyleControls & {
-  admonitionsEnabled: boolean;
+type AdmonitionTitleControls = {
+  noteTitle?: string;
+  tipTitle?: string;
+  importantTitle?: string;
+  warningTitle?: string;
+  cautionTitle?: string;
 };
+
+type AdmonitionControls = AdmonitionStyleControls &
+  AdmonitionTitleControls & {
+    admonitionsEnabled: boolean;
+  };
 
 const ALL_TYPES_MARKDOWN = `> [!NOTE]
 > Highlights information that users should take into account, even when skimming.
@@ -67,6 +76,32 @@ const NESTED_MARKDOWN = `> [!WARNING]
 > >
 > > > [!NOTE]
 > > > And a note nested one level deeper - each level is its own themed container.`;
+
+const LOCALIZED_TITLES_MARKDOWN = `> [!NOTE]
+> Przydatna informacja, warta uwagi nawet przy szybkim czytaniu.
+
+> [!TIP]
+> نصيحة تساعدك على إنجاز الأمور بشكل أفضل.
+
+> [!IMPORTANT]
+> An empty title leaves the icon alone.
+
+> [!WARNING]
+> A title too wide for the callout ends in an ellipsis.
+
+> [!CAUTION]
+> Without a title, a type keeps its English one.`;
+
+const titleArgTypes = {
+  noteTitle: { control: 'text', description: 'admonitionTitles.note' },
+  tipTitle: { control: 'text', description: 'admonitionTitles.tip' },
+  importantTitle: {
+    control: 'text',
+    description: 'admonitionTitles.important',
+  },
+  warningTitle: { control: 'text', description: 'admonitionTitles.warning' },
+  cautionTitle: { control: 'text', description: 'admonitionTitles.caution' },
+};
 
 const argTypes = {
   admonitionsEnabled: {
@@ -147,7 +182,15 @@ function renderAdmonition(
   description: string,
   args: StoryArgs<AdmonitionControls>
 ) {
-  const { admonitionsEnabled = true, ...styleArgs } = args;
+  const {
+    admonitionsEnabled = true,
+    noteTitle,
+    tipTitle,
+    importantTitle,
+    warningTitle,
+    cautionTitle,
+    ...styleArgs
+  } = args;
   const { controls, rest } = splitStyleControls(
     styleArgs,
     admonitionStyledDefaults
@@ -159,6 +202,13 @@ function renderAdmonition(
       {...rest}
       md4cFlags={{ admonitions: admonitionsEnabled }}
       style={{ blockquote: toAdmonitionStyle(controls) }}
+      admonitionTitles={{
+        note: noteTitle,
+        tip: tipTitle,
+        important: importantTitle,
+        warning: warningTitle,
+        caution: cautionTitle,
+      }}
     />
   );
 }
@@ -216,6 +266,26 @@ export const Nested: TextStory<AdmonitionControls> = {
     renderAdmonition(
       'Nested Admonition',
       'Admonitions nested three levels deep - each level is its own recursive themed container.',
+      args
+    ),
+};
+
+export const LocalizedTitles: TextStory<AdmonitionControls> = {
+  ...admonitionStoryBase,
+  argTypes: { ...admonitionStoryBase.argTypes, ...titleArgTypes },
+  args: {
+    ...admonitionStoryBase.args,
+    markdown: LOCALIZED_TITLES_MARKDOWN,
+    noteTitle: 'Uwaga',
+    tipTitle: 'نصيحة',
+    importantTitle: '',
+    warningTitle:
+      'Ostrzeżenie, które jest zdecydowanie za długie, by zmieścić się w jednej linii nagłówka',
+  },
+  render: (args) =>
+    renderAdmonition(
+      'Localized Admonition Titles',
+      'admonitionTitles: translated, empty (icon only), too long (ellipsis) and unset (English) titles.',
       args
     ),
 };

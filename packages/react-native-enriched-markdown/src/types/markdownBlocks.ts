@@ -68,8 +68,8 @@ export interface MarkdownCodeBlock extends MarkdownSlotBlock {
   code: string;
   /**
    * `false` while the closing fence has not streamed in yet (with
-   * `streamingAnimation` and `codeBlockMode: 'progressive'`), `true` otherwise.
-   * Always `true` on web, where `streamingAnimation` does not apply.
+   * `streaming` and `codeBlockMode: 'progressive'`), `true` otherwise.
+   * Always `true` on web, where `streaming` does not apply.
    */
   isComplete: boolean;
 }

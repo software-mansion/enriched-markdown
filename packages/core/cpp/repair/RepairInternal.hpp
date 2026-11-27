@@ -154,6 +154,13 @@ bool isPartOfTriple(std::string_view text, size_t i);
 // countSingleBackticks(): backticks that are neither escaped nor part of ```.
 size_t countSingleBackticks(std::string_view text);
 
+// The `[` at `bracket` opens an image: an unescaped `!` precedes it.
+bool isImageBang(std::string_view text, size_t bracket);
+
+// Where a link label may start: a `[` still open further from the end is
+// prose with a stray bracket (512 bytes), which also bounds the bracket scans.
+size_t openLabelWindowStart(std::string_view text);
+
 // findMatchingOpeningBracket() / findMatchingClosingBracket(), nesting-aware.
 size_t findMatchingOpeningBracket(std::string_view text, size_t closeIndex);
 size_t findMatchingClosingBracket(std::string_view text, size_t openIndex);
@@ -376,5 +383,7 @@ void spoilers(RepairContext &ctx);
 void highlight(RepairContext &ctx);
 void superscript(RepairContext &ctx);
 void subscript(RepairContext &ctx);
-void withhold(RepairContext &ctx, const RepairOptions &options);
+// endsInText: the input ended without whitespace, so a `(` may still follow
+// its last character.
+void withhold(RepairContext &ctx, const RepairOptions &options, bool endsInText);
 } // namespace Markdown::RepairHandlers

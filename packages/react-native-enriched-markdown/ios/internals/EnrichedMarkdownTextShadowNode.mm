@@ -20,18 +20,8 @@ EnrichedMarkdownTextShadowNode::EnrichedMarkdownTextShadowNode(const ShadowNode 
     : ConcreteViewShadowNode(sourceShadowNode, fragment),
       localHeightRecalculationCounter_(
           static_cast<const EnrichedMarkdownTextShadowNode &>(sourceShadowNode).localHeightRecalculationCounter_),
-      lastExactMeasurementCounter_(
-          static_cast<const EnrichedMarkdownTextShadowNode &>(sourceShadowNode).lastExactMeasurementCounter_),
-      lastExactMeasurementSize_(
-          static_cast<const EnrichedMarkdownTextShadowNode &>(sourceShadowNode).lastExactMeasurementSize_)
+      previousMeasurement_(static_cast<const EnrichedMarkdownTextShadowNode &>(sourceShadowNode).previousMeasurement_)
 {
-  const auto &oldProps = *std::static_pointer_cast<const EnrichedMarkdownTextProps>(sourceShadowNode.getProps());
-  const auto &newProps = *std::static_pointer_cast<const EnrichedMarkdownTextProps>(this->getProps());
-
-  if (newProps.streamingAnimation && ENRMPropsNeedExactStreamingMeasurement(oldProps, newProps)) {
-    lastExactMeasurementCounter_ = -1;
-  }
-
   dirtyLayoutIfNeeded();
 }
 
@@ -50,7 +40,6 @@ Size EnrichedMarkdownTextShadowNode::measureContent(const LayoutContext &layoutC
                                                     const LayoutConstraints &layoutConstraints) const
 {
   const auto propsHandle = std::static_pointer_cast<const EnrichedMarkdownTextProps>(this->getProps());
-  const int receivedCounter = getStateData().getHeightRecalculationCounter();
   const EnrichedMarkdownTextProps *props = propsHandle.get();
   CGFloat pointScaleFactor = layoutContext.pointScaleFactor;
   NSWritingDirection resolvedLayoutDirection = layoutConstraints.layoutDirection == LayoutDirection::RightToLeft
@@ -58,8 +47,8 @@ Size EnrichedMarkdownTextShadowNode::measureContent(const LayoutContext &layoutC
                                                    : NSWritingDirectionLeftToRight;
 
   return ENRMMeasureMarkdownContent<EnrichedMarkdownTextProps, EnrichedMarkdownText>(
-      propsHandle, getStateData().getComponentViewRef(), receivedCounter, lastExactMeasurementCounter_,
-      lastExactMeasurementSize_, MarkdownFlavor::CommonMark, layoutContext, layoutConstraints, resolvedLayoutDirection,
+      propsHandle, getStateData().getComponentViewRef(), getStateData().getHeightRecalculationCounter(),
+      previousMeasurement_, MarkdownFlavor::CommonMark, layoutContext, layoutConstraints, resolvedLayoutDirection,
       ^id(CGFloat fontScale) {
         return ENRMRenderMarkdownViewFree(*props, ENRMStyleConfigFromProps(*props, fontScale), resolvedLayoutDirection);
       },

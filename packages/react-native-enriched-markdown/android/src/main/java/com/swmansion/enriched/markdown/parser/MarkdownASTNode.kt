@@ -44,6 +44,11 @@ data class MarkdownASTNode(
   }
 
   fun getAttribute(key: String): String? = attributes[key]
+
+  // SegmentSignature's hash of the node and everything below it, 0 until computed. Kept on the
+  // node: a stream's finished blocks keep their nodes from one update to the next.
+  @Volatile
+  internal var cachedSignature = 0L
 }
 
 // A node type that md4c emits as a standalone block stacked vertically, as opposed to an inline span.

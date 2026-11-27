@@ -4,7 +4,7 @@
 #import "ENRMLinkCoordinator.h"
 #import "ENRMLinkRegexConfig.h"
 #import "ENRMTextDetector.h"
-#import <Foundation/Foundation.h>
+#import "ENRMUIKit.h"
 
 @class ENRMInputFormatterStyle;
 

@@ -7,7 +7,6 @@
 #import "RenderContext.h"
 #import "RendererFactory.h"
 #import "StyleConfig.h"
-#import <React/RCTFont.h>
 
 #if !TARGET_OS_OSX
 static BOOL ENRMRangeHasAttribute(NSAttributedString *text, NSRange range, NSAttributedStringKey key)
@@ -116,13 +115,7 @@ static NSRange ENRMCollapseLinkIntoPill(NSMutableAttributedString *output, NSRan
                             if (linkFontFamily.length > 0) {
                               UIFont *currentFont = attrs[NSFontAttributeName];
                               if (currentFont) {
-                                UIFont *linkFont = [RCTFont updateFont:currentFont
-                                                            withFamily:linkFontFamily
-                                                                  size:nil
-                                                                weight:nil
-                                                                 style:nil
-                                                               variant:nil
-                                                       scaleMultiplier:1.0];
+                                UIFont *linkFont = ENRMUpdateFont(currentFont, linkFontFamily, nil, nil, nil, 1.0);
                                 if (linkFont && ![currentFont isEqual:linkFont]) {
                                   newAttributes[NSFontAttributeName] = linkFont;
                                 }

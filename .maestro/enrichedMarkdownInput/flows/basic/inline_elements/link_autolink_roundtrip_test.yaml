@@ -21,8 +21,9 @@ tags:
 - tapOn:
     id: get-markdown-button
 
-# The serialized markdown is shown in the "Markdown" alert.
-- assertVisible: '\[Testing\]\(http://example\.com\)'
+# The serialized markdown is shown in the "Markdown" alert. The typed text is
+# not a link, so its brackets are saved escaped.
+- assertVisible: '\\\[Testing\\\]\(http://example\.com\)'
 # The over-capture bug prepended "https://" to the whole token, producing a
 # destination like "https://[Testing](http://example.com)". The correct output
 # uses the original "http://" scheme and never introduces "https://", so its

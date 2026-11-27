@@ -11,8 +11,8 @@ const markdown = `An inline icon ![icon](${src}) sits in the text flow.`;
 export default function App() {
   const isDark = useColorScheme() === 'dark';
 
-  // An inline image sits within a line of text. Its only style is size, which
-  // renders it as a square scaled to the surrounding text.
+  // An inline image sits within a line of text. Its only style is size: the side
+  // of the square the image fits inside, scaled to the surrounding text.
   const markdownStyle = useMemo(
     () => ({
       ...defaultMarkdownStyle(isDark),

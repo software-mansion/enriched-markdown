@@ -80,7 +80,7 @@ class BlockquoteRenderer(
     // The header sits below the quote's top padding and above the body, on a spacer line of its
     // own; BlockquoteSpan paints into the band this reserves. See AdmonitionHeaderSpan for why the
     // header cannot simply grow the first content line.
-    val headerSpan = admonitionType?.let { AdmonitionHeaderSpan(it, style) }
+    val headerSpan = admonitionType?.let { AdmonitionHeaderSpan(it, style, config.admonitionTitles.forType(it)) }
     if (headerSpan != null) {
       builder.insert(contentStart, "\n")
       builder.setSpan(
