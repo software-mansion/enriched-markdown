@@ -1,7 +1,8 @@
 #import "ENRMInputFormatterStyle.h"
 #import "FontUtils.h"
 
-// RCTFont logs weight names it doesn't know, so hand it the weight ENRMFontWeightFromString settled on, as a number.
+// RCTFont only knows "normal", "bold" and "100"-"900", and resolves any other name ("semibold", "medium", ...) to
+// regular, so hand it the weight ENRMFontWeightFromString settled on, as a number.
 static NSString *ENRMNumericFontWeight(NSString *weightString)
 {
   const UIFontWeight weights[] = {UIFontWeightUltraLight, UIFontWeightThin,   UIFontWeightLight,
