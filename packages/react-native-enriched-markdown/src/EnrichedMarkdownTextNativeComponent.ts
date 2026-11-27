@@ -356,6 +356,7 @@ export interface SelectionCopyEvent {
   format: string;
   selectionStart: CodegenTypes.Int32;
   selectionEnd: CodegenTypes.Int32;
+  markdown: string;
 }
 
 export interface AccessibilityLabelsListProps {
@@ -670,6 +671,13 @@ export interface NativeProps extends ViewProps {
    * @default 'particles'
    */
   spoilerOverlay?: CodegenTypes.WithDefault<string, 'particles'>;
+  /**
+   * How links appear in the plain text of a copied selection:
+   * - 'label' (default): the link's text.
+   * - 'markdown': `[label](url)`.
+   * @default 'label'
+   */
+  copyLinksAs?: CodegenTypes.WithDefault<string, 'label'>;
   /**
    * Custom items to show in the text selection context menu.
    */

@@ -35,6 +35,7 @@ const nativeEvent = {
   format: 'markdown',
   selectionStart: 7,
   selectionEnd: 11,
+  markdown: '**bold**',
 };
 
 it.each(['commonmark', 'github'] as const)(
@@ -56,6 +57,7 @@ it.each(['commonmark', 'github'] as const)(
       text: '**bold**',
       format: 'markdown',
       selection: { start: 7, end: 11 },
+      markdown: '**bold**',
     });
   }
 );

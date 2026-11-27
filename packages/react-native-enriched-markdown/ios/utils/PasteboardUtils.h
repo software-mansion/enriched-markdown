@@ -22,6 +22,9 @@ void copyStringToPasteboard(NSString *string);
 /// Copies a { UTI → NSString | NSData } dictionary to the platform pasteboard.
 void copyItemsToPasteboard(NSDictionary<NSString *, id> *items);
 
+/// Plain text with each link as `[label](url)` (`copyLinksAs: 'markdown'`).
+NSString *ENRMPlainTextWithMarkdownLinks(NSAttributedString *text);
+
 /**
  * Copies attributed string to pasteboard with multiple representations
  * (plain text, Markdown, HTML, RTFD, RTF). Receiving apps pick the richest format they support.

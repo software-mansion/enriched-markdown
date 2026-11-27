@@ -79,6 +79,7 @@ class BlockquoteContainerView(
 
   // Cached plain text for the "Copy" action.
   private var cachedPlainText: String = ""
+  private var cachedLinkedPlainText = ""
 
   private val iconSizePx: Int = ceil(blockquoteStyle.fontSize).toInt()
 
@@ -143,6 +144,7 @@ class BlockquoteContainerView(
       }
     cachedMarkdown = MarkdownASTSerializer.serializeBlockquote(node)
     cachedPlainText = MarkdownASTSerializer.plainText(node)
+    cachedLinkedPlainText = MarkdownASTSerializer.plainText(node, linksAsMarkdown = true)
 
     val segments = splitASTIntoSegments(node)
     val rendered =
@@ -189,7 +191,8 @@ class BlockquoteContainerView(
     ContextMenuPopup.show(anchor, this) {
       item(ContextMenuPopup.Icon.COPY, parentConfig.dynamicProps.copyLabel) {
         if (cachedPlainText.isNotEmpty()) {
-          clipboard.setPrimaryClip(ClipData.newPlainText("Blockquote", cachedPlainText))
+          val text = if (parentConfig.dynamicProps.copiesLinksAsMarkdown) cachedLinkedPlainText else cachedPlainText
+          clipboard.setPrimaryClip(ClipData.newPlainText("Blockquote", text))
         }
       }
       item(ContextMenuPopup.Icon.DOCUMENT, parentConfig.dynamicProps.copyAsMarkdownLabel) {

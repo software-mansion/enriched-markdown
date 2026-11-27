@@ -29,9 +29,10 @@ object MarkdownExtractor {
    * Full selection returns original markdown, partial reconstructs from spans.
    */
   fun getMarkdownForSelection(textView: TextView): String? {
-    val start = textView.selectionStart
-    val end = textView.selectionEnd
-    if (start < 0 || end < 0 || start >= end) return null
+    // A selection made backwards has its start after its end.
+    val start = minOf(textView.selectionStart, textView.selectionEnd)
+    val end = maxOf(textView.selectionStart, textView.selectionEnd)
+    if (start < 0 || start >= end) return null
 
     val spannable = textView.text as? Spannable ?: return null
 

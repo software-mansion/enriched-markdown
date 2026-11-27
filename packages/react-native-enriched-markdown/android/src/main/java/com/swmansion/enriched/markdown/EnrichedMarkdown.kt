@@ -293,6 +293,12 @@ class EnrichedMarkdown(
   private var contextMenuItemTexts: List<String> = emptyList()
   var onContextMenuItemPressCallback: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)? = null
   var onSelectionCopyCallback: OnSelectionCopy? = null
+  var copiesLinksAsMarkdown: Boolean
+    get() = dynamicProps.copiesLinksAsMarkdown
+    set(value) {
+      dynamicProps.copiesLinksAsMarkdown = value
+    }
+
   var spoilerOverlay: SpoilerOverlayMode
     get() = dynamicProps.spoilerOverlay
     set(value) {
@@ -694,8 +700,9 @@ class EnrichedMarkdown(
     format: SelectionCopyFormat,
     selectionStart: Int,
     selectionEnd: Int,
+    markdown: String,
   ) {
-    onSelectionCopyCallback?.invoke(text, format, selectionStart, selectionEnd)
+    onSelectionCopyCallback?.invoke(text, format, selectionStart, selectionEnd, markdown)
   }
 
   private fun recreateStyleConfig() {

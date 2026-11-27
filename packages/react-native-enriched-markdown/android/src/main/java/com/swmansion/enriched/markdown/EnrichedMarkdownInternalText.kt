@@ -10,6 +10,7 @@ import android.view.MotionEvent
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
 import com.swmansion.enriched.markdown.segments.BlockSegmentView
+import com.swmansion.enriched.markdown.segments.DynamicBlockProps
 import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayMode
@@ -63,6 +64,8 @@ class EnrichedMarkdownInternalText
     private var contextMenuItemTexts: List<String> = emptyList()
     private var onContextMenuItemPress: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)? = null
     var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig()
+    var dynamicProps: DynamicBlockProps? = null
+    override val copiesLinksAsMarkdown get() = dynamicProps?.copiesLinksAsMarkdown == true
     var accessibilityLabels: AccessibilityLabels = AccessibilityLabels()
       set(value) {
         field = value
@@ -79,8 +82,8 @@ class EnrichedMarkdownInternalText
           onCustomItemPress = { itemText, selectedText, start, end ->
             onContextMenuItemPress?.invoke(itemText, selectedText, start, end)
           },
-          onSelectionCopy = { text, format, start, end ->
-            onSelectionCopyCallback?.invoke(text, format, start, end)
+          onSelectionCopy = { text, format, start, end, markdown ->
+            onSelectionCopyCallback?.invoke(text, format, start, end, markdown)
           },
         )
     }
