@@ -3,6 +3,7 @@ package com.swmansion.enriched.markdown.utils.text.extensions
 import android.content.Context
 import android.text.Spannable
 import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.util.Log
 import com.swmansion.enriched.markdown.spans.MathMeasureRequest
 import com.swmansion.enriched.markdown.spans.MathMetrics
@@ -12,6 +13,21 @@ fun SpannableStringBuilder.isInlineImage(): Boolean {
   if (isEmpty()) return false
   val lastChar = last()
   return lastChar != '\n' && lastChar != '\u200B'
+}
+
+private val mathInlineSpanClass: Class<*>? by lazy {
+  if (!FeatureFlags.IS_MATH_ENABLED) return@lazy null
+  try {
+    Class.forName("com.swmansion.enriched.markdown.spans.MathInlineSpan")
+  } catch (_: ClassNotFoundException) {
+    null
+  }
+}
+
+/** Whether this holds a MathInlineSpan, which caches its rendering per layout and is not safe off the main thread. */
+fun Spanned.hasMathInlineSpans(): Boolean {
+  val spanClass = mathInlineSpanClass ?: return false
+  return getSpans(0, length, spanClass).isNotEmpty()
 }
 
 /** Swaps MathInlineSpans for MathInlinePlaceholderSpans safe for background-thread measurement. */

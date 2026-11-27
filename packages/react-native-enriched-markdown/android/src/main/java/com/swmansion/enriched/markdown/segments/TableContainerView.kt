@@ -234,10 +234,12 @@ class TableContainerView(
           row.children.map { cell ->
             val isHeader = isSectionHead || cell.type == NodeType.TableHeaderCell
             val align = textAlignmentFromString(cell.getAttribute("align"))
+            val plainText = extractPlainText(cell)
             TableCellData(
               attributedText = renderCellNode(cell, isHeader, align),
-              plainText = extractPlainText(cell),
-              markdownText = MarkdownASTSerializer.serializeChildren(cell),
+              plainText = plainText,
+              linkedPlainText = extractPlainText(cell, linksAsMarkdown = true).takeIf { it != plainText },
+              markdownText = MarkdownASTSerializer.serializeTableCell(cell),
               isHeader = isHeader,
               alignment = align,
             )
@@ -275,7 +277,19 @@ class TableContainerView(
       }
   }
 
-  private fun extractPlainText(node: MarkdownASTNode): String = node.content + node.children.joinToString("") { extractPlainText(it) }
+  private fun extractPlainText(
+    node: MarkdownASTNode,
+    linksAsMarkdown: Boolean = false,
+  ): String {
+    val text = node.content + node.children.joinToString("") { extractPlainText(it, linksAsMarkdown) }
+    return if (linksAsMarkdown &&
+      node.type == NodeType.Link
+    ) {
+      MarkdownASTSerializer.markdownLink(text, node.getAttribute("url") ?: "")
+    } else {
+      text
+    }
+  }
 
   private fun textAlignmentFromString(align: String?): Layout.Alignment =
     when (align) {
@@ -509,7 +523,11 @@ class TableContainerView(
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     ContextMenuPopup.show(anchor, this) {
       item(ContextMenuPopup.Icon.COPY, dynamicProps.copyLabel) {
-        val plainText = rows.joinToString("\n") { row -> row.joinToString("\t") { it.plainText } }
+        val linksAsMarkdown = dynamicProps.copiesLinksAsMarkdown
+        val plainText =
+          rows.joinToString("\n") { row ->
+            row.joinToString("\t") { (if (linksAsMarkdown) it.linkedPlainText else null) ?: it.plainText }
+          }
         if (plainText.isNotEmpty()) {
           val displayMetrics = context.resources.displayMetrics
           val tableRows =
@@ -789,6 +807,8 @@ class TableContainerView(
   private data class TableCellData(
     val attributedText: Spannable,
     val plainText: String,
+    // plainText with links as `[label](url)`, for `copyLinksAs: 'markdown'`; null when that changes nothing.
+    val linkedPlainText: String?,
     val markdownText: String,
     val isHeader: Boolean,
     val alignment: Layout.Alignment,

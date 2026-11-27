@@ -6,7 +6,6 @@
 #import "RenderContext.h"
 #import "RendererFactory.h"
 #import "StyleConfig.h"
-#import <React/RCTFont.h>
 
 @implementation CodeRenderer
 
@@ -27,19 +26,13 @@
   CGFloat codeFontSize = _config.codeFontSize > 0 ? _config.codeFontSize : blockStyle.fontSize;
 
   // Both sizes above are unscaled; apply the same multiplier as the surrounding block font.
-  CGFloat fontScale = context.allowFontScaling ? RCTFontSizeMultiplierWithMax(context.maxFontSizeMultiplier) : 1.0;
+  CGFloat fontScale = [context effectiveFontScale];
 
   NSString *codeFontFamily = _config.codeFontFamily;
   UIFont *codeFont;
   if (codeFontFamily.length > 0) {
     NSString *weightStr = (weight == UIFontWeightBold) ? @"bold" : nil;
-    codeFont = [RCTFont updateFont:nil
-                        withFamily:codeFontFamily
-                              size:@(codeFontSize)
-                            weight:weightStr
-                             style:nil
-                           variant:nil
-                   scaleMultiplier:fontScale];
+    codeFont = ENRMUpdateFont(nil, codeFontFamily, @(codeFontSize), weightStr, nil, fontScale);
   } else {
     codeFont = [UIFont monospacedSystemFontOfSize:codeFontSize * fontScale weight:weight];
   }

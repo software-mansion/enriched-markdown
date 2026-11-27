@@ -8,16 +8,16 @@ void ENRMCopySelection(NSAttributedString *selectedText, NSRange range, NSString
 {
   NSString *copied = copyAttributedStringToPasteboard(selectedText, markdown, styleConfig);
   if (copied && onSelectionCopy) {
-    onSelectionCopy(copied, ENRMSelectionCopyFormatPlain, range);
+    onSelectionCopy(copied, ENRMSelectionCopyFormatPlain, range, markdown ?: @"");
   }
 }
 
-void ENRMCopySelectionString(NSString *text, NSString *format, NSRange range,
+void ENRMCopySelectionString(NSString *text, NSString *format, NSRange range, NSString *_Nullable markdown,
                              ENRMSelectionCopyHandler _Nullable onSelectionCopy)
 {
   copyStringToPasteboard(text);
   if (onSelectionCopy) {
-    onSelectionCopy(text, format, range);
+    onSelectionCopy(text, format, range, markdown ?: @"");
   }
 }
 
@@ -46,16 +46,18 @@ static UIAction *_Nullable createCopyMarkdownAction(NSString *markdown, NSString
   if (markdown.length == 0)
     return nil;
 
-  return [UIAction actionWithTitle:copyAsMarkdownLabel
-                             image:[RCTUIImage systemImageNamed:@"doc.text"]
-                        identifier:kActionIdentifierCopyMarkdown
-                           handler:^(__kindof UIAction *action) {
-                             ENRMCopySelectionString(markdown, ENRMSelectionCopyFormatMarkdown, range, onSelectionCopy);
-                           }];
+  return [UIAction
+      actionWithTitle:copyAsMarkdownLabel
+                image:[RCTUIImage systemImageNamed:@"doc.text"]
+           identifier:kActionIdentifierCopyMarkdown
+              handler:^(__kindof UIAction *action) {
+                ENRMCopySelectionString(markdown, ENRMSelectionCopyFormatMarkdown, range, markdown, onSelectionCopy);
+              }];
 }
 
 static UIAction *_Nullable createCopyImageURLAction(NSArray<NSString *> *imageURLs,
                                                     ENRMSelectionMenuConfig selectionMenuConfig, NSRange range,
+                                                    NSString *markdown,
                                                     ENRMSelectionCopyHandler _Nullable onSelectionCopy)
 {
   if (imageURLs.count == 0)
@@ -64,13 +66,13 @@ static UIAction *_Nullable createCopyImageURLAction(NSArray<NSString *> *imageUR
   NSString *urlsToCopy = [imageURLs componentsJoinedByString:@"\n"];
   NSString *title = ENRMResolveImageURLsTitle(selectionMenuConfig, imageURLs.count);
 
-  return
-      [UIAction actionWithTitle:title
-                          image:[RCTUIImage systemImageNamed:@"link"]
-                     identifier:kActionIdentifierCopyImageURL
-                        handler:^(__kindof UIAction *action) {
-                          ENRMCopySelectionString(urlsToCopy, ENRMSelectionCopyFormatImageURLs, range, onSelectionCopy);
-                        }];
+  return [UIAction
+      actionWithTitle:title
+                image:[RCTUIImage systemImageNamed:@"link"]
+           identifier:kActionIdentifierCopyImageURL
+              handler:^(__kindof UIAction *action) {
+                ENRMCopySelectionString(urlsToCopy, ENRMSelectionCopyFormatImageURLs, range, markdown, onSelectionCopy);
+              }];
 }
 
 /// Rebuilds the standard-edit menu with the system Copy swapped for the enhanced
@@ -134,9 +136,10 @@ UIMenu *buildEditMenuForSelection(NSAttributedString *attributedText, NSRange ra
       selectionMenuConfig.copyAsMarkdown
           ? createCopyMarkdownAction(markdown, selectionMenuConfig.copyAsMarkdownLabel, range, onSelectionCopy)
           : nil;
-  UIAction *copyImageURLAction = selectionMenuConfig.copyImageURL
-                                     ? createCopyImageURLAction(imageURLs, selectionMenuConfig, range, onSelectionCopy)
-                                     : nil;
+  UIAction *copyImageURLAction =
+      selectionMenuConfig.copyImageURL
+          ? createCopyImageURLAction(imageURLs, selectionMenuConfig, range, markdown, onSelectionCopy)
+          : nil;
 
   NSMutableArray<UIMenuElement *> *result = [NSMutableArray array];
   BOOL foundStandardEditMenu = NO;

@@ -29,6 +29,9 @@ abstract class AccessibleMarkdownTextView
     val accessibilityHelper = MarkdownAccessibilityHelper(this)
     var onSelectionCopyCallback: OnSelectionCopy? = null
 
+    /** `copyLinksAs: 'markdown'`: a copied selection's plain text writes links as `[label](url)`. */
+    open val copiesLinksAsMarkdown: Boolean = false
+
     /** The selection toolbar while it is showing, kept up to date by the selection menu callback. */
     internal var selectionActionMode: ActionMode? = null
 

@@ -25,9 +25,136 @@ on:
         type: boolean
         default: true
 
+env:
+  RN_VERSION: 0.88.0
+  RN_CLI_VERSION: 20.2.0
+  NPM_VERSION: 11.11.0
+
 jobs:
+  packed-package-ios:
+    if: github.repository == 'software-mansion/enriched-markdown'
+    runs-on: macos-latest-xlarge
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: '26.3'
+
+      - name: Install the npm the release uses
+        run: npm install -g "npm@$NPM_VERSION"
+
+      - name: Pack the package
+        working-directory: packages/react-native-enriched-markdown
+        run: npm pack --pack-destination "$RUNNER_TEMP"
+
+      - name: Create an app with the packed package
+        working-directory: ${{ runner.temp }}
+        run: |
+          npx --yes "@react-native-community/cli@$RN_CLI_VERSION" init PackedApp \
+            --version "$RN_VERSION" --skip-git-init --install-pods false --pm npm --directory PackedApp
+          cd PackedApp
+          npm install "$RUNNER_TEMP"/react-native-enriched-markdown-*.tgz
+
+      - name: Check the installed package
+        working-directory: ${{ runner.temp }}/PackedApp/node_modules/react-native-enriched-markdown
+        run: |
+          test -f lib/module/index.js
+          test -f lib/typescript/src/index.d.ts
+          test -f ios/vendor/.stamp
+          test -f cpp/highlight/vendor/grammars/.stamp
+
+      - name: Build the app with CocoaPods
+        working-directory: ${{ runner.temp }}/PackedApp
+        run: |
+          (cd ios && pod install)
+          xcodebuild build \
+            -workspace ios/PackedApp.xcworkspace \
+            -scheme PackedApp \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/PodsDerivedData" \
+            -quiet \
+            CODE_SIGNING_ALLOWED=NO \
+            ARCHS=arm64
+
+      - name: Build the app with Swift Package Manager
+        if: ${{ !cancelled() }}
+        working-directory: ${{ runner.temp }}/PackedApp
+        run: |
+          npx react-native spm add --deintegrate --yes
+          xcodebuild build \
+            -project ios/PackedApp.xcodeproj \
+            -scheme PackedApp \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/SpmDerivedData" \
+            -quiet \
+            CODE_SIGNING_ALLOWED=NO \
+            ARCHS=arm64
+
+  packed-package-android:
+    if: github.repository == 'software-mansion/enriched-markdown'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Setup Android
+        uses: ./.github/actions/setup-android
+        with:
+          cache: restore
+
+      - name: Install the npm the release uses
+        run: npm install -g "npm@$NPM_VERSION"
+
+      - name: Pack the package
+        working-directory: packages/react-native-enriched-markdown
+        run: npm pack --pack-destination "$RUNNER_TEMP"
+
+      - name: Create an app with the packed package
+        working-directory: ${{ runner.temp }}
+        run: |
+          npx --yes "@react-native-community/cli@$RN_CLI_VERSION" init PackedApp \
+            --version "$RN_VERSION" --skip-git-init --pm npm --directory PackedApp
+          cd PackedApp
+          npm install "$RUNNER_TEMP"/react-native-enriched-markdown-*.tgz
+
+      - name: Check the installed package
+        working-directory: ${{ runner.temp }}/PackedApp/node_modules/react-native-enriched-markdown
+        run: |
+          test -f lib/module/index.js
+          test -f lib/typescript/src/index.d.ts
+          test -f ios/vendor/.stamp
+          test -f cpp/highlight/vendor/grammars/.stamp
+
+      - name: Build the app
+        working-directory: ${{ runner.temp }}/PackedApp/android
+        run: ./gradlew assembleDebug --no-daemon --console=plain -PreactNativeArchitectures=arm64-v8a
+
   npm-build:
     if: github.repository == 'software-mansion/enriched-markdown'
+    needs:
+      - packed-package-ios
+      - packed-package-android
     runs-on: ubuntu-latest
 
     permissions:

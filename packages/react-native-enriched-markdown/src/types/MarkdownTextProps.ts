@@ -575,6 +575,15 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   selectionMenuConfig?: SelectionMenuConfig;
   /**
+   * How links appear in copied plain text (a selection, or a table's or
+   * quote's long-press Copy): `'label'` (the default) copies the link's text,
+   * `'markdown'` copies `[label](url)` so the URL survives a paste. Other
+   * clipboard formats are unchanged. Recognized links (`linkRecognition`) and
+   * autolinks, whose text is the URL, are copied as their text either way.
+   * @platform ios, android, macos
+   */
+  copyLinksAs?: 'label' | 'markdown';
+  /**
    * Callback fired after a text selection is copied: from the selection menu's
    * Copy, Copy as Markdown, or Copy Image URL(s) item, the keyboard shortcut
    * (⌘C / Ctrl+C), or TalkBack's copy action. Receives the copied text, its

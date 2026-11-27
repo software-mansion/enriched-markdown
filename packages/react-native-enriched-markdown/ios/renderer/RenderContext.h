@@ -59,6 +59,10 @@ typedef NS_ENUM(NSInteger, ListType) { ListTypeUnordered, ListTypeOrdered };
 @property (nonatomic, assign) CGFloat accumulatedIndent;
 @property (nonatomic, assign) BOOL allowFontScaling;
 @property (nonatomic, assign) CGFloat maxFontSizeMultiplier;
+// The font scale snapshot from StyleConfig, uncapped; effectiveFontScale caps it, or is 1.0
+// with font scaling off.
+@property (nonatomic, assign) CGFloat fontScale;
+@property (nonatomic, readonly) CGFloat effectiveFontScale;
 @property (nonatomic, assign) NSInteger taskItemCount;
 @property (nonatomic, strong) NSMutableArray<id<ENRMLatexErrorReporting>> *mathReporters;
 

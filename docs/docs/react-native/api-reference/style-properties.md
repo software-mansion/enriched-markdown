@@ -60,7 +60,7 @@ Override any of these through the `markdownStyle` prop. The web build has its ow
 `react-native-enriched-markdown` uses a base block style architecture where all block elements (paragraphs, headings, lists, blockquotes, code blocks) share a common set of typography properties. This base block style includes:
 
 - `fontSize` - font size in points
-- `fontFamily` - font family name
+- `fontFamily` - font family name. On iOS, this and every other `fontFamily` key also take the generic families React Native's `Text` accepts: `system-ui`, `ui-sans-serif`, `ui-serif`, `ui-rounded` and `ui-monospace`
 - `fontWeight` - font weight
 - `color` - text color
 - `marginTop` - top margin

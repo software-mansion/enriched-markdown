@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.text.Spannable
+import android.text.Spanned
 import android.util.Log
 import android.view.ActionMode
 import android.view.Menu
@@ -14,8 +15,10 @@ import com.swmansion.enriched.markdown.EnrichedMarkdown
 import com.swmansion.enriched.markdown.EnrichedMarkdownText
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
 import com.swmansion.enriched.markdown.spans.ImageSpan
+import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
+import com.swmansion.enriched.markdown.utils.common.serialization.MarkdownASTSerializer
 import com.swmansion.enriched.markdown.utils.text.conversion.HTMLGenerator
 import com.swmansion.enriched.markdown.utils.text.conversion.MarkdownExtractor
 
@@ -46,8 +49,8 @@ enum class SelectionCopyFormat(
   IMAGE_URLS("imageUrls"),
 }
 
-/** Reports a selection copy: the copied plain text, its format, and the copied range. */
-typealias OnSelectionCopy = (text: String, format: SelectionCopyFormat, selectionStart: Int, selectionEnd: Int) -> Unit
+/** Reports a selection copy: the copied plain text, its format, the copied range, and its Markdown whatever the format. */
+typealias OnSelectionCopy = (text: String, format: SelectionCopyFormat, selectionStart: Int, selectionEnd: Int, markdown: String) -> Unit
 
 /**
  * Resolves the "Copy Image URL(s)" menu title for the given image count. Uses the
@@ -198,7 +201,10 @@ fun TextView.copySelection(
       SelectionCopyFormat.MARKDOWN -> copyMarkdownToClipboard()
       SelectionCopyFormat.IMAGE_URLS -> copyImageUrlsToClipboard()
     } ?: return false
-  onSelectionCopy?.invoke(copied, format, start, end)
+  if (onSelectionCopy != null) {
+    val markdown = if (format == SelectionCopyFormat.MARKDOWN) copied else MarkdownExtractor.getMarkdownForSelection(this).orEmpty()
+    onSelectionCopy(copied, format, start, end, markdown)
+  }
   return true
 }
 
@@ -223,7 +229,12 @@ private fun TextView.copyWithHTML(
 
   val spannable = text as? Spannable ?: return null
   val selectedText = spannable.subSequence(start, end)
-  val plainText = selectedText.toString()
+  val plainText =
+    if ((this as? AccessibleMarkdownTextView)?.copiesLinksAsMarkdown == true && selectedText is Spanned) {
+      plainTextWithMarkdownLinks(selectedText)
+    } else {
+      selectedText.toString()
+    }
 
   val styleConfig =
     (this as? EnrichedMarkdownText)?.markdownStyle
@@ -280,4 +291,21 @@ private fun TextView.findParentMarkdownStyle(): StyleConfig? {
     current = current.parent
   }
   return null
+}
+
+/** Plain text with each link as `[label](url)` (`copyLinksAs: 'markdown'`). Recognized links stay as their text. */
+internal fun plainTextWithMarkdownLinks(text: Spanned): String {
+  val out = StringBuilder()
+  var start = 0
+  while (start < text.length) {
+    val end = text.nextSpanTransition(start, text.length, LinkSpan::class.java)
+    val run = text.subSequence(start, end).toString()
+    val link =
+      text.getSpans(start, end, LinkSpan::class.java).firstOrNull {
+        !it.recognizedLink && text.getSpanStart(it) <= start && text.getSpanEnd(it) >= end
+      }
+    out.append(if (link == null) run else MarkdownASTSerializer.markdownLink(run, link.url))
+    start = end
+  }
+  return out.toString()
 }

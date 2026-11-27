@@ -26,6 +26,7 @@ static ENRMRenderResult *ENRMRenderASTNodesCore(NSArray<MarkdownASTNode *> *node
   RenderContext *context = [RenderContext new];
   context.allowFontScaling = allowFontScaling;
   context.maxFontSizeMultiplier = maxFontSizeMultiplier;
+  context.fontScale = config.fontScaleMultiplier;
   context.taskItemCount = startingTaskIndex;
 
   NSMutableAttributedString *attributedText = [[NSMutableAttributedString alloc] init];
@@ -108,6 +109,7 @@ ENRMRenderResult *ENRMRenderASTNodesResuming(NSArray<MarkdownASTNode *> *nodes, 
   RenderContext *context = [RenderContext new];
   context.allowFontScaling = allowFontScaling;
   context.maxFontSizeMultiplier = maxFontSizeMultiplier;
+  context.fontScale = config.fontScaleMultiplier;
   context.taskItemCount = previous.blockTaskStarts[from].integerValue;
 
   // Positions in `tail` are `start - kResumeSeedLength` ahead of the whole text's.

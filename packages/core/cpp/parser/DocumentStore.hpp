@@ -15,6 +15,14 @@
 
 namespace Markdown {
 
+// What the store keeps: several messages of a chat can stream or measure in one commit. The tree
+// and its strings take several times the Markdown's size; past the budget the oldest entries go,
+// the newest always stays, so the callers of one tick share even a document larger than it. The
+// hosts' conversions of these documents are kept within the same limits.
+constexpr size_t kDocumentStoreMaxEntries = 16;
+constexpr size_t kDocumentStoreTreeBytesPerByte = 8;
+constexpr size_t kDocumentStoreBudgetBytes = 8 * 1024 * 1024;
+
 // One parsed document, shared read-only by every caller that asks for the same
 // text and options: the JS block collector, the shadow node's measurement and
 // the view's render. Nothing writes to the tree after the parse; hosts add slot
