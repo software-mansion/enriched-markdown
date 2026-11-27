@@ -80,7 +80,7 @@ class LinkIconSpan(
     start: Int,
   ): TextPaint {
     set(source)
-    // The line's paint can carry an earlier run's background; only the word's own spans set one.
+    // Start without a background, so only the word's own spans set one.
     bgColor = 0
     val spanned = text as? Spanned
     if (spanned == null) {

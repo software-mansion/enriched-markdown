@@ -141,8 +141,10 @@ class LinkRenderer(
         link.applyLinkFont(this)
       }
     val textBudget = fontSize * (MAX_ICON_RUN_EMS - LinkIconSpan.ICON_SLOT_RATIO)
-    while (runEnd > firstCharacter && paint.measureText(text, 0, runEnd) > textBudget) {
-      runEnd = characterBreaks.preceding(runEnd)
+    // One pass over the run, not a measure per character: a long unbroken token is this feature's case.
+    val fits = if (runEnd > firstCharacter) paint.breakText(text, 0, runEnd, true, textBudget, null) else runEnd
+    if (fits < runEnd) {
+      runEnd = if (fits <= firstCharacter || characterBreaks.isBoundary(fits)) fits else characterBreaks.preceding(fits)
     }
     return start + max(firstCharacter, runEnd)
   }

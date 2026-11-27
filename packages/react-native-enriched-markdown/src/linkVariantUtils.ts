@@ -95,7 +95,7 @@ export function normalizeLinkInlineIcon(
   if (isDev && pill && style.inlineIcon) {
     console.warn(
       `[MarkdownStyle] linkVariants pattern "${pattern}" sets both pill and inlineIcon; ` +
-        'the pill is drawn and inlineIcon is ignored.'
+        'pill takes precedence and inlineIcon is ignored.'
     );
   }
   return {
