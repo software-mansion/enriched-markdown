@@ -59,6 +59,27 @@ it('passes the marker style to each list', async () => {
   expect(ol!.props.style).toMatchObject(markerStyle);
 });
 
+it('reads the marker style in the injected rule', () => {
+  const style = document.getElementById(
+    'enrm-list-markers'
+  ) as HTMLStyleElement;
+  const rules = Array.from(style.sheet!.cssRules) as CSSStyleRule[];
+  const markerRule = (list: string) =>
+    rules.find(
+      (rule) => rule.selectorText === `.${ENRM_TEXT_CLASS} ${list} > li::marker`
+    );
+
+  expect(markerRule('ul')?.style.getPropertyValue('color')).toBe(
+    `var(${ENRM_BULLET_COLOR_VAR})`
+  );
+  expect(markerRule('ol')?.style.getPropertyValue('color')).toBe(
+    `var(${ENRM_MARKER_COLOR_VAR})`
+  );
+  expect(markerRule('ol')?.style.getPropertyValue('font-weight')).toBe(
+    `var(${ENRM_MARKER_WEIGHT_VAR})`
+  );
+});
+
 it('keeps the class the marker rule needs next to a custom className', async () => {
   const root = await render({ markdown: '- bullet', className: 'article' });
 

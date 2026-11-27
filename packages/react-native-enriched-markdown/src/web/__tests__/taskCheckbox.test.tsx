@@ -59,6 +59,27 @@ it('draws the checkbox in the taskList colors', async () => {
   expect(done!.props.className).toBe(ENRM_TASK_CHECKBOX_CLASS);
 });
 
+it('fills the checkbox together with its checked state when toggled', async () => {
+  const root = createRoot();
+  await act(async () => {
+    await root.render(
+      <EnrichedMarkdownText
+        markdown="- [ ] todo"
+        markdownStyle={{ taskList: { checkedColor: 'rgb(4, 5, 6)' } }}
+      />
+    );
+  });
+  const checkbox = () => root.container.queryAll((i) => i.type === 'input')[0]!;
+
+  await act(async () => checkbox().props.onChange());
+  expect(checkbox().props.checked).toBe(true);
+  expect(checkbox().props.style.backgroundColor).toBe('rgb(4, 5, 6)');
+
+  await act(async () => checkbox().props.onChange());
+  expect(checkbox().props.checked).toBe(false);
+  expect(checkbox().props.style.backgroundColor).toBe('transparent');
+});
+
 it('keeps a read-only checkbox inert', async () => {
   const [done] = await renderCheckboxes({
     markdown: '- [x] done',
