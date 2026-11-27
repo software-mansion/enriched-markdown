@@ -307,8 +307,12 @@ static RCTUIView *ENRMCreatePlayIconOverlay(void)
 
 - (void)scrollWheel:(NSEvent *)event
 {
-  if (ENRMRouteScrollWheel(&_scrollWheelLatch, event.phase, event.momentumPhase, event.scrollingDeltaX,
-                           event.scrollingDeltaY, YES) == ENRMScrollWheelTargetNextResponder) {
+  ENRMScrollWheelTarget target = ENRMRouteScrollWheel(&_scrollWheelLatch, event.phase, event.momentumPhase,
+                                                      event.scrollingDeltaX, event.scrollingDeltaY, YES);
+  if (target == ENRMScrollWheelTargetHold) {
+    return;
+  }
+  if (target == ENRMScrollWheelTargetNextResponder) {
     [self.nextResponder scrollWheel:event];
     return;
   }

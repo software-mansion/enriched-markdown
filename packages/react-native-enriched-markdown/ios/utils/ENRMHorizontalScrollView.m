@@ -31,8 +31,13 @@
 - (void)scrollWheel:(NSEvent *)event
 {
   BOOL canScrollHorizontally = self.contentSize.width > NSWidth(self.contentView.bounds) + 0.5;
-  if (ENRMRouteScrollWheel(&_scrollWheelLatch, event.phase, event.momentumPhase, event.scrollingDeltaX,
-                           event.scrollingDeltaY, canScrollHorizontally) == ENRMScrollWheelTargetNextResponder) {
+  ENRMScrollWheelTarget target =
+      ENRMRouteScrollWheel(&_scrollWheelLatch, event.phase, event.momentumPhase, event.scrollingDeltaX,
+                           event.scrollingDeltaY, canScrollHorizontally);
+  if (target == ENRMScrollWheelTargetHold) {
+    return;
+  }
+  if (target == ENRMScrollWheelTargetNextResponder) {
     [self.nextResponder scrollWheel:event];
     return;
   }

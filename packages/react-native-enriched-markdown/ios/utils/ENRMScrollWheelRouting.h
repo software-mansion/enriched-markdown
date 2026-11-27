@@ -8,6 +8,9 @@ typedef NS_ENUM(NSInteger, ENRMScrollWheelTarget) {
   ENRMScrollWheelTargetUndecided,
   ENRMScrollWheelTargetSelf,
   ENRMScrollWheelTargetNextResponder,
+  // A gesture's start with no motion yet: nobody gets it. Handing it to an NSScrollView would start AppKit's
+  // tracking loop, which takes the rest of the gesture before its direction is known.
+  ENRMScrollWheelTargetHold,
 };
 
 /// The gesture a block has decided on, and the target its momentum follows once the fingers lift.
@@ -52,6 +55,9 @@ static inline ENRMScrollWheelTarget ENRMRouteScrollWheel(ENRMScrollWheelLatch *l
   }
   if (latch->gesture == ENRMScrollWheelTargetUndecided && (deltaX != 0 || deltaY != 0)) {
     latch->gesture = byDeltas;
+  }
+  if (latch->gesture == ENRMScrollWheelTargetUndecided && (phase & (NSEventPhaseBegan | NSEventPhaseChanged))) {
+    return ENRMScrollWheelTargetHold;
   }
   ENRMScrollWheelTarget target = latch->gesture != ENRMScrollWheelTargetUndecided ? latch->gesture : undecided;
   if (phase & (NSEventPhaseEnded | NSEventPhaseCancelled)) {
