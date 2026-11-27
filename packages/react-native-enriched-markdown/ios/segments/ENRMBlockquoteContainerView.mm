@@ -185,7 +185,12 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
 @end
 
 #if !TARGET_OS_OSX
-@interface ENRMBlockquoteContainerView () <UITextViewDelegate, ENRMLinkContextMenuSource, ENRMDroppableContent>
+@interface ENRMBlockquoteContainerView () <UITextViewDelegate, ENRMLinkContextMenuSource, ENRMDroppableContent> {
+  // Where the block menu was opened, in the quote's coordinates, and the color its lift was backed with,
+  // reused when the menu closes.
+  CGPoint _menuLocation;
+  UIColor *_liftBackingColor;
+}
 @end
 #endif
 
@@ -209,6 +214,7 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
     _cachedPlainText = @"";
 #if !TARGET_OS_OSX
     self.contentMode = UIViewContentModeRedraw;
+    _menuLocation = CGPointMake(NAN, NAN);
     UIContextMenuInteraction *contextMenu = [[UIContextMenuInteraction alloc] initWithDelegate:self];
     [self addInteraction:contextMenu];
 #endif
@@ -759,6 +765,7 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
   if (!self.dynamicProps.enableBlockContextMenu) {
     return nil;
   }
+  _menuLocation = [interaction.view convertPoint:location toView:self];
   return [UIContextMenuConfiguration
       configurationWithIdentifier:nil
                   previewProvider:nil
@@ -781,17 +788,21 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
 
 // An admonition, or a quote themed with a transparent background, draws no fill of its own, so a
 // lift of the bare view would draw its text straight over the dimmed screen. Back the lift with
-// what is drawn behind the quote: the window sampled at its center with the quote hidden. The
-// quote's superviews can't tell: React Native mounts a chat bubble's children as its siblings.
-static UIColor *ENRMBlockquoteBackingColor(ENRMBlockquoteContainerView *quote)
+// what is drawn behind the quote: the window sampled with the quote hidden, at `point`, which is
+// where the finger pressed and so on screen. The quote's superviews often can't tell: unless a chat
+// bubble forms a stacking context, React Native mounts its children as its siblings.
+static UIColor *ENRMBlockquoteBackingColor(ENRMBlockquoteContainerView *quote, CGPoint point)
 {
-  CGPoint center = [quote convertPoint:CGPointMake(CGRectGetMidX(quote.bounds), CGRectGetMidY(quote.bounds))
-                                toView:quote.window];
+  UIColor *systemBackground = [[UIColor systemBackgroundColor] resolvedColorWithTraitCollection:quote.traitCollection];
+  CGPoint inWindow = [quote convertPoint:point toView:quote.window];
   uint8_t pixel[4] = {0, 0, 0, 0};
   CGColorSpaceRef space = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
   CGContextRef context = CGBitmapContextCreate(pixel, 1, 1, 8, 4, space, kCGImageAlphaPremultipliedLast);
   CGColorSpaceRelease(space);
-  CGContextTranslateCTM(context, -center.x, -center.y);
+  if (context == NULL) {
+    return systemBackground;
+  }
+  CGContextTranslateCTM(context, -inWindow.x, -inWindow.y);
   BOOL hidden = quote.layer.hidden;
   quote.layer.hidden = YES;
   [quote.window.layer renderInContext:context];
@@ -800,15 +811,23 @@ static UIColor *ENRMBlockquoteBackingColor(ENRMBlockquoteContainerView *quote)
 
   // A window that isn't opaque there leaves the rest to the system background.
   CGFloat red, green, blue;
-  [[[UIColor systemBackgroundColor] resolvedColorWithTraitCollection:quote.traitCollection] getRed:&red
-                                                                                             green:&green
-                                                                                              blue:&blue
-                                                                                             alpha:NULL];
+  [systemBackground getRed:&red green:&green blue:&blue alpha:NULL];
   CGFloat rest = 1 - pixel[3] / 255.0;
   return [UIColor colorWithRed:pixel[0] / 255.0 + red * rest
                          green:pixel[1] / 255.0 + green * rest
                           blue:pixel[2] / 255.0 + blue * rest
                          alpha:1];
+}
+
+- (UITargetedPreview *)blockPreviewBackedBy:(UIColor *)backingColor
+{
+  UIPreviewParameters *parameters = [[UIPreviewParameters alloc] init];
+  parameters.backgroundColor = backingColor;
+  CGFloat radius = self.config.blockquoteBorderRadius;
+  if (radius > 0) {
+    parameters.visiblePath = [UIBezierPath bezierPathWithRoundedRect:self.bounds cornerRadius:radius];
+  }
+  return [[UITargetedPreview alloc] initWithView:self parameters:parameters];
 }
 
 - (UITargetedPreview *)blockPreview
@@ -817,13 +836,16 @@ static UIColor *ENRMBlockquoteBackingColor(ENRMBlockquoteContainerView *quote)
   if (self.window == nil) {
     return nil;
   }
-  UIPreviewParameters *parameters = [[UIPreviewParameters alloc] init];
-  parameters.backgroundColor = ENRMBlockquoteBackingColor(self);
-  CGFloat radius = self.config.blockquoteBorderRadius;
-  if (radius > 0) {
-    parameters.visiblePath = [UIBezierPath bezierPathWithRoundedRect:self.bounds cornerRadius:radius];
-  }
-  return [[UITargetedPreview alloc] initWithView:self parameters:parameters];
+  // A quote that fills its box opaquely is its own backing; only a see-through one needs the sample.
+  UIColor *fill = self.admonitionType ? [self.config admonitionBackgroundColorForType:self.admonitionType]
+                                      : self.config.blockquoteBackgroundColor;
+  CGFloat fillAlpha = 0;
+  [[fill resolvedColorWithTraitCollection:self.traitCollection] getRed:NULL green:NULL blue:NULL alpha:&fillAlpha];
+  CGPoint point = CGRectContainsPoint(self.bounds, _menuLocation)
+                      ? _menuLocation
+                      : CGPointMake(CGRectGetMidX(self.bounds), CGRectGetMidY(self.bounds));
+  _liftBackingColor = fillAlpha >= 1 ? fill : ENRMBlockquoteBackingColor(self, point);
+  return [self blockPreviewBackedBy:_liftBackingColor];
 }
 
 - (UITargetedPreview *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
@@ -832,10 +854,16 @@ static UIColor *ENRMBlockquoteBackingColor(ENRMBlockquoteContainerView *quote)
   return [self blockPreview];
 }
 
+// The menu's own views are in the window while it closes, so the lift keeps the color sampled when it opened.
 - (UITargetedPreview *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
     previewForDismissingMenuWithConfiguration:(UIContextMenuConfiguration *)configuration
 {
-  return [self blockPreview];
+  UIColor *backingColor = _liftBackingColor;
+  _liftBackingColor = nil;
+  if (self.window == nil) {
+    return nil;
+  }
+  return backingColor ? [self blockPreviewBackedBy:backingColor] : [self blockPreview];
 }
 #endif // !TARGET_OS_OSX
 

@@ -12,8 +12,8 @@
 @implementation ENRMBlockquotePreviewTests
 
 // A lifted quote is backed by what is drawn behind it, so a quote without a fill of its own isn't
-// drawn over the dimmed screen. React Native mounts a bubble's children as its siblings, so the
-// bubble here sits next to the quote, not above it.
+// drawn over the dimmed screen. Unless a chat bubble forms a stacking context, React Native mounts
+// its children as its siblings, so the bubble here sits next to the quote, not above it.
 - (void)testTheLiftIsBackedByWhatIsDrawnBehindTheQuote
 {
   UIWindow *window = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 320, 200)];
@@ -35,6 +35,10 @@
   XCTAssertEqualWithAccuracy(blue, 1, 0.01);
   XCTAssertEqualWithAccuracy(alpha, 1, 0.01);
   XCTAssertFalse(quote.layer.hidden);
+
+  // A quote with an opaque fill of its own is backed by that fill.
+  [quote.config setBlockquoteBackgroundColor:[UIColor redColor]];
+  XCTAssertEqualObjects([quote blockPreview].parameters.backgroundColor, [UIColor redColor]);
 
   // Removed while the menu is up: no targeted preview, so UIKit uses its own fade.
   [quote removeFromSuperview];
