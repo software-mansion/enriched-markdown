@@ -1,7 +1,6 @@
 #import "FontUtils.h"
 #import "RenderContext.h"
 #import <React/RCTFont.h>
-#import <React/RCTUtils.h>
 
 UIFont *cachedFontFromBlockStyle(BlockStyle *blockStyle, RenderContext *context)
 {
@@ -14,17 +13,13 @@ UIFont *cachedFontFromBlockStyle(BlockStyle *blockStyle, RenderContext *context)
   return [context cachedFontForSize:blockStyle.fontSize family:blockStyle.fontFamily weight:blockStyle.fontWeight];
 }
 
-CGFloat RCTFontSizeMultiplierWithMax(CGFloat maxFontSizeMultiplier)
+CGFloat ENRMCapFontScale(CGFloat fontScale, CGFloat maxFontSizeMultiplier)
 {
-  CGFloat multiplier = RCTFontSizeMultiplier();
-
-  // Apply maxFontSizeMultiplier cap if >= 1.0
   // Values < 1.0 (including 0 and NaN) mean no cap is applied
   if (!isnan(maxFontSizeMultiplier) && maxFontSizeMultiplier >= 1.0) {
-    return fmin(maxFontSizeMultiplier, multiplier);
+    return fmin(maxFontSizeMultiplier, fontScale);
   }
-
-  return multiplier;
+  return fontScale;
 }
 
 UIFontWeight ENRMFontWeightFromString(NSString *weightString)

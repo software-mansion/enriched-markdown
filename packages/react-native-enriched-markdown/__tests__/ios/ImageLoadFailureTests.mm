@@ -4,7 +4,6 @@
 #import "../../ios/utils/RuntimeKeys.h"
 #import "../../ios/views/EnrichedMarkdownInternalText.h"
 #import <XCTest/XCTest.h>
-#import <objc/runtime.h>
 
 // Issue #1123: an image that fails to load used to stay an empty box. file:// URLs that do
 // not exist fail synchronously on the main thread, so no network or wait is involved.
@@ -150,32 +149,23 @@ static const CGFloat kBlockHeight = 100;
 
 // The alt text has to follow the paragraph text when the user picks a larger text size. Only
 // the chip's width shows the font it was given, so the chip is tall enough not to cap it.
-- (CGFloat)chipWidthAtContentSize:(UIContentSizeCategory)category
+- (CGFloat)chipWidthAtFontScale:(CGFloat)fontScale
 {
-  Method method = class_getInstanceMethod([UIApplication class], @selector(preferredContentSizeCategory));
-  IMP original = method_getImplementation(method);
-  IMP fake = imp_implementationWithBlock(^UIContentSizeCategory(id application) { return category; });
-  method_setImplementation(method, fake);
-
   StyleConfig *config = [self config];
   [config setInlineImageSize:100];
+  [config setFontScaleMultiplier:fontScale];
   ENRMImageAttachment *attachment =
       [NSClassFromString(@"ENRMImageAttachment") attachmentForURL:[self missingFile:@"scaled"]
                                                            source:nil
                                                           altText:@"ab"
                                                            config:config
                                                          isInline:YES];
-  CGFloat width = [self boundsOf:attachment lineWidth:320].size.width;
-
-  method_setImplementation(method, original);
-  imp_removeBlock(fake);
-  return width;
+  return [self boundsOf:attachment lineWidth:320].size.width;
 }
 
 - (void)testAltTextFollowsTheUsersTextSize
 {
-  XCTAssertGreaterThan([self chipWidthAtContentSize:UIContentSizeCategoryAccessibilityExtraExtraExtraLarge],
-                       [self chipWidthAtContentSize:UIContentSizeCategoryLarge]);
+  XCTAssertGreaterThan([self chipWidthAtFontScale:2.0], [self chipWidthAtFontScale:1.0]);
 }
 
 // A failure that arrives after VoiceOver has read the text widens the image and reflows the

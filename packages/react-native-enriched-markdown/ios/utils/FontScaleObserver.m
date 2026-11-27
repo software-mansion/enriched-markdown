@@ -39,14 +39,12 @@
 
 - (void)contentSizeCategoryDidChange:(NSNotification *)notification
 {
-  if (!_allowFontScaling) {
-    return;
-  }
-
+  // Track the scale even while font scaling is off: it is the snapshot used for
+  // rendering once allowFontScaling turns back on.
   CGFloat newFontScale = RCTFontSizeMultiplier();
   if (_currentFontScale != newFontScale) {
     _currentFontScale = newFontScale;
-    if (self.onChange) {
+    if (_allowFontScaling && self.onChange) {
       self.onChange();
     }
   }
