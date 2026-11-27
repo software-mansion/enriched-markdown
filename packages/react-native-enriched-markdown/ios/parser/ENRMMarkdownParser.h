@@ -7,6 +7,7 @@
 @property (nonatomic, assign) BOOL latexMath;
 @property (nonatomic, assign) BOOL superscript;
 @property (nonatomic, assign) BOOL subscript;
+@property (nonatomic, assign) BOOL strikethrough;
 @property (nonatomic, assign) BOOL highlight;
 @property (nonatomic, assign) BOOL hardSoftBreaks;
 @property (nonatomic, assign) BOOL preserveBlankLines;
@@ -15,6 +16,11 @@
 + (instancetype)defaultFlags;
 
 @end
+
+#ifdef __cplusplus
+#include "MD4CParser.hpp"
+Markdown::Md4cFlags ENRMCoreMd4cFlags(ENRMMd4cFlags *flags);
+#endif
 
 @class ENRMLinkRegexConfig;
 

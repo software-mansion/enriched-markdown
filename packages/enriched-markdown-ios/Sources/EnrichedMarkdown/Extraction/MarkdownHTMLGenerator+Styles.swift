@@ -38,8 +38,7 @@ extension MarkdownHTMLGenerator {
         let listMarginBottom: Int
         let listMarginLeft: Int
 
-        let linkColor: String
-        let linkUnderline: Bool
+        let linkCSS: LinkStyleResolver<String>
 
         let strongColor: String?
         let emphasisColor: String?
@@ -99,8 +98,15 @@ extension MarkdownHTMLGenerator {
             listMarginBottom = Int(config.list.marginBottom ?? 0)
             listMarginLeft = Int(config.list.marginLeading ?? 24)
 
-            linkColor = cssColor(config.link.foregroundColor)
-            linkUnderline = config.link.underline ?? true
+            linkCSS = LinkStyleResolver(config: config) { link in
+                [
+                    "color: \(cssColor(link.foregroundColor));",
+                    "text-decoration: \((link.underline ?? true) ? "underline" : "none");",
+                    link.backgroundColor.map { "background-color: \(cssColor($0));" },
+                    link.cornerRadius.flatMap { $0 > 0 ? "border-radius: \(cssLength($0));" : nil },
+                    borderCSS(of: link)
+                ].compactMap { $0 }.joined(separator: " ")
+            }
 
             strongColor = config.strong.foregroundColor.map(cssColor)
             emphasisColor = config.emphasis.foregroundColor.map(cssColor)
@@ -124,6 +130,15 @@ extension MarkdownHTMLGenerator {
         func admonitionTint(_ type: AdmonitionType) -> String {
             admonitionTints[type] ?? blockquoteBorderColor
         }
+    }
+
+    private static func borderCSS(of style: ElementStyle) -> String? {
+        guard let width = style.borderWidth, width > 0, let color = style.borderColor else { return nil }
+        return "border: \(cssLength(width)) solid \(cssColor(color));"
+    }
+
+    private static func cssLength(_ points: CGFloat) -> String {
+        String(format: "%gpx", points)
     }
 
     private static func cssColor(_ color: UIColor?) -> String {

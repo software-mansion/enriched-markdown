@@ -80,6 +80,7 @@ class EnrichedMarkdown(
     private set
 
   private var imageRequestHeaders: Map<String, String> = emptyMap()
+  private var admonitionTitles: AdmonitionTitles = AdmonitionTitles.Default
   private var selectionColor: Int? = null
   private var selectionHandleColor: Int? = null
   private var isSelectable = true
@@ -145,6 +146,14 @@ class EnrichedMarkdown(
   fun setImageRequestHeaders(headers: Map<String, String>) {
     if (imageRequestHeaders == headers) return
     imageRequestHeaders = headers
+    needsSegmentReset = true
+    scheduleRenderIfNeeded()
+  }
+
+  /** Renames or translates the GitHub alert titles; a title too wide for the callout ends in an ellipsis. */
+  fun setAdmonitionTitles(titles: AdmonitionTitles) {
+    if (admonitionTitles == titles) return
+    admonitionTitles = titles
     needsSegmentReset = true
     scheduleRenderIfNeeded()
   }
@@ -379,6 +388,7 @@ class EnrichedMarkdown(
     val plugins = pluginSnapshot
     val codeBlockLayout = codeBlockLayout
     val imageRequestHeaders = imageRequestHeaders
+    val admonitionTitles = admonitionTitles
     val onPluginEvent = renderPluginEventSink()
     return { ast ->
       MarkdownSegmentRenderer.render(
@@ -388,6 +398,7 @@ class EnrichedMarkdown(
         imageRequestHeaders,
         onPluginEvent = onPluginEvent,
         plugins = plugins,
+        admonitionTitles = admonitionTitles,
       )
     }
   }

@@ -8,6 +8,20 @@ NS_ASSUME_NONNULL_BEGIN
 /// Measures a block slot's React child at a given width; returns its height.
 typedef CGFloat (^ENRMBlockSlotMeasureBlock)(NSString *slotId, CGFloat width);
 
+/// Boxes a CGRect into an NSValue. `+valueWithCGRect:` / `-CGRectValue` are UIKit-only, so the
+/// measurer and the shadow node both go through these two helpers to stay paired on macOS.
+static inline NSValue *ENRMBoxRect(CGRect rect)
+{
+  return [NSValue valueWithBytes:&rect objCType:@encode(CGRect)];
+}
+
+static inline CGRect ENRMUnboxRect(NSValue *value)
+{
+  CGRect rect = CGRectZero;
+  [value getValue:&rect size:sizeof(rect)];
+  return rect;
+}
+
 /**
  * Hands the shadow node's slot children to the view-free measurement walk. The
  * walk asks for each slot's height at the width and origin it lays the slot out

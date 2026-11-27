@@ -1,14 +1,18 @@
 import type { ColorValue, ViewProps, ViewStyle, TextStyle } from 'react-native';
+import type { MarkdownStream } from '../markdownStream';
 import type { MarkdownStyle, Md4cFlags } from './MarkdownStyle';
 import type { AccessibilityLabels } from './AccessibilityLabels';
+import type { AdmonitionTitles } from './admonitionTitles';
 import type {
   LinkPressEvent,
   LinkLongPressEvent,
   ImagePressEvent,
+  TextPressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
   LatexErrorEvent,
   CodeBlockPressEvent,
+  SelectionCopyEvent,
 } from './events';
 import type { LinkPillContent } from './linkPill';
 import type { LinkRecognition } from './linkRecognition';
@@ -16,6 +20,7 @@ import type {
   MarkdownRenderers,
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
 } from './markdownBlocks';
 
 // Defined apart so code shared with web can import them: under a `.web`
@@ -28,11 +33,13 @@ export type {
   MarkdownImageBlock,
   MarkdownVideoBlock,
   MarkdownLinkBlock,
+  MarkdownCodeBlock,
   MarkdownBlock,
   MarkdownRenderers,
   MarkdownImagePlacement,
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
 } from './markdownBlocks';
 
 /**
@@ -135,7 +142,8 @@ export interface StreamingConfig {
    * Controls how incomplete tables are handled during streaming.
    * - `'hidden'`: hide the entire table until it's complete.
    * - `'progressive'` (default): show the table row-by-row as rows complete.
-   * Only effective when `streamingAnimation` is `true`.
+   * Only effective while streaming (`streaming`, or a `stream` that hasn't
+   * ended).
    * @default 'progressive'
    * @platform ios, android
    */
@@ -147,7 +155,8 @@ export interface StreamingConfig {
    * - `'progressive'` (default): show the code as it streams in with its header
    *   visible but non-interactive (copying is disabled); syntax highlighting is
    *   deferred until the closing fence arrives, so it appears once atomically.
-   * Only effective when `streamingAnimation` is `true`.
+   * Only effective while streaming (`streaming`, or a `stream` that hasn't
+   * ended).
    * @default 'progressive'
    * @platform ios, android
    */
@@ -160,19 +169,90 @@ export interface StreamingConfig {
    * - `'progressive'` (default): show the block as soon as its syntax is
    *   complete (`)` for an image, `>` for a `<video>` tag); the partial line is
    *   hidden until then instead of rendering as text.
-   * Only effective when `streamingAnimation` is `true`.
+   * Only effective while streaming (`streaming`, or a `stream` that hasn't
+   * ended).
    * @default 'progressive'
    * @platform ios, android
    */
   mediaMode?: 'hidden' | 'progressive';
+  /**
+   * How newly arrived content appears during streaming.
+   * - `'fade'` (default): each new word fades in over 200 ms, new blocks and
+   *   table rows fade in, and a block drawn by `renderers` grows into place.
+   * - `'gradient'`: the last 20 characters run from their own color to
+   *   transparent, following the end of the text (see `StreamingGradient`).
+   * - `'none'`: new content appears at once.
+   * Only effective while streaming (`streaming`, or a `stream` that hasn't
+   * ended). Reduce Motion turns it off, and on macOS new content appears at
+   * once.
+   * @default 'fade'
+   * @platform ios, android
+   */
+  animation?: StreamingAnimation;
+  /**
+   * Reveals new text word by word at a steady pace instead of in the bursts
+   * it arrives in: the view shows the text revealed so far, so its layout and
+   * blocks grow with the words. Each chunk spreads over the time until the
+   * next one, at most a second behind, and what is left shows within 200 ms
+   * when the stream ends. Works with every `animation`. Only effective while
+   * streaming (`streaming`, or a `stream` that hasn't ended).
+   * @default false
+   * @platform ios, android
+   */
+  smooth?: boolean;
+}
+
+/** `streamingConfig.animation`: a preset name, or a preset with its options. */
+export type StreamingAnimation =
+  | 'fade'
+  | 'gradient'
+  | 'none'
+  | StreamingFade
+  | StreamingGradient;
+
+/** The `'fade'` animation with its options. */
+export interface StreamingFade {
+  type: 'fade';
+  /**
+   * How long a new word takes to appear, in milliseconds.
+   * @default 200
+   */
+  duration?: number;
+}
+
+/** The `'gradient'` animation with its options. */
+export interface StreamingGradient {
+  type: 'gradient';
+  /**
+   * How many characters from the end the gradient covers.
+   * @default 20
+   */
+  length?: number;
+  /**
+   * The color where the gradient starts (older characters). Unset keeps each
+   * character's own color.
+   */
+  startColor?: ColorValue;
+  /**
+   * The color of the newest character.
+   * @default 'transparent'
+   */
+  endColor?: ColorValue;
 }
 
 export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
   /**
-   * Markdown content to render.
+   * Markdown content to render. Ignored while `stream` is set.
    * @platform ios, android, web
    */
-  markdown: string;
+  markdown?: string;
+  /**
+   * Markdown arriving in pieces, from `createMarkdownStream()`. Shown instead of
+   * `markdown` and updated about every other frame without re-rendering your component;
+   * streams until `stream.end()` unless `streaming` says otherwise.
+   * @platform ios, android, web
+   */
+  stream?: MarkdownStream;
   /**
    * Style configuration for markdown elements.
    * @platform ios, android, web
@@ -221,6 +301,15 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android, macos, web
    */
   onImagePress?: (event: ImagePressEvent) => void;
+  /**
+   * Callback fired when plain text is tapped, anywhere a link, image, checkbox
+   * or other interactive element doesn't take the tap. Receives the UTF-16
+   * index of the character under the tap within the tapped text block, and
+   * that block's rendered text (which differs from the Markdown source). A tap
+   * beside a line reports its nearest character; table cells don't fire it.
+   * @platform ios, android
+   */
+  onTextPress?: (event: TextPressEvent) => void;
   /**
    * Callback fired when a task list checkbox is tapped.
    *
@@ -380,26 +469,42 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   flavor?: 'commonmark' | 'github';
   /**
-   * When true, newly appended content fades in during streaming updates.
-   * Only the tail (new characters beyond the previous content) is animated.
-   * Recommended for LLM streaming use cases with `flavor="commonmark"`.
+   * Set while `markdown` is still arriving (an LLM answer streaming in).
+   * Incomplete syntax at the end is held back or repaired instead of rendering
+   * as raw markdown, and new content fades in (see `streamingConfig`). Set it
+   * back to `false` when the stream ends: the final render shows everything.
    * @default false
    * @platform ios, android
    */
+  streaming?: boolean;
+  /**
+   * @deprecated Use `streaming` instead.
+   */
   streamingAnimation?: boolean;
   /**
-   * Fine-grained control over streaming behavior for block-level elements.
-   * Only effective when `streamingAnimation` is `true`.
+   * Fine-grained control over streaming behavior.
+   * Only effective while streaming (`streaming`, or a `stream` that hasn't
+   * ended).
    * @platform ios, android
    */
   streamingConfig?: StreamingConfig;
+  /**
+   * Called when the view stops streaming: once `streaming` turns `false` (or
+   * the `stream` ends) and, with `smooth`, the last words have appeared. Fires
+   * after the final render shows the whole text, once per stream, and not when
+   * the view unmounts while streaming. Not called on web, where a `stream`
+   * still shows its text.
+   * @platform ios, android
+   */
+  onStreamingEnd?: () => void;
   /**
    * Controls how spoiler text is displayed before being revealed.
    * - `'particles'` (default): animated particle overlay (CAEmitterLayer on iOS,
    *   Choreographer-driven Canvas particles on Android).
    * - `'solid'`: opaque rectangle covering the text (Discord-style).
    *
-   * Both modes support tap-to-reveal.
+   * Both modes support tap-to-reveal. Web ignores this prop and always draws
+   * the solid cover.
    * @default 'particles'
    * @platform ios, android
    */
@@ -469,6 +574,21 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android, macos
    */
   selectionMenuConfig?: SelectionMenuConfig;
+  /**
+   * Callback fired after a text selection is copied: from the selection menu's
+   * Copy, Copy as Markdown, or Copy Image URL(s) item, the keyboard shortcut
+   * (⌘C / Ctrl+C), or TalkBack's copy action. Receives the copied text, its
+   * format, and the copied range. Code block copies are reported by
+   * `onCopyPress` instead.
+   * @platform ios, android, macos
+   */
+  onSelectionCopy?: (event: SelectionCopyEvent) => void;
+  /**
+   * Admonition header titles by type. Omitted types keep the English title;
+   * an empty string shows the icon only.
+   * @platform ios, android, macos, web
+   */
+  admonitionTitles?: AdmonitionTitles;
   /**
    * Translations for VoiceOver / TalkBack announcements (list items, table
    * rows, math, and the iOS rotor). All keys are optional and fall back to
@@ -555,17 +675,22 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   ellipsizeMode?: 'head' | 'middle' | 'tail' | 'clip';
   /**
-   * React replacements for block media, keyed by kind. Each renderer receives the
+   * React replacements for blocks, keyed by kind. Each renderer receives the
    * block and returns the element to show in its place, or nothing (`undefined`)
    * to keep the native rendering. The element is laid out by React at the block's
    * width and must have an intrinsic height; the surrounding Markdown stays
    * native and keeps its position, selection and accessibility.
    *
-   * Applies to a paragraph whose only content is an image or a link, and to
-   * `<video>` blocks, directly in the document, a blockquote or an admonition
-   * outside any list. Images and links in lists, tables, headings and running
-   * text stay native. A link block keeps its native tappable link when no
-   * renderer claims it.
+   * Applies to a paragraph whose only content is an image or a link, to
+   * `<video>` blocks and to code blocks, directly in the document, a blockquote
+   * or an admonition outside any list. Images, links and code blocks in lists,
+   * tables, headings and running text stay native. A link block keeps its
+   * native tappable link when no renderer claims it.
+   *
+   * `code` receives every code block with its fence `language`; return
+   * `undefined` for the languages that should stay native. While a fence
+   * streams in, the same element re-renders with the growing `code`, and
+   * `isComplete` turns `true` at the closing fence.
    *
    * A renderer runs once per block and again only when that block or any
    * renderer function changes, so a streaming append does not re-render the
@@ -575,7 +700,8 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * text, keeps the native block (with a dev warning) until it runs again.
    *
    * A replaced block's element owns its presses: `onImagePress`,
-   * `onLinkPress`, `onLinkLongPress` and the link menu do not fire for it.
+   * `onLinkPress`, `onLinkLongPress`, `onCodeBlockPress` and the link menu do
+   * not fire for it.
    *
    * Only applies when `flavor="github"`.
    *
@@ -583,6 +709,7 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * renderers={{
    *   image: ({ url, altText }) => <FastImage source={{ uri: url }} accessibilityLabel={altText} />,
    *   video: ({ url }) => <Video source={{ uri: url }} />,
+   *   code: ({ language, code }) => (language === 'mermaid' ? <Mermaid source={code} /> : undefined),
    * }}
    * @platform ios, android, web
    */
@@ -612,4 +739,21 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
     | MarkdownImageSource
     | undefined
     | Promise<MarkdownImageSource | undefined>;
+  /**
+   * Called with the document's links whenever they change, and once with the
+   * first ones: every inline link, autolink and bare URL in document order,
+   * including those in lists, tables, headings and quotes. Use it to set
+   * `linkPillContent`, `markdownStyle.linkVariants` or `linkContextMenuItems`
+   * for the links a document contains; a state update made here lands before
+   * the frame is drawn. Links that `linkRecognition` adds are not reported,
+   * since recognition runs as the text is drawn.
+   *
+   * It is read like an event handler: changing the function does not report
+   * again. While streaming, it sees the links the streaming options let
+   * through, including a bare URL still being written, reported again as it grows.
+   *
+   * Only applies when `flavor="github"`.
+   * @platform ios, android, web
+   */
+  onLinksChange?: (links: MarkdownLinkOccurrence[]) => void;
 }

@@ -14,4 +14,6 @@ interface PluginInlineSpan {
 
   /** Text standing in for the span in a plain-text copy. Null omits it. */
   fun toPlainText(): String?
+
+  fun toAccessibilityLabel(): String? = null
 }

@@ -46,6 +46,7 @@ class BlockStyleContext {
   var listItemMarkerExtra = 0f
   var listItemMarkerWidth: Float? = null
   var taskItemCount = 0
+  var accumulatedIndent = 0
 
   private val orderedListItemNumbers = ArrayDeque<Int>()
 
@@ -110,8 +111,10 @@ class BlockStyleContext {
     listItemNumber++
   }
 
-  fun resetListItemNumber() {
-    listItemNumber = 0
+  fun resetListItemNumber(startNumber: Int = 1) {
+    // ListItemRenderer pre-increments, so the counter starts one below the
+    // first rendered number.
+    listItemNumber = startNumber - 1
   }
 
   fun pushOrderedListItemNumber() {
@@ -158,6 +161,7 @@ class BlockStyleContext {
     listItemMarkerExtra = 0f
     listItemMarkerWidth = null
     taskItemCount = 0
+    accumulatedIndent = 0
     orderedListItemNumbers.clear()
   }
 }

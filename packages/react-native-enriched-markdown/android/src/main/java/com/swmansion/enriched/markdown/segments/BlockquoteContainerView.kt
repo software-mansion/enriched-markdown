@@ -9,6 +9,9 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.text.TextDirectionHeuristics
+import android.text.TextPaint
+import android.text.TextUtils
 import android.view.View
 import androidx.core.graphics.withSave
 import com.facebook.react.common.ReactConstants
@@ -19,6 +22,7 @@ import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
+import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.common.serialization.MarkdownASTSerializer
 import com.swmansion.enriched.markdown.views.ContextMenuPopup
 import kotlin.math.ceil
@@ -34,8 +38,9 @@ import kotlin.math.roundToInt
  * further by its padding, so onDraw only ever renders one accent bar plus the
  * background for this single level.
  *
- * The content inset is applied as this view's padding (left = borderWidth +
- * gapWidth + padding, other edges = padding), mirroring the geometry
+ * The content inset is applied as this view's padding (the bar's edge =
+ * borderWidth + gapWidth + padding, other edges = padding; the bar is on the
+ * right in a right-to-left quote), mirroring the geometry
  * BlockquoteSpan draws for the in-text (list-nested) path; the base measure and
  * layout already honor padding.
  *
@@ -52,9 +57,18 @@ class BlockquoteContainerView(
 
   private val borderWidthPx: Float = blockquoteStyle.borderWidth
   private val paddingPx: Float = blockquoteStyle.padding
-  private val leftInset: Int = ceil(borderWidthPx + blockquoteStyle.gapWidth + paddingPx).toInt()
+  private val leadingInset: Int = ceil(borderWidthPx + blockquoteStyle.gapWidth + paddingPx).toInt()
   private val verticalInset: Int = ceil(paddingPx).toInt()
-  private val rightInset: Int = ceil(paddingPx).toInt()
+  private val trailingInset: Int = ceil(paddingPx).toInt()
+
+  private var rightToLeft = false
+
+  var outerRightToLeft: Boolean? = null
+    set(value) {
+      if (field == value) return
+      field = value
+      if (value != null) applySide(value)
+    }
 
   // Set from the applied node: null for a plain quote, the admonition type
   // ("note"/"tip"/…) otherwise. Drives the header + per-type theming.
@@ -69,7 +83,7 @@ class BlockquoteContainerView(
   private val iconSizePx: Int = ceil(blockquoteStyle.fontSize).toInt()
 
   private val titlePaint =
-    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
       typeface =
         Typeface.create(
           applyStyles(
@@ -109,23 +123,24 @@ class BlockquoteContainerView(
 
   init {
     setWillNotDraw(false)
-    setPadding(leftInset, verticalInset, rightInset, verticalInset)
+    applyInsets()
     segmentViewFactory = ChildFactory()
     trailingMarginEnabled = false
     isLongClickable = true
     setOnLongClickListener { view -> showContextMenu(view) }
   }
 
-  fun applyBlockquoteNode(node: MarkdownASTNode) {
+  /** [taskIndexOffset] is the document-global index of the quote's first task-list item. */
+  fun applyBlockquoteNode(
+    node: MarkdownASTNode,
+    taskIndexOffset: Int = 0,
+  ) {
     admonitionType =
       if (node.type == MarkdownASTNode.NodeType.Admonition) {
         node.getAttribute("admonitionType")?.takeIf { it.isNotEmpty() } ?: "note"
       } else {
         null
       }
-    // Reserve the header band above the body by enlarging the top padding.
-    setPadding(leftInset, verticalInset + reservedHeaderHeight(), rightInset, verticalInset)
-
     cachedMarkdown = MarkdownASTSerializer.serializeBlockquote(node)
     cachedPlainText = MarkdownASTSerializer.plainText(node)
 
@@ -139,9 +154,33 @@ class BlockquoteContainerView(
         parentConfig.onLinkLongPress,
         blockquoteStyle,
         onLatexError = parentConfig.onLatexError,
+        startingTaskIndex = taskIndexOffset,
       )
+    rightToLeft = outerRightToLeft ?: isRightToLeft(node, resources.isLayoutRTL())
+    applyInsets()
     applySegments(rendered, reset = false)
+    applySide(rightToLeft)
     requestLayout()
+  }
+
+  // Moves the bar, padding and header to one side, and hands the side to nested
+  // quotes, which a parent's update can leave untouched.
+  private fun applySide(rightToLeft: Boolean) {
+    if (this.rightToLeft != rightToLeft) {
+      this.rightToLeft = rightToLeft
+      applyInsets()
+      invalidate()
+    }
+    segmentViews.forEach { (it as? BlockquoteContainerView)?.outerRightToLeft = rightToLeft }
+  }
+
+  private fun applyInsets() {
+    val top = verticalInset + reservedHeaderHeight()
+    if (rightToLeft) {
+      setPadding(trailingInset, top, leadingInset, verticalInset)
+    } else {
+      setPadding(leadingInset, top, trailingInset, verticalInset)
+    }
   }
 
   private fun showContextMenu(anchor: View): Boolean {
@@ -219,15 +258,16 @@ class BlockquoteContainerView(
       }
     }
 
-    // Clip the accent bar to the rounded box so its top-left/bottom-left corners
-    // follow the border radius instead of poking past the background as squares.
+    // Clip the accent bar to the rounded box so its outer corners follow the
+    // border radius instead of poking past the background as squares.
+    val barLeft = if (rightToLeft) width - borderWidthPx else 0f
     if (hasRadius) {
       canvas.withSave {
         clipPath(path)
-        drawRect(0f, 0f, borderWidthPx, height.toFloat(), borderPaint)
+        drawRect(barLeft, 0f, barLeft + borderWidthPx, height.toFloat(), borderPaint)
       }
     } else {
-      canvas.drawRect(0f, 0f, borderWidthPx, height.toFloat(), borderPaint)
+      canvas.drawRect(barLeft, 0f, barLeft + borderWidthPx, height.toFloat(), borderPaint)
     }
 
     if (type != null) {
@@ -235,8 +275,8 @@ class BlockquoteContainerView(
     }
   }
 
-  // Draws the admonition header (tinted octicon + capitalized title) in the band
-  // reserved at the top of the view by the enlarged top padding.
+  // Draws the admonition header (tinted octicon + title) in the band
+  // reserved at the top of the view by the enlarged top padding, on the bar's side.
   private fun drawAdmonitionHeader(
     canvas: Canvas,
     type: String,
@@ -244,25 +284,31 @@ class BlockquoteContainerView(
   ) {
     val headerTop = verticalInset.toFloat()
     val headerHeight = admonitionHeaderContentHeight(blockquoteStyle)
-    var titleX = leftInset.toFloat()
+    var titleInset = leadingInset.toFloat()
 
     val iconPath = AdmonitionIcons.path(type)
     if (iconPath != null) {
       val scale = iconSizePx / AdmonitionIcons.VIEWBOX
+      val iconX = if (rightToLeft) width - leadingInset - iconSizePx else leadingInset
       val iconY = headerTop + (headerHeight - iconSizePx) / 2f
       iconPaint.color = tint
       canvas.withSave {
-        translate(leftInset.toFloat(), iconY)
+        translate(iconX.toFloat(), iconY)
         scale(scale, scale)
         drawPath(iconPath, iconPaint)
       }
-      titleX = (leftInset + iconSizePx + (iconSizePx * 0.4f).roundToInt()).toFloat()
+      titleInset = (leadingInset + iconSizePx + (iconSizePx * 0.4f).roundToInt()).toFloat()
     }
 
     titlePaint.color = tint
     val fm = titlePaint.fontMetrics
     val baseline = headerTop + headerHeight / 2f - (fm.ascent + fm.descent) / 2f
-    canvas.drawText(AdmonitionIcons.title(type), titleX, baseline, titlePaint)
+    val title = parentConfig.style.admonitionTitles[type].orEmpty()
+    val titleWidth = width - trailingInset - titleInset
+    if (title.isEmpty() || titleWidth <= 0f) return
+    val fitted = TextUtils.ellipsize(title, titlePaint, titleWidth, TextUtils.TruncateAt.END)
+    val titleX = if (rightToLeft) width - titleInset - titlePaint.measureText(fitted, 0, fitted.length) else titleInset
+    canvas.drawText(fitted, 0, fitted.length, titleX, baseline, titlePaint)
   }
 
   /**
@@ -326,7 +372,7 @@ class BlockquoteContainerView(
         is RenderedSegment.Table -> (view as TableContainerView).applyTableNode(segment.node)
         is RenderedSegment.Math -> SegmentViewCreators.updateMathView(view, segment)
         is RenderedSegment.CodeBlock -> (view as CodeBlockContainerView).applyCodeBlockNode(segment.node)
-        is RenderedSegment.Blockquote -> (view as BlockquoteContainerView).applyBlockquoteNode(segment.node)
+        is RenderedSegment.Blockquote -> (view as BlockquoteContainerView).applyBlockquoteNode(segment.node, segment.taskIndexOffset)
         is RenderedSegment.Video -> SegmentViewCreators.updateVideoView(view, segment)
         is RenderedSegment.BlockSlot -> SegmentViewCreators.updateBlockSlotView(view as BlockSlotSegmentView, segment)
       }
@@ -346,6 +392,33 @@ class BlockquoteContainerView(
     // Vertical space the header adds above the body (band + gap).
     fun admonitionHeaderReservedHeight(style: BlockquoteStyle): Float =
       admonitionHeaderContentHeight(style) + (style.fontSize * 0.4f).roundToInt()
+
+    private val directionlessTypes =
+      setOf(
+        MarkdownASTNode.NodeType.CodeBlock,
+        MarkdownASTNode.NodeType.Image,
+        MarkdownASTNode.NodeType.Video,
+        MarkdownASTNode.NodeType.LatexMathInline,
+        MarkdownASTNode.NodeType.LatexMathDisplay,
+      )
+
+    /** The first strong character in the quote; without one, [layoutIsRtl] decides. */
+    private fun isRightToLeft(
+      node: MarkdownASTNode,
+      layoutIsRtl: Boolean,
+    ): Boolean = firstStrongIsRtl(node) ?: layoutIsRtl
+
+    /**
+     * The first strong character in [node], as web's `dir="auto"` finds it: nested quotes and
+     * tables count, code blocks, images and math do not. `null` when there is none.
+     */
+    private fun firstStrongIsRtl(node: MarkdownASTNode): Boolean? {
+      if (node.type in directionlessTypes) return null
+      val text = node.content
+      if (TextDirectionHeuristics.FIRSTSTRONG_LTR.isRtl(text, 0, text.length)) return true
+      if (!TextDirectionHeuristics.FIRSTSTRONG_RTL.isRtl(text, 0, text.length)) return false
+      return node.children.firstNotNullOfOrNull { firstStrongIsRtl(it) }
+    }
 
     /**
      * View-free height of a blockquote node at the given outer content width.
@@ -373,10 +446,12 @@ class BlockquoteContainerView(
       slotMeasurer: BlockSlotMeasurer? = null,
       originXPx: Float = 0f,
       originYPx: Float = 0f,
+      // The side of the quote around this one, for a nested quote (outerRightToLeft).
+      outerRightToLeft: Boolean? = null,
     ): Float {
       val style = config.blockquoteStyle
-      val leftInset = ceil(style.borderWidth + style.gapWidth + style.padding).toInt()
-      val rightInset = ceil(style.padding).toInt()
+      val leadingInset = ceil(style.borderWidth + style.gapWidth + style.padding).toInt()
+      val trailingInset = ceil(style.padding).toInt()
       val verticalInset = ceil(style.padding).toInt()
       val headerReserved =
         if (node.type == MarkdownASTNode.NodeType.Admonition) {
@@ -387,10 +462,12 @@ class BlockquoteContainerView(
       // The view lays its children out at integer pixels (measureSegmentChildren
       // receives ceil(width)), so measure at the same rounded width or the two
       // paths wrap long lines differently.
-      val innerWidth = (ceil(width) - leftInset - rightInset).coerceAtLeast(1f)
+      val innerWidth = (ceil(width) - leadingInset - trailingInset).coerceAtLeast(1f)
 
       val segments = splitASTIntoSegments(node)
       val rendered = MarkdownSegmentRenderer.render(segments, config, context, null, null, style)
+      val rightToLeft = outerRightToLeft ?: isRightToLeft(node, context.resources.isLayoutRTL())
+      val leftInset = if (rightToLeft) trailingInset else leadingInset
 
       val fontSize = style.fontSize
       val breakStrategy = BreakStrategyUtils.resolveBreakStrategy(null)
@@ -409,6 +486,7 @@ class BlockquoteContainerView(
           slotMeasurer = slotMeasurer,
           originXPx = originXPx + leftInset,
           originYPx = originYPx + verticalInset + headerReserved,
+          quoteRightToLeft = rightToLeft,
         )
 
       return childrenHeight + verticalInset * 2f + headerReserved

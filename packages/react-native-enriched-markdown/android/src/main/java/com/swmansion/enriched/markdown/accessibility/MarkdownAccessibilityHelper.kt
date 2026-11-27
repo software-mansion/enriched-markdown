@@ -1,11 +1,13 @@
 package com.swmansion.enriched.markdown.accessibility
 
+import android.content.Context
 import android.graphics.Rect
 import android.os.Bundle
 import android.text.Layout
 import android.text.Spanned
 import android.view.View
 import android.view.ViewTreeObserver
+import android.view.accessibility.AccessibilityManager
 import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
@@ -62,13 +64,16 @@ class MarkdownAccessibilityHelper(
   private data class SpanRange(
     val start: Int,
     val end: Int,
-    val headingLevel: Int = 0,
     val linkUrl: String? = null,
     val imageAltText: String? = null,
+    val spoken: SpokenSpan? = null,
   )
 
   fun invalidateAccessibilityItems() {
     needsRebuild = true
+    // Building the items reads the whole text, and a stream changes it many times a second.
+    // With no accessibility service on, nothing reads them: a query builds them first.
+    if (!isAccessibilityEnabled()) return
     if (textView.layout != null) {
       rebuildIfNeeded()
       invalidateRoot()
@@ -76,6 +81,9 @@ class MarkdownAccessibilityHelper(
       schedulePostLayoutRebuild()
     }
   }
+
+  private fun isAccessibilityEnabled(): Boolean =
+    (textView.context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)?.isEnabled == true
 
   private fun schedulePostLayoutRebuild() {
     if (pendingLayoutListener != null) return
@@ -153,6 +161,7 @@ class MarkdownAccessibilityHelper(
       val trimmed = text.substring(paraStart, paraEnd).trim()
 
       if (trimmed.isNotEmpty()) {
+        val headingLevel = spanned.getSpans(paraStart, paraEnd, HeadingSpan::class.java).maxOfOrNull { it.level } ?: 0
         val spansInParagraph =
           semanticSpans
             .filter { it.start < paraEnd && it.end > paraStart }
@@ -160,10 +169,10 @@ class MarkdownAccessibilityHelper(
 
         if (spansInParagraph.isEmpty()) {
           result.add(
-            createTextItem(nextId++, trimmed, paraStart, paraEnd, text, spanned),
+            createTextItem(nextId++, trimmed, paraStart, paraEnd, text, spanned, headingLevel),
           )
         } else {
-          nextId = addSegmentedItems(result, spanned, text, paraStart, paraEnd, spansInParagraph, nextId)
+          nextId = addSegmentedItems(result, spanned, text, paraStart, paraEnd, spansInParagraph, headingLevel, nextId)
         }
       }
       paraStart = paraEnd
@@ -204,14 +213,14 @@ class MarkdownAccessibilityHelper(
 
   private fun collectSemanticSpans(spanned: Spanned): List<SpanRange> =
     (
-      spanned.getSpans(0, spanned.length, HeadingSpan::class.java).map {
-        SpanRange(spanned.getSpanStart(it), spanned.getSpanEnd(it), headingLevel = it.level)
+      spanned.getSpans(0, spanned.length, LinkSpan::class.java).map {
+        SpanRange(spanned.getSpanStart(it), spanned.getSpanEnd(it), linkUrl = it.url)
       } +
-        spanned.getSpans(0, spanned.length, LinkSpan::class.java).map {
-          SpanRange(spanned.getSpanStart(it), spanned.getSpanEnd(it), linkUrl = it.url)
-        } +
         spanned.getSpans(0, spanned.length, ImageSpan::class.java).map {
           SpanRange(spanned.getSpanStart(it), spanned.getSpanEnd(it), imageAltText = it.altText)
+        } +
+        spanned.getSpans(0, spanned.length, SpokenSpan::class.java).map {
+          SpanRange(spanned.getSpanStart(it), spanned.getSpanEnd(it), spoken = it)
         }
     ).sortedBy { it.start }
 
@@ -222,6 +231,7 @@ class MarkdownAccessibilityHelper(
     paraStart: Int,
     paraEnd: Int,
     spans: List<SpanRange>,
+    headingLevel: Int,
     startId: Int,
   ): Int {
     var nextId = startId
@@ -234,7 +244,7 @@ class MarkdownAccessibilityHelper(
       if (segmentPos < span.start) {
         val beforeText = text.substring(segmentPos, span.start).trim()
         if (beforeText.isNotEmpty() && beforeText.any { it.isLetterOrDigit() }) {
-          items.add(createTextItem(nextId++, beforeText, segmentPos, span.start, text, spanned))
+          items.add(createTextItem(nextId++, beforeText, segmentPos, span.start, text, spanned, headingLevel))
         }
       }
 
@@ -247,7 +257,11 @@ class MarkdownAccessibilityHelper(
         } else {
           null
         }
-      val content = span.imageAltText ?: pill?.accessibilityText ?: spanned.substring(span.start, span.end).trim()
+      val content =
+        span.imageAltText
+          ?: span.spoken?.accessibilityLabel(labels)
+          ?: pill?.accessibilityText
+          ?: spanned.spokenText(span.start, span.end, labels)
       if (content.isNotEmpty()) {
         items.add(createSpanItem(nextId++, content, span, spanned))
       }
@@ -258,7 +272,7 @@ class MarkdownAccessibilityHelper(
     if (segmentPos < paraEnd) {
       val afterText = text.substring(segmentPos, paraEnd).trim()
       if (afterText.isNotEmpty() && afterText.any { it.isLetterOrDigit() }) {
-        items.add(createTextItem(nextId++, afterText, segmentPos, paraEnd, text, spanned))
+        items.add(createTextItem(nextId++, afterText, segmentPos, paraEnd, text, spanned, headingLevel))
       }
     }
 
@@ -272,6 +286,7 @@ class MarkdownAccessibilityHelper(
     end: Int,
     text: String,
     spanned: Spanned,
+    headingLevel: Int,
   ) = AccessibilityItem(
     id = id,
     text = label,
@@ -279,7 +294,8 @@ class MarkdownAccessibilityHelper(
     end = end,
     visibleStart = text.findFirstNonWhitespace(start, end),
     visibleEnd = text.findLastNonWhitespace(start, end),
-    listInfo = getListInfoAt(spanned, start, requireStart = true),
+    headingLevel = headingLevel,
+    listInfo = if (headingLevel > 0) null else getListInfoAt(spanned, start, requireStart = true),
   )
 
   private fun createSpanItem(
@@ -289,7 +305,7 @@ class MarkdownAccessibilityHelper(
     spanned: Spanned,
   ): AccessibilityItem {
     val listContext =
-      if (span.headingLevel > 0 || span.imageAltText != null) {
+      if (span.imageAltText != null) {
         null
       } else {
         getListInfoAt(spanned, span.start, requireStart = span.linkUrl == null)
@@ -299,7 +315,6 @@ class MarkdownAccessibilityHelper(
       text = content,
       start = span.start,
       end = span.end,
-      headingLevel = span.headingLevel,
       linkUrl = span.linkUrl,
       listInfo = listContext,
       imageAltText = span.imageAltText,
@@ -347,6 +362,7 @@ class MarkdownAccessibilityHelper(
     id: Int,
     node: AccessibilityNodeInfoCompat,
   ) {
+    rebuildIfNeeded()
     val item = items.getOrNull(id)
     if (item == null) {
       node.contentDescription = ""
@@ -368,6 +384,7 @@ class MarkdownAccessibilityHelper(
     action: Int,
     args: Bundle?,
   ): Boolean {
+    rebuildIfNeeded()
     val item = items.getOrNull(id) ?: return false
     if (action == AccessibilityNodeInfoCompat.ACTION_CLICK && item.isLink) {
       val spanned = textView.text as? Spanned ?: return false

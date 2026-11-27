@@ -14,7 +14,8 @@ import com.facebook.react.uimanager.annotations.ReactProp
 import com.facebook.react.viewmanagers.EnrichedMarkdownManagerDelegate
 import com.facebook.react.viewmanagers.EnrichedMarkdownManagerInterface
 import com.facebook.yoga.YogaMeasureMode
-import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
+import com.swmansion.enriched.markdown.segments.AdmonitionIcons
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayMode
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.MediaStreamingMode
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
@@ -25,7 +26,9 @@ import com.swmansion.enriched.markdown.utils.common.emitCopyPress
 import com.swmansion.enriched.markdown.utils.common.emitLatexError
 import com.swmansion.enriched.markdown.utils.common.emitLinkLongPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkPress
+import com.swmansion.enriched.markdown.utils.common.emitSelectionCopy
 import com.swmansion.enriched.markdown.utils.common.emitTaskListItemPress
+import com.swmansion.enriched.markdown.utils.common.getBooleanOrDefault
 import com.swmansion.enriched.markdown.utils.common.markdownEventTypeConstants
 import com.swmansion.enriched.markdown.utils.common.parseAccessibilityLabels
 import com.swmansion.enriched.markdown.utils.common.parseContextMenuItems
@@ -35,6 +38,7 @@ import com.swmansion.enriched.markdown.utils.common.parseLinkPillContent
 import com.swmansion.enriched.markdown.utils.common.parseLinkRecognition
 import com.swmansion.enriched.markdown.utils.common.parseMd4cFlags
 import com.swmansion.enriched.markdown.utils.common.parseSelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.text.StreamingEffects
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListToggleUtils
 
 // A ViewGroupManager because the React slot children (`renderers`) mount into the
@@ -53,6 +57,9 @@ class EnrichedMarkdownManager :
     val view = EnrichedMarkdown(reactContext)
     view.onContextMenuItemPressCallback = { itemText, selectedText, selectionStart, selectionEnd ->
       emitContextMenuItemPress(view, itemText, selectedText, selectionStart, selectionEnd)
+    }
+    view.onSelectionCopyCallback = { text, format, selectionStart, selectionEnd ->
+      emitSelectionCopy(view, text, format, selectionStart, selectionEnd)
     }
 
     view.setOnLinkPressCallback { url ->
@@ -154,6 +161,19 @@ class EnrichedMarkdownManager :
   ) {
     view?.setMarkdownContent(markdown ?: "")
   }
+
+  // A stream's text arrives as `markdown`, filled in by the component descriptor.
+  @ReactProp(name = "streamId", defaultInt = 0)
+  override fun setStreamId(
+    view: EnrichedMarkdown?,
+    streamId: Int,
+  ) = Unit
+
+  @ReactProp(name = "streamLength", defaultInt = 0)
+  override fun setStreamLength(
+    view: EnrichedMarkdown?,
+    streamLength: Int,
+  ) = Unit
 
   @ReactProp(name = "markdownStyle")
   override fun setMarkdownStyle(
@@ -259,6 +279,14 @@ class EnrichedMarkdownManager :
     view?.setEnableImagePress(enableImagePress)
   }
 
+  @ReactProp(name = "enableTextPress", defaultBoolean = false)
+  override fun setEnableTextPress(
+    view: EnrichedMarkdown?,
+    enableTextPress: Boolean,
+  ) {
+    view?.setEnableTextPress(enableTextPress)
+  }
+
   @ReactProp(name = "enableBlockContextMenu", defaultBoolean = true)
   override fun setEnableBlockContextMenu(
     view: EnrichedMarkdown?,
@@ -299,12 +327,12 @@ class EnrichedMarkdownManager :
     // No-op on Android — first-strong per-paragraph resolution is the platform default
   }
 
-  @ReactProp(name = "streamingAnimation", defaultBoolean = false)
-  override fun setStreamingAnimation(
+  @ReactProp(name = "streaming", defaultBoolean = false)
+  override fun setStreaming(
     view: EnrichedMarkdown?,
-    streamingAnimation: Boolean,
+    streaming: Boolean,
   ) {
-    view?.streamingAnimation = streamingAnimation
+    view?.setStreamingProp(streaming)
   }
 
   @ReactProp(name = "streamingConfig")
@@ -313,22 +341,11 @@ class EnrichedMarkdownManager :
     config: ReadableMap?,
   ) {
     if (view == null) return
-    val tableMode =
-      when (config?.getString("tableMode")) {
-        "hidden" -> TableStreamingMode.HIDDEN
-        else -> TableStreamingMode.PROGRESSIVE
-      }
-    view.tableStreamingMode = tableMode
-    view.codeBlockStreamingMode =
-      when (config?.getString("codeBlockMode")) {
-        "hidden" -> CodeBlockStreamingMode.HIDDEN
-        else -> CodeBlockStreamingMode.PROGRESSIVE
-      }
-    view.mediaStreamingMode =
-      when (config?.getString("mediaMode")) {
-        "hidden" -> MediaStreamingMode.HIDDEN
-        else -> MediaStreamingMode.PROGRESSIVE
-      }
+    view.tableStreamingMode = TableStreamingMode.fromString(config?.getString("tableMode"))
+    view.codeBlockStreamingMode = CodeBlockStreamingMode.fromString(config?.getString("codeBlockMode"))
+    view.mediaStreamingMode = MediaStreamingMode.fromString(config?.getString("mediaMode"))
+    view.setStreamingAnimation(StreamingEffects.Config.from(config, view.context))
+    view.smooth = config.getBooleanOrDefault("smooth", false)
   }
 
   @ReactProp(name = "spoilerOverlay")
@@ -336,7 +353,7 @@ class EnrichedMarkdownManager :
     view: EnrichedMarkdown?,
     mode: String?,
   ) {
-    view?.spoilerOverlay = SpoilerOverlay.fromString(mode)
+    view?.spoilerOverlay = SpoilerOverlayMode.fromString(mode)
   }
 
   @ReactProp(name = "textBreakStrategy")
@@ -423,6 +440,15 @@ class EnrichedMarkdownManager :
   ) {
     if (view == null) return
     view.setAccessibilityLabels(parseAccessibilityLabels(value))
+  }
+
+  @ReactProp(name = "admonitionTitles")
+  override fun setAdmonitionTitles(
+    view: EnrichedMarkdown?,
+    value: ReadableMap?,
+  ) {
+    if (view == null) return
+    view.setAdmonitionTitles(AdmonitionIcons.TYPES.associateWith { value?.getString(it).orEmpty() })
   }
 
   override fun setPadding(

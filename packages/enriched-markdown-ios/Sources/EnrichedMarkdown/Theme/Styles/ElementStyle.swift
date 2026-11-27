@@ -9,6 +9,9 @@ public struct ElementStyle: Equatable, Sendable {
     public var lineHeight: CGFloat?
     public var textAlignment: NSTextAlignment?
     public var underline: Bool?
+    public var borderColor: UIColor?
+    public var borderWidth: CGFloat?
+    public var cornerRadius: CGFloat?
 
     public init(
         font: UIFont? = nil,
@@ -18,7 +21,10 @@ public struct ElementStyle: Equatable, Sendable {
         marginBottom: CGFloat? = nil,
         lineHeight: CGFloat? = nil,
         textAlignment: NSTextAlignment? = nil,
-        underline: Bool? = nil
+        underline: Bool? = nil,
+        borderColor: UIColor? = nil,
+        borderWidth: CGFloat? = nil,
+        cornerRadius: CGFloat? = nil
     ) {
         self.font = font
         self.foregroundColor = foregroundColor
@@ -28,6 +34,9 @@ public struct ElementStyle: Equatable, Sendable {
         self.lineHeight = lineHeight
         self.textAlignment = textAlignment
         self.underline = underline
+        self.borderColor = borderColor
+        self.borderWidth = borderWidth
+        self.cornerRadius = cornerRadius
     }
 
     public mutating func merge(_ other: ElementStyle) {
@@ -39,5 +48,8 @@ public struct ElementStyle: Equatable, Sendable {
         lineHeight = other.lineHeight ?? lineHeight
         textAlignment = other.textAlignment ?? textAlignment
         underline = other.underline ?? underline
+        borderColor = other.borderColor ?? borderColor
+        borderWidth = other.borderWidth ?? borderWidth
+        cornerRadius = other.cornerRadius ?? cornerRadius
     }
 }

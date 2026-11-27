@@ -31,7 +31,7 @@ Markdown elements in `react-native-enriched-markdown` are organized into block a
 | Bold | `**text**` or `__text__` | `strong` | Parent block | Bold weight, optional color |
 | Italic | `*text*` or `_text_` | `em` | Parent block | Italic style, optional color |
 | Underline | `_text_` | `underline` | Parent block | Underline with custom color (color on iOS and web; requires `md4cFlags`) |
-| Strikethrough | `~~text~~` | `strikethrough` | Parent block | Strike line with custom color (color on iOS and web) |
+| Strikethrough | `~~text~~` (or `~text~`) | `strikethrough` | Parent block | Strike line with custom color (color on iOS and web; requires `flavor="github"` or `md4cFlags={{ strikethrough: true }}`) |
 | Bold + Italic | `***text***`, `___text___`, etc. | `strong` + `em` | Parent block | Combined emphasis |
 | Links | `[text](url)` | `link` | Parent block | Optional font family, color, underline |
 | Inline Code | `` `code` `` | `code` | Parent block | Monospace font, background, optional fontSize |
@@ -46,7 +46,7 @@ Markdown elements in `react-native-enriched-markdown` are organized into block a
 
 > **Note:** Underscore syntax (`__text__`, `_text_`) works for bold/italic by default. Enable underline via `md4cFlags={{ underline: true }}` to treat `_text_` as underline instead of emphasis.
 
-> **Note:** Enabling subscript (`md4cFlags={{ subscript: true }}`) changes the behaviour of single tildes — `~text~` becomes subscript instead of strikethrough. Double tildes (`~~text~~`) continue to work as strikethrough regardless.
+> **Note:** Single and double tildes are strikethrough under `flavor="github"` or with `md4cFlags={{ strikethrough: true }}`; otherwise CommonMark renders them literally. Enabling subscript (`md4cFlags={{ subscript: true }}`) changes the behaviour of single tildes — `~text~` becomes subscript instead of strikethrough. Double tildes (`~~text~~`) are not affected by the subscript flag.
 
 ### Nested Lists Example
 
@@ -167,7 +167,7 @@ Each blank line in the source renders as one empty line, so the output keeps the
 Images are automatically detected as block or inline based on context:
 
 - **Block images**: When an image is the only content in a paragraph (standalone), it's treated as a block image and uses block-level spacing
-- **Inline images**: When an image appears alongside other text content, it's treated as inline and aligns with the text baseline
+- **Inline images**: When an image appears alongside other text content, it's treated as inline: it sits in the text flow, centred on the text's cap height, in a square of `inlineImage.size`. The image is scaled up or down to fit inside that square, keeping its proportions, so it is never distorted or cropped
 
 You don't need to specify which type—the renderer automatically determines this based on the image's position in the content. Note that a single newline doesn't split a paragraph, so an image on its own source line directly below text is still inline; separate it with a blank line to make it a block image.
 

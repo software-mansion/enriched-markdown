@@ -17263,6 +17263,27 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"react-native-enriched-markdown-spm-example@workspace:apps/react-native-spm-example":
+  version: 0.0.0-use.local
+  resolution: "react-native-enriched-markdown-spm-example@workspace:apps/react-native-spm-example"
+  dependencies:
+    "@babel/core": "npm:^7.25.2"
+    "@babel/preset-env": "npm:^7.25.3"
+    "@babel/runtime": "npm:^7.25.0"
+    "@react-native-community/cli": "npm:20.2.0"
+    "@react-native-community/cli-platform-ios": "npm:20.2.0"
+    "@react-native/babel-preset": "npm:0.88.0"
+    "@react-native/metro-config": "npm:0.88.0"
+    "@react-native/typescript-config": "npm:0.88.0"
+    "@types/react": "npm:^19.2.0"
+    react: "npm:19.3.0"
+    react-native: "npm:0.88.0"
+    react-native-builder-bob: "npm:^0.41.0"
+    react-native-enriched-markdown: "npm:*"
+    react-native-monorepo-config: "npm:^0.3.3"
+  languageName: unknown
+  linkType: soft
+
 "react-native-enriched-markdown-web-example@workspace:apps/react-native-web-example":
   version: 0.0.0-use.local
   resolution: "react-native-enriched-markdown-web-example@workspace:apps/react-native-web-example"

@@ -22,6 +22,10 @@
 
 #include "MarkdownRepair.hpp"
 
+namespace Markdown::UnicodeTables {
+struct Range;
+}
+
 namespace Markdown::RepairInternal {
 
 constexpr size_t npos = std::string_view::npos;
@@ -64,6 +68,11 @@ bool isSpaceTabNewline(uint32_t codePoint);
 bool isAsciiDigit(char c);
 bool isAsciiLetterOrSlash(char c);
 
+bool inRanges(uint32_t codePoint, const UnicodeTables::Range *ranges, size_t count);
+
+// md4c's ISUNICODEPUNCT: Unicode general categories P and S.
+bool isUnicodePunctuation(uint32_t codePoint);
+
 std::string_view jsTrimStart(std::string_view text);
 std::string_view jsTrimEnd(std::string_view text);
 std::string_view jsTrim(std::string_view text);
@@ -84,14 +93,20 @@ bool isEscaped(std::string_view text, size_t i);
 
 bool isTripleAt(std::string_view text, size_t i);
 
-// A fence marker: ``` anywhere, as the reference counts it, or ~~~ with only
-// indentation before it on its line. `fence` is the character of the open
-// fence, or 0. A marker of the other character inside an open fence is
-// content. When a marker is consumed, i is advanced to its last byte (the
-// caller's loop takes the final step) and the result is true.
-bool consumeFence(std::string_view text, size_t &i, char &fence);
+// A fence marker: three or more backticks anywhere, as the reference counts
+// them, or tildes with only indentation before them on their line. `fence`
+// is the open fence, or none. Inside an open fence a run of the other
+// character, or a shorter run of the same one, is content. When a marker is
+// consumed, i is advanced to its last byte (the caller's loop takes the
+// final step) and the result is true.
+struct Fence {
+  char c = 0;
+  size_t length = 0;
+};
+bool consumeFence(std::string_view text, size_t &i, Fence &fence);
 
-// The text ends inside an unclosed fence.
+// The fence the text ends inside, or none.
+Fence unclosedFence(std::string_view text);
 bool endsInsideFence(std::string_view text);
 
 // Non-overlapping occurrence count, like text.match(/needle/g).length.
@@ -106,6 +121,10 @@ std::string_view lineAt(std::string_view text, size_t index);
 // Length of a list marker at the start of `line` (`-`, `*`, `+`, or digits
 // followed by `.` or `)`), or npos if the line does not start with one.
 size_t skipListMarker(std::string_view line);
+
+// Strips the blockquote markers that open `line`, each allowed up to three
+// spaces of indentation before it and one space after, and counts them.
+std::string_view stripBlockquotes(std::string_view line, size_t &depth);
 
 // --- Regex stand-ins -------------------------------------------------------
 
@@ -135,6 +154,13 @@ bool isPartOfTriple(std::string_view text, size_t i);
 // countSingleBackticks(): backticks that are neither escaped nor part of ```.
 size_t countSingleBackticks(std::string_view text);
 
+// The `[` at `bracket` opens an image: an unescaped `!` precedes it.
+bool isImageBang(std::string_view text, size_t bracket);
+
+// Where a link label may start: a `[` still open further from the end is
+// prose with a stray bracket (512 bytes), which also bounds the bracket scans.
+size_t openLabelWindowStart(std::string_view text);
+
 // findMatchingOpeningBracket() / findMatchingClosingBracket(), nesting-aware.
 size_t findMatchingOpeningBracket(std::string_view text, size_t closeIndex);
 size_t findMatchingClosingBracket(std::string_view text, size_t openIndex);
@@ -152,6 +178,13 @@ private:
   std::vector<uint8_t> insideAt_;
 };
 
+struct DollarRun {
+  size_t length;
+  bool canOpen;
+  bool canClose;
+};
+DollarRun dollarRunAt(std::string_view text, size_t i);
+
 // isWithinMathBlock() as a lookup: inside(p) is true when scanning [0, p)
 // ends inside `$…$`, `$$…$$`, `\(…\)` or `\[…\]`. Built only when the text
 // contains a math delimiter, since most callers check that first. With
@@ -159,7 +192,7 @@ private:
 // always treats it as math, so `$5 and *x` never closed there.
 class MathLookup {
 public:
-  explicit MathLookup(std::string_view text, bool inlineDollar = true);
+  explicit MathLookup(std::string_view text, bool inlineDollar = true, const CodeLookup *code = nullptr);
   bool inside(size_t position) const;
 
 private:
@@ -236,7 +269,7 @@ bool isBracketNotALink(std::string_view text, size_t idx, const LineMarkerLookup
 // 2. Lookups shared by the handlers (code, math, complete inline code), built
 //    on first use and rebuilt only when an edit could have changed them.
 // 3. The closer tail: closers placed so far sit in one contiguous run just
-//    before any trailing newlines, ordered so that a later opener closes
+//    before any trailing whitespace, ordered so that a later opener closes
 //    first (`**bold `code` becomes `**bold `code`**`). Insertion is immediate,
 //    as in the reference, so later handlers see earlier closers and never
 //    close the same construct twice.
@@ -246,7 +279,8 @@ bool isBracketNotALink(std::string_view text, size_t idx, const LineMarkerLookup
 // their reading first and edit as their final step.
 class RepairContext {
 public:
-  explicit RepairContext(std::string &text, bool inlineMath = false) : text_(text), inlineMath_(inlineMath) {}
+  explicit RepairContext(std::string &text, bool inlineMath = false, bool parserMath = false)
+      : text_(text), inlineMath_(inlineMath), parserMath_(parserMath) {}
 
   // --- reading
   std::string_view text() const {
@@ -296,6 +330,7 @@ private:
 
   std::string &text_;
   bool inlineMath_; // whether a lone `$` opens math (RepairOptions::inlineMath)
+  bool parserMath_;
 
   std::optional<CodeLookup> code_;
   std::optional<MathLookup> math_;
@@ -312,9 +347,9 @@ private:
 // visitor returns true to stop early and may advance `i` past bytes it
 // consumed; most leave it alone.
 template <class Visitor> void scanOutsideFences(std::string_view text, Visitor visit) {
-  char fence = 0;
+  Fence fence;
   for (size_t i = 0; i < text.size(); ++i) {
-    if (consumeFence(text, i, fence) || fence != 0) {
+    if (consumeFence(text, i, fence) || fence.c != 0) {
       continue;
     }
     if (visit(i)) {
@@ -348,4 +383,7 @@ void spoilers(RepairContext &ctx);
 void highlight(RepairContext &ctx);
 void superscript(RepairContext &ctx);
 void subscript(RepairContext &ctx);
+// endsInText: the input ended without whitespace, so a `(` may still follow
+// its last character.
+void withhold(RepairContext &ctx, const RepairOptions &options, bool endsInText);
 } // namespace Markdown::RepairHandlers

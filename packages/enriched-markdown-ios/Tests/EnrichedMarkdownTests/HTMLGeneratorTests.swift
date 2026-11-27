@@ -163,9 +163,34 @@ final class HTMLGeneratorTests: XCTestCase {
         XCTAssertTrue(result.contains("border-inline-start: 3px solid #0969DA;"), result)
         XCTAssertTrue(result.contains("background-color: transparent;"))
         XCTAssertTrue(result.contains("<svg width=\"17\" height=\"17\" viewBox=\"0 0 16 16\" fill=\"#0969DA\""))
-        XCTAssertTrue(result.contains("<span>Note</span></div><p style="))
+        XCTAssertTrue(result.contains("<bdi>Note</bdi></div><p style="))
         XCTAssertTrue(result.contains("body</p></blockquote>"))
         XCTAssertFalse(result.contains(">Note</p>"))
+    }
+
+    func testAdmonitionHeaderUsesTheRenderedTitle() {
+        let titles = MarkdownAdmonitionTitles(note: "<Uwaga>", tip: "")
+        let rendered = MarkdownRenderer.render(
+            "> [!NOTE]\n> a\n\n> [!TIP]\n> b",
+            config: config,
+            options: MarkdownParsingOptions(admonitions: true),
+            admonitionTitles: titles
+        )
+        let result = MarkdownHTMLGenerator.generateHTML(
+            from: rendered,
+            in: NSRange(location: 0, length: rendered.length),
+            config: config
+        )
+
+        XCTAssertTrue(result.contains("<bdi>&lt;Uwaga&gt;</bdi></div>"), result)
+        XCTAssertEqual(result.components(separatedBy: "<bdi>").count - 1, 1, result)
+        // A selection starting inside the title still exports the whole title.
+        let partial = MarkdownHTMLGenerator.generateHTML(
+            from: rendered,
+            in: NSRange(location: 3, length: rendered.length - 3),
+            config: config
+        )
+        XCTAssertTrue(partial.contains("<bdi>&lt;Uwaga&gt;</bdi></div>"), partial)
     }
 
     func testAdmonitionBackgroundComesFromTheme() {
@@ -180,8 +205,8 @@ final class HTMLGeneratorTests: XCTestCase {
 
         XCTAssertEqual(result.components(separatedBy: "<blockquote").count - 1, 2)
         XCTAssertEqual(result.components(separatedBy: "</blockquote>").count - 1, 2)
-        XCTAssertTrue(result.contains("<span>Warning</span>"))
-        XCTAssertTrue(result.contains("<span>Tip</span>"))
+        XCTAssertTrue(result.contains("<bdi>Warning</bdi>"))
+        XCTAssertTrue(result.contains("<bdi>Tip</bdi>"))
         XCTAssertTrue(result.contains("outer</p><blockquote style=\"background-color: transparent; border-inline-start: 3px solid #1A7F37;"), result)
     }
 

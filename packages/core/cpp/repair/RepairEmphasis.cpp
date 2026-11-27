@@ -114,14 +114,14 @@ DelimiterCount countSingleUnderscores(std::string_view text, const MathLookup &m
 size_t countTripleAsterisks(std::string_view text) {
   size_t count = 0;
   size_t run = 0;
-  char fence = 0;
+  Fence fence;
   for (size_t i = 0; i < text.size(); ++i) {
     if (consumeFence(text, i, fence)) {
       count += run / 3;
       run = 0;
       continue;
     }
-    if (fence != 0) {
+    if (fence.c != 0) {
       continue;
     }
     if (text[i] == '*') {

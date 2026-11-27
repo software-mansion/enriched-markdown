@@ -9,6 +9,17 @@ import com.swmansion.enriched.markdown.compose.MarkdownPlugins
  * [LatexMathPlugin] is enough for `LatexMathPlugin { ... }`.
  */
 @Composable
-fun LatexMathPlugin(content: @Composable () -> Unit) {
-  MarkdownPlugins(LatexMathPlugin, content = content)
+fun LatexMathPlugin(
+  accessibilityLabel: String = MathAccessibilityLabel.DEFAULT_TEMPLATE,
+  content: @Composable () -> Unit,
+) {
+  MarkdownPlugins(LatexMathPlugin(accessibilityLabel), content = content)
+}
+
+@Composable
+fun LatexMathPlugin(
+  accessibilityLabel: MathAccessibilityLabel,
+  content: @Composable () -> Unit,
+) {
+  MarkdownPlugins(LatexMathPlugin(accessibilityLabel), content = content)
 }

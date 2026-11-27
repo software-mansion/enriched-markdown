@@ -85,7 +85,7 @@ const argTypes = {
   mathEquation: {
     control: 'text',
     description:
-      'accessibilityLabels.math.equation — math equation. `{latex}` → equation source.',
+      'accessibilityLabels.math.equation — math equation. `{speech}` → the formula read in English, `{latex}` → equation source.',
   },
   rotorHeadings: {
     control: 'text',
@@ -116,7 +116,7 @@ export const Default: TextStory<AccessibilityLabelsStoryExtra> = {
     blockquote: 'Zitat',
     nestedBlockquote: 'Verschachteltes Zitat',
     tableRow: 'Zeile {n}: {content}',
-    mathEquation: 'Formel: {latex}',
+    mathEquation: 'Formel: {speech}',
     rotorHeadings: 'Überschriften',
     rotorLinks: 'Links',
     rotorImages: 'Bilder',
@@ -138,7 +138,7 @@ export const Default: TextStory<AccessibilityLabelsStoryExtra> = {
   }) => (
     <EnrichedMarkdownTextStory
       title="Accessibility Labels"
-      description="Strings spoken by VoiceOver (iOS) and TalkBack (Android). Edit any field and toggle the screen reader to hear the override. Placeholders ({n}, {content}, {latex}) are substituted at speak time. Rotor labels are iOS-only."
+      description="Strings spoken by VoiceOver (iOS) and TalkBack (Android). Edit any field and toggle the screen reader to hear the override. Placeholders ({n}, {content}, {speech}, {latex}) are substituted at speak time. Rotor labels are iOS-only."
       flavor="github"
       md4cFlags={{ underline: true, latexMath: true }}
       {...args}

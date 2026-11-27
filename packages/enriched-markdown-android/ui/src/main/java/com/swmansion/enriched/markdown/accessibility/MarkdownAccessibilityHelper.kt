@@ -1,3 +1,5 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.accessibility
 
 import android.graphics.Rect
@@ -10,6 +12,8 @@ import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.plugin.PluginInlineSpan
 import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
 import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.HeadingSpan
@@ -70,6 +74,7 @@ class MarkdownAccessibilityHelper(
     val headingLevel: Int = 0,
     val linkUrl: String? = null,
     val imageAltText: String? = null,
+    val spokenLabel: String? = null,
   )
 
   fun invalidateAccessibilityItems() {
@@ -233,7 +238,8 @@ class MarkdownAccessibilityHelper(
 
     for (header in spanned.getSpans(0, spanned.length, AdmonitionHeaderSpan::class.java)) {
       val start = spanned.getSpanStart(header)
-      if (start < 0 || start >= endLimit) continue
+      // An empty title shows the icon only, so there is nothing to read.
+      if (start < 0 || start >= endLimit || header.title.isEmpty()) continue
       val line = layout.getLineForOffset(start)
 
       items.add(
@@ -268,6 +274,9 @@ class MarkdownAccessibilityHelper(
         } +
         spanned.getSpans(0, spanned.length, ImageSpan::class.java).map {
           SpanRange(spanned.getSpanStart(it), spanned.getSpanEnd(it), imageAltText = it.altText)
+        } +
+        spanned.getSpans(0, spanned.length, PluginInlineSpan::class.java).mapNotNull { span ->
+          span.toAccessibilityLabel()?.let { SpanRange(spanned.getSpanStart(span), spanned.getSpanEnd(span), spokenLabel = it) }
         }
     ).sortedBy { it.start }
 
@@ -295,7 +304,7 @@ class MarkdownAccessibilityHelper(
       }
 
       // The semantic span itself
-      val content = span.imageAltText?.ifEmpty { "Image" } ?: spanned.substring(span.start, span.end).trim()
+      val content = span.imageAltText?.ifEmpty { "Image" } ?: span.spokenLabel ?: spokenText(spanned, span.start, span.end)
       if (content.isNotEmpty()) {
         items.add(createSpanItem(nextId++, content, span, spanned))
       }
@@ -311,6 +320,23 @@ class MarkdownAccessibilityHelper(
     }
 
     return nextId
+  }
+
+  private fun spokenText(
+    spanned: Spanned,
+    start: Int,
+    end: Int,
+  ): String {
+    val text = StringBuilder()
+    var pos = start
+    for (span in spanned.getSpans(start, end, PluginInlineSpan::class.java).sortedBy { spanned.getSpanStart(it) }) {
+      val label = span.toAccessibilityLabel() ?: continue
+      val spanStart = spanned.getSpanStart(span)
+      if (spanStart < pos) continue
+      text.append(spanned, pos, spanStart).append(label)
+      pos = minOf(spanned.getSpanEnd(span), end)
+    }
+    return text.append(spanned, pos, end).toString().trim()
   }
 
   private fun createTextItem(
@@ -571,6 +597,9 @@ class MarkdownAccessibilityHelper(
         .maxByOrNull { it.depth } ?: return null
 
     if (requireStart) {
+      // An item split around a code block starts only where its marker is drawn: the segments after
+      // the code block continue it.
+      if (!deepest.drawsMarker) return null
       val spanStart = spanned.getSpanStart(deepest)
       val firstChar =
         (spanStart until minOf(spanStart + 10, spanned.length))

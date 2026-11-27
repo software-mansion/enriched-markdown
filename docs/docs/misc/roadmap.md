@@ -21,7 +21,7 @@ the next releases; **planned** means it is on the list without a timeline yet.
 The React Native package ships on iOS, Android, macOS and the web - the
 **iOS / Android** column below is that package. The
 [web build](/react-native/guides/web-support) covers `EnrichedMarkdownText`,
-plus an [experimental editor](/react-native/guides/web-editor), and macOS runs the iOS code with a few gaps of its own. The standalone
+plus the [editor](/react-native/guides/web-editor), and macOS runs the iOS code with a few gaps of its own. The standalone
 [iOS package](/ios/basics/installation) (0.4.0) and
 [Android package](/android/basics/installation) (0.3.0) are renderers for
 SwiftUI and Jetpack Compose apps, and have their own columns.
@@ -32,7 +32,7 @@ SwiftUI and Jetpack Compose apps, and have their own columns.
 | GFM (tables, task lists, strikethrough, autolinks) | Yes | Yes | Yes | Yes | Yes |
 | [Admonitions](/react-native/api-reference/element-structure#admonitions) | Yes | Yes | Yes | Yes | Yes |
 | Extended Markdown (underline, superscript, subscript, highlight) | Yes | Yes | Yes | Yes | Yes |
-| Spoilers | Yes | Yes | Yes | Yes | Planned |
+| Spoilers | Yes | Yes | Yes | Yes | Solid cover only |
 | [Videos](/react-native/api-reference/element-structure#videos) | Yes | Planned | Planned | Yes | Yes |
 | [LaTeX math](/rich-text-formatting/latex-math) | Yes | Yes | Yes | Inline only | Yes |
 | [Code-block highlighting](/rich-text-formatting/code-highlighting) | Yes | Yes | Yes | Yes | Planned |
@@ -40,7 +40,7 @@ SwiftUI and Jetpack Compose apps, and have their own columns.
 | [Smart copy](/user-experience/copy-options) | Yes | Plain text + HTML | Yes | Yes | Planned |
 | [Accessibility](/user-experience/accessibility) | Yes | Yes | Partial | Planned | Partial |
 | [RTL](/user-experience/rtl) | Yes | Yes | Yes | Yes | Container-level |
-| `EnrichedMarkdownTextInput` (editor) | Yes | Planned | Planned | Yes | Experimental |
+| `EnrichedMarkdownTextInput` (editor) | Yes | Planned | Planned | Yes | Partial |
 
 In the native columns, LaTeX math comes from an optional add-on - the
 `EnrichedMarkdownLaTeX` product on iOS, the `math` artifact on Android - and so
@@ -58,7 +58,7 @@ English with no way to override them.
   Inline math renders correctly today.
 - **VoiceOver**, pending an `NSAccessibility` implementation - a no-op stub
   ships now.
-- **Tail fade-in animation**, which falls back to an instant reveal.
+- **Streaming animations** (`'fade'`, `'gradient'`), which fall back to an instant reveal.
 - **System font-scale observation.**
 
 ## Planned
@@ -87,7 +87,8 @@ blockquotes do, on every target.
 
 `EnrichedMarkdownText` on Android does not yet expose selection colors, font
 scaling, the copy actions, label localization or break strategy, and
-accessibility labels cannot be overridden at any layer.
+accessibility labels other than the formula label cannot be overridden at any
+layer.
 
 ### The editor on native {#the-editor-on-native}
 
@@ -98,15 +99,13 @@ is available today.
 
 ### Web {#web}
 
-The [web build](/react-native/guides/web-support) ships the renderer. Still to
-come:
+The [web build](/react-native/guides/web-support) ships the renderer and the
+editor. Still to come:
 
-- **A stable editor.** `EnrichedMarkdownTextInput` runs on web as an
-  [experimental build](/react-native/guides/web-editor). Still missing there:
-  Markdown shortcuts, link and mention commands, auto-link detection, custom
-  menus and `markdownStyle.linkVariants`.
-- **Spoilers**, which are currently dropped along with their text - the most
-  important gap on this list.
+- **Editor parity.** The [web editor](/react-native/guides/web-editor) is still
+  missing Markdown shortcuts, link and mention commands, auto-link detection,
+  custom menus and `markdownStyle.linkVariants`.
+- **Particle spoilers.** Spoilers are concealed by the solid cover only.
 - **Code-block highlighting**, including the header and copy button.
 - **[Streaming](/rich-text-formatting/markdown-streaming)** and
   **[smart copy](/user-experience/copy-options)**, neither of which has a web

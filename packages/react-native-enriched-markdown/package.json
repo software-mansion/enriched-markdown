@@ -1,6 +1,6 @@
 {
   "name": "react-native-enriched-markdown",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Markdown-based Rich Text solution for React Native",
   "main": "./lib/module/index",
   "module": "./lib/module/index",
@@ -16,6 +16,8 @@
     "cpp",
     "common",
     "*.podspec",
+    "Package.swift",
+    "spm-plugin.js",
     "jest.js",
     "jest.d.ts",
     "react-native.config.js",
@@ -24,8 +26,10 @@
     "vendor-ratex.mjs",
     "ratex-version.json",
     "!ios/build",
+    "!ios/generated",
     "!ios/vendor",
     "!android/build",
+    "!android/generated",
     "!android/gradle",
     "!android/gradlew",
     "!android/gradlew.bat",
@@ -132,7 +136,6 @@
     "source": "src",
     "output": "lib",
     "targets": [
-      "codegen",
       [
         "module",
         {
@@ -147,14 +150,13 @@
       ]
     ]
   },
+  "swiftpmConfig": {
+    "autolinkingPlugin": "./spm-plugin.js"
+  },
   "codegenConfig": {
     "name": "EnrichedMarkdownTextSpec",
     "type": "all",
     "jsSrcsDir": "src",
-    "outputDir": {
-      "ios": "ios/generated",
-      "android": "android/generated"
-    },
     "android": {
       "javaPackageName": "com.swmansion.enriched.markdown"
     },
@@ -176,8 +178,7 @@
       "modulesProvider": {
         "EnrichedMarkdownParser": "EnrichedMarkdownParserProvider"
       }
-    },
-    "includesGeneratedCode": true
+    }
   },
   "create-react-native-library": {
     "type": "fabric-view",

@@ -41,6 +41,7 @@ class ListContextManager(
   fun enterList(
     listType: BlockStyleContext.ListType,
     style: ListStyle,
+    startNumber: Int = 1,
     markerExtraWidth: Float = 0f,
   ): ListEntryState {
     val previousDepth = context.listDepth
@@ -64,7 +65,7 @@ class ListContextManager(
         context.setUnorderedListStyle(style)
       }
     }
-    context.resetListItemNumber()
+    context.resetListItemNumber(startNumber)
 
     val previousMarkerExtra = context.listMarkerExtra
     val previousMarkerOffset = context.ancestorMarkerOffset

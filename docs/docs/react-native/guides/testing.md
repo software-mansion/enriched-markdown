@@ -40,7 +40,7 @@ Your config's `transformIgnorePatterns` replaces the preset's rather than mergin
 
 ## What the mock does
 
-- **Renders a real `TextInput`.** React Native Testing Library queries (`getByTestId`, `getByPlaceholderText`, ...) and `fireEvent.changeText` work out of the box. `EnrichedMarkdownText` renders its `markdown` prop as plain text.
+- **Renders a real `TextInput`.** React Native Testing Library queries (`getByTestId`, `getByPlaceholderText`, ...) and `fireEvent.changeText` work out of the box. `EnrichedMarkdownText` renders its `markdown` prop (or a `stream`'s text) as plain text, and calls `onStreamingEnd` when `streaming` turns off or the stream ends.
 - **Emits change events on user input.** Typing fires `onChangeText` and, when a handler is provided, `onChangeMarkdown`. The mock cannot parse markdown, so it forwards the raw text to `onChangeMarkdown` as a stand-in.
 - **Mirrors `setValue` suppression.** Calling `setValue()` updates the rendered text so the programmatic value is observable, but emits **no** change events - matching the native component's suppression of emits for programmatic updates.
 - **Exposes every imperative method as a spy.** `toggleBold`, `insertMention`, `setSelection`, and the rest are `jest.fn()`s you can assert against. So are `focus`/`blur` (which forward to the inner `TextInput`) and `measure`/`measureInWindow`/`measureLayout`, which immediately invoke their callback with all zeros rather than hanging. The async methods resolve sensible values: `getMarkdown()` resolves the current text and `getCaretRect()` resolves `{ x: 0, y: 0, width: 0, height: 0 }`.

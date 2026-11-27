@@ -5,6 +5,7 @@ package com.swmansion.enriched.markdown.segments
 import android.content.Context
 import android.text.Spannable
 import android.view.View
+import com.swmansion.enriched.markdown.AdmonitionTitles
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.plugin.PluginBlockSegment
@@ -79,6 +80,7 @@ object MarkdownSegmentRenderer {
     onLinkLongPress: ((String) -> Unit)? = null,
     onPluginEvent: PluginEventSink? = null,
     plugins: PluginSnapshot,
+    admonitionTitles: AdmonitionTitles = AdmonitionTitles.Default,
   ): List<RenderedSegment> {
     // Task indices must stay document-global: each Text segment gets a fresh Renderer,
     // so the running count is threaded through explicitly rather than reset per segment.
@@ -96,6 +98,7 @@ object MarkdownSegmentRenderer {
           onPluginEvent,
           plugins,
           taskIndexOffset,
+          admonitionTitles,
         )
       taskIndexOffset = taskItemCount
       return rendered
@@ -155,8 +158,9 @@ object MarkdownSegmentRenderer {
     onPluginEvent: PluginEventSink?,
     plugins: PluginSnapshot,
     startingTaskIndex: Int,
+    admonitionTitles: AdmonitionTitles,
   ): Pair<RenderedSegment.Text, Int> {
-    val renderer = Renderer().apply { configure(style, context, imageRequestHeaders, onPluginEvent, plugins) }
+    val renderer = Renderer().apply { configure(style, context, imageRequestHeaders, onPluginEvent, plugins, admonitionTitles) }
     val signature = SegmentSignature.signatureForNodes(nodes) xor SegmentSignature.TEXT_KIND_SALT
 
     val styledText = renderer.renderContent(nodes, onLinkPress, onLinkLongPress, startingTaskIndex)

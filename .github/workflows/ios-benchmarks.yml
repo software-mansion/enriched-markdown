@@ -101,7 +101,7 @@ jobs:
           # Measure on a settled simulator, not one still finishing its boot.
           xcrun simctl bootstatus "$UDID" -b
 
-      # Only a 2x slowdown fails the job; smaller differences are runner noise.
+      # Only a 2x slowdown or memory growth fails the job; smaller differences are runner noise.
       - name: Compare benchmarks against the base branch
         working-directory: packages/enriched-markdown-ios
         run: |

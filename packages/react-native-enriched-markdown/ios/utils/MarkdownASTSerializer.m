@@ -148,7 +148,7 @@ static void appendTableMarkdown(MarkdownASTNode *node, NSMutableString *buffer)
         continue;
       NSMutableArray<NSString *> *cells = [NSMutableArray arrayWithCapacity:row.children.count];
       for (MarkdownASTNode *cell in row.children) {
-        [cells addObject:markdownFromASTNodeChildren(cell)];
+        [cells addObject:markdownFromTableCellNode(cell)];
       }
       [buffer appendFormat:@"| %@ |\n", [cells componentsJoinedByString:@" | "]];
       if (!headerDone) {
@@ -331,6 +331,22 @@ NSString *markdownFromASTNodeChildren(MarkdownASTNode *node)
   NSMutableString *buffer = [NSMutableString string];
   serializeChildren(node, buffer);
   return [buffer copy];
+}
+
+NSString *markdownFromTableCellNode(MarkdownASTNode *node)
+{
+  static NSCharacterSet *lineEndings;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{ lineEndings = [NSCharacterSet characterSetWithCharactersInString:@"\r\n"]; });
+  NSString *markdown = markdownFromASTNodeChildren(node);
+  if ([markdown rangeOfCharacterFromSet:lineEndings].location == NSNotFound)
+    return markdown;
+  markdown = [markdown stringByReplacingOccurrencesOfString:@"(?<!\\\\)\\\\+(?=[\r\n])"
+                                                 withString:@"$0$0"
+                                                    options:NSRegularExpressionSearch
+                                                      range:NSMakeRange(0, markdown.length)];
+  markdown = [markdown stringByReplacingOccurrencesOfString:@"\r" withString:@"&#13;"];
+  return [markdown stringByReplacingOccurrencesOfString:@"\n" withString:@"&#10;"];
 }
 
 NSString *markdownFromBlockquoteNode(MarkdownASTNode *node)

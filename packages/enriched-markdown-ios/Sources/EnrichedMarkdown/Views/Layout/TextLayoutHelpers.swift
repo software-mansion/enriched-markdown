@@ -39,8 +39,7 @@ struct ParagraphMarkerLayout {
         }
 
         let layoutBaselineY = origin.y + segmentFrame.minY + baselineFromLineTop
-        let baselineOffset = CGFloat((attrs[.baselineOffset] as? NSNumber)?.doubleValue ?? 0)
-        visualBaselineY = layoutBaselineY - baselineOffset
+        visualBaselineY = layoutBaselineY - MarkdownAttributeValue.baselineOffset(in: attrs)
 
         if isRTL {
             let textEndX = max(segmentFrame.maxX, textStartX)
@@ -57,6 +56,20 @@ struct ParagraphMarkerLayout {
         let originX = isRTL ? markerX : markerX - size
         let centerY = visualBaselineY - font.capHeight / 2
         return CGRect(x: originX, y: centerY - size / 2, width: size, height: size)
+    }
+}
+
+struct TextKit1Stack {
+    let storage: NSTextStorage
+    let layoutManager = NSLayoutManager()
+    let container: NSTextContainer
+
+    init(text: NSAttributedString, size: CGSize) {
+        storage = NSTextStorage(attributedString: text)
+        container = NSTextContainer(size: size)
+        container.lineFragmentPadding = 0
+        layoutManager.addTextContainer(container)
+        storage.addLayoutManager(layoutManager)
     }
 }
 
@@ -93,19 +106,29 @@ enum TextLayoutHelpers {
         in textView: UITextView,
         _ body: (CGRect, NSRange, CGFloat) -> Void
     ) {
-        guard let textLayoutManager = textView.textLayoutManager,
-              let contentManager = textLayoutManager.textContentManager,
+        guard let textLayoutManager = textView.textLayoutManager else { return }
+        let inset = textView.textContainerInset
+        enumerateSegmentFrames(of: range, in: textLayoutManager) { frame, segmentRange, baseline in
+            body(frame.offsetBy(dx: inset.left, dy: inset.top), segmentRange, baseline)
+        }
+    }
+
+    static func enumerateSegmentFrames(
+        of range: NSRange,
+        in textLayoutManager: NSTextLayoutManager,
+        _ body: (CGRect, NSRange, CGFloat) -> Void
+    ) {
+        guard let contentManager = textLayoutManager.textContentManager,
               let textRange = textRange(range, in: contentManager)
         else { return }
 
-        let inset = textView.textContainerInset
         var previous: NSRange?
         textLayoutManager.ensureLayout(for: textRange)
         textLayoutManager.enumerateTextSegments(in: textRange, type: .standard, options: []) { segment, frame, baseline, _ in
             guard let segment, let segmentRange = nsRange(segment, in: contentManager), segmentRange != previous
             else { return true }
             previous = segmentRange
-            body(frame.offsetBy(dx: inset.left, dy: inset.top), segmentRange, baseline)
+            body(frame, segmentRange, baseline)
             return true
         }
     }

@@ -61,6 +61,4 @@ class HeadingBlockHandler : BlockHandler {
   }
 
   override fun spanClasses(): List<Class<*>> = listOf(InputHeadingSpan::class.java)
-
-  override fun markdownLinePrefix(blockRange: BlockRange): String = "#".repeat(blockRange.level.coerceIn(1, 6)) + " "
 }

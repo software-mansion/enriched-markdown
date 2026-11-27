@@ -29,6 +29,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy, readonly) NSArray<NSNumber *> *listItemOrdered; // YES = ordered, NO = bullet
 
 + (instancetype)infoFromContext:(RenderContext *)context;
+// The entries before `location`, then those of `tail` moved by `offset`: the info of a text that
+// kept this one's text up to `location` and continued with `tail`'s.
+- (instancetype)infoKeepingBefore:(NSUInteger)location appending:(AccessibilityInfo *)tail offset:(NSInteger)offset;
 
 @end
 

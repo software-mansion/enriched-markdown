@@ -106,7 +106,7 @@ EnrichedMarkdownText(content)
 - **`{speech}`** is replaced by the spoken form. The default template is `"Math: {speech}"`.
 - **`{latex}`** is replaced by the raw source instead, for apps that would rather read the markup.
 
-The built-in conversion (`LaTeXSpeech.spokenForm(of:)`, which is public) is **English** and covers fractions, roots, powers and indices, sums, products, integrals and limits with their bounds, Greek letters, common relations and functions, decorations, and `\text`. A command it does not know is read by name. To localize a formula, or to plug in your own converter, pass a closure instead of a template:
+The built-in conversion (`LaTeXSpeech.spokenForm(of:)`, which is public) is **English** and covers fractions, roots, powers and indices, sums, products, integrals and limits with their bounds, matrices and cases, Greek letters, common relations and functions, decorations, and `\text`. A command it does not know is read by name. To localize a formula, or to plug in your own converter, pass a closure instead of a template:
 
 ```swift
 EnrichedMarkdownText(content)
@@ -117,7 +117,7 @@ The closure receives the raw source and runs on the render queue, so keep it che
 
 ## Rendering without a view {#rendering-without-a-view}
 
-`MarkdownRenderer.renderLaTeX` is [`MarkdownRenderer.render`](/ios/api-reference/markdown-theme#markdownrenderer) with math installed. It takes the same `config:`, `options:`, `imageRequestHeaders:`, `writingDirection:`, and `layoutDirection:` parameters plus `accessibilityLabel:` - a template string or a closure, exactly as on [`.markdownLaTeX`](#accessibility). It has **no `codeBlockLayout:` parameter**, so code blocks in its output are always laid out `.wrapping`.
+`MarkdownRenderer.renderLaTeX` is [`MarkdownRenderer.render`](/ios/api-reference/markdown-theme#markdownrenderer) with math installed. It takes the same `config:`, `options:`, `imageRequestHeaders:`, `writingDirection:`, `layoutDirection:`, and `admonitionTitles:` parameters plus `accessibilityLabel:` - a template string or a closure, exactly as on [`.markdownLaTeX`](#accessibility). It has **no `codeBlockLayout:` parameter**, so code blocks in its output are always laid out `.wrapping`.
 
 ```swift
 import EnrichedMarkdown

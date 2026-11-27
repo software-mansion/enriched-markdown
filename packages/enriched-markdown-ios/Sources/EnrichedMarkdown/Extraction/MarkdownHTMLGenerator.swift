@@ -179,7 +179,9 @@ enum MarkdownHTMLGenerator {
         case .codeBlock:
             collectCodeBlockLine(inline, state: &state)
         case .blockquote(let depth, let admonition):
-            emitBlockquote(inline, depth: depth, admonition: admonition, into: &html, styles: styles, state: &state)
+            let title = text.attribute(MarkdownAttribute.admonitionTitle, at: paragraph.range.location, effectiveRange: nil)
+            let content = admonition == nil ? inline : escapeHTML((title as? String) ?? visible)
+            emitBlockquote(content, depth: depth, admonition: admonition, into: &html, styles: styles, state: &state)
         case .list(let list):
             emitList(inline, list: list, into: &html, styles: styles, state: &state)
         case .heading(let level):
@@ -260,7 +262,7 @@ enum MarkdownHTMLGenerator {
             let opensAdmonition = state.blockquoteDepth == depth ? admonition : nil
             html += blockquoteOpening(root: state.blockquoteDepth == 0, admonition: opensAdmonition, styles: styles)
             if let opensAdmonition {
-                html += admonitionHeader(opensAdmonition, styles: styles)
+                html += admonitionHeader(opensAdmonition, title: content, styles: styles)
             }
         }
 
@@ -287,7 +289,7 @@ enum MarkdownHTMLGenerator {
     }
 
     /// The icon + title row the web renderer emits.
-    private static func admonitionHeader(_ type: AdmonitionType, styles: CachedStyles) -> String {
+    private static func admonitionHeader(_ type: AdmonitionType, title: String, styles: CachedStyles) -> String {
         let tint = styles.admonitionTint(type)
         let iconSize = styles.admonitionIconSize
         return "<div style=\"display: flex; align-items: center; gap: \(styles.admonitionIconGap)px; "
@@ -297,7 +299,7 @@ enum MarkdownHTMLGenerator {
             + "viewBox=\"0 0 \(Int(AdmonitionHeader.iconViewBox)) \(Int(AdmonitionHeader.iconViewBox))\" "
             + "fill=\"\(tint)\" aria-hidden=\"true\">"
             + "<path d=\"\(AdmonitionHeader.iconPathData(for: type))\"></path></svg>"
-            + "<span>\(type.title)</span></div>"
+            + (title.isEmpty ? "" : "<bdi>\(title)</bdi>") + "</div>"
     }
 
     private static func emitList(
@@ -488,8 +490,7 @@ enum MarkdownHTMLGenerator {
             tags.append((open: styles.highlightOpenTag, close: "</mark>"))
         }
         if let linkURL {
-            let open = "<a href=\"\(escapeHTML(linkURL))\" style=\"color: \(styles.linkColor); "
-                + "text-decoration: \(styles.linkUnderline ? "underline" : "none");\">"
+            let open = "<a href=\"\(escapeHTML(linkURL))\" style=\"\(styles.linkCSS.resolve(linkURL))\">"
             tags.append((open: open, close: "</a>"))
         }
         if isCode {

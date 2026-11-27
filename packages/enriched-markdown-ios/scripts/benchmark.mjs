@@ -14,7 +14,7 @@
 //   --base <ref>         git ref to compare against (built in a worktree under the temp dir)
 //   --udid <simulator>   simulator UDID (default: $IOS_SIMULATOR_UDID, else "booted")
 //   --only <test>        one PerformanceBenchmarks test method, e.g. testRenderLongList
-//   --fail-above <ratio> exit 1 when any time ratio head/base exceeds it (default: report only)
+//   --fail-above <ratio> exit 1 when any head/base ratio exceeds it (default: report only)
 //   --markdown <file>    also append the report to <file> as Markdown (e.g. $GITHUB_STEP_SUMMARY)
 
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -78,7 +78,7 @@ function main(options) {
   }
   if (worst?.verdict === 'fail') {
     console.error(
-      `\nslowest head/base time ratio ${formatRatio(worst.ratio)} exceeds ${options.failAbove}×`
+      `\nhighest head/base ratio ${formatRatio(worst.ratio)} exceeds ${options.failAbove}×`
     );
     process.exit(1);
   }
@@ -94,9 +94,16 @@ function runBenchmarksAt(ref, options, udid) {
   git(['worktree', 'add', '--detach', worktree, commit]);
   try {
     // The grammars copy out of the RN workspace's node_modules.
-    const rnModules = path.join('packages', 'react-native-enriched-markdown', 'node_modules');
+    const rnModules = path.join(
+      'packages',
+      'react-native-enriched-markdown',
+      'node_modules'
+    );
     if (existsSync(path.join(repoDir, rnModules))) {
-      symlinkSync(path.join(repoDir, rnModules), path.join(worktree, rnModules));
+      symlinkSync(
+        path.join(repoDir, rnModules),
+        path.join(worktree, rnModules)
+      );
     }
     for (const script of ['vendor-ratex.mjs', 'vendor-grammars.mjs']) {
       const vendorScript = path.join(worktree, 'vendor', script);
@@ -107,11 +114,10 @@ function runBenchmarksAt(ref, options, udid) {
         });
       }
     }
-    // A base that predates the benchmarks runs the current ones.
-    const baseBenchmark = path.join(worktree, packageRelative, benchmarkFile);
-    if (!existsSync(baseBenchmark)) {
-      copyFileSync(path.join(packageDir, benchmarkFile), baseBenchmark);
-    }
+    copyFileSync(
+      path.join(packageDir, benchmarkFile),
+      path.join(worktree, packageRelative, benchmarkFile)
+    );
     return runBenchmarks(
       path.join(worktree, packageRelative),
       `base-${commit.slice(0, 12)}`,
@@ -187,9 +193,12 @@ export function parseMeasurements(output) {
     /PerformanceBenchmarks (\w+)\]' measured \[([^,\]]+), ([^\]]+)\] average: ([\d.]+), relative standard deviation: ([\d.]+)%(?:, values: \[([^\]]*)\])?/g;
   const measurements = new Map();
   for (const match of output.matchAll(pattern)) {
-    const [, test, metric, unit, average, deviation, values] = match;
+    const [, test, metric, , average, deviation, values] = match;
     const kind = metricKind(metric);
-    if (!kind) continue;
+    if (!kind) {
+      console.warn(`  ${test}: ignoring the ${metric} measurement`);
+      continue;
+    }
     const samples = (values ?? '')
       .split(',')
       .map((value) => Number(value))
@@ -197,7 +206,6 @@ export function parseMeasurements(output) {
     measurements.set(`${test}|${kind}`, {
       test,
       kind,
-      unit,
       value: samples.length > 0 ? median(samples) : Number(average),
       deviation: Number(deviation),
     });
@@ -207,8 +215,9 @@ export function parseMeasurements(output) {
 
 function metricKind(metric) {
   if (metric === 'Time' || metric === 'Clock Monotonic Time') return 'time';
-  if (metric === 'Memory Peak Physical') return 'peak memory';
-  return null; // "Memory Physical" is the per-iteration delta, which is noise here.
+  if (metric === 'Heap Growth') return 'heap';
+  if (metric === 'Footprint Growth') return 'footprint';
+  return null;
 }
 
 function median(samples) {
@@ -219,8 +228,8 @@ function median(samples) {
     : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
-// The plain-text and Markdown reports; `worst` is the time row with the
-// highest ratio, when there is a base to compare against.
+// The plain-text and Markdown reports; `worst` is the row with the highest
+// ratio, when there is a base to compare against.
 export function report(head, base, options) {
   const rows = [];
   let worst = null;
@@ -228,15 +237,12 @@ export function report(head, base, options) {
     const other = base?.get(key);
     const ratio = other ? measurement.value / other.value : null;
     const verdict = ratio ? verdictFor(ratio, options) : null;
-    if (
-      measurement.kind === 'time' &&
-      ratio &&
-      (!worst || ratio > worst.ratio)
-    ) {
-      worst = { test: measurement.test, ratio, verdict };
+    const name = `${measurement.test} (${measurement.kind})`;
+    if (ratio && (!worst || ratio > worst.ratio)) {
+      worst = { name, ratio, verdict };
     }
     rows.push({
-      name: `${measurement.test} (${measurement.kind})`,
+      name,
       base: other ? format(other) : '',
       head: format(measurement),
       ratio,
@@ -270,9 +276,9 @@ export function report(head, base, options) {
     ? options.base.slice(0, 12)
     : options.base;
   const legend = [
-    `${marker('faster')} faster than ${noiseBand.faster}×`,
+    `${marker('faster')} under ${noiseBand.faster}×`,
     `${marker('same')} within noise`,
-    `${marker('slower')} slower than ${noiseBand.slower}×`,
+    `${marker('slower')} over ${noiseBand.slower}×`,
     options.failAbove
       ? `${marker('fail')} over the ${options.failAbove}× failure threshold`
       : null,
@@ -308,15 +314,15 @@ function verdictFor(ratio, options) {
 }
 
 function summarize(worst, options) {
-  if (!worst) return 'No time measurements to compare.';
+  if (!worst) return 'No measurements to compare.';
   const ratio = formatRatio(worst.ratio);
   switch (worst.verdict) {
     case 'fail':
-      return `${worst.test} is ${ratio} slower than the base, over the ${options.failAbove}× failure threshold.`;
+      return `${worst.name} is ${ratio} the base, over the ${options.failAbove}× failure threshold.`;
     case 'slower':
-      return `${worst.test} is ${ratio} slower than the base.`;
+      return `${worst.name} is ${ratio} the base.`;
     default:
-      return `No benchmark slower than the base beyond noise (slowest ratio ${ratio}).`;
+      return `No benchmark over the base beyond noise (highest ratio ${ratio}).`;
   }
 }
 
@@ -339,11 +345,11 @@ function paint(text, verdict) {
   return `\u001b[${code}m${text}\u001b[0m`;
 }
 
-function format({ kind, value, unit, deviation }) {
+function format({ kind, value, deviation }) {
   const formatted =
     kind === 'time'
       ? `${(value * 1000).toFixed(1)} ms`
-      : `${(unit === 'kB' ? value / 1024 : value).toFixed(0)} MB`;
+      : `${(value / 1000).toFixed(1)} MB`;
   return `${formatted} ±${deviation.toFixed(0)}%`;
 }
 

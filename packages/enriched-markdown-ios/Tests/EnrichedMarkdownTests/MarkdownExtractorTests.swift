@@ -391,6 +391,27 @@ final class MarkdownExtractorTests: XCTestCase {
         )
     }
 
+    func testAnEmptyTitleKeepsTheMarker() {
+        let options = MarkdownParsingOptions(admonitions: true)
+        let titles = MarkdownAdmonitionTitles(note: "", tip: "")
+        let source = "intro\n\n> [!TIP]\n> body"
+        let rendered = MarkdownRenderer.render(source, config: config, options: options, admonitionTitles: titles)
+        let header = (rendered.string as NSString).range(of: "\u{200B}").location
+
+        XCTAssertEqual(
+            MarkdownExtractor.markdown(
+                for: NSRange(location: header, length: rendered.length - header),
+                in: rendered,
+                sourceMarkdown: source,
+                options: options
+            )?.trimmingCharacters(in: .newlines),
+            "> [!TIP]\n> body"
+        )
+
+        let bodyless = MarkdownRenderer.render("intro\n\n> [!NOTE]", config: config, options: options, admonitionTitles: titles)
+        XCTAssertEqual(bodyless.attribute(MarkdownAttribute.admonitionHeader, at: bodyless.length - 1, effectiveRange: nil) as? String, "note")
+    }
+
     func testExtractsAdmonitionBodyWithoutTitleAsPlainQuote() {
         XCTAssertEqual(
             extractSelecting("body", in: "> [!NOTE]\n> body", options: MarkdownParsingOptions(admonitions: true)),
