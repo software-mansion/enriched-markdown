@@ -1,4 +1,4 @@
-import type { ASTNode } from './types';
+import type { ASTNode, NodeType } from './types';
 
 /**
  * Whether `text` has a letter to resolve `dir="auto"` from. Chromium resolves
@@ -56,30 +56,32 @@ export function hasNonImageContent(node: ASTNode): boolean {
   return node.children.some(hasNonImageContent);
 }
 
+const TEXT_BLOCKS = new Set<NodeType>([
+  'Paragraph',
+  'Heading',
+  'TableCell',
+  'TableHeaderCell',
+]);
+
+function stampImagesInline(node: ASTNode): void {
+  if (node.type === 'Image') {
+    node.attributes = { ...node.attributes, isInline: true };
+    return;
+  }
+  node.children?.forEach(stampImagesInline);
+}
+
 /**
- * Stamps Image nodes with `isInline` when they appear inside a paragraph
- * that also contains other content (text, links, etc.).
- * Matches native behavior: sole-child images are block-level, mixed are inline.
+ * Stamps Image nodes with `isInline` when their paragraph, heading or table
+ * cell holds anything besides images, at any depth - so an image inside a
+ * link, emphasis or spoiler next to text is inline too. An image alone in its
+ * block (or only wrapped in a link) stays block-level, as on native.
  * Mutates the AST in-place (safe: called once on the freshly-parsed result).
  */
 export function markInlineImages(node: ASTNode): void {
-  if (node.type === 'Paragraph' && node.children) {
-    const hasNonImageChild = node.children.some(
-      (child) => child.type !== 'Image'
-    );
-    if (hasNonImageChild) {
-      for (const child of node.children) {
-        if (child.type === 'Image') {
-          child.attributes = { ...child.attributes, isInline: true };
-        }
-      }
-    }
+  if (TEXT_BLOCKS.has(node.type)) {
+    if (hasNonImageContent(node)) stampImagesInline(node);
+    return;
   }
   node.children?.forEach(markInlineImages);
-}
-
-/** Whether a node holds a block-level image (one not stamped inline). */
-export function hasBlockImage(node: ASTNode): boolean {
-  if (node.type === 'Image') return !node.attributes?.isInline;
-  return node.children?.some(hasBlockImage) ?? false;
 }

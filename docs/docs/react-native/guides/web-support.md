@@ -384,7 +384,6 @@ unknown DOM attributes. Use `id`, `aria-label` and CSS rather than `nativeID`,
 - Editor features - `EnrichedMarkdownTextInput` runs on web but covers less than on native. See [Web editor](/react-native/guides/web-editor#not-supported-on-web).
 - Code-block syntax highlighting - fenced code blocks render as plain monospaced text with no per-token colors, no header bar and no copy button
 - Particle spoilers - every spoiler uses the solid cover, whatever `spoilerOverlay` says
-- Inline images inside formatting - an image next to text renders inline only as a direct child of its paragraph. Inside a spoiler, link or emphasis it renders as a block image, and a spoiler holding one becomes a full-width block. Native draws such an image inline whenever anything precedes it in the paragraph
 - Configurable link `target` - all links open in a new tab (`target="_blank" rel="noopener noreferrer"`). Use `onLinkPress` for custom navigation.
 - Line clamping - `numberOfLines` and `ellipsizeMode` are native-only and are not part of the web props type
 - Clipboard integration - the web build never writes to the clipboard, so none of the [copy options](/user-experience/copy-options) apply
