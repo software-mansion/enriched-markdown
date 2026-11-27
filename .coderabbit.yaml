@@ -25,10 +25,10 @@ reviews:
   path_instructions:
     - path: 'packages/core/cpp/**'
       instructions: >-
-        The shared C++ core (md4c parser and Markdown AST). The React Native package, the
-        iOS package, the Android package and the web (WASM) build all compile these same
-        sources, so a change here affects every platform. Check that it does not break any
-        of them.
+        The shared C++ core (md4c parser and Markdown AST). Every package compiles these
+        same sources: the React Native package (iOS, Android, and web through WASM), the
+        standalone iOS package and the standalone Android package (through the JNI `parser`
+        module). A change here affects all of them, so check that none of them breaks.
     - path: 'packages/react-native-enriched-markdown/{ios,android,src/web}/**'
       instructions: >-
         The React Native package ships one API on three implementations: iOS (`ios/`),
@@ -36,8 +36,37 @@ reviews:
         platform without a matching change on the others, unless the PR says why.
     - path: 'packages/react-native-enriched-markdown/src/**/*.{ts,tsx}'
       instructions: >-
-        Public API changes must be reflected in the native component specs, all platform
-        implementations and the documentation (`docs/` and `docs-md/`).
+        Public API changes must be reflected in the native component specs, all three
+        platform implementations and the React Native docs (`docs/docs/react-native/` and
+        `docs-md/`).
+    - path: 'packages/enriched-markdown-ios/**'
+      instructions: >-
+        The standalone iOS package: a SwiftPM package with the `EnrichedMarkdown` target
+        (SwiftUI and UIKit APIs) and the optional `EnrichedMarkdownLaTeX` and
+        `EnrichedMarkdownSyntaxHighlighting` targets. It is a separate implementation from
+        the React Native package's `ios/` code. Its counterpart is the standalone Android
+        package (`packages/enriched-markdown-android/`): flag features or behavior changes
+        made here without a matching Android change, unless the PR says why. Public API
+        changes need `docs/docs/ios/`, the package README and tests in `Tests/` updated.
+    - path: 'packages/enriched-markdown-android/**'
+      instructions: >-
+        The standalone Android package: Gradle modules `ui` (span-based renderer),
+        `compose` (Jetpack Compose wrapper), `parser` (JNI binding to the C++ core), and
+        the optional `math` and `code-highlight` modules. It is a separate implementation
+        from the React Native package's `android/` code. Its counterpart is the standalone
+        iOS package (`packages/enriched-markdown-ios/`): flag features or behavior changes
+        made here without a matching iOS change, unless the PR says why. Public API changes
+        need `docs/docs/android/` and the package README updated. Changes to `ui` must
+        keep `compose` working, since it wraps `ui`.
+    - path: 'docs/**'
+      instructions: >-
+        Docusaurus site. Interactive examples in `docs/src/examples/` must mirror the pages
+        that own them (checked by `yarn check-examples`), and broken links or anchors fail
+        the build. Check that documented APIs match the code.
+    - path: '.github/workflows/**'
+      instructions: >-
+        Flag workflows that run untrusted pull request code with secrets or write
+        permissions, and permissions broader than needed.
 
 knowledge_base:
   code_guidelines:
