@@ -383,11 +383,13 @@ static CGFloat ENRMFirstContentBaseline(RCTUIView *view, StyleConfig *config)
 {
   _outerDirection = outerDirection;
   _listSegment.outerDirection = outerDirection;
-  for (RCTUIView *view in ENRMDescendantSegmentViews(self.segmentViews)) {
-    if ([view isKindOfClass:[ENRMBlockquoteContainerView class]])
-      ((ENRMBlockquoteContainerView *)view).outerDirection = outerDirection;
-    else if ([view isKindOfClass:[ENRMListContainerView class]])
-      ((ENRMListContainerView *)view).outerDirection = outerDirection;
+  for (ENRMContainerNodeView *item in self.segmentViews) {
+    for (RCTUIView *view in item.segmentViews) {
+      if ([view isKindOfClass:[ENRMBlockquoteContainerView class]])
+        ((ENRMBlockquoteContainerView *)view).outerDirection = outerDirection;
+      else if ([view isKindOfClass:[ENRMListContainerView class]])
+        ((ENRMListContainerView *)view).outerDirection = outerDirection;
+    }
   }
 }
 - (CGFloat)layoutItemsAtWidth:(CGFloat)width applyFrames:(BOOL)applyFrames

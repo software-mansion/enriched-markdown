@@ -237,13 +237,10 @@ static BOOL ENRMBlockquoteIsRTL(MarkdownASTNode *node, ENRMWritingDirectionMode 
 
 - (void)setOuterDirection:(NSWritingDirection)outerDirection
 {
-  if (_outerDirection == outerDirection) {
-    return;
-  }
   _outerDirection = outerDirection;
-  if (outerDirection != NSWritingDirectionNatural) {
-    [self applySide:outerDirection == NSWritingDirectionRightToLeft];
-  }
+  // Reused quotes can have new child lists even when their own side is unchanged.
+  [self applySide:outerDirection == NSWritingDirectionNatural ? self.rightToLeft
+                                                              : outerDirection == NSWritingDirectionRightToLeft];
 }
 
 // Moves the bar, insets and header to one side, and hands the side to nested
