@@ -33,30 +33,6 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
 - (void)stepRowFade:(CADisplayLink *)link;
 @end
 
-// String drawing paints NSLinkAttributeName ranges in the system link colour and ignores the
-// foreground colour; text views avoid this by clearing linkTextAttributes, but the grid has none.
-// Taps read the separate "linkURL" attribute, so drawing a copy without NSLinkAttributeName keeps
-// the configured link colour.
-static NSAttributedString *ENRMTableDrawableText(NSAttributedString *text)
-{
-  NSRange whole = NSMakeRange(0, text.length);
-  __block BOOL hasLink = NO;
-  [text enumerateAttribute:NSLinkAttributeName
-                   inRange:whole
-                   options:0
-                usingBlock:^(id value, NSRange range, BOOL *stop) {
-                  if (value) {
-                    hasLink = YES;
-                    *stop = YES;
-                  }
-                }];
-  if (!hasLink)
-    return text;
-  NSMutableAttributedString *drawable = [text mutableCopy];
-  [drawable removeAttribute:NSLinkAttributeName range:whole];
-  return drawable;
-}
-
 @implementation ENRMTableFadeTicker
 - (void)tick:(CADisplayLink *)link
 {
@@ -257,9 +233,9 @@ static NSAttributedString *ENRMTableDrawableText(NSAttributedString *text)
           CGContextSaveGState(context);
           CGContextClipToRect(context, CGRectInset(cellRect, _borderWidth, _borderWidth));
         }
-        [ENRMTableDrawableText(text) drawWithRect:textRect
-                                          options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
-                                          context:nil];
+        [text drawWithRect:textRect
+                   options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
+                   context:nil];
         if (widthsAnimate) {
           CGContextRestoreGState(context);
         }
