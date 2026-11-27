@@ -17,7 +17,18 @@
 		D6BD17EA9023C9F39246B71F /* Autolinked in Frameworks */ = {isa = PBXBuildFile; productRef = 3AFDEFB917B01458307FDE0A /* Autolinked */;};
 		3F1E298E4A2D7CA403A328B5 /* ReactCodegen in Frameworks */ = {isa = PBXBuildFile; productRef = 947DD5EF3BE079FB7F5AFF87 /* ReactCodegen */;};
 		50A8621D202A6CFB97E2C1B5 /* ReactAppDependencyProvider in Frameworks */ = {isa = PBXBuildFile; productRef = F3857EDDA38AFC0011322D6D /* ReactAppDependencyProvider */;};
+		E3519EF9FF34FCB9E57F61D1 /* ENRMLibraryTests.mm in Sources */ = {isa = PBXBuildFile; fileRef = 23C3017B680B09D958F663F6 /* ENRMLibraryTests.mm */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		00E356F41AD99517003FC87E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 13B07F861A680F5B00A75B9A;
+			remoteInfo = EnrichedMarkdownSpmExample;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		13B07F961A680F5B00A75B9A /* EnrichedMarkdownSpmExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EnrichedMarkdownSpmExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -27,9 +38,18 @@
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = EnrichedMarkdownSpmExample/AppDelegate.swift; sourceTree = "<group>"; };
 		761780EE2CA45674006654EF /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SceneDelegate.swift; path = EnrichedMarkdownSpmExample/SceneDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = EnrichedMarkdownSpmExample/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		00E356EE1AD99517003FC87E /* EnrichedMarkdownSpmExampleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EnrichedMarkdownSpmExampleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		23C3017B680B09D958F663F6 /* ENRMLibraryTests.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = ENRMLibraryTests.mm; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		00E356EB1AD99517003FC87E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		13B07F8C1A680F5B00A75B9A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -46,6 +66,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		00E356EF1AD99517003FC87E /* EnrichedMarkdownSpmExampleTests */ = {
+			isa = PBXGroup;
+			children = (
+				23C3017B680B09D958F663F6 /* ENRMLibraryTests.mm */,
+			);
+			path = EnrichedMarkdownSpmExampleTests;
+			sourceTree = "<group>";
+		};
 		13B07FAE1A68108700A75B9A /* EnrichedMarkdownSpmExample */ = {
 			isa = PBXGroup;
 			children = (
@@ -77,6 +105,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07FAE1A68108700A75B9A /* EnrichedMarkdownSpmExample */,
+				00E356EF1AD99517003FC87E /* EnrichedMarkdownSpmExampleTests */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
@@ -90,6 +119,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* EnrichedMarkdownSpmExample.app */,
+				00E356EE1AD99517003FC87E /* EnrichedMarkdownSpmExampleTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -97,6 +127,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		00E356ED1AD99517003FC87E /* EnrichedMarkdownSpmExampleTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 00E357021AD99517003FC87E /* Build configuration list for PBXNativeTarget "EnrichedMarkdownSpmExampleTests" */;
+			buildPhases = (
+				C8CECEEC034BD04FB51049C3 /* Generate library test sources */,
+				00E356EA1AD99517003FC87E /* Sources */,
+				00E356EB1AD99517003FC87E /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				00E356F51AD99517003FC87E /* PBXTargetDependency */,
+			);
+			name = EnrichedMarkdownSpmExampleTests;
+			productName = EnrichedMarkdownSpmExampleTests;
+			productReference = 00E356EE1AD99517003FC87E /* EnrichedMarkdownSpmExampleTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		13B07F861A680F5B00A75B9A /* EnrichedMarkdownSpmExample */ = {
 			packageProductDependencies = (
 				512EBECF5434FD7A6AF7C967 /* ReactHeaders */,
@@ -138,6 +186,9 @@
 			attributes = {
 				LastUpgradeCheck = 1210;
 				TargetAttributes = {
+					00E356ED1AD99517003FC87E = {
+						TestTargetID = 13B07F861A680F5B00A75B9A;
+					};
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1120;
 					};
@@ -157,6 +208,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* EnrichedMarkdownSpmExample */,
+				00E356ED1AD99517003FC87E /* EnrichedMarkdownSpmExampleTests */,
 			);
 		};
 /* End PBXProject section */
@@ -174,6 +226,22 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		C8CECEEC034BD04FB51049C3 /* Generate library test sources */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Generate library test sources";
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/ENRMGeneratedTestSources.h",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$SRCROOT/../../../scripts/ios/generate-rn-test-sources.sh\" --spm-package \"$ENRM_PACKAGE_DIR\"\n";
+		};
 		00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -236,6 +304,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		00E356EA1AD99517003FC87E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E3519EF9FF34FCB9E57F61D1 /* ENRMLibraryTests.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		13B07F871A680F5B00A75B9A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -247,7 +323,148 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		00E356F51AD99517003FC87E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 13B07F861A680F5B00A75B9A /* EnrichedMarkdownSpmExample */;
+			targetProxy = 00E356F41AD99517003FC87E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		00E356F61AD99517003FC87E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				ENRM_PACKAGE_DIR = "$(SRCROOT)/../../../packages/react-native-enriched-markdown";
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(DERIVED_FILE_DIR)",
+					"$(SRCROOT)/build/xcframeworks/ReactHeadersTarget/include",
+					"$(SRCROOT)/build/xcframeworks/ReactNativeHeaders.xcframework/$(RN_SPM_SLICE)/Headers",
+					"$(SRCROOT)/build/xcframeworks/ReactNativeDependenciesHeaders.xcframework/$(RN_SPM_SLICE)/Headers",
+					"$(SRCROOT)/build/generated/ios/ReactAppHeaders",
+					"$(ENRM_PACKAGE_DIR)/common",
+					"$(ENRM_PACKAGE_DIR)/ios",
+					"$(ENRM_PACKAGE_DIR)/ios/attachments",
+					"$(ENRM_PACKAGE_DIR)/ios/input",
+					"$(ENRM_PACKAGE_DIR)/ios/input/internals",
+					"$(ENRM_PACKAGE_DIR)/ios/input/styles",
+					"$(ENRM_PACKAGE_DIR)/ios/internals",
+					"$(ENRM_PACKAGE_DIR)/ios/math",
+					"$(ENRM_PACKAGE_DIR)/ios/parser",
+					"$(ENRM_PACKAGE_DIR)/ios/renderer",
+					"$(ENRM_PACKAGE_DIR)/ios/segments",
+					"$(ENRM_PACKAGE_DIR)/ios/slots",
+					"$(ENRM_PACKAGE_DIR)/ios/styles",
+					"$(ENRM_PACKAGE_DIR)/ios/turbomodule",
+					"$(ENRM_PACKAGE_DIR)/ios/utils",
+					"$(ENRM_PACKAGE_DIR)/ios/views",
+					"$(ENRM_PACKAGE_DIR)/cpp/enrmrkd",
+					"$(ENRM_PACKAGE_DIR)/cpp/parser",
+					"$(ENRM_PACKAGE_DIR)/cpp/repair",
+					"$(ENRM_PACKAGE_DIR)/cpp/highlight",
+					"$(ENRM_PACKAGE_DIR)/cpp/latex",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lc++",
+					"-framework",
+					UIKit,
+					"-framework",
+					CoreGraphics,
+					"-framework",
+					QuartzCore,
+					"$(SRCROOT)/build/xcframeworks/$(RN_SPM_FLAVOR)/React.xcframework/$(RN_SPM_SLICE)/React.framework/React",
+					"$(SRCROOT)/build/xcframeworks/$(RN_SPM_FLAVOR)/ReactNativeDependencies.xcframework/$(RN_SPM_SLICE)/ReactNativeDependencies.framework/ReactNativeDependencies",
+					"$(SRCROOT)/build/xcframeworks/$(RN_SPM_FLAVOR)/hermes-engine.xcframework/$(RN_SPM_SLICE)/hermesvm.framework/hermesvm",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = swmansion.enriched.markdown.spmexample.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				RN_SPM_FLAVOR = debug;
+				"RN_SPM_SLICE[sdk=iphoneos*]" = "ios-arm64";
+				"RN_SPM_SLICE[sdk=iphonesimulator*]" = "ios-arm64_x86_64-simulator";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EnrichedMarkdownSpmExample.app/EnrichedMarkdownSpmExample";
+			};
+			name = Debug;
+		};
+		00E356F71AD99517003FC87E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				COPY_PHASE_STRIP = NO;
+				ENRM_PACKAGE_DIR = "$(SRCROOT)/../../../packages/react-native-enriched-markdown";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"NDEBUG=1",
+					"$(inherited)",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(DERIVED_FILE_DIR)",
+					"$(SRCROOT)/build/xcframeworks/ReactHeadersTarget/include",
+					"$(SRCROOT)/build/xcframeworks/ReactNativeHeaders.xcframework/$(RN_SPM_SLICE)/Headers",
+					"$(SRCROOT)/build/xcframeworks/ReactNativeDependenciesHeaders.xcframework/$(RN_SPM_SLICE)/Headers",
+					"$(SRCROOT)/build/generated/ios/ReactAppHeaders",
+					"$(ENRM_PACKAGE_DIR)/common",
+					"$(ENRM_PACKAGE_DIR)/ios",
+					"$(ENRM_PACKAGE_DIR)/ios/attachments",
+					"$(ENRM_PACKAGE_DIR)/ios/input",
+					"$(ENRM_PACKAGE_DIR)/ios/input/internals",
+					"$(ENRM_PACKAGE_DIR)/ios/input/styles",
+					"$(ENRM_PACKAGE_DIR)/ios/internals",
+					"$(ENRM_PACKAGE_DIR)/ios/math",
+					"$(ENRM_PACKAGE_DIR)/ios/parser",
+					"$(ENRM_PACKAGE_DIR)/ios/renderer",
+					"$(ENRM_PACKAGE_DIR)/ios/segments",
+					"$(ENRM_PACKAGE_DIR)/ios/slots",
+					"$(ENRM_PACKAGE_DIR)/ios/styles",
+					"$(ENRM_PACKAGE_DIR)/ios/turbomodule",
+					"$(ENRM_PACKAGE_DIR)/ios/utils",
+					"$(ENRM_PACKAGE_DIR)/ios/views",
+					"$(ENRM_PACKAGE_DIR)/cpp/enrmrkd",
+					"$(ENRM_PACKAGE_DIR)/cpp/parser",
+					"$(ENRM_PACKAGE_DIR)/cpp/repair",
+					"$(ENRM_PACKAGE_DIR)/cpp/highlight",
+					"$(ENRM_PACKAGE_DIR)/cpp/latex",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lc++",
+					"-framework",
+					UIKit,
+					"-framework",
+					CoreGraphics,
+					"-framework",
+					QuartzCore,
+					"$(SRCROOT)/build/xcframeworks/$(RN_SPM_FLAVOR)/React.xcframework/$(RN_SPM_SLICE)/React.framework/React",
+					"$(SRCROOT)/build/xcframeworks/$(RN_SPM_FLAVOR)/ReactNativeDependencies.xcframework/$(RN_SPM_SLICE)/ReactNativeDependencies.framework/ReactNativeDependencies",
+					"$(SRCROOT)/build/xcframeworks/$(RN_SPM_FLAVOR)/hermes-engine.xcframework/$(RN_SPM_SLICE)/hermesvm.framework/hermesvm",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = swmansion.enriched.markdown.spmexample.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				RN_SPM_FLAVOR = release;
+				"RN_SPM_SLICE[sdk=iphoneos*]" = "ios-arm64";
+				"RN_SPM_SLICE[sdk=iphonesimulator*]" = "ios-arm64_x86_64-simulator";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EnrichedMarkdownSpmExample.app/EnrichedMarkdownSpmExample";
+			};
+			name = Release;
+		};
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -584,6 +801,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		00E357021AD99517003FC87E /* Build configuration list for PBXNativeTarget "EnrichedMarkdownSpmExampleTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00E356F61AD99517003FC87E /* Debug */,
+				00E356F71AD99517003FC87E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "EnrichedMarkdownSpmExample" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

@@ -68,6 +68,28 @@
       ],
       "outputs": []
     },
+    "test:ios-spm": {
+      "env": ["SPM_XCODE_VERSION"],
+      "passThroughEnv": ["IOS_SIMULATOR_UDID", "CCACHE_DIR", "CCACHE_MAXSIZE", "XCODE_XCCONFIG_FILE"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/ios/**",
+        "!$TURBO_ROOT$/packages/react-native-enriched-markdown/ios/build/**",
+        "!$TURBO_ROOT$/packages/react-native-enriched-markdown/ios/vendor/**",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/common/**",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/src/*NativeComponent.ts",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/src/Native*.ts",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/Package.swift",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/spm-plugin.js",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/react-native.config.js",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/package.json",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/__tests__/ios/**",
+        "$TURBO_ROOT$/packages/core/cpp/**",
+        "$TURBO_ROOT$/vendor/**",
+        "$TURBO_ROOT$/scripts/ios/**"
+      ],
+      "outputs": []
+    },
     "test:android": {
       "env": ["ANDROID_HOME", "ORG_GRADLE_PROJECT_newArchEnabled"],
       "inputs": [
@@ -105,6 +127,7 @@
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/src/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/__tests__/ios/**",
         "$TURBO_ROOT$/packages/core/cpp/**",
+        "$TURBO_ROOT$/scripts/ios/**",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/*.podspec",
         "$TURBO_ROOT$/packages/react-native-enriched-markdown/package.json"
       ],

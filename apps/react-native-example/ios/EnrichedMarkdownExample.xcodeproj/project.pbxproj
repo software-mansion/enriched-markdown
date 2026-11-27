@@ -412,7 +412,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"$SRCROOT/../scripts/generate-ios-test-sources.sh\"\n";
+			shellScript = "\"$SRCROOT/../../../scripts/ios/generate-rn-test-sources.sh\"\n";
 		};
 		E235C05ADACE081382539298 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
