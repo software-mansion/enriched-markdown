@@ -2345,6 +2345,7 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
         break;
       }
 #else
+      // The macOS table grid has no item hit-testing yet, so the whole table stays the table's own.
       if (CGRectContainsPoint(segment.bounds, segmentPoint)) {
         return nil;
       }
