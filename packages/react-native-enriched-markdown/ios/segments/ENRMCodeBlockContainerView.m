@@ -672,6 +672,12 @@ static const CGFloat kENRMCodeOverdraw = 64;
 {
   [_codeContentView updateViewport];
 }
+
+- (void)updateViewportInVisibleArea:(ENRMVisibleArea *)area
+{
+  _codeContentView.visibleArea = area;
+  [_codeContentView updateViewport];
+}
 #endif
 
 // Where the language label draws. Keeps clear of the header buttons, as
