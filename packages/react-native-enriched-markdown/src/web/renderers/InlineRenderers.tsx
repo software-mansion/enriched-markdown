@@ -136,6 +136,15 @@ function CodeRenderer({ node, styles, renderChildren }: RendererProps) {
   );
 }
 
+const URL_SCHEME = /^([a-z][a-z0-9+.-]*):/i;
+const BROWSER_SCHEMES = new Set(['http', 'https', 'mailto', 'tel', 'sms']);
+
+// Relative URLs and the schemes above are links the browser can open itself.
+function isBrowserOpenable(url: string): boolean {
+  const scheme = URL_SCHEME.exec(url.trim())?.[1];
+  return !scheme || BROWSER_SCHEMES.has(scheme.toLowerCase());
+}
+
 function LinkRenderer({
   node,
   style,
@@ -158,6 +167,11 @@ function LinkRenderer({
   }
 
   const handleClick = (event: MouseEvent) => {
+    // As in web routers, a modified click (new tab, new window) stays with the browser.
+    const isModified =
+      event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+    if (isModified && isBrowserOpenable(url)) return;
+
     if (callbacks.onLinkPress) {
       event.preventDefault();
       callbacks.onLinkPress({ url });
