@@ -98,7 +98,31 @@ enum MarkdownExtractor {
                 .replacingOccurrences(of: "\u{2028}", with: " ")
             result += applyInlineFormatting(run, traits: InlineTraits(attrs: attrs))
         }
-        return result
+        return escapingLineEndings(result)
+    }
+
+    /// A line ending in a cell (decoded from `&#10;` or `&#13;`) would end the
+    /// pipe table row, so it goes back to that entity. Backslashes right before
+    /// it are doubled so they stay literal instead of escaping its `&`.
+    private static func escapingLineEndings(_ markdown: String) -> String {
+        guard markdown.unicodeScalars.contains(where: { $0 == "\n" || $0 == "\r" }) else { return markdown }
+        var result = String.UnicodeScalarView()
+        var backslashes = 0
+        for scalar in markdown.unicodeScalars {
+            switch scalar {
+            case "\\":
+                backslashes += 1
+                result.append(scalar)
+                continue
+            case "\n", "\r":
+                result.append(contentsOf: String(repeating: "\\", count: backslashes).unicodeScalars)
+                result.append(contentsOf: (scalar == "\n" ? "&#10;" : "&#13;").unicodeScalars)
+            default:
+                result.append(scalar)
+            }
+            backslashes = 0
+        }
+        return String(result)
     }
 
     /// http(s) URLs of image attachments within `range`, in document order.

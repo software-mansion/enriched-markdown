@@ -206,6 +206,17 @@ final class TableThemingTests: XCTestCase {
         XCTAssertTrue(markdown.contains("| **bold** and `code` | *it* ~~gone~~ |"))
     }
 
+    func testMarkdownTextKeepsLineEndingEntitiesInCells() {
+        // A decoded line ending would otherwise end the copied row.
+        let cells = ["one&#10;two", "one&#13;&#10;two", #"a\\&#10;b"#, "one<br>two"]
+        guard let table = attachment(
+            for: "| A |\n|---|\n" + cells.map { "| \($0) |" }.joined(separator: "\n")
+        ) else { return XCTFail("no table") }
+
+        let lines = table.markdownText().components(separatedBy: "\n")
+        XCTAssertEqual(Array(lines.dropFirst(2)), cells.map { "| \($0) |" })
+    }
+
     func testCopyPlainTextReplacesTableCharacter() {
         let rendered = MarkdownRenderer.render(
             "before\n\n\(tableMarkdown)\n\nafter",
