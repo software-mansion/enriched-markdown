@@ -3,6 +3,7 @@
 #import "CodeBackground.h"
 #import "CodeBlockBackground.h"
 #import "ENRMStreamingEffects.h"
+#import "ENRMTextHighlight.h"
 #import "ENRMTextViewport.h"
 #import "ListMarkerDrawer.h"
 #import "RuntimeKeys.h"
@@ -113,8 +114,10 @@ static char kDrawingTimeKey;
     return;
 
   StyleConfig *config = self.config;
-  if (!config)
+  if (!config) {
+    ENRMDrawTextHighlights(self.textHighlights, self, glyphsToShow, origin);
     return;
+  }
 
   // 3. Draw specialized layers
   // We fetch the objects into local variables FIRST to ensure they don't
@@ -128,6 +131,9 @@ static char kDrawingTimeKey;
 
   BlockquoteBorder *quoteBorder = [self getBlockquoteBorderWithConfig:config];
   [quoteBorder drawBordersForGlyphRange:glyphsToShow layoutManager:self textContainer:textContainer atPoint:origin];
+
+  // After the code and quote backgrounds, so highlighted code and quotes show it.
+  ENRMDrawTextHighlights(self.textHighlights, self, glyphsToShow, origin);
 
   ListMarkerDrawer *markerDrawer = [self getListMarkerDrawerWithConfig:config];
   [markerDrawer drawMarkersForGlyphRange:glyphsToShow layoutManager:self textContainer:textContainer atPoint:origin];
@@ -233,6 +239,49 @@ static char kDrawingTimeKey;
     objc_setAssociatedObject(self, kCodeBlockBackgroundKey, obj, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
   }
   return obj;
+}
+
+#pragma mark - Highlights
+
+// An associated object, not an ivar: text views get this class through
+// object_setClass, which cannot add storage.
+- (NSArray<ENRMTextHighlight *> *)textHighlights
+{
+  return objc_getAssociatedObject(self, kTextHighlightsKey) ?: @[];
+}
+
+- (void)setTextHighlights:(NSArray<ENRMTextHighlight *> *)textHighlights
+{
+  NSArray<ENRMTextHighlight *> *previous = self.textHighlights;
+  if ([previous isEqualToArray:textHighlights]) {
+    return;
+  }
+  objc_setAssociatedObject(self, kTextHighlightsKey, [textHighlights copy], OBJC_ASSOCIATION_COPY_NONATOMIC);
+  NSUInteger length = self.textStorage.length;
+  for (NSArray<ENRMTextHighlight *> *list in @[ previous, textHighlights ]) {
+    for (ENRMTextHighlight *highlight in list) {
+      NSRange range = NSIntersectionRange(highlight.range, NSMakeRange(0, length));
+      if (range.length > 0) {
+        [self invalidateDisplayForCharacterRange:[self displayRangeForHighlight:highlight range:range]];
+      }
+    }
+  }
+}
+
+// Padding can reach past the highlight's own lines, so every line the padded
+// box covers redraws too.
+- (NSRange)displayRangeForHighlight:(ENRMTextHighlight *)highlight range:(NSRange)range
+{
+  NSTextContainer *container = self.textContainers.firstObject;
+  if (highlight.padding <= 0 || container == nil) {
+    return range;
+  }
+  CGRect area = ENRMTextHighlightBounds([highlight highlightWithRange:range], self);
+  if (CGRectIsNull(area)) {
+    return range;
+  }
+  NSRange glyphs = [self glyphRangeForBoundingRect:area inTextContainer:container];
+  return NSUnionRange(range, [self characterRangeForGlyphRange:glyphs actualGlyphRange:NULL]);
 }
 
 #pragma mark - Configuration

@@ -13,6 +13,7 @@ import com.facebook.react.uimanager.annotations.ReactProp
 import com.facebook.react.viewmanagers.EnrichedMarkdownTextManagerDelegate
 import com.facebook.react.viewmanagers.EnrichedMarkdownTextManagerInterface
 import com.facebook.yoga.YogaMeasureMode
+import com.swmansion.enriched.markdown.highlight.parseTextHighlights
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayMode
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.MediaStreamingMode
@@ -246,6 +247,22 @@ class EnrichedMarkdownTextManager :
     enableImagePress: Boolean,
   ) {
     view?.setEnableImagePress(enableImagePress)
+  }
+
+  @ReactProp(name = "highlights")
+  override fun setHighlights(
+    view: EnrichedMarkdownText?,
+    value: ReadableArray?,
+  ) {
+    view?.setHighlights(parseTextHighlights(value))
+  }
+
+  @ReactProp(name = "enableRenderedTextChange", defaultBoolean = false)
+  override fun setEnableRenderedTextChange(
+    view: EnrichedMarkdownText?,
+    value: Boolean,
+  ) {
+    view?.setEnableRenderedTextChange(value)
   }
 
   @ReactProp(name = "enableTextPress", defaultBoolean = false)

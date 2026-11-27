@@ -21,6 +21,10 @@ import com.facebook.react.uimanager.StateWrapper
 import com.facebook.react.uimanager.style.LogicalEdge
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
+import com.swmansion.enriched.markdown.highlight.TextHighlight
+import com.swmansion.enriched.markdown.highlight.TextHighlightCoordinator
+import com.swmansion.enriched.markdown.highlight.emitHighlightLayout
+import com.swmansion.enriched.markdown.highlight.emitRenderedTextChange
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.Md4cFlags
@@ -531,9 +535,19 @@ class EnrichedMarkdownText
       scheduleRender()
     }
 
+    // A failed render leaves the view empty, and the rendered text reported for highlights must say so.
     private fun clearText() {
       text = ""
       renderedRevision = 0L
+      updateHighlightBlocks()
+    }
+
+    private fun updateHighlightBlocks() {
+      if (highlightCoordinator.setBlockViews(listOf(this)) && renderedTextChangeEnabled) {
+        emitRenderedTextChange(highlightCoordinator)
+      }
+      // The new text is laid out on the next pass.
+      post { highlightCoordinator.reportLayout() }
     }
 
     private fun applyRenderedText(
@@ -598,6 +612,9 @@ class EnrichedMarkdownText
       }
 
       applySelectionColors(selectionColor, selectionHandleColor)
+
+      hasRendered = true
+      updateHighlightBlocks()
     }
 
     // Trailing bottom margin included in the shadow-node measurement — must be
@@ -730,6 +747,32 @@ class EnrichedMarkdownText
 
     fun setEnableTextPress(enabled: Boolean) {
       textPressEnabled = enabled
+    }
+
+    private val highlightCoordinator = TextHighlightCoordinator(this) { rects -> emitHighlightLayout(rects) }
+    private var renderedTextChangeEnabled = false
+    private var hasRendered = false
+
+    fun setHighlights(highlights: List<TextHighlight>) {
+      highlightCoordinator.highlights = highlights
+    }
+
+    fun setEnableRenderedTextChange(enabled: Boolean) {
+      if (renderedTextChangeEnabled == enabled) return
+      renderedTextChangeEnabled = enabled
+      // A listener added after the first render still hears about it.
+      if (enabled && hasRendered) emitRenderedTextChange(highlightCoordinator)
+    }
+
+    override fun onLayout(
+      changed: Boolean,
+      left: Int,
+      top: Int,
+      right: Int,
+      bottom: Int,
+    ) {
+      super.onLayout(changed, left, top, right, bottom)
+      highlightCoordinator.reportLayout()
     }
 
     override var codeBlockPressEnabled: Boolean = false

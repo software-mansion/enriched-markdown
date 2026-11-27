@@ -4,6 +4,8 @@ import android.content.Context
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import com.swmansion.enriched.markdown.highlight.RenderedTextProvider
+import com.swmansion.enriched.markdown.highlight.TextHighlightHost
 import com.swmansion.enriched.markdown.utils.common.SlotLayoutReuse
 import kotlin.math.ceil
 import kotlin.math.max
@@ -44,6 +46,18 @@ open class ContainerNodeView(
         when (view) {
           is CodeBlockContainerView -> yield(view)
           is ContainerNodeView -> yieldAll(view.codeBlockViews())
+        }
+      }
+    }
+
+  // Text views and blocks that draw their own text, in document order,
+  // descending into nested containers: the blocks the `highlights` prop indexes.
+  internal fun highlightBlockViews(): Sequence<View> =
+    sequence {
+      segmentViews.forEach { view ->
+        when (view) {
+          is TextHighlightHost, is RenderedTextProvider -> yield(view)
+          is ContainerNodeView -> yieldAll(view.highlightBlockViews())
         }
       }
     }

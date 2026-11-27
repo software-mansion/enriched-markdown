@@ -852,6 +852,75 @@ interface TextPressEvent {
 }
 ```
 
+### `highlights`
+
+Ranges of the rendered text to paint behind the glyphs, such as the sentence and the word a text-to-speech engine reads. Offsets are UTF-16 indices into the text that [`onRenderedTextChange`](#onrenderedtextchange) reports. Later entries paint over earlier ones, so a paragraph tint followed by a word tint shows the word on top.
+
+- **Drawn, not styled:** selection, copy, measuring and accessibility do not change, and a change of `highlights` does not render the Markdown again, so moving a highlight word by word is cheap.
+- **Colors:** use translucent colors so the selection shows through. `PlatformColor` and `DynamicColorIOS` are not supported.
+- **Ignored entries:** an entry with an empty range or a color that is not supported draws nothing. It still counts, so the entries after it keep their index in [`onHighlightLayout`](#onhighlightlayout).
+- **Code blocks and tables:** with `flavor="github"`, the whole block is tinted.
+- **Renders:** a render keeps the offsets. When the text changes, map them again from the new `onRenderedTextChange` text.
+
+<PropInfo type="ReadonlyArray<TextHighlight>" />
+
+```ts
+interface TextHighlight {
+  start: number; // UTF-16 offset in the rendered text
+  end: number; // exclusive
+  color: ColorValue;
+  borderRadius?: number; // of each line's box, default 0
+  padding?: number; // added around each line's box, default 0
+}
+```
+
+```tsx
+<EnrichedMarkdownText
+  markdown={markdown}
+  flavor="github"
+  onRenderedTextChange={({ text }) => setRendered(text)}
+  highlights={[
+    { start: sentence.start, end: sentence.end, color: 'rgba(255, 204, 0, 0.2)' },
+    { start: word.start, end: word.end, color: 'rgba(255, 149, 0, 0.45)', borderRadius: 4 },
+  ]}
+  onHighlightLayout={({ highlights }) => scrollIntoView(highlights[1])}
+/>
+```
+
+iOS and Android only.
+
+### `onRenderedTextChange`
+
+Callback fired with the text as the view shows it: once after the first render, then whenever a render changes that text or its blocks. A render that keeps both, such as `**Hello**` becoming `Hello`, does not fire it. The text is what [`highlights`](#highlights) offsets index into. It differs from the Markdown source (list markers, quotes and code fences are not in it) and can differ between iOS and Android, so read it on each platform rather than computing it. Blocks are joined with `\n`; a table's cells are joined with tabs and its rows with newlines.
+
+With `flavor="commonmark"` there is one block, and [`onTextPress`](#ontextpress) indexes into the same text. With `flavor="github"`, `onTextPress` indexes into one block's text; add that block's `start`.
+
+<PropInfo type="(event: RenderedTextChangeEvent) => void" />
+
+```ts
+interface RenderedTextChangeEvent {
+  text: string;
+  blocks: { start: number; end: number; kind: 'text' | 'code' | 'table' }[];
+}
+```
+
+iOS and Android only.
+
+### `onHighlightLayout`
+
+Callback fired when a highlight's box moves: after [`highlights`](#highlights) change, and when a render or a new width moves the text. Each rect bounds all lines of its highlight, in the component's coordinates. Add the component's offset in a `ScrollView` to scroll the highlighted word into view.
+
+<PropInfo type="(event: HighlightLayoutEvent) => void" />
+
+```ts
+interface HighlightLayoutEvent {
+  // One rect for each highlight that shows; `index` is its position in `highlights`.
+  highlights: { index: number; x: number; y: number; width: number; height: number }[];
+}
+```
+
+iOS and Android only.
+
 ### `onTaskListItemPress`
 
 Callback fired when a task list checkbox is tapped. The checkbox is toggled natively. Only fires when `flavor="github"`.

@@ -48,7 +48,7 @@ import {
   normalizeMenuItem,
   normalizeLegacyBooleanMenuItem,
 } from '../normalizeMenuItem';
-import type { NativeSyntheticEvent } from 'react-native';
+import { processColor, type NativeSyntheticEvent } from 'react-native';
 import type { MarkdownStyle, Md4cFlags } from '../types/MarkdownStyle';
 import type {
   EnrichedMarkdownTextProps,
@@ -72,12 +72,15 @@ import type {
   MarkdownImageOccurrence,
   MarkdownImageSource,
   MarkdownLinkOccurrence,
+  TextHighlight,
 } from '../types/MarkdownTextProps';
 import type {
   LinkPressEvent,
   LinkLongPressEvent,
   ImagePressEvent,
   TextPressEvent,
+  RenderedTextBlock,
+  HighlightLayoutEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
   LatexErrorEvent,
@@ -188,6 +191,56 @@ const NO_BLOCKS: ReadonlyArray<MarkdownBlock> = [];
 
 let warnedStreamingAnimation = false;
 
+const NO_HIGHLIGHTS: ReadonlyArray<NativeTextHighlight> = [];
+
+type NativeTextHighlight = {
+  start: number;
+  end: number;
+  color: number;
+  borderRadius: number;
+  padding: number;
+};
+
+const IGNORED_HIGHLIGHT: NativeTextHighlight = {
+  start: 0,
+  end: 0,
+  color: 0,
+  borderRadius: 0,
+  padding: 0,
+};
+
+// Colors go to native as signed 32-bit ARGB, the same on iOS and Android.
+const toNativeHighlights = (
+  highlights: ReadonlyArray<TextHighlight> | undefined
+): ReadonlyArray<NativeTextHighlight> => {
+  if (!highlights || highlights.length === 0) return NO_HIGHLIGHTS;
+  const result: NativeTextHighlight[] = [];
+  for (const { start, end, color, borderRadius, padding } of highlights) {
+    const processed = processColor(color);
+    if (typeof processed !== 'number') {
+      if (isDev) {
+        console.warn(
+          `[EnrichedMarkdownText] Ignoring highlight ${start}-${end}: its color is not a plain color.`
+        );
+      }
+      // An empty range keeps the later entries at their index in `highlights`.
+      result.push(IGNORED_HIGHLIGHT);
+      continue;
+    }
+    result.push({
+      start: Math.trunc(start),
+      end: Math.trunc(end),
+      color: processed > 0x7fffffff ? processed - 0x100000000 : processed,
+      borderRadius: borderRadius ?? 0,
+      padding: padding ?? 0,
+    });
+  }
+  return result;
+};
+
+const toRenderedTextBlockKind = (kind: string): RenderedTextBlock['kind'] =>
+  kind === 'code' || kind === 'table' ? kind : 'text';
+
 const defaultMd4cFlags: Md4cFlags = {
   underline: false,
   superscript: false,
@@ -209,6 +262,9 @@ export const EnrichedMarkdownText = ({
   onLinkLongPress,
   onImagePress,
   onTextPress,
+  highlights,
+  onRenderedTextChange,
+  onHighlightLayout,
   onTaskListItemPress,
   enableTaskListItemToggle = true,
   onCopyPress,
@@ -431,6 +487,42 @@ export const EnrichedMarkdownText = ({
     [onTextPress]
   );
 
+  const nativeHighlights = useMemo(
+    () => toNativeHighlights(highlights),
+    [highlights]
+  );
+
+  const handleRenderedTextChange = useCallback(
+    (
+      e: NativeSyntheticEvent<{
+        text: string;
+        blocks: ReadonlyArray<{ start: number; end: number; kind: string }>;
+      }>
+    ) => {
+      const { text, blocks } = e.nativeEvent;
+      onRenderedTextChange?.({
+        text,
+        blocks: blocks.map(({ start, end, kind }) => ({
+          start,
+          end,
+          kind: toRenderedTextBlockKind(kind),
+        })),
+      });
+    },
+    [onRenderedTextChange]
+  );
+
+  const handleHighlightLayout = useCallback(
+    (e: NativeSyntheticEvent<HighlightLayoutEvent>) => {
+      onHighlightLayout?.({
+        highlights: e.nativeEvent.highlights.map(
+          ({ index, x, y, width, height }) => ({ index, x, y, width, height })
+        ),
+      });
+    },
+    [onHighlightLayout]
+  );
+
   const handleTaskListItemPress = useCallback(
     (e: NativeSyntheticEvent<TaskListItemPressEvent>) => {
       const { index, checked, text } = e.nativeEvent;
@@ -636,6 +728,10 @@ export const EnrichedMarkdownText = ({
     enableImagePress: onImagePress != null,
     onTextPress: handleTextPress,
     enableTextPress: onTextPress != null,
+    highlights: nativeHighlights,
+    onRenderedTextChange: handleRenderedTextChange,
+    enableRenderedTextChange: onRenderedTextChange != null,
+    onHighlightLayout: handleHighlightLayout,
     onTaskListItemPress: handleTaskListItemPress,
     enableTaskListItemToggle,
     onCopyPress: handleCopyPress,

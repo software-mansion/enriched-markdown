@@ -25,6 +25,7 @@ import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.core.view.ViewCompat
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
+import com.swmansion.enriched.markdown.highlight.RenderedTextProvider
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 import com.swmansion.enriched.markdown.renderer.Renderer
@@ -54,7 +55,8 @@ class TableContainerView(
   context: Context,
   private val styleConfig: StyleConfig,
 ) : FrameLayout(context),
-  BlockSegmentView {
+  BlockSegmentView,
+  RenderedTextProvider {
   internal val tableStyle: TableStyle = styleConfig.tableStyle
 
   override val segmentMarginTop: Int get() = tableStyle.marginTop.toInt()
@@ -213,6 +215,11 @@ class TableContainerView(
   }
 
   private var rows: List<List<TableCellData>> = emptyList()
+
+  // Cells joined with tabs and rows with newlines, as Copy writes them.
+  override val renderedText: String get() = rows.joinToString("\n") { row -> row.joinToString("\t") { it.plainText } }
+  override val renderedTextKind: String = "table"
+  override val highlightCornerRadius: Float get() = tableStyle.borderRadius
   private var columnCount = 0
   private var columnWidths = emptyList<Float>()
   private var rowHeights = emptyList<Float>()

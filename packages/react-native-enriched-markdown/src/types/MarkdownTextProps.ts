@@ -8,6 +8,8 @@ import type {
   LinkLongPressEvent,
   ImagePressEvent,
   TextPressEvent,
+  RenderedTextChangeEvent,
+  HighlightLayoutEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
   LatexErrorEvent,
@@ -240,6 +242,29 @@ export interface StreamingGradient {
   endColor?: ColorValue;
 }
 
+/** A range of the rendered text painted behind its glyphs. */
+export interface TextHighlight {
+  /** UTF-16 offset in the rendered text where the highlight starts. */
+  start: number;
+  /** UTF-16 offset where the highlight ends (exclusive). */
+  end: number;
+  /**
+   * Fill color. Use a translucent color, so the text selection shows
+   * through. `PlatformColor` and `DynamicColorIOS` are not supported.
+   */
+  color: ColorValue;
+  /**
+   * Corner radius of each line's box.
+   * @default 0
+   */
+  borderRadius?: number;
+  /**
+   * Space added around each line's box.
+   * @default 0
+   */
+  padding?: number;
+}
+
 export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
   /**
    * Markdown content to render. Ignored while `stream` is set.
@@ -310,6 +335,37 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android
    */
   onTextPress?: (event: TextPressEvent) => void;
+  /**
+   * Ranges of the rendered text to paint behind the glyphs, such as the
+   * sentence and the word that text-to-speech reads. Later entries paint over
+   * earlier ones. Offsets are UTF-16 indices into the text that
+   * `onRenderedTextChange` reports; for `flavor="commonmark"` that is also the
+   * text `onTextPress` reports.
+   *
+   * Highlights are drawn, not added to the text: copy, selection, measuring
+   * and accessibility do not change. Changing them does not render the
+   * Markdown again. With `flavor="github"`, a code block or table is tinted
+   * as a whole.
+   * A render keeps the offsets, so update them when the text changes.
+   * @platform ios, android
+   */
+  highlights?: ReadonlyArray<TextHighlight>;
+  /**
+   * Called with the rendered text that `highlights` offsets index into, and
+   * its blocks: once after the first render, then whenever a render changes
+   * them. Use it to map a range of the
+   * Markdown source, or of text you send to a speech engine, to a highlight.
+   * @platform ios, android
+   */
+  onRenderedTextChange?: (event: RenderedTextChangeEvent) => void;
+  /**
+   * Called when a highlight's box moves: after `highlights` change, and when
+   * a render or a new width moves the text. Each rect bounds all lines of its
+   * highlight, in the component's coordinates. Use it to scroll a highlight
+   * into view.
+   * @platform ios, android
+   */
+  onHighlightLayout?: (event: HighlightLayoutEvent) => void;
   /**
    * Callback fired when a task list checkbox is tapped.
    *

@@ -569,6 +569,16 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   _wrappedHeightWidth = -1;
 }
 
+- (NSString *)renderedText
+{
+  return _cachedCode ?: @"";
+}
+
+- (NSString *)renderedTextKind
+{
+  return @"code";
+}
+
 - (void)applyCodeBlockNode:(MarkdownASTNode *)node
 {
   _cachedCode = ENRMCodeBlockExtractCode(node);

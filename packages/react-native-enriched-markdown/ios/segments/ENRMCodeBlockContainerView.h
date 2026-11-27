@@ -1,5 +1,6 @@
 #pragma once
 #import "ENRMDynamicBlockProps.h"
+#import "ENRMHighlightCoordinator.h"
 #import "ENRMUIKit.h"
 #import "StyleConfig.h"
 
@@ -13,7 +14,7 @@ typedef void (^ENRMCodeBlockCopyBlock)(NSString *code, NSString *language);
 typedef void (^ENRMCodeBlockPressBlock)(NSString *code, NSString *language);
 typedef void (^ENRMCodeBlockWrapToggleBlock)(ENRMCodeBlockContainerView *view);
 
-@interface ENRMCodeBlockContainerView : RCTUIView
+@interface ENRMCodeBlockContainerView : RCTUIView <ENRMRenderedTextProviding>
 
 - (instancetype)initWithConfig:(StyleConfig *)config;
 

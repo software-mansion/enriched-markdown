@@ -22,7 +22,10 @@
 #import "LinkContextMenuUtils.h"
 #import "LinkPillContentUtils.h"
 
+#import "ENRMContainerNodeView.h"
 #import "ENRMFeatureFlags.h"
+#import "ENRMHighlightCoordinator.h"
+#import "ENRMTextHighlightProps.h"
 
 #if ENRICHED_MARKDOWN_MATH
 #import "ENRMMathContainerView.h"
@@ -227,6 +230,9 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   // starts a new epoch, which drops it.
   ENRMTextRenderCache *_textRenderCache;
   NSUInteger _textRenderCacheEpoch;
+
+  ENRMHighlightCoordinator *_highlightCoordinator;
+  BOOL _enableRenderedTextChange;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -278,6 +284,16 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
           return YES;
         }];
     _dirtyFlags = ENRMDirtyNone;
+    _highlightCoordinator = [[ENRMHighlightCoordinator alloc] initWithHost:self];
+    __weak __typeof(self) weakHighlightSelf = self;
+    _highlightCoordinator.onLayout = ^(NSArray<ENRMHighlightRect *> *rects) {
+      __typeof(self) strongSelf = weakHighlightSelf;
+      if (!strongSelf)
+        return;
+      auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(strongSelf->_eventEmitter);
+      if (emitter)
+        ENRMEmitHighlightLayout(*emitter, rects);
+    };
     [self configureSegmentViewRegistry];
 
     _renderCoordinator =
@@ -1388,6 +1404,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     }
   }];
   [_codeBlockWrapState sync];
+  [self updateHighlightBlocks];
 
   CGRect contentBounds = [self contentBounds];
   if (!self.window) {
@@ -1700,6 +1717,38 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   if (contentWidth > 0) {
     [self computeSegmentLayoutForWidth:contentWidth applyFrames:YES];
   }
+  [_highlightCoordinator reportLayout];
+}
+
+#pragma mark - Highlights
+
+static void ENRMCollectHighlightBlocks(NSArray<RCTUIView *> *views, NSMutableArray<RCTUIView *> *blocks)
+{
+  for (RCTUIView *view in views) {
+    if ([view isKindOfClass:[EnrichedMarkdownInternalText class]]) {
+      [blocks addObject:((EnrichedMarkdownInternalText *)view).textView];
+    } else if ([view conformsToProtocol:@protocol(ENRMRenderedTextProviding)]) {
+      [blocks addObject:view];
+    } else if ([view isKindOfClass:[ENRMContainerNodeView class]]) {
+      ENRMCollectHighlightBlocks(((ENRMContainerNodeView *)view).segmentViews, blocks);
+    }
+  }
+}
+
+- (void)updateHighlightBlocks
+{
+  NSMutableArray<RCTUIView *> *blocks = [NSMutableArray array];
+  ENRMCollectHighlightBlocks(_segmentViews, blocks);
+  if ([_highlightCoordinator setBlockViews:blocks] && _enableRenderedTextChange) {
+    [self emitRenderedTextChange];
+  }
+}
+
+- (void)emitRenderedTextChange
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
+  if (emitter)
+    ENRMEmitRenderedTextChange(*emitter, _highlightCoordinator);
 }
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
@@ -1838,6 +1887,17 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
   _enableImagePress = newViewProps.enableImagePress;
   _enableTextPress = newViewProps.enableTextPress;
+
+  if (ENRMTextHighlightPropsChanged(oldViewProps.highlights, newViewProps.highlights)) {
+    _highlightCoordinator.highlights = ENRMTextHighlightsFromProps(newViewProps.highlights);
+  }
+  if (newViewProps.enableRenderedTextChange != oldViewProps.enableRenderedTextChange) {
+    _enableRenderedTextChange = newViewProps.enableRenderedTextChange;
+    // A listener added after the first render still hears about it.
+    if (_enableRenderedTextChange && _renderedMarkdown != nil) {
+      [self emitRenderedTextChange];
+    }
+  }
 
   // Block gates: mutate the shared box in place. Every existing and future block
   // view reads it live at use-time, so no push into segments is needed.
@@ -2292,6 +2352,8 @@ static void ENRMAfterCommit(dispatch_block_t block)
   _mediaStreamingMode = ENRMMediaStreamingModeProgressive;
   _pendingCodeBlockSegment = nil;
   [_codeBlockWrapState reset];
+  [_highlightCoordinator reset];
+  _enableRenderedTextChange = NO;
   _lineBreakStrategy = NSLineBreakStrategyNone;
   _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
   _renderedStyleFingerprint = 0;
