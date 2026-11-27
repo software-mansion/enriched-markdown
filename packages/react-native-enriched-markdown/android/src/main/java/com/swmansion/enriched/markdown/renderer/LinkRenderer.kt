@@ -16,13 +16,21 @@ import java.text.BreakIterator
 import kotlin.math.max
 import kotlin.math.min
 
-private const val MAX_ICON_RUN = 24
+// The icon and the word it covers are one unbreakable unit, capped at this many font sizes wide
+// so the unit still fits a narrow line (a nested list, a large font scale); the rest of a longer
+// word wraps as text.
+private const val MAX_ICON_RUN_EMS = 8f
 
 class LinkRenderer(
   private val config: RendererConfig,
 ) : NodeRenderer {
   // Reused to resolve each pill's typeface; a renderer serves one render at a time.
   private val fontProbe = TextPaint()
+
+  // Reused by [iconRunEnd], for the same reason.
+  private val characterBreaks = BreakIterator.getCharacterInstance()
+  private val lineBreaks = BreakIterator.getLineInstance()
+  private val iconRunPaint = TextPaint()
 
   override fun render(
     node: MarkdownASTNode,
@@ -77,7 +85,12 @@ class LinkRenderer(
         val iconStart = (start until end).firstOrNull { !builder[it].isWhitespace() }
         if (iconStart != null) {
           val icon = LinkIconSpan(inlineIcon, linkSpan, blockStyle.fontSize, factory.context, config.style.imageRequestHeaders)
-          builder.setSpan(icon, iconStart, iconRunEnd(builder, iconStart, end), SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
+          builder.setSpan(
+            icon,
+            iconStart,
+            iconRunEnd(builder, iconStart, end, linkSpan, blockStyle.fontSize),
+            SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
+          )
           factory.runAfterRender {
             val iconSpanStart = builder.getSpanStart(icon)
             if (iconSpanStart < 0) return@runAfterRender
@@ -89,7 +102,7 @@ class LinkRenderer(
               return@runAfterRender
             }
             // Deferred spans (superscript) are in place only now, and their edges end the icon too.
-            val iconSpanEnd = iconRunEnd(builder, iconSpanStart, builder.getSpanEnd(linkSpan))
+            val iconSpanEnd = iconRunEnd(builder, iconSpanStart, builder.getSpanEnd(linkSpan), linkSpan, blockStyle.fontSize)
             if (iconSpanEnd != builder.getSpanEnd(icon)) builder.setSpan(icon, iconSpanStart, iconSpanEnd, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
           }
         }
@@ -102,23 +115,35 @@ class LinkRenderer(
    * Where the icon span that starts at [start] ends: the first point the line may break, so the
    * icon stays with its first word. A line can break on either side of a replacement span, so
    * covering less would let that word split after its first letter. Stops where any text style
-   * changes, since a replacement is measured once per run and drawn with one paint, and after
-   * [MAX_ICON_RUN] characters, so a long unbroken token still wraps.
+   * changes, since a replacement is measured once per run and drawn with one paint, and once the
+   * icon and the covered text would be wider than [MAX_ICON_RUN_EMS] font sizes, so a long
+   * unbroken token still wraps.
    */
-  private fun iconRunEnd(
+  internal fun iconRunEnd(
     builder: SpannableStringBuilder,
     start: Int,
     end: Int,
+    link: LinkSpan,
+    fontSize: Float,
   ): Int {
     val text = builder.subSequence(start, end).toString()
-    val characters = BreakIterator.getCharacterInstance().apply { setText(text) }
-    val firstCharacter = characters.following(0).takeIf { it != BreakIterator.DONE } ?: text.length
-    val lines = BreakIterator.getLineInstance().apply { setText(text) }
-    var wordEnd = lines.following(0).takeIf { it != BreakIterator.DONE } ?: text.length
+    characterBreaks.setText(text)
+    lineBreaks.setText(text)
+    val firstCharacter = characterBreaks.following(0).takeIf { it != BreakIterator.DONE } ?: text.length
+    var wordEnd = lineBreaks.following(0).takeIf { it != BreakIterator.DONE } ?: text.length
     while (wordEnd > firstCharacter && text[wordEnd - 1].isWhitespace()) wordEnd--
-    val limit = min(builder.nextSpanTransition(start, end, CharacterStyle::class.java) - start, MAX_ICON_RUN)
-    var runEnd = min(wordEnd, limit)
-    if (runEnd > firstCharacter && !characters.isBoundary(runEnd)) runEnd = characters.preceding(runEnd)
+    var runEnd = min(wordEnd, builder.nextSpanTransition(start, end, CharacterStyle::class.java) - start)
+    if (runEnd > firstCharacter && !characterBreaks.isBoundary(runEnd)) runEnd = characterBreaks.preceding(runEnd)
+    val paint =
+      iconRunPaint.apply {
+        reset()
+        textSize = fontSize
+        link.applyLinkFont(this)
+      }
+    val textBudget = fontSize * (MAX_ICON_RUN_EMS - LinkIconSpan.ICON_SLOT_RATIO)
+    while (runEnd > firstCharacter && paint.measureText(text, 0, runEnd) > textBudget) {
+      runEnd = characterBreaks.preceding(runEnd)
+    }
     return start + max(firstCharacter, runEnd)
   }
 

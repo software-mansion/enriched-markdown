@@ -72,13 +72,16 @@ class LinkIconSpan(
     get() = if (reservesIconSlot) fontSize * ICON_SLOT_RATIO else 0f
 
   // A replacement span's paint gets the metric-affecting spans but none of the draw-only ones
-  // (the link's color, a strikethrough), so the covered word applies those at its start itself.
+  // (the link's color, a strikethrough, its background), so the covered word applies those at its
+  // start itself.
   private fun TextPaint.applyCharacterStyles(
     source: Paint,
     text: CharSequence,
     start: Int,
   ): TextPaint {
     set(source)
+    // The line's paint can carry an earlier run's background; only the word's own spans set one.
+    bgColor = 0
     val spanned = text as? Spanned
     if (spanned == null) {
       link.updateDrawState(this)
@@ -89,7 +92,6 @@ class LinkIconSpan(
         if (spanned.getSpanStart(span) <= start) span.updateDrawState(this)
       }
     }
-    bgColor = 0
     return this
   }
 
@@ -124,10 +126,18 @@ class LinkIconSpan(
     bottom: Int,
     paint: Paint,
   ) {
+    val labelPaint = drawPaint.applyCharacterStyles(paint, text, start)
+    // The line draws a run's background from the paint, which a replacement span draws itself.
+    // Like a text run's, it stays under a spoiler's cover.
+    if (labelPaint.bgColor != 0) {
+      backgroundPaint.color = labelPaint.bgColor
+      // As wide as getSize reports, out to a whole pixel, so it meets the next run's background without a seam.
+      val right = ceil(x + ceil(slotWidth + labelPaint.measureText(text, start, end)))
+      canvas.drawRect(x, top.toFloat(), right, bottom.toFloat(), backgroundPaint)
+    }
     // A spoiler conceals text through the paint, which a replacement span's paint never gets.
     val visibility = (text as? Spanned)?.spoilerTextAlpha(start, end) ?: 1f
     if (visibility <= 0f) return
-    val labelPaint = drawPaint.applyCharacterStyles(paint, text, start)
     if (visibility < 1f) labelPaint.alpha = (labelPaint.alpha * visibility).roundToInt()
     val metrics = drawMetrics.also { labelPaint.getFontMetrics(it) }
     val slot = slotWidth
@@ -197,10 +207,11 @@ class LinkIconSpan(
 
   companion object {
     // The icon is a square of the font size; the slot adds a quarter of it as the gap to the text.
-    private const val ICON_SLOT_RATIO = 1.25f
+    internal const val ICON_SLOT_RATIO = 1.25f
 
     // Drawing happens on the main thread only, so all icons share these scratch objects.
     private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val backgroundPaint = Paint()
     private val drawPaint = TextPaint()
     private val drawMetrics = Paint.FontMetrics()
     private val rect = RectF()
