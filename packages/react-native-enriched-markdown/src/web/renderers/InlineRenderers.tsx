@@ -136,7 +136,14 @@ function CodeRenderer({ node, styles, renderChildren }: RendererProps) {
   );
 }
 
-const BROWSER_OPENABLE_URL = /^(https?:|mailto:|\/|#|\?)/i;
+const URL_SCHEME = /^([a-z][a-z0-9+.-]*):/i;
+const BROWSER_SCHEMES = new Set(['http', 'https', 'mailto', 'tel', 'sms']);
+
+// Relative URLs and the schemes above are links the browser can open itself.
+function isBrowserOpenable(url: string): boolean {
+  const scheme = URL_SCHEME.exec(url.trim())?.[1];
+  return !scheme || BROWSER_SCHEMES.has(scheme.toLowerCase());
+}
 
 function LinkRenderer({
   node,
@@ -160,18 +167,10 @@ function LinkRenderer({
   }
 
   const handleClick = (event: MouseEvent) => {
-    // Like web routers do: cmd/ctrl/shift/alt-click and non-primary buttons on a link the browser
-    // can open (new tab or window) stay with the browser. Other schemes, such as custom mentions,
-    // still go to onLinkPress.
+    // As in web routers, a modified click (new tab, new window) stays with the browser.
     const isModified =
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey ||
-      event.button !== 0;
-    if (isModified && BROWSER_OPENABLE_URL.test(url)) {
-      return;
-    }
+      event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+    if (isModified && isBrowserOpenable(url)) return;
 
     if (callbacks.onLinkPress) {
       event.preventDefault();
