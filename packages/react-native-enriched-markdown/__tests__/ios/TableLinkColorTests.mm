@@ -27,6 +27,23 @@ static UIView *ENRMFindGrid(UIView *view)
   return nil;
 }
 
+// The grid's laid-out row heights, header first.
+static NSArray<NSNumber *> *ENRMRowHeights(UIView *grid)
+{
+  return [grid valueForKey:@"_rowHeights"];
+}
+
+static NSString *ENRMLinkInRow(ENRMTableIOSGridView *grid, CGFloat y)
+{
+  for (CGFloat x = 1; x < grid.bounds.size.width; x += 2) {
+    ENRMTableIOSItemHit *hit = [grid itemAtPoint:CGPointMake(x, y)];
+    if (hit.kind == ENRMTableIOSItemKindLink) {
+      return hit.url;
+    }
+  }
+  return nil;
+}
+
 @interface TableLinkColorTests : XCTestCase
 @end
 
@@ -65,7 +82,7 @@ static UIView *ENRMFindGrid(UIView *view)
 {
   UIView *grid = ENRMFindGrid(_table);
   XCTAssertNotNil(grid);
-  XCTAssertGreaterThan(grid.bounds.size.height, 0);
+  XCTAssertEqual(ENRMRowHeights(grid).count, 2u);
 
   UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat];
   format.scale = 1;
@@ -83,9 +100,10 @@ static UIView *ENRMFindGrid(UIView *view)
   CGColorSpaceRelease(space);
 
   NSUInteger red[2] = {0, 0}, blue[2] = {0, 0};
+  CGFloat headerHeight = [ENRMRowHeights(grid).firstObject doubleValue];
   const uint8_t *bytes = (const uint8_t *)pixels.bytes;
   for (size_t y = 0; y < height; y++) {
-    NSUInteger row = y < height / 2 ? 0 : 1;
+    NSUInteger row = y < headerHeight ? 0 : 1;
     for (size_t x = 0; x < width; x++) {
       const uint8_t *p = bytes + (y * width + x) * 4;
       if (p[0] > 200 && p[1] < 80 && p[2] < 80) {
@@ -105,13 +123,11 @@ static UIView *ENRMFindGrid(UIView *view)
 - (void)testATapOnACellLinkStillFindsIt
 {
   ENRMTableIOSGridView *grid = (ENRMTableIOSGridView *)ENRMFindGrid(_table);
-  CGFloat bodyY = grid.bounds.size.height * 0.75;
-  ENRMTableIOSItemHit *hit = nil;
-  for (CGFloat x = 1; x < grid.bounds.size.width && !hit; x += 2) {
-    hit = [grid itemAtPoint:CGPointMake(x, bodyY)];
-  }
-  XCTAssertEqualObjects(hit.url, @"https://b.example");
-  XCTAssertEqual(hit.kind, ENRMTableIOSItemKindLink);
+  NSArray<NSNumber *> *rowHeights = ENRMRowHeights(grid);
+  XCTAssertEqual(rowHeights.count, 2u);
+  CGFloat headerHeight = rowHeights[0].doubleValue;
+  XCTAssertEqualObjects(ENRMLinkInRow(grid, headerHeight / 2), @"https://h.example");
+  XCTAssertEqualObjects(ENRMLinkInRow(grid, headerHeight + rowHeights[1].doubleValue / 2), @"https://b.example");
 }
 
 // Copy as HTML reads the cells, which keep the link for its <a href>.
