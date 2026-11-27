@@ -169,11 +169,8 @@ The full announcement model is in
 
 The web editor does not yet cover the native editor's surface - see [Web editor](/react-native/guides/web-editor#not-supported-on-web). The rest of this section is about the renderer.
 
-:::danger
-**Spoilers lose their content on web.** The parser emits a spoiler node, the web
-renderer has none, and an unhandled node is dropped together with its subtree, so
-`a ||secret|| b` renders as `a  b`. The concealed text is gone, not concealed.
-:::
+Spoilers always use the solid cover on web: the particle preset and
+`spoilerOverlay` are native-only.
 
 Also missing there: code-block syntax highlighting (fenced blocks render as plain
 monospaced text, with no header or copy button) and any clipboard integration at

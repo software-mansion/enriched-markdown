@@ -14,6 +14,7 @@ import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
+import java.util.IdentityHashMap
 
 data class TaskListHitTestResult(
   val taskIndex: Int,
@@ -142,6 +143,11 @@ object TaskListTapUtils {
         parentMarkerWidth = old.parentMarkerWidth,
       )
 
+    // Each replaced span maps to its single copy, so code blocks can follow their item's marker to it.
+    val replacements = IdentityHashMap<TaskListSpan, TaskListSpan>()
+
+    fun replacementFor(old: TaskListSpan): TaskListSpan = replacements.getOrPut(old) { toggledCopy(old) }
+
     // Layout draws leading margins in insertion order, and a re-added span moves to the end of it.
     // Re-add the task's spans and everything attached after them (its ancestors) in their original
     // order; the task's own nested items were attached first and stay where they are.
@@ -160,7 +166,7 @@ object TaskListTapUtils {
       }
     listSpans.forEach { spannable.removeSpan(it.span) }
     for ((old, start, end, flags) in listSpans) {
-      val replacement = if (old is TaskListSpan && old.taskIndex == targetIndex) toggledCopy(old) else old
+      val replacement = if (old is TaskListSpan && old.taskIndex == targetIndex) replacementFor(old) else old
       spannable.setSpan(replacement, start, end, flags)
     }
 
@@ -173,12 +179,18 @@ object TaskListTapUtils {
         val end = spannable.getSpanEnd(old)
         spannable.removeSpan(old)
         spannable.setSpan(
-          ListMarkerAnchorSpan(toggledCopy(old.marker as TaskListSpan)),
+          ListMarkerAnchorSpan(replacementFor(old.marker as TaskListSpan)),
           start,
           end,
           SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
         )
       }
+
+    // A code block names its item's marker span as its owner; copy-as-markdown needs the current one.
+    for (block in spannable.getSpans(0, spannable.length, CodeBlockSpan::class.java)) {
+      val owner = block.listItem as? TaskListSpan ?: continue
+      replacements[owner]?.let { block.listItem = it }
+    }
 
     val taskStyle = styleConfig.taskListStyle
     val checkedTextColor = taskStyle.checkedTextColor

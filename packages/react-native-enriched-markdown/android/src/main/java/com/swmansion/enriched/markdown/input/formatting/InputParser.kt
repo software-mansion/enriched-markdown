@@ -1,15 +1,11 @@
 package com.swmansion.enriched.markdown.input.formatting
 
+import android.util.Log
+import com.swmansion.enriched.markdown.input.editing.ZWSP
 import com.swmansion.enriched.markdown.input.model.BlockRange
 import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.FormattingRange
-import com.swmansion.enriched.markdown.input.model.MAX_LIST_DEPTH
 import com.swmansion.enriched.markdown.input.model.StyleType
-import com.swmansion.enriched.markdown.parser.MarkdownASTNode
-import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
-import com.swmansion.enriched.markdown.parser.Md4cFlags
-import com.swmansion.enriched.markdown.parser.Parser
-import com.swmansion.enriched.markdown.parser.isTopLevelBlock
 
 data class ParseResult(
   val plainText: String,
@@ -17,166 +13,117 @@ data class ParseResult(
   val blockRanges: List<BlockRange> = emptyList(),
 )
 
+/**
+ * Markdown import for the input. The parsing itself lives in the shared C++ input core
+ * (`cpp/input`, the same code iOS and web run); this wrapper only converts its packed
+ * result into the editor's model and seeds the empty-line anchor the editor needs.
+ */
 object InputParser {
-  // A source paragraph break: a newline followed by one or more blank lines.
-  private val PARAGRAPH_BREAK_RE = Regex("\\n[ \\t]*(?:\\n[ \\t]*)+")
+  private const val TAG = "InputParser"
+  private const val FORMATTING_STRIDE = 3
+  private const val BLOCK_STRIDE = 5
+
+  init {
+    try {
+      // The unit tests load a host build of the input core under another name; see build.gradle.
+      System.loadLibrary(System.getProperty("enriched.markdown.input.library") ?: "react_codegen_EnrichedMarkdownTextSpec")
+    } catch (e: UnsatisfiedLinkError) {
+      Log.e(TAG, "Failed to load native library", e)
+    }
+  }
+
+  /**
+   * Returns `{ String text, IntArray formatting, IntArray blocks, Array<String?> urls }`,
+   * where `formatting` is `(type, start, end)` per range, `blocks` is
+   * `(type, start, end, level, ordinal)` per range and `urls` runs parallel to
+   * `formatting`; null on any failure.
+   */
+  private external fun nativeParse(markdown: String): Array<Any?>?
 
   fun parseToPlainTextAndRanges(rawMarkdown: String): ParseResult {
     // U+200B is the editor's reserved empty-list anchor and is stripped from every
     // output path; strip it from incoming markdown too (web paste, JS-supplied
-    // values) so a foreign copy can't seed a stray anchor into the buffer. Done
-    // before parsing so plain-text offsets and ranges stay consistent.
+    // values) so a foreign copy can't seed a stray anchor into the buffer.
     val markdown = MarkdownSerializer.stripZwsp(rawMarkdown)
     if (markdown.isEmpty()) {
       return ParseResult("", emptyList(), emptyList())
     }
 
-    val completed = InputRemend.complete(markdown)
-    val flags = Md4cFlags(underline = true, permissiveAutolinks = false)
-    val ast = Parser.shared.parseMarkdown(completed, flags) ?: return ParseResult(markdown, emptyList(), emptyList())
+    val packed =
+      try {
+        nativeParse(markdown)
+      } catch (e: UnsatisfiedLinkError) {
+        Log.e(TAG, "Native input parser unavailable", e)
+        null
+      } ?: return ParseResult(markdown, emptyList(), emptyList())
 
-    val plainText = StringBuilder()
-    val ranges = mutableListOf<FormattingRange>()
-    val blockRanges = mutableListOf<BlockRange>()
+    val plainText = packed[0] as String
+    val formatting = packed[1] as IntArray
+    val blocks = packed[2] as IntArray
 
-    // md4c collapses any blank-line run into a single break, unlike iOS which keeps them.
-    // Re-read the real runs so each break replays its original number of newlines.
-    val blankRuns =
-      ArrayDeque(
-        PARAGRAPH_BREAK_RE
-          .findAll(completed.trim())
-          .map { match -> match.value.count { it == '\n' } }
-          .toList(),
-      )
+    @Suppress("UNCHECKED_CAST")
+    val urls = packed[3] as Array<String?>
 
-    walkNode(ast, plainText, ranges, blockRanges, ArrayDeque(), blankRuns, 0, false)
+    val styleTypes = StyleType.entries
+    val blockTypes = BlockType.entries
 
-    return ParseResult(plainText.toString(), ranges, blockRanges)
+    val formattingRanges = ArrayList<FormattingRange>(formatting.size / FORMATTING_STRIDE)
+    for (i in 0 until formatting.size / FORMATTING_STRIDE) {
+      val base = i * FORMATTING_STRIDE
+      val type = styleTypes.getOrNull(formatting[base]) ?: continue
+      formattingRanges.add(FormattingRange(type, formatting[base + 1], formatting[base + 2], urls.getOrNull(i)))
+    }
+
+    val blockRanges = ArrayList<BlockRange>(blocks.size / BLOCK_STRIDE)
+    for (i in 0 until blocks.size / BLOCK_STRIDE) {
+      val base = i * BLOCK_STRIDE
+      val type = blockTypes.getOrNull(blocks[base]) ?: continue
+      blockRanges.add(BlockRange(type, blocks[base + 1], blocks[base + 2], blocks[base + 3], blocks[base + 4]))
+    }
+
+    return seedEmptyListAnchors(ParseResult(plainText, formattingRanges, blockRanges))
   }
-
-  private fun walkNode(
-    node: MarkdownASTNode,
-    plainText: StringBuilder,
-    ranges: MutableList<FormattingRange>,
-    blockRanges: MutableList<BlockRange>,
-    activeStyles: ArrayDeque<ActiveStyle>,
-    blankRuns: ArrayDeque<Int>,
-    listDepth: Int,
-    orderedContainer: Boolean,
-  ) {
-    val styleType = nodeTypeToStyleType(node.type)
-
-    if (styleType != null) {
-      val url = if (styleType == StyleType.LINK) node.getAttribute("url") else null
-      activeStyles.addLast(ActiveStyle(styleType, plainText.length, url))
-    }
-
-    // A list node increments the nesting depth of its items, so a list item's depth
-    // is (enclosing list nodes − 1) — matching the iOS depth derivation. Depth comes
-    // from this AST nesting, never from counting leading spaces.
-    val isListContainer = node.type == NodeType.UnorderedList || node.type == NodeType.OrderedList
-    val childListDepth = if (isListContainer) listDepth + 1 else listDepth
-    val childOrdered = if (isListContainer) node.type == NodeType.OrderedList else orderedContainer
-
-    // Each list item starts on its own line; md4c emits no separator between sibling
-    // items or before a nested sublist, so insert the line break ourselves.
-    if (node.type == NodeType.ListItem && plainText.isNotEmpty() && !plainText.endsWith("\n")) {
-      plainText.append("\n")
-    }
-    val itemStart = if (node.type == NodeType.ListItem) plainText.length else -1
-
-    // Block-level node: record where its text content begins so we can build a
-    // BlockRange on the way back out. PARAGRAPH is the implicit default and is
-    // dropped below, so it produces no stored block range.
-    val blockLevel = node.getAttribute("level")?.toIntOrNull() ?: 0
-    val blockType = nodeTypeToBlockType(node.type, blockLevel)
-    val blockStartPosition = plainText.length
-
-    if (node.type == NodeType.Text) {
-      plainText.append(node.content)
-    } else if (node.type == NodeType.LineBreak || node.type == NodeType.SoftBreak) {
-      plainText.append("\n")
-    }
-
-    for ((index, child) in node.children.withIndex()) {
-      // Keep the source's blank lines between genuinely top-level blocks (md4c drops
-      // them, iOS keeps them). Inside a list, items are separated by a single newline
-      // (inserted above), not blank lines.
-      if (index > 0 && listDepth == 0 && child.type.isTopLevelBlock() && plainText.isNotEmpty()) {
-        plainText.append("\n".repeat(blankRuns.removeFirstOrNull() ?: 2))
-      }
-      walkNode(child, plainText, ranges, blockRanges, activeStyles, blankRuns, childListDepth, childOrdered)
-    }
-
-    // A list item owns its own first line; a nested sublist lives on later lines, so
-    // the item's range ends at the first newline after its start.
-    if (itemStart >= 0) {
-      var lineEnd = plainText.indexOf('\n', itemStart)
-      if (lineEnd < 0) lineEnd = plainText.length
-      if (lineEnd > itemStart) {
-        // The item sees listDepth already incremented by its enclosing list node, so
-        // its 0-based depth is listDepth − 1 (enclosing list nodes − 1, per iOS).
-        val depth = (listDepth - 1).coerceIn(0, MAX_LIST_DEPTH)
-        val itemType = if (orderedContainer) BlockType.ORDERED_LIST_ITEM else BlockType.UNORDERED_LIST_ITEM
-        blockRanges.add(BlockRange(itemType, itemStart, lineEnd, depth))
-      }
-    }
-
-    if (styleType != null) {
-      val activeStyle = activeStyles.removeLast()
-      val end = plainText.length
-      if (end > activeStyle.startPosition) {
-        ranges.add(FormattingRange(styleType, activeStyle.startPosition, end, activeStyle.url))
-      }
-    }
-
-    // Emit the block range for handler-claimed block types only; PARAGRAPH (the
-    // implicit default) yields nothing. List items are emitted above with their own
-    // line bounds, so they are excluded here.
-    if (blockType != null && blockType != BlockType.PARAGRAPH && blockType !in BlockType.LIST_ITEMS) {
-      val end = plainText.length
-      if (end > blockStartPosition) {
-        blockRanges.add(BlockRange(blockType, blockStartPosition, end, blockLevel))
-      }
-    }
-  }
-
-  private fun nodeTypeToStyleType(nodeType: NodeType): StyleType? =
-    when (nodeType) {
-      NodeType.Strong -> StyleType.BOLD
-      NodeType.Emphasis -> StyleType.ITALIC
-      NodeType.Underline -> StyleType.UNDERLINE
-      NodeType.Strikethrough -> StyleType.STRIKETHROUGH
-      NodeType.Link -> StyleType.LINK
-      NodeType.Spoiler -> StyleType.SPOILER
-      else -> null
-    }
 
   /**
-   * Maps a parser block node to a [BlockType], mirroring [nodeTypeToStyleType]
-   * for inline spans. A heading maps to its per-level `HEADING_n` (from the node's
-   * `level` attribute); an out-of-range level falls back to PARAGRAPH so a
-   * malformed parse degrades gracefully rather than dropping the line.
+   * The editor draws an empty list item (and indents its caret) only when its line holds a
+   * ZWSP, and keeps such anchors away from the caret too. The core returns an empty item as
+   * a zero-length block on an empty line, so seed the anchor here and shift every range
+   * after it, the mirror of what [MarkdownSerializer] strips before exporting.
    */
-  private fun nodeTypeToBlockType(
-    nodeType: NodeType,
-    level: Int,
-  ): BlockType? =
-    when (nodeType) {
-      NodeType.Paragraph -> BlockType.PARAGRAPH
+  private fun seedEmptyListAnchors(parsed: ParseResult): ParseResult {
+    val seeds =
+      parsed.blockRanges
+        .filter { it.type in BlockType.LIST_ITEMS && it.length == 0 }
+        .map { it.start }
+    if (seeds.isEmpty()) return parsed
 
-      NodeType.Heading -> BlockType.forHeadingLevel(level) ?: BlockType.PARAGRAPH
+    val text = StringBuilder(parsed.plainText.length + seeds.size)
+    var copied = 0
+    for (seed in seeds) {
+      text.append(parsed.plainText, copied, seed).append(ZWSP)
+      copied = seed
+    }
+    text.append(parsed.plainText, copied, parsed.plainText.length)
 
-      // List items are recognized here but emitted with their own per-line bounds and
-      // AST-derived nesting depth in the walk above, not via the generic emission.
-      NodeType.ListItem -> BlockType.UNORDERED_LIST_ITEM
-
-      else -> null
+    // Offset o moves right by the number of anchors inserted before it.
+    fun shifted(offset: Int): Int {
+      var low = 0
+      var high = seeds.size
+      while (low < high) {
+        val mid = (low + high) ushr 1
+        if (seeds[mid] < offset) low = mid + 1 else high = mid
+      }
+      return offset + low
     }
 
-  private data class ActiveStyle(
-    val type: StyleType,
-    val startPosition: Int,
-    val url: String?,
-  )
+    val formattingRanges =
+      parsed.formattingRanges.map { FormattingRange(it.type, shifted(it.start), shifted(it.end), it.url) }
+    val blockRanges =
+      parsed.blockRanges.map { block ->
+        val start = shifted(block.start)
+        val isSeeded = block.type in BlockType.LIST_ITEMS && block.length == 0
+        BlockRange(block.type, start, if (isSeeded) start + 1 else shifted(block.end), block.level, block.ordinal)
+      }
+    return ParseResult(text.toString(), formattingRanges, blockRanges)
+  }
 }

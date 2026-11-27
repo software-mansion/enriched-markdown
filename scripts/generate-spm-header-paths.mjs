@@ -25,6 +25,7 @@ const FIXED = [
   'cpp/enrmrkd',
   'cpp/parser',
   'cpp/repair',
+  'cpp/input',
   'cpp/highlight',
   'cpp/latex',
 ];
