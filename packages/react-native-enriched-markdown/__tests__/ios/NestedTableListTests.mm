@@ -1,3 +1,9 @@
+#import "../../ios/segments/ENRMCodeBlockContainerView.h"
+#import "../../ios/utils/ENRMAccessibilityLabels.h"
+#import "../../ios/utils/ENRMFeatureFlags.h"
+#if ENRICHED_MARKDOWN_MATH
+#import "../../ios/segments/ENRMMathContainerView.h"
+#endif
 #import "../../ios/parser/MarkdownASTNode.h"
 #import "../../ios/renderer/ListItemRenderer.h"
 #import "../../ios/renderer/RenderContext.h"
@@ -54,6 +60,44 @@ static void ENRMCollectViews(UIView *view, Class type, NSMutableArray *result)
 @end
 
 @implementation ENRMNestedTableListTests
+
+- (void)testListForwardsChangedAccessibilityLabelsToCodeAndMath
+{
+  MarkdownASTNode *code = ENRMTestNode(MarkdownNodeTypeCodeBlock, @[]);
+  code.content = @"const x = 1;";
+  NSMutableArray *children = [NSMutableArray arrayWithArray:@[ ENRMTestTable(), code ]];
+#if ENRICHED_MARKDOWN_MATH
+  MarkdownASTNode *math = ENRMTestNode(MarkdownNodeTypeLatexMathDisplay, @[]);
+  math.content = @"x";
+  [children addObject:math];
+#endif
+  MarkdownASTNode *document = ENRMTestNode(
+      MarkdownNodeTypeDocument,
+      @[ ENRMTestNode(MarkdownNodeTypeUnorderedList, @[ ENRMTestNode(MarkdownNodeTypeListItem, children) ]) ]);
+  StyleConfig *config = [StyleConfig new];
+  ENRMRenderedSegment *segment =
+      ENRMRenderSegmentsFromAST(document, config, NO, YES, 0, NSLineBreakStrategyNone, NO, 0).firstObject;
+  ENRMListContainerView *list = [[ENRMListContainerView alloc] initWithConfig:config];
+  list.accessibilityLabels = [ENRMAccessibilityLabels new];
+  [list applyListSegment:segment.listSegment];
+  ENRMAccessibilityLabels *labels = [ENRMAccessibilityLabels new];
+  labels.codeBlockWrap = @"Wrap updated";
+  labels.mathEquation = @"Equation updated: {latex}";
+  NSMutableArray<ENRMCodeBlockContainerView *> *codes = [NSMutableArray array];
+  ENRMCollectViews(list, [ENRMCodeBlockContainerView class], codes);
+  XCTAssertEqual(codes.count, 1u);
+  codes.firstObject.showsWrapButton = YES;
+  list.accessibilityLabels = labels;
+  XCTAssertEqual(codes.firstObject.accessibilityLabels, labels);
+  XCTAssertTrue([[codes.firstObject.accessibilityCustomActions valueForKey:@"name"] containsObject:@"Wrap updated"]);
+#if ENRICHED_MARKDOWN_MATH
+  NSMutableArray<ENRMMathContainerView *> *maths = [NSMutableArray array];
+  ENRMCollectViews(list, [ENRMMathContainerView class], maths);
+  XCTAssertEqual(maths.count, 1u);
+  XCTAssertEqual(maths.firstObject.accessibilityLabels, labels);
+  XCTAssertEqualObjects(maths.firstObject.accessibilityLabel, @"Equation updated: x");
+#endif
+}
 
 - (void)testNestedTableKeepsItsNativeSegmentAndListTextMetadata
 {

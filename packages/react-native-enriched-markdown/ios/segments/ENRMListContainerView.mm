@@ -1,5 +1,10 @@
 #import "ENRMListContainerView.h"
 #import "ENRMBlockquoteContainerView.h"
+#import "ENRMCodeBlockContainerView.h"
+#import "ENRMFeatureFlags.h"
+#if ENRICHED_MARKDOWN_MATH
+#import "ENRMMathContainerView.h"
+#endif
 #import "ENRMDroppableContent.h"
 #import "ENRMSegmentHeightMeasurer.h"
 #import "ENRMTableIOSGridView.h"
@@ -264,6 +269,12 @@ static CGFloat ENRMFirstContentBaseline(RCTUIView *view, StyleConfig *config)
       ((EnrichedMarkdownInternalText *)view).accessibilityLabels = labels;
     else if ([view isKindOfClass:[TableContainerView class]])
       ((TableContainerView *)view).accessibilityLabels = labels;
+    else if ([view isKindOfClass:[ENRMCodeBlockContainerView class]])
+      ((ENRMCodeBlockContainerView *)view).accessibilityLabels = labels;
+#if ENRICHED_MARKDOWN_MATH
+    else if ([view isKindOfClass:[ENRMMathContainerView class]])
+      ((ENRMMathContainerView *)view).accessibilityLabels = labels;
+#endif
     else
       [pending addObjectsFromArray:view.subviews];
   }

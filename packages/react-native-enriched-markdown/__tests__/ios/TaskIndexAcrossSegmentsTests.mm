@@ -1,3 +1,4 @@
+#import "../../ios/EnrichedMarkdown.h"
 #import "../../ios/parser/ENRMMarkdownParser.h"
 #import "../../ios/parser/MarkdownASTNode.h"
 #import "../../ios/renderer/ListItemRenderer.h"
@@ -40,6 +41,8 @@ static void ENRMAddTaskIndicesInViews(NSArray<UIView *> *views, NSMutableArray<N
       ENRMAddTaskIndicesInText(((EnrichedMarkdownInternalText *)view).textView.attributedText, indices);
     } else if ([view isKindOfClass:[ENRMBlockquoteContainerView class]]) {
       ENRMAddTaskIndicesInViews(((ENRMBlockquoteContainerView *)view).segmentViews, indices);
+    } else {
+      ENRMAddTaskIndicesInViews(view.subviews, indices);
     }
   }
 }
@@ -63,10 +66,41 @@ static NSArray<NSNumber *> *ENRMTaskIndices(NSArray<ENRMRenderedSegment *> *segm
   return indices;
 }
 
+@interface EnrichedMarkdown (ENRMTaskOffsetTesting)
+- (ENRMBlockquoteContainerView *)createBlockquoteViewForSegment:(ENRMBlockquoteSegment *)segment;
+@end
+
 @interface ENRMTaskIndexAcrossSegmentsTests : XCTestCase
 @end
 
 @implementation ENRMTaskIndexAcrossSegmentsTests
+
+- (void)testRootCreatesQuotesWithTheirDocumentTaskOffset
+{
+  for (NSNumber *offset in @[ @0, @2 ]) {
+    NSString *prefix = offset.integerValue == 0 ? @"" : @"- [ ] earlier one\n- [ ] earlier two\n\n";
+    NSString *markdown = [prefix stringByAppendingString:@"> - [ ] quoted\n"];
+    EnrichedMarkdown *document = [[EnrichedMarkdown alloc] initWithFrame:CGRectMake(0, 0, 320, 0)];
+    document.config = [StyleConfig new];
+    ENRMRenderedSegment *quoteSegment = ENRMRender(markdown).lastObject;
+    ENRMBlockquoteContainerView *created = [document createBlockquoteViewForSegment:quoteSegment.blockquoteSegment];
+    NSMutableArray<NSNumber *> *createdIndices = [NSMutableArray array];
+    ENRMAddTaskIndicesInViews(created.segmentViews, createdIndices);
+    XCTAssertEqualObjects(createdIndices, (@[ offset ]));
+    NSString *createdToggle = toggleTaskListItemAtIndex(markdown, createdIndices.lastObject.unsignedIntegerValue, YES);
+    XCTAssertTrue([createdToggle containsString:@"[x] quoted"]);
+    XCTAssertFalse([createdToggle containsString:@"[x] earlier"]);
+    [document renderMarkdownSynchronously:markdown];
+    NSMutableArray<NSNumber *> *indices = [NSMutableArray array];
+    ENRMAddTaskIndicesInViews(document.subviews, indices);
+    NSArray *expected = offset.integerValue == 0 ? @[ @0 ] : @[ @0, @1, @2 ];
+    XCTAssertEqualObjects(indices, expected);
+    XCTAssertEqualObjects(indices.lastObject, offset);
+    NSString *toggled = toggleTaskListItemAtIndex(markdown, indices.lastObject.unsignedIntegerValue, YES);
+    XCTAssertTrue([toggled containsString:@"[x] quoted"]);
+    XCTAssertFalse([toggled containsString:@"[x] earlier"]);
+  }
+}
 
 - (void)testTasksAreNumberedInDocumentOrder
 {
