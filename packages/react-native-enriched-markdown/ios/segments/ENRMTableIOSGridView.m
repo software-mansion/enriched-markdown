@@ -3,17 +3,19 @@
 #import "LinkTapUtils.h"
 
 #if !TARGET_OS_OSX
-#import "ENRMMarkdownTextView.h"
+#import "MarkdownExtractor.h"
+#import "PasteboardUtils.h"
+#import "RuntimeKeys.h"
 #import "TableContainerView.h"
 
-@interface ENRMTableIOSGridView () <UIGestureRecognizerDelegate, ENRMDroppableContent>
+@interface ENRMTableIOSGridView () <UIGestureRecognizerDelegate>
 @end
 
 // Where text sits across its cell: 0 at the left, 0.5 centred, 1 at the right.
 static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
 {
-  NSParagraphStyle *style = [text attribute:NSParagraphStyleAttributeName atIndex:0 effectiveRange:NULL];
-  BOOL rightToLeft = style.baseWritingDirection == NSWritingDirectionRightToLeft;
+  NSParagraphStyle *style =
+      [text attribute:NSParagraphStyleAttributeName atIndex:0 effectiveRange:NULL] ?: NSParagraphStyle.defaultParagraphStyle;
   switch (style.alignment) {
     case NSTextAlignmentCenter:
       return 0.5;
@@ -22,9 +24,14 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
     case NSTextAlignmentLeft:
       return 0;
     default:
-      return rightToLeft ? 1 : 0;
+      return ENRMParagraphIsRTL(style) ? 1 : 0;
   }
 }
+
+typedef struct {
+  CGRect layoutRect;
+  CGRect visibleRect;
+} ENRMTableTextGeometry;
 
 // Ticks the row fade without the display link retaining the grid.
 @interface ENRMTableFadeTicker : NSObject
@@ -33,6 +40,35 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
 
 @interface ENRMTableIOSGridView ()
 - (void)stepRowFade:(CADisplayLink *)link;
+- (void)drawGridInRect:(CGRect)dirtyRect excludingSelectedText:(BOOL)excludingSelectedText;
+@end
+
+@interface ENRMTableGridDrawingView : UIView <ENRMDroppableContent>
+@property (nonatomic, weak) ENRMTableIOSGridView *grid;
+@property (nonatomic, assign) BOOL drawsSelectionBackdrop;
+@end
+
+@implementation ENRMTableGridDrawingView
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+  if (self = [super initWithFrame:frame]) {
+    self.opaque = NO;
+    self.backgroundColor = UIColor.clearColor;
+    self.userInteractionEnabled = NO;
+    self.contentMode = UIViewContentModeRedraw;
+  }
+  return self;
+}
+
+- (void)drawRect:(CGRect)dirtyRect
+{
+  CGPoint origin = self.frame.origin;
+  CGContextTranslateCTM(UIGraphicsGetCurrentContext(), -origin.x, -origin.y);
+  [self.grid drawGridInRect:CGRectOffset(dirtyRect, origin.x, origin.y)
+       excludingSelectedText:self.drawsSelectionBackdrop];
+}
+
 @end
 
 @implementation ENRMTableFadeTicker
@@ -53,12 +89,153 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
 @implementation ENRMTableIOSRowData
 @end
 
+@implementation ENRMTableCellTextView {
+  NSArray<UIMenuItem *> *_legacyCopyItems;
+}
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+  if (self = [super initWithFrame:frame]) {
+    objc_setAssociatedObject(self.textContainer, kTextViewKey, self, OBJC_ASSOCIATION_ASSIGN);
+  }
+  return self;
+}
+
+- (void)dealloc
+{
+  objc_setAssociatedObject(self.textContainer, kTextViewKey, nil, OBJC_ASSOCIATION_ASSIGN);
+}
+
+- (NSArray<UIMenuItem *> *)legacyCopyItems
+{
+  NSRange range = self.selectedRange;
+  ENRMSelectionMenuConfig config = self.legacyMenuConfig();
+  NSMutableArray<UIMenuItem *> *items = [NSMutableArray array];
+  if (config.copyLabel.length && ![config.copyLabel isEqualToString:@"Copy"]) {
+    [items addObject:[[UIMenuItem alloc] initWithTitle:config.copyLabel action:@selector(enrmCopySelectedText:)]];
+  }
+  if (config.copyAsMarkdown && extractMarkdownFromAttributedString(self.attributedText, range).length) {
+    [items addObject:[[UIMenuItem alloc] initWithTitle:config.copyAsMarkdownLabel
+                                             action:@selector(enrmCopySelectedMarkdown:)]];
+  }
+  NSUInteger imageCount = config.copyImageURL ? imageURLsInRange(self.attributedText, range).count : 0;
+  if (imageCount) {
+    [items addObject:[[UIMenuItem alloc] initWithTitle:ENRMResolveImageURLsTitle(config, imageCount)
+                                             action:@selector(enrmCopySelectedImageURLs:)]];
+  }
+  if (self.table.dynamicProps.enableBlockContextMenu) {
+    [items addObjectsFromArray:@[
+      [[UIMenuItem alloc] initWithTitle:NSLocalizedString(@"Copy Table", nil) action:@selector(enrmCopyTable:)],
+      [[UIMenuItem alloc] initWithTitle:NSLocalizedString(@"Copy Table as Markdown", nil)
+                               action:@selector(enrmCopyTableAsMarkdown:)]
+    ]];
+  }
+  return items;
+}
+
+- (void)refreshLegacyCopyMenu
+{
+  if (!self.legacyMenuConfig)
+    return;
+  NSRange range = self.selectedRange;
+  NSUInteger length = self.attributedText.length;
+  if (!self.isFirstResponder || !range.length || range.location >= length || range.length > length - range.location) {
+    [self clearLegacyCopyMenu];
+    return;
+  }
+  _legacyCopyItems = [self legacyCopyItems];
+  if (_legacyCopyItems.count)
+    ENRMSetLegacyTableMenuItems(self, _legacyCopyItems);
+  else
+    [self clearLegacyCopyMenu];
+}
+
+- (void)clearLegacyCopyMenu
+{
+  _legacyCopyItems = nil;
+  ENRMClearLegacyTableMenuItems(self);
+}
+
+- (BOOL)becomeFirstResponder
+{
+  BOOL became = [super becomeFirstResponder];
+  if (became)
+    [self refreshLegacyCopyMenu];
+  return became;
+}
+
+- (BOOL)resignFirstResponder
+{
+  BOOL resigned = [super resignFirstResponder];
+  if (resigned && self.legacyMenuConfig)
+    [self clearLegacyCopyMenu];
+  return resigned;
+}
+
+- (void)didMoveToWindow
+{
+  [super didMoveToWindow];
+  if (!self.window && self.legacyMenuConfig)
+    [self clearLegacyCopyMenu];
+}
+
+- (BOOL)canPerformAction:(SEL)action withSender:(id)sender
+{
+  if (self.legacyMenuConfig && self.isFirstResponder && self.selectedRange.length) {
+    for (UIMenuItem *item in _legacyCopyItems) {
+      if (item.action == action)
+        return YES;
+      if (item.action == @selector(enrmCopySelectedText:) && action == @selector(copy:) &&
+          ![sender isKindOfClass:UIKeyCommand.class])
+        return NO;
+    }
+  }
+  return [super canPerformAction:action withSender:sender];
+}
+
+- (void)enrmCopySelectedText:(id)sender
+{
+  [self copy:sender];
+}
+
+- (void)enrmCopySelectedMarkdown:(id)sender
+{
+  NSRange range = self.selectedRange;
+  NSString *markdown = extractMarkdownFromAttributedString(self.attributedText, range);
+  if (markdown.length)
+    ENRMCopySelectionString(markdown, ENRMSelectionCopyFormatMarkdown, range, self.onLegacyCopy);
+}
+
+- (void)enrmCopySelectedImageURLs:(id)sender
+{
+  NSRange range = self.selectedRange;
+  NSArray<NSString *> *urls = imageURLsInRange(self.attributedText, range);
+  if (urls.count)
+    ENRMCopySelectionString([urls componentsJoinedByString:@"\n"], ENRMSelectionCopyFormatImageURLs, range,
+                            self.onLegacyCopy);
+}
+
+- (void)enrmCopyTable:(id)sender
+{
+  [self.table copyTableToPasteboard];
+}
+
+- (void)enrmCopyTableAsMarkdown:(id)sender
+{
+  [self.table copyMarkdownToPasteboard];
+}
+
+@end
+
 @implementation ENRMTableIOSGridView {
+  ENRMTableGridDrawingView *_drawingView;
+  ENRMTableGridDrawingView *_selectionBackdrop;
   NSArray<ENRMTableIOSRowData *> *_tableRows;
   NSArray<NSNumber *> *_columnWidths;
   NSArray<NSNumber *> *_rowHeights;
-  ENRMMarkdownTextView *_selectionView;
   NSAttributedString *_selectedText;
+  uint64_t _selectedCellSignature;
+  CGRect _selectionDrawRect;
   NSUInteger _selectedRow;
   NSUInteger _selectedColumn;
   UIColor *_borderColor;
@@ -78,9 +255,13 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
   self = [super initWithFrame:frame];
   if (self) {
     self.backgroundColor = [UIColor clearColor];
-    self.contentMode = UIViewContentModeRedraw;
     self.opaque = NO;
     self.accessibilityElementsHidden = YES;
+
+    _drawingView = [[ENRMTableGridDrawingView alloc] initWithFrame:self.bounds];
+    _drawingView.grid = self;
+    _drawingView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self addSubview:_drawingView];
 
     UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTap:)];
     tap.delegate = self;
@@ -192,20 +373,61 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
 
 #pragma mark - Drawing
 
-- (void)drawRect:(CGRect)dirtyRect
+- (void)setNeedsDisplay
+{
+  [_drawingView setNeedsDisplay];
+  [_selectionBackdrop setNeedsDisplay];
+}
+
+- (void)layoutSubviews
+{
+  [super layoutSubviews];
+  [self updateSelectionBackdrop];
+}
+
+- (NSArray<NSNumber *> *)displayedColumnWidths
+{
+  return _shownColumnWidths.count == _columnWidths.count ? _shownColumnWidths : _columnWidths;
+}
+
+- (ENRMTableTextGeometry)geometryForText:(NSAttributedString *)text column:(NSUInteger)column cellRect:(CGRect)cellRect
+{
+  CGFloat finalWidth = _columnWidths[column].doubleValue;
+  CGFloat shownWidth = cellRect.size.width;
+  // Keep the final wrapping while the displayed column grows towards it.
+  CGFloat shift = shownWidth == finalWidth ? 0 : (shownWidth - finalWidth) * ENRMTableTextAnchor(text);
+  CGRect layoutRect = CGRectInset(CGRectMake(cellRect.origin.x + shift, cellRect.origin.y, finalWidth,
+                                            cellRect.size.height),
+                                  _horizontalCellPadding, _verticalCellPadding);
+  CGRect visibleRect = layoutRect;
+  if (_shownColumnWidths.count == _columnWidths.count) {
+    CGRect clip = CGRectMake(CGRectGetMinX(cellRect) + _borderWidth, CGRectGetMinY(cellRect) + _borderWidth,
+                             shownWidth - _borderWidth, cellRect.size.height - _borderWidth);
+    visibleRect = CGRectIntersection(layoutRect, clip);
+  }
+  return (ENRMTableTextGeometry){layoutRect, visibleRect};
+}
+
+- (void)drawGridInRect:(CGRect)dirtyRect excludingSelectedText:(BOOL)excludingSelectedText
 {
   if (!_tableRows.count || !_columnWidths.count || !_rowHeights.count)
     return;
 
-  // Columns moving to their laid-out widths; otherwise the grid draws as it always has.
-  BOOL widthsAnimate = _shownColumnWidths.count == _columnWidths.count;
-  NSArray<NSNumber *> *shownWidths = widthsAnimate ? _shownColumnWidths : _columnWidths;
+  NSArray<NSNumber *> *shownWidths = [self displayedColumnWidths];
+  // Cell strokes can extend beyond their layout bounds.
+  CGRect dirtyCells = CGRectInset(dirtyRect, -1.5 * _borderWidth, -1.5 * _borderWidth);
   CGContextRef context = UIGraphicsGetCurrentContext();
   CFTimeInterval now = CACurrentMediaTime();
   CGFloat yOffset = 0;
   for (NSUInteger r = 0; r < _tableRows.count; r++) {
     ENRMTableIOSRowData *rowData = _tableRows[r];
     CGFloat rowHeight = [_rowHeights[r] doubleValue];
+    if (yOffset >= CGRectGetMaxY(dirtyCells))
+      break;
+    if (yOffset + rowHeight <= CGRectGetMinY(dirtyCells)) {
+      yOffset += rowHeight;
+      continue;
+    }
     CGFloat opacity = [self opacityOfRow:r at:now];
     if (opacity <= 0) {
       yOffset += rowHeight;
@@ -221,36 +443,40 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
     NSUInteger colCount = MIN(rowData.cellTexts.count, _columnWidths.count);
     for (NSUInteger c = 0; c < colCount; c++) {
       CGFloat columnWidth = [shownWidths[c] doubleValue];
-      CGFloat textWidth = [_columnWidths[c] doubleValue] - _horizontalCellPadding * 2;
-      CGRect cellRect = CGRectMake(xOffset, yOffset, columnWidth + _borderWidth, rowHeight + _borderWidth);
+      if (xOffset >= CGRectGetMaxX(dirtyCells))
+        break;
+      CGRect cellRect = CGRectMake(xOffset, yOffset, columnWidth, rowHeight);
+      xOffset += columnWidth;
+      if (xOffset <= CGRectGetMinX(dirtyCells))
+        continue;
+      CGRect borderRect = CGRectMake(cellRect.origin.x, cellRect.origin.y, columnWidth + _borderWidth,
+                                     rowHeight + _borderWidth);
 
       [rowData.backgroundColor setFill];
-      UIRectFill(cellRect);
+      UIRectFill(borderRect);
 
       [_borderColor setStroke];
-      UIBezierPath *border = [UIBezierPath bezierPathWithRect:cellRect];
+      UIBezierPath *border = [UIBezierPath bezierPathWithRect:borderRect];
       border.lineWidth = _borderWidth;
       [border stroke];
 
       NSAttributedString *text = rowData.cellTexts[c];
-      if (text.length > 0 && !(_selectionView && r == _selectedRow && c == _selectedColumn)) {
-        // While the column is narrower than laid out, text keeps its side: trailing text its trailing edge.
-        CGFloat shift = (columnWidth - [_columnWidths[c] doubleValue]) * ENRMTableTextAnchor(text);
-        CGRect textRect = CGRectMake(xOffset + _horizontalCellPadding + shift, yOffset + _verticalCellPadding,
-                                     textWidth, rowHeight - _verticalCellPadding * 2);
-        if (widthsAnimate) {
+      if (text.length > 0 && !(excludingSelectedText && r == _selectedRow && c == _selectedColumn)) {
+        ENRMTableTextGeometry geometry = [self geometryForText:text column:c cellRect:cellRect];
+        if (CGRectIsEmpty(geometry.visibleRect))
+          continue;
+        BOOL clipped = !CGRectEqualToRect(geometry.layoutRect, geometry.visibleRect);
+        if (clipped) {
           CGContextSaveGState(context);
-          CGContextClipToRect(context, CGRectInset(cellRect, _borderWidth, _borderWidth));
+          CGContextClipToRect(context, geometry.visibleRect);
         }
-        [text drawWithRect:textRect
+        [text drawWithRect:geometry.layoutRect
                    options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
                    context:nil];
-        if (widthsAnimate) {
+        if (clipped) {
           CGContextRestoreGState(context);
         }
       }
-
-      xOffset += columnWidth;
     }
     if (fading) {
       CGContextRestoreGState(context);
@@ -270,20 +496,21 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
 #pragma mark - Link hit-testing
 
 // Use the displayed cell bounds for hit testing while streamed columns widen.
-- (BOOL)cellAtPoint:(CGPoint)point row:(NSUInteger *)row column:(NSUInteger *)column textRect:(CGRect *)rect
+- (BOOL)cellAtPoint:(CGPoint)point row:(NSUInteger *)row column:(NSUInteger *)column cellRect:(CGRect *)rect
 {
-  NSArray<NSNumber *> *widths = _shownColumnWidths ?: _columnWidths;
+  NSArray<NSNumber *> *widths = [self displayedColumnWidths];
   CGFloat y = 0;
   for (NSUInteger r = 0; r < _tableRows.count; r++) {
     CGFloat height = _rowHeights[r].doubleValue;
     if (point.y >= y && point.y < y + height) {
       CGFloat x = 0;
-      for (NSUInteger c = 0; c < _tableRows[r].cellTexts.count; c++) {
+      NSUInteger count = MIN(widths.count, _tableRows[r].cellTexts.count);
+      for (NSUInteger c = 0; c < count; c++) {
         CGFloat width = widths[c].doubleValue;
         if (point.x >= x && point.x < x + width) {
           *row = r;
           *column = c;
-          *rect = CGRectInset(CGRectMake(x, y, width, height), _horizontalCellPadding, _verticalCellPadding);
+          *rect = CGRectMake(x, y, width, height);
           return YES;
         }
         x += width;
@@ -295,11 +522,13 @@ static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
   return NO;
 }
 
-static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGRect textRect, CGPoint point)
+static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, ENRMTableTextGeometry geometry,
+                                                 CGPoint point, BOOL allowsNearestLink)
 {
-  if (text.length == 0)
+  if (text.length == 0 || !CGRectContainsPoint(geometry.visibleRect, point))
     return nil;
 
+  CGRect textRect = geometry.layoutRect;
   NSTextStorage *textStorage = [[NSTextStorage alloc] initWithAttributedString:text];
   NSLayoutManager *layoutManager = [[NSLayoutManager alloc] init];
   NSTextContainer *textContainer = [[NSTextContainer alloc] initWithSize:textRect.size];
@@ -309,21 +538,13 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
   [layoutManager ensureLayoutForTextContainer:textContainer];
 
   CGPoint local = CGPointMake(point.x - textRect.origin.x, point.y - textRect.origin.y);
-  CGFloat fraction = 0;
   NSUInteger glyphIndex = [layoutManager glyphIndexForPoint:local
                                             inTextContainer:textContainer
-                             fractionOfDistanceThroughGlyph:&fraction];
+                             fractionOfDistanceThroughGlyph:NULL];
   if (glyphIndex >= layoutManager.numberOfGlyphs)
     return nil;
   NSUInteger charIndex = [layoutManager characterIndexForGlyphAtIndex:glyphIndex];
   if (charIndex >= text.length)
-    return nil;
-
-  // TextKit returns the nearest glyph even past a line end. Test its laid-out
-  // box so spaces between words select normally but unused space stays blank.
-  CGRect glyphRect = [layoutManager boundingRectForGlyphRange:NSMakeRange(glyphIndex, 1) inTextContainer:textContainer];
-  if (!CGRectContainsPoint(glyphRect, local) ||
-      [NSCharacterSet.newlineCharacterSet characterIsMember:[text.string characterAtIndex:charIndex]])
     return nil;
 
   NSRange itemRange;
@@ -331,8 +552,16 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
   NSString *linkURL = [text attribute:@"linkURL" atIndex:charIndex longestEffectiveRange:&itemRange inRange:whole];
   NSString *imageURL =
       linkURL ? nil : [text attribute:@"imageURL" atIndex:charIndex longestEffectiveRange:&itemRange inRange:whole];
-  ENRMTableIOSItemHit *hit = [[ENRMTableIOSItemHit alloc] init];
+  if (!imageURL && (!linkURL || !allowsNearestLink)) {
+    // A hold in unused space must reach the block menu, including in a cell ending in a link.
+    CGRect glyphRect = [layoutManager boundingRectForGlyphRange:NSMakeRange(glyphIndex, 1)
+                                                 inTextContainer:textContainer];
+    if (!CGRectContainsPoint(glyphRect, local) ||
+        [NSCharacterSet.newlineCharacterSet characterIsMember:[text.string characterAtIndex:charIndex]])
+      return nil;
+  }
   if (!linkURL && !imageURL) {
+    ENRMTableIOSItemHit *hit = [[ENRMTableIOSItemHit alloc] init];
     hit.kind = ENRMTableIOSItemKindText;
     return hit;
   }
@@ -343,26 +572,36 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
   if (imageURL && !CGRectContainsPoint(frame, local))
     return nil;
 
+  frame = CGRectOffset(frame, textRect.origin.x, textRect.origin.y);
+  if (!CGRectEqualToRect(geometry.layoutRect, geometry.visibleRect)) {
+    frame = CGRectIntersection(frame, geometry.visibleRect);
+    if (CGRectIsEmpty(frame))
+      return nil;
+  }
+  ENRMTableIOSItemHit *hit = [[ENRMTableIOSItemHit alloc] init];
   hit.kind = linkURL ? ENRMTableIOSItemKindLink : ENRMTableIOSItemKindImage;
   hit.url = linkURL ?: imageURL;
   hit.title = linkURL ? linkTitleAtIndex(text, charIndex)
                       : [text attribute:@"imageAltText" atIndex:charIndex effectiveRange:NULL];
-  hit.frame = CGRectOffset(frame, textRect.origin.x, textRect.origin.y);
+  hit.frame = frame;
   return hit;
 }
 
-- (ENRMTableIOSItemHit *)itemAtPoint:(CGPoint)point
+- (ENRMTableIOSItemHit *)itemAtPoint:(CGPoint)point allowsNearestLink:(BOOL)allowsNearestLink
 {
   NSUInteger row, column;
   CGRect rect;
-  if (![self cellAtPoint:point row:&row column:&column textRect:&rect] || !CGRectContainsPoint(rect, point))
+  if (![self cellAtPoint:point row:&row column:&column cellRect:&rect])
     return nil;
-  return itemInAttributedString(_tableRows[row].cellTexts[column], rect, point);
+  NSAttributedString *text = _tableRows[row].cellTexts[column];
+  if (text.length == 0)
+    return nil;
+  return itemInAttributedString(text, [self geometryForText:text column:column cellRect:rect], point, allowsNearestLink);
 }
 
 - (BOOL)ownsCellInteractionAtPoint:(CGPoint)point
 {
-  ENRMTableIOSItemHit *hit = [self itemAtPoint:point];
+  ENRMTableIOSItemHit *hit = [self itemAtPoint:point allowsNearestLink:NO];
   return hit &&
          (hit.kind == ENRMTableIOSItemKindText
               ? self.table.dynamicProps.tableSelectionHost.tableSelectionEnabled
@@ -371,7 +610,7 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
 
 - (ENRMTableIOSItemHit *)linkAtPoint:(CGPoint)point
 {
-  ENRMTableIOSItemHit *hit = [self itemAtPoint:point];
+  ENRMTableIOSItemHit *hit = [self itemAtPoint:point allowsNearestLink:NO];
   return hit.kind == ENRMTableIOSItemKindLink ? hit : nil;
 }
 
@@ -381,34 +620,140 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
 {
   if (self.table.dynamicProps.activeSelectionGrid == self)
     self.table.dynamicProps.activeSelectionGrid = nil;
+  if (!_selectionView)
+    return;
   [_selectionView resignFirstResponder];
   [_selectionView removeFromSuperview];
   _selectionView = nil;
   _selectedText = nil;
-  [self setNeedsDisplay];
+  [_selectionBackdrop removeFromSuperview];
+  _selectionBackdrop = nil;
+  _drawingView.layer.mask = nil;
+}
+
+- (void)updateSelectionBackdrop
+{
+  if (!_selectionView)
+    return;
+  // UIKit can redraw the entire backing store after a partial invalidation.
+  // Cut out the selected text's region and paint its cell background separately.
+  // A cutout preserves translucent row colors and text anti-aliasing.
+  CGRect cover = CGRectIntersection(self.bounds, CGRectIntegral(CGRectInset(_selectionDrawRect, -1, -1)));
+  if (CGRectIsEmpty(cover)) {
+    _selectionBackdrop.hidden = YES;
+    _drawingView.layer.mask = nil;
+    return;
+  }
+  CAShapeLayer *mask = (CAShapeLayer *)_drawingView.layer.mask;
+  if (mask && CGRectEqualToRect(mask.frame, _drawingView.bounds) && CGRectEqualToRect(cover, _selectionBackdrop.frame))
+    return;
+  if (!_selectionBackdrop) {
+    _selectionBackdrop = [[ENRMTableGridDrawingView alloc] initWithFrame:cover];
+    _selectionBackdrop.grid = self;
+    _selectionBackdrop.drawsSelectionBackdrop = YES;
+    [self insertSubview:_selectionBackdrop belowSubview:_selectionView];
+  }
+  _selectionBackdrop.hidden = NO;
+  _selectionBackdrop.frame = cover;
+  [_selectionBackdrop setNeedsDisplay];
+  UIBezierPath *path = [UIBezierPath bezierPathWithRect:_drawingView.bounds];
+  [path appendPath:[UIBezierPath bezierPathWithRect:cover]];
+  if (!mask) {
+    mask = [CAShapeLayer layer];
+    mask.fillRule = kCAFillRuleEvenOdd;
+  }
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
+  mask.frame = _drawingView.bounds;
+  mask.path = path.CGPath;
+  _drawingView.layer.mask = mask;
+  [CATransaction commit];
+}
+
+- (void)layoutSelectionViewWithGeometry:(ENRMTableTextGeometry)geometry
+{
+  _selectionView.frame = geometry.layoutRect;
+  _selectionDrawRect = geometry.visibleRect;
+  if (CGRectEqualToRect(geometry.layoutRect, geometry.visibleRect)) {
+    _selectionView.maskView = nil;
+  } else {
+    UIView *mask = _selectionView.maskView;
+    if (!mask) {
+      mask = [UIView new];
+      mask.backgroundColor = UIColor.blackColor;
+      _selectionView.maskView = mask;
+    }
+    mask.frame = CGRectIsEmpty(geometry.visibleRect)
+        ? CGRectZero
+        : [_selectionView convertRect:geometry.visibleRect fromView:self];
+  }
+  [_selectionView setDrawnRect:_selectionView.bounds];
+  [self updateSelectionBackdrop];
+}
+
+- (uint64_t)cellSignatureAtRow:(NSUInteger)row column:(NSUInteger)column
+{
+  NSArray<NSNumber *> *signatures = _tableRows[row].cellSignatures;
+  return column < signatures.count ? signatures[column].unsignedLongLongValue : 0;
 }
 
 - (void)updateSelectionView
 {
   if (!_selectionView)
     return;
-  if (_selectedRow >= _tableRows.count || _selectedColumn >= _tableRows[_selectedRow].cellTexts.count ||
-      ![_selectedText isEqualToAttributedString:_tableRows[_selectedRow].cellTexts[_selectedColumn]]) {
+  if (_selectedRow >= _tableRows.count || _selectedColumn >= _columnWidths.count ||
+      _selectedColumn >= _tableRows[_selectedRow].cellTexts.count) {
     [self clearSelectionView];
     return;
   }
+  NSAttributedString *text = _tableRows[_selectedRow].cellTexts[_selectedColumn];
+  uint64_t signature = [self cellSignatureAtRow:_selectedRow column:_selectedColumn];
+  if (![_selectedText isEqualToAttributedString:text]) {
+    if (!signature || signature != _selectedCellSignature || ![_selectedText.string isEqualToString:text.string]) {
+      [self clearSelectionView];
+      return;
+    }
+    // Re-rendering an unchanged source cell can create fresh attachment objects. Update the
+    // editor's attributes in place so the native selection stays in the same text storage.
+    NSTextStorage *storage = _selectionView.textStorage;
+    [storage beginEditing];
+    [text enumerateAttributesInRange:NSMakeRange(0, text.length)
+                             options:0
+                          usingBlock:^(NSDictionary *attributes, NSRange range, BOOL *stop) {
+                            [storage setAttributes:attributes range:range];
+                          }];
+    [storage endEditing];
+  }
+  _selectedText = text;
+  _selectedCellSignature = signature;
   CGFloat x = 0, y = 0;
-  NSArray<NSNumber *> *widths = _shownColumnWidths ?: _columnWidths;
+  NSArray<NSNumber *> *widths = [self displayedColumnWidths];
   for (NSUInteger c = 0; c < _selectedColumn; c++)
     x += widths[c].doubleValue;
   for (NSUInteger r = 0; r < _selectedRow; r++)
     y += _rowHeights[r].doubleValue;
-  _selectionView.frame = CGRectInset(CGRectMake(x, y, widths[_selectedColumn].doubleValue, _rowHeights[_selectedRow].doubleValue),
-                                     _horizontalCellPadding, _verticalCellPadding);
-  [_selectionView setDrawnRect:_selectionView.bounds];
+  CGRect rect = CGRectMake(x, y, widths[_selectedColumn].doubleValue, _rowHeights[_selectedRow].doubleValue);
+  [self layoutSelectionViewWithGeometry:[self geometryForText:_selectedText column:_selectedColumn cellRect:rect]];
 }
 
 // A native grabber can extend into the blank space below or above its cell.
+static BOOL ENRMTableHitsGrabber(CGPoint point, CGRect caret, CGFloat grabberY, UIView *editor)
+{
+  CGFloat x = CGRectGetMidX(caret);
+  if (editor.maskView) {
+    CGRect clip = editor.maskView.frame;
+    CGRect bounds = editor.bounds;
+    // Do not constrain the touch vertically. Visible grabbers can extend above or below the clip.
+    if (CGRectIsEmpty(clip) ||
+        (CGRectGetMinX(clip) > CGRectGetMinX(bounds) && MIN(x, point.x) < CGRectGetMinX(clip)) ||
+        (CGRectGetMaxX(clip) < CGRectGetMaxX(bounds) && MAX(x, point.x) > CGRectGetMaxX(clip)) ||
+        (CGRectGetMinY(clip) > CGRectGetMinY(bounds) && CGRectGetMaxY(caret) <= CGRectGetMinY(clip)) ||
+        (CGRectGetMaxY(clip) < CGRectGetMaxY(bounds) && CGRectGetMinY(caret) >= CGRectGetMaxY(clip)))
+      return NO;
+  }
+  return hypot(point.x - x, point.y - grabberY) <= 8;
+}
+
 - (BOOL)isSelectionHandleAtPoint:(CGPoint)point
 {
   UITextRange *range = _selectionView.selectedTextRange;
@@ -417,8 +762,8 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
   CGPoint local = [self convertPoint:point toView:_selectionView];
   CGRect start = [_selectionView caretRectForPosition:range.start];
   CGRect end = [_selectionView caretRectForPosition:range.end];
-  return hypot(local.x - CGRectGetMidX(start), local.y - (CGRectGetMinY(start) - 5)) <= 8 ||
-         hypot(local.x - CGRectGetMidX(end), local.y - (CGRectGetMaxY(end) + 5)) <= 8;
+  return ENRMTableHitsGrabber(local, start, CGRectGetMinY(start) - 5, _selectionView) ||
+         ENRMTableHitsGrabber(local, end, CGRectGetMaxY(end) + 5, _selectionView);
 }
 
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
@@ -432,17 +777,21 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
     return [hit isDescendantOfView:_selectionView] ? hit : _selectionView;
   NSUInteger row, column;
   CGRect rect;
-  if (![self cellAtPoint:point row:&row column:&column textRect:&rect] || !CGRectContainsPoint(rect, point))
+  if (![self cellAtPoint:point row:&row column:&column cellRect:&rect])
     return self;
   NSAttributedString *text = _tableRows[row].cellTexts[column];
-  if (itemInAttributedString(text, rect, point).kind != ENRMTableIOSItemKindText)
+  if (text.length == 0)
+    return self;
+  ENRMTableTextGeometry geometry = [self geometryForText:text column:column cellRect:rect];
+  if (itemInAttributedString(text, geometry, point, NO).kind != ENRMTableIOSItemKindText)
     return self;
   if (!_selectionView || row != _selectedRow || column != _selectedColumn) {
     [self.table.dynamicProps.activeSelectionGrid clearSelectionView];
     self.table.dynamicProps.activeSelectionGrid = self;
     _selectedRow = row;
     _selectedColumn = column;
-    _selectionView = [[ENRMMarkdownTextView alloc] initWithFrame:rect];
+    _selectionView = [[ENRMTableCellTextView alloc] initWithFrame:geometry.layoutRect];
+    _selectionView.table = self.table;
     _selectionView.editable = NO;
     _selectionView.textDragInteraction.enabled = NO;
     _selectionView.selectable = YES;
@@ -451,11 +800,11 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
     _selectionView.textContainerInset = UIEdgeInsetsZero;
     _selectionView.textContainer.lineFragmentPadding = 0;
     _selectedText = text;
+    _selectedCellSignature = [self cellSignatureAtRow:row column:column];
     _selectionView.attributedText = text;
     [host configureTableSelectionView:_selectionView];
     [self addSubview:_selectionView];
-    [_selectionView setDrawnRect:_selectionView.bounds];
-    [self setNeedsDisplay];
+    [self layoutSelectionViewWithGeometry:geometry];
   }
   return [super hitTest:point withEvent:event];
 }
@@ -466,7 +815,7 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
 {
   if (recognizer.state != UIGestureRecognizerStateEnded)
     return;
-  ENRMTableIOSItemHit *hit = [self itemAtPoint:[recognizer locationInView:self]];
+  ENRMTableIOSItemHit *hit = [self itemAtPoint:[recognizer locationInView:self] allowsNearestLink:YES];
   if (!hit)
     return;
   if (hit.kind == ENRMTableIOSItemKindLink) {

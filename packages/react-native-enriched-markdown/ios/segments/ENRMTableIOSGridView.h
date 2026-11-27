@@ -3,6 +3,8 @@
 #include <TargetConditionals.h>
 #if !TARGET_OS_OSX
 
+#import "ENRMMarkdownTextView.h"
+#import "EditMenuUtils.h"
 #import <UIKit/UIKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -27,15 +29,25 @@ typedef NS_ENUM(NSInteger, ENRMTableIOSItemKind) {
 
 @interface ENRMTableIOSRowData : NSObject
 @property (nonatomic, strong) NSArray<NSAttributedString *> *cellTexts;
+@property (nonatomic, strong, nullable) NSArray<NSNumber *> *cellSignatures;
 @property (nonatomic, strong) UIColor *backgroundColor;
+@end
+
+@class TableContainerView;
+
+@interface ENRMTableCellTextView : ENRMMarkdownTextView
+@property (nonatomic, weak) TableContainerView *table;
+@property (nonatomic, copy, nullable) ENRMSelectionMenuConfig (^legacyMenuConfig)(void);
+@property (nonatomic, copy, nullable) ENRMSelectionCopyHandler onLegacyCopy;
+- (void)refreshLegacyCopyMenu;
 @end
 
 /// Draws the entire table grid in a single drawRect: pass, avoiding
 /// per-cell UITextView allocation and the TextKit layout storms that
 /// cause multi-second main-thread hangs on large tables.
-@class TableContainerView;
 @interface ENRMTableIOSGridView : UIView
 @property (nonatomic, weak) TableContainerView *table;
+@property (nonatomic, readonly, nullable) ENRMTableCellTextView *selectionView;
 - (void)clearSelectionView;
 - (BOOL)ownsCellInteractionAtPoint:(CGPoint)point;
 

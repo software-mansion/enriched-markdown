@@ -1918,11 +1918,12 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
                                    newViewProps.selectionMenuConfig.copyImageUrl);
   // Block menu labels live in the shared box; block views read them live at
   // menu-open. (_selectionMenuLabels also feeds the text selection menu above.)
-#if !TARGET_OS_OSX
-  _dynamicBlockProps.tableCopyAsMarkdownEnabled = _selectionMenuConfig.copyAsMarkdown;
-#endif
   _dynamicBlockProps.copyLabel = _selectionMenuLabels.copyLabel;
   _dynamicBlockProps.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
+#if !TARGET_OS_OSX
+  ENRMTableCellTextView *activeCell = _dynamicBlockProps.activeSelectionGrid.selectionView;
+  [activeCell refreshLegacyCopyMenu];
+#endif
 
   if (ENRMAccessibilityLabelsChanged(oldViewProps.accessibilityLabels, newViewProps.accessibilityLabels)) {
     _accessibilityLabels = [[ENRMAccessibilityLabels alloc] init];
@@ -1966,6 +1967,9 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   }
 
   if (newViewProps.selectionColor != oldViewProps.selectionColor) {
+#if !TARGET_OS_OSX
+    ENRMApplySelectionColor(activeCell, newViewProps.selectionColor);
+#endif
     for (RCTUIView *segment in _segmentViews) {
       if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
         ENRMPlatformTextView *tv = ((EnrichedMarkdownInternalText *)segment).textView;
@@ -2551,13 +2555,22 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
   return _selectable;
 }
 
-- (void)configureTableSelectionView:(ENRMMarkdownTextView *)textView
+- (void)configureTableSelectionView:(ENRMTableCellTextView *)textView
 {
   textView.delegate = self;
   const auto &props = *std::static_pointer_cast<EnrichedMarkdownProps const>(_props);
   ENRMApplySelectionColor(textView, props.selectionColor);
   __weak ENRMMarkdownTextView *weakView = textView;
   __weak EnrichedMarkdown *weakSelf = self;
+  if (@available(iOS 16.0, *)) {
+    // The native edit menu asks the text view delegate for its actions.
+  } else {
+    textView.legacyMenuConfig = ^ENRMSelectionMenuConfig {
+      EnrichedMarkdown *host = weakSelf;
+      return host ? host->_selectionMenuConfig : (ENRMSelectionMenuConfig){};
+    };
+    textView.onLegacyCopy = [self selectionCopyHandler];
+  }
   textView.copySelectionHandler = ^(NSRange range) {
     EnrichedMarkdown *host = weakSelf;
     NSAttributedString *text = weakView.attributedText;
@@ -2566,6 +2579,12 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
                         extractMarkdownFromAttributedString(text, range), host.config, [host selectionCopyHandler]);
     }
   };
+}
+
+- (void)textViewDidChangeSelection:(UITextView *)textView
+{
+  if ([textView isKindOfClass:ENRMTableCellTextView.class])
+    [(ENRMTableCellTextView *)textView refreshLegacyCopyMenu];
 }
 
 - (UIMenu *)textView:(UITextView *)textView
@@ -2585,8 +2604,8 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
   NSMutableArray<UIAction *> *customActions =
       ENRMBuildContextMenuActions(_contextMenuItemTexts, _contextMenuItemIcons, textView, range, handler);
 
-  if ([textView.superview isKindOfClass:[ENRMTableIOSGridView class]]) {
-    TableContainerView *table = ((ENRMTableIOSGridView *)textView.superview).table;
+  if ([textView isKindOfClass:ENRMTableCellTextView.class]) {
+    TableContainerView *table = ((ENRMTableCellTextView *)textView).table;
     suggestedActions = [suggestedActions arrayByAddingObjectsFromArray:[table tableCopyActions]];
   }
   NSString *segmentMarkdown = extractMarkdownFromAttributedString(textView.attributedText, range);

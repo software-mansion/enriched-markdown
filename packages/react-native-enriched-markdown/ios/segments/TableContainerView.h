@@ -55,8 +55,14 @@ typedef void (^TableLinkPressBlock)(NSString *url);
 @property (nonatomic, strong) ENRMDynamicBlockProps *dynamicProps;
 
 #if !TARGET_OS_OSX
+/// UIMenuController shares custom menu items across the app.
+FOUNDATION_EXPORT void ENRMSetLegacyTableMenuItems(UIView *owner, NSArray<UIMenuItem *> *items);
+FOUNDATION_EXPORT void ENRMClearLegacyTableMenuItems(UIView *owner);
+
 - (NSArray<UIAction *> *)tableCopyActions;
 - (void)showTableMenuAtPoint:(CGPoint)point;
+- (void)copyTableToPasteboard;
+- (void)copyMarkdownToPasteboard;
 #endif
 
 @property (nonatomic, readonly) NSUInteger rowCount;
