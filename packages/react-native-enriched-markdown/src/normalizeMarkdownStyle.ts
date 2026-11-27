@@ -152,6 +152,7 @@ const DEFAULT_NORMALIZED_STYLE = Object.freeze({
     admonitions: resolveAdmonitionColors(undefined),
   },
   list: {
+    numbering: 'flat',
     fontSize: 16,
     fontFamily: getSystemFont(),
     fontWeight: '',

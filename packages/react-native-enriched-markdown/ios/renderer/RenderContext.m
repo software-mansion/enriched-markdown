@@ -23,6 +23,7 @@ static NSArray<NSString *> *ENRMScopedKeyPaths(void)
       @"listDepth",
       @"listType",
       @"listItemNumber",
+      @"orderedListAncestors",
       @"listMarkerWidth",
       @"listMarkerExtra",
       @"ancestorMarkerOffset",
@@ -316,6 +317,7 @@ static NSArray<NSString *> *ENRMScopedKeyPaths(void)
   _listDepth = 0;
   _listType = ListTypeUnordered;
   _listItemNumber = 0;
+  _orderedListAncestors = @[];
   _listMarkerWidth = 0;
   _listMarkerExtra = 0;
   _ancestorMarkerOffset = 0;

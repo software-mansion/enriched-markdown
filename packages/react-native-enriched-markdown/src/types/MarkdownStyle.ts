@@ -61,6 +61,8 @@ interface BlockquoteStyle extends BaseBlockStyle {
 }
 
 interface ListStyle extends BaseBlockStyle {
+  /** Ordered marker format. Defaults to flat. @platform ios android */
+  numbering?: 'flat' | 'hierarchical';
   bulletColor?: string;
   bulletSize?: number;
   /**
