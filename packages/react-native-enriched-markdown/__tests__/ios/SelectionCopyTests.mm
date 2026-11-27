@@ -86,6 +86,29 @@ static void ENRMPerform(UIAction *action)
   XCTAssertEqualObjects([UIPasteboard generalPasteboard].string, @"42");
 }
 
+// copyLinksAs: 'markdown' keeps each link's URL in the plain text, escaping only what would break it.
+- (void)testCopyLinksAsMarkdownWritesLinksIntoThePlainText
+{
+  StyleConfig *config = [[StyleConfig alloc] init];
+  ENRMRenderResult *result = ENRMRenderASTNodes(
+      ENRMParse(@"See [a \\[b\\] c](https://x.y/p\\(1\\)) and [sp](<https://x.y/a b>) at <https://a.b>").children,
+      config, NO, YES, 0, NSLineBreakStrategyStandard, 0);
+  EnrichedMarkdownInternalText *view = [[EnrichedMarkdownInternalText alloc] initWithConfig:config];
+  [view applyAttributedText:result.attributedText context:result.context];
+  view.onSelectionCopy = [self recorder];
+  NSRange all = NSMakeRange(0, view.textView.textStorage.length);
+  view.textView.selectedRange = all;
+
+  [view.textView copy:nil];
+  XCTAssertEqualObjects([UIPasteboard generalPasteboard].string, @"See a [b] c and sp at https://a.b");
+
+  [config setCopyLinksAsMarkdown:YES];
+  [view.textView copy:nil];
+  NSString *expected = @"See [a \\[b\\] c](https://x.y/p\\(1\\)) and [sp](<https://x.y/a b>) at https://a.b";
+  XCTAssertEqualObjects([UIPasteboard generalPasteboard].string, expected);
+  XCTAssertEqualObjects(_copies.lastObject, ENRMCopy(expected, ENRMSelectionCopyFormatPlain, all));
+}
+
 - (void)testCopyKeyCommandWithoutSelectionReportsNothing
 {
   EnrichedMarkdownInternalText *view = [self segmentView];

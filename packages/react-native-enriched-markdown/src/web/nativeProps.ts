@@ -30,7 +30,6 @@ type NativeOnlyPropName = Exclude<
 >;
 
 export const NATIVE_ONLY_PROP_NAMES: Record<NativeOnlyPropName, true> = {
-  selectionClipboard: true,
   onCopyPress: true,
   onLatexError: true,
   onTextPress: true,
@@ -46,6 +45,7 @@ export const NATIVE_ONLY_PROP_NAMES: Record<NativeOnlyPropName, true> = {
   streamingConfig: true,
   onStreamingEnd: true,
   spoilerOverlay: true,
+  copyLinksAs: true,
   contextMenuItems: true,
   imageRequestHeaders: true,
   linkPillContent: true,

@@ -271,14 +271,6 @@ class EnrichedMarkdownManager :
     view?.enableTaskListItemToggle = enableTaskListItemToggle
   }
 
-  @ReactProp(name = "selectionClipboardConfig")
-  override fun setSelectionClipboardConfig(
-    view: EnrichedMarkdown?,
-    value: String?,
-  ) {
-    view?.setSelectionClipboardConfig(value)
-  }
-
   @ReactProp(name = "enableImagePress", defaultBoolean = false)
   override fun setEnableImagePress(
     view: EnrichedMarkdown?,
@@ -362,6 +354,14 @@ class EnrichedMarkdownManager :
     mode: String?,
   ) {
     view?.spoilerOverlay = SpoilerOverlayMode.fromString(mode)
+  }
+
+  @ReactProp(name = "copyLinksAs")
+  override fun setCopyLinksAs(
+    view: EnrichedMarkdown?,
+    value: String?,
+  ) {
+    view?.copiesLinksAsMarkdown = value == "markdown"
   }
 
   @ReactProp(name = "textBreakStrategy")

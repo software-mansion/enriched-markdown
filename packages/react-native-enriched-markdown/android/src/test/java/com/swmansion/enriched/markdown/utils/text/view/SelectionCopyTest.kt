@@ -18,9 +18,11 @@ import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
 import com.swmansion.enriched.markdown.EnrichedMarkdownText
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
+import com.swmansion.enriched.markdown.segments.DynamicBlockProps
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport
+import com.swmansion.enriched.markdown.test.TestAstFactory.link
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
 import org.junit.After
@@ -126,6 +128,41 @@ class SelectionCopyTest {
 
     assertEquals(listOf(Copy("42", SelectionCopyFormat.PLAIN, 7, 9)), copies)
     assertEquals("42", clipboardText())
+  }
+
+  // copyLinksAs: 'markdown' keeps each link's URL in the plain text, escaping only what would break it.
+  @Test
+  fun copyLinksAsMarkdownWritesLinksIntoThePlainText() {
+    val style = MarkdownRenderTestSupport.styleConfig()
+    val view = EnrichedMarkdownInternalText(context)
+    view.applyStyledText(
+      MarkdownRenderTestSupport.render(
+        style,
+        paragraph(
+          text("See "),
+          link("https://x.y/p(1)", text("a [b] c")),
+          text(" and "),
+          link("https://x.y/a b", text("sp")),
+          text(" at "),
+          link("https://a.b", text("https://a.b")),
+        ),
+      ),
+    )
+    val props = DynamicBlockProps()
+    view.dynamicProps = props
+    val copies = mutableListOf<Copy>()
+    view.onSelectionCopyCallback = { text, format, s, e -> copies += Copy(text, format, s, e) }
+    val end = view.text.length
+    Selection.setSelection(view.text as Spannable, 0, end)
+
+    clickMenuItem(view, "Copy")
+    assertEquals("See a [b] c and sp at https://a.b", clipboardText())
+
+    props.copiesLinksAsMarkdown = true
+    clickMenuItem(view, "Copy")
+    val expected = """See [a \[b\] c](https://x.y/p\(1\)) and [sp](<https://x.y/a b>) at https://a.b"""
+    assertEquals(expected, clipboardText())
+    assertEquals(Copy(expected, SelectionCopyFormat.PLAIN, 0, end), copies.last())
   }
 
   @Test

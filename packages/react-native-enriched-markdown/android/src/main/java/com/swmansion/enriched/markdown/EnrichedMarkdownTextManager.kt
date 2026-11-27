@@ -123,14 +123,6 @@ class EnrichedMarkdownTextManager :
 
   override fun getExportedCustomDirectEventTypeConstants(): MutableMap<String, Any> = markdownEventTypeConstants()
 
-  @ReactProp(name = "selectionClipboardConfig")
-  override fun setSelectionClipboardConfig(
-    view: EnrichedMarkdownText?,
-    value: String?,
-  ) {
-    view?.setSelectionClipboardConfig(value)
-  }
-
   @ReactProp(name = "markdown")
   override fun setMarkdown(
     view: EnrichedMarkdownText?,
@@ -326,6 +318,14 @@ class EnrichedMarkdownTextManager :
     mode: String?,
   ) {
     view?.spoilerOverlay = SpoilerOverlayMode.fromString(mode)
+  }
+
+  @ReactProp(name = "copyLinksAs")
+  override fun setCopyLinksAs(
+    view: EnrichedMarkdownText?,
+    value: String?,
+  ) {
+    view?.copiesLinksAsMarkdown = value == "markdown"
   }
 
   @ReactProp(name = "textBreakStrategy")

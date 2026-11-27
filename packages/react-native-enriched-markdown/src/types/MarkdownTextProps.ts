@@ -241,15 +241,6 @@ export interface StreamingGradient {
 }
 
 export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
-  /** Native clipboard metadata for selections containing an exact configured link URL.
-   * Replaces that link's plain copy text, wraps HTML with escaped attributes,
-   * and adds custom pasteboard types on iOS. No effect on rendering or layout.
-   */
-  selectionClipboard?: {
-    linkTextByUrl: Record<string, string>;
-    htmlAttributes?: Record<string, string>;
-    mimeTypes?: Record<string, string>;
-  };
   /**
    * Markdown content to render. Ignored while `stream` is set.
    * @platform ios, android, web
@@ -583,6 +574,15 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android, macos
    */
   selectionMenuConfig?: SelectionMenuConfig;
+  /**
+   * How links appear in the plain text of a copied selection: `'label'` (the
+   * default) copies the link's text, `'markdown'` copies `[label](url)` so the
+   * URL survives a paste. Other clipboard formats are unchanged. Recognized
+   * links (`linkRecognition`) and autolinks, whose text is the URL, are copied
+   * as their text either way.
+   * @platform ios, android, macos
+   */
+  copyLinksAs?: 'label' | 'markdown';
   /**
    * Callback fired after a text selection is copied: from the selection menu's
    * Copy, Copy as Markdown, or Copy Image URL(s) item, the keyboard shortcut

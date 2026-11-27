@@ -1723,14 +1723,6 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     [_config setFontScaleMultiplier:_fontScaleObserver.effectiveFontScale];
   }
 
-  if (newViewProps.selectionClipboardConfig != oldViewProps.selectionClipboardConfig) {
-    NSString *clipboardJSON = [NSString stringWithUTF8String:newViewProps.selectionClipboardConfig.c_str()];
-    id clipboard = [NSJSONSerialization JSONObjectWithData:[clipboardJSON dataUsingEncoding:NSUTF8StringEncoding]
-                                                   options:0
-                                                     error:nil];
-    _config.selectionClipboard = [clipboard isKindOfClass:NSDictionary.class] ? clipboard : nil;
-  }
-
   if (applyMarkdownStyleToConfig(_config, newViewProps.markdownStyle, oldViewProps.markdownStyle)) {
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
     if (!markdownChanged) {
@@ -1951,6 +1943,10 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     _accessibilityLabels.rotorImages =
         [[NSString alloc] initWithUTF8String:newViewProps.accessibilityLabels.rotor.images.c_str()];
     [self pushAccessibilityLabelsToSegments];
+  }
+
+  if (newViewProps.copyLinksAs != oldViewProps.copyLinksAs) {
+    [_config setCopyLinksAsMarkdown:newViewProps.copyLinksAs == "markdown"];
   }
 
   if (newViewProps.spoilerOverlay != oldViewProps.spoilerOverlay) {

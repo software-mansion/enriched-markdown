@@ -51,7 +51,6 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 @interface StyleConfig : NSObject <NSCopying>
-@property (nonatomic, copy, nullable) NSDictionary *selectionClipboard;
 - (instancetype)init;
 - (CGFloat)fontScaleMultiplier;
 /// `pill.lineHeight`, scaled with the font like the blocks' own line heights.
@@ -265,6 +264,9 @@ NS_ASSUME_NONNULL_BEGIN
 // Per-link pill content, keyed by exact URL
 - (nullable NSDictionary<NSString *, LinkPillContent *> *)linkPillContent;
 - (void)setLinkPillContent:(nullable NSDictionary<NSString *, LinkPillContent *> *)newValue;
+// `copyLinksAs: 'markdown'`: a copied selection's plain text writes links as `[label](url)`.
+- (BOOL)copyLinksAsMarkdown;
+- (void)setCopyLinksAsMarkdown:(BOOL)newValue;
 // Video properties
 - (CGFloat)videoMarginTop;
 - (void)setVideoMarginTop:(CGFloat)newValue;

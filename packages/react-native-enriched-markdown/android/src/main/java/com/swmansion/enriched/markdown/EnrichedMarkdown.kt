@@ -242,18 +242,6 @@ class EnrichedMarkdown(
   var currentMarkdown: String = ""
     private set
 
-  var selectionClipboardConfig =
-    com.swmansion.enriched.markdown.utils.text.view
-      .SelectionClipboardConfig()
-    private set
-
-  fun setSelectionClipboardConfig(value: String?) {
-    selectionClipboardConfig =
-      com.swmansion.enriched.markdown.utils.text.view.SelectionClipboardConfig
-        .parse(value)
-    markdownStyle?.selectionClipboard = selectionClipboardConfig
-  }
-
   var markdownStyle: StyleConfig? = null
     private set
 
@@ -305,6 +293,12 @@ class EnrichedMarkdown(
   private var contextMenuItemTexts: List<String> = emptyList()
   var onContextMenuItemPressCallback: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)? = null
   var onSelectionCopyCallback: OnSelectionCopy? = null
+  var copiesLinksAsMarkdown: Boolean
+    get() = dynamicProps.copiesLinksAsMarkdown
+    set(value) {
+      dynamicProps.copiesLinksAsMarkdown = value
+    }
+
   var spoilerOverlay: SpoilerOverlayMode
     get() = dynamicProps.spoilerOverlay
     set(value) {
@@ -391,7 +385,6 @@ class EnrichedMarkdown(
   fun setMarkdownStyle(style: ReadableMap?) {
     markdownStyleMap = style
     val newConfig = style?.let { StyleConfig(it, context, allowFontScaling, maxFontSizeMultiplier) }
-    newConfig?.selectionClipboard = selectionClipboardConfig
     newConfig?.imageRequestHeaders = imageRequestHeaders
     newConfig?.imageSourceOverrides = imageSourceOverrides
     newConfig?.linkPillContent = linkPillContent
@@ -715,7 +708,6 @@ class EnrichedMarkdown(
     markdownStyleMap?.let {
       markdownStyle =
         StyleConfig(it, context, allowFontScaling, maxFontSizeMultiplier).also { config ->
-          config.selectionClipboard = selectionClipboardConfig
           config.imageRequestHeaders = imageRequestHeaders
           config.imageSourceOverrides = imageSourceOverrides
           config.linkPillContent = linkPillContent

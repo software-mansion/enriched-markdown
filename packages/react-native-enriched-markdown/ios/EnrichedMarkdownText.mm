@@ -821,14 +821,6 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _spoilerManager = [[ENRMSpoilerOverlayManager alloc] initWithTextView:_textView config:_config];
   }
 
-  if (newViewProps.selectionClipboardConfig != oldViewProps.selectionClipboardConfig) {
-    NSString *clipboardJSON = [NSString stringWithUTF8String:newViewProps.selectionClipboardConfig.c_str()];
-    id clipboard = [NSJSONSerialization JSONObjectWithData:[clipboardJSON dataUsingEncoding:NSUTF8StringEncoding]
-                                                   options:0
-                                                     error:nil];
-    _config.selectionClipboard = [clipboard isKindOfClass:NSDictionary.class] ? clipboard : nil;
-  }
-
   if (applyMarkdownStyleToConfig(_config, newViewProps.markdownStyle, oldViewProps.markdownStyle)) {
     _forceHeightUpdateOnNextRender = YES;
     _dirtyFlags |= ENRMDirtyRender;
@@ -1015,6 +1007,10 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     [(ENRMMarkdownTextView *)_textView streamingEffectsChanged];
   }
 #endif
+
+  if (newViewProps.copyLinksAs != oldViewProps.copyLinksAs) {
+    [_config setCopyLinksAsMarkdown:newViewProps.copyLinksAs == "markdown"];
+  }
 
   if (newViewProps.spoilerOverlay != oldViewProps.spoilerOverlay) {
     NSString *modeStr = [[NSString alloc] initWithUTF8String:newViewProps.spoilerOverlay.c_str()];

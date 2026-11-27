@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.text.Spannable
+import android.text.Spanned
 import android.util.Log
 import android.view.ActionMode
 import android.view.Menu
@@ -14,6 +15,7 @@ import com.swmansion.enriched.markdown.EnrichedMarkdown
 import com.swmansion.enriched.markdown.EnrichedMarkdownText
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
 import com.swmansion.enriched.markdown.spans.ImageSpan
+import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.text.conversion.HTMLGenerator
@@ -223,7 +225,12 @@ private fun TextView.copyWithHTML(
 
   val spannable = text as? Spannable ?: return null
   val selectedText = spannable.subSequence(start, end)
-  val plainText = selectedText.toString()
+  val plainText =
+    if ((this as? AccessibleMarkdownTextView)?.copiesLinksAsMarkdown == true && selectedText is Spanned) {
+      plainTextWithMarkdownLinks(selectedText)
+    } else {
+      selectedText.toString()
+    }
 
   val styleConfig =
     (this as? EnrichedMarkdownText)?.markdownStyle
@@ -281,3 +288,52 @@ private fun TextView.findParentMarkdownStyle(): StyleConfig? {
   }
   return null
 }
+
+/**
+ * Plain text with each link as `[label](url)`, for `copyLinksAs: 'markdown'`. Only what would break
+ * the link is escaped. Recognized links and autolinks (the label is the URL) stay as their text.
+ */
+internal fun plainTextWithMarkdownLinks(text: Spanned): String {
+  val out = StringBuilder()
+  var start = 0
+  while (start < text.length) {
+    val end = text.nextSpanTransition(start, text.length, LinkSpan::class.java)
+    val run = text.subSequence(start, end).toString()
+    val link =
+      text.getSpans(start, end, LinkSpan::class.java).firstOrNull {
+        !it.recognizedLink && text.getSpanStart(it) <= start && text.getSpanEnd(it) >= end
+      }
+    if (link == null || isAutolink(run, link.url)) {
+      out.append(run)
+    } else {
+      out
+        .append('[')
+        .append(escapeLinkLabel(run))
+        .append("](")
+        .append(linkDestination(link.url))
+        .append(')')
+    }
+    start = end
+  }
+  return out.toString()
+}
+
+private val linkLabelSpecials = Regex("""[\\\[\]]""")
+private val bracketedDestinationSpecials = Regex("""[\\<>]""")
+private val destinationSpecials = Regex("""[\\()]""")
+
+// `<https://x.dev>`, a bare URL or an email: copying the URL alone keeps it a link where it is pasted.
+private fun isAutolink(
+  label: String,
+  url: String,
+): Boolean = url == label || url == "mailto:$label" || url == "http://$label" || url == "https://$label"
+
+private fun escapeLinkLabel(label: String): String = label.replace(linkLabelSpecials, """\\$0""")
+
+// A destination with spaces or angle brackets goes in <...>; otherwise only \ and parentheses are escaped.
+private fun linkDestination(url: String): String =
+  if (url.any { it.isWhitespace() || it == '<' || it == '>' || it.isISOControl() }) {
+    "<" + url.replace(bracketedDestinationSpecials, """\\$0""") + ">"
+  } else {
+    url.replace(destinationSpecials, """\\$0""")
+  }
