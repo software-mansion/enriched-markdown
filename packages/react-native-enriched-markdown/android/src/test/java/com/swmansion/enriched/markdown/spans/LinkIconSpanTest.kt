@@ -105,6 +105,12 @@ class LinkIconSpanTest {
     icon.draw(canvas, rendered, rendered.getSpanStart(icon), rendered.getSpanEnd(icon), 0f, 0, 30, 40, superscript)
 
     assertEquals(24f, baseline)
+    // The line also grows to hold the raised icon, or the first line's icon is cut off at the top.
+    val plain = Paint.FontMetricsInt()
+    val raised = Paint.FontMetricsInt()
+    icon.getSize(TextPaint().apply { textSize = FONT_SIZE }, rendered, rendered.getSpanStart(icon), rendered.getSpanEnd(icon), plain)
+    icon.getSize(superscript, rendered, rendered.getSpanStart(icon), rendered.getSpanEnd(icon), raised)
+    assertEquals(plain.top - 6, raised.top)
   }
 
   private fun cornerAfterDrawing(rendered: Spannable): Int {

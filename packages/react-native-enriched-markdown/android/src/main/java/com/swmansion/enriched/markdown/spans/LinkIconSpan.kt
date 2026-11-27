@@ -21,6 +21,7 @@ import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
 import com.swmansion.enriched.markdown.utils.text.view.repaintSpan
 import java.lang.ref.WeakReference
 import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -108,10 +109,20 @@ class LinkIconSpan(
     val labelPaint = TextPaint().apply { set(paint) }
     fm?.let {
       val metrics = labelPaint.fontMetricsInt
-      it.ascent = min(it.ascent, metrics.ascent)
-      it.descent = max(it.descent, metrics.descent)
-      it.top = min(it.top, metrics.top)
-      it.bottom = max(it.bottom, metrics.bottom)
+      var ascent = metrics.ascent
+      var descent = metrics.descent
+      if (slotWidth > 0f) {
+        // The icon is a font-size square centred on the text, so in a smaller superscript it is the taller of the two.
+        val iconTop = (metrics.ascent + metrics.descent - fontSize) / 2
+        ascent = min(ascent, floor(iconTop).toInt())
+        descent = max(descent, ceil(iconTop + fontSize).toInt())
+      }
+      // The line grows for a text run's baseline shift but not for a replacement's, so add it here.
+      val shift = (paint as? TextPaint)?.baselineShift ?: 0
+      it.ascent = min(it.ascent, ascent + shift)
+      it.descent = max(it.descent, descent + shift)
+      it.top = min(it.top, min(metrics.top, ascent) + shift)
+      it.bottom = max(it.bottom, max(metrics.bottom, descent) + shift)
     }
     return ceil(slotWidth + labelPaint.measureText(text, start, end)).toInt()
   }
