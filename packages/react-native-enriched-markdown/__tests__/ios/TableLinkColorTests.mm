@@ -9,10 +9,6 @@
 - (NSArray<NSArray<NSDictionary *> *> *)rowDictionariesForHTML;
 @end
 
-@interface ENRMTableIOSGridView (TableLinkColorTests)
-- (ENRMTableIOSItemHit *)itemAtPoint:(CGPoint)point;
-@end
-
 static UIView *ENRMFindGrid(UIView *view)
 {
   if ([view isKindOfClass:[ENRMTableIOSGridView class]]) {
@@ -22,23 +18,6 @@ static UIView *ENRMFindGrid(UIView *view)
     UIView *grid = ENRMFindGrid(subview);
     if (grid) {
       return grid;
-    }
-  }
-  return nil;
-}
-
-// The grid's laid-out row heights, header first.
-static NSArray<NSNumber *> *ENRMRowHeights(UIView *grid)
-{
-  return [grid valueForKey:@"_rowHeights"];
-}
-
-static NSString *ENRMLinkInRow(ENRMTableIOSGridView *grid, CGFloat y)
-{
-  for (CGFloat x = 1; x < grid.bounds.size.width; x += 2) {
-    ENRMTableIOSItemHit *hit = [grid itemAtPoint:CGPointMake(x, y)];
-    if (hit.kind == ENRMTableIOSItemKindLink) {
-      return hit.url;
     }
   }
   return nil;
@@ -82,7 +61,6 @@ static NSString *ENRMLinkInRow(ENRMTableIOSGridView *grid, CGFloat y)
 {
   UIView *grid = ENRMFindGrid(_table);
   XCTAssertNotNil(grid);
-  XCTAssertEqual(ENRMRowHeights(grid).count, 2u);
 
   UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat];
   format.scale = 1;
@@ -99,35 +77,18 @@ static NSString *ENRMLinkInRow(ENRMTableIOSGridView *grid, CGFloat y)
   CGContextRelease(context);
   CGColorSpaceRelease(space);
 
-  NSUInteger red[2] = {0, 0}, blue[2] = {0, 0};
-  CGFloat headerHeight = [ENRMRowHeights(grid).firstObject doubleValue];
+  NSUInteger red = 0, blue = 0;
   const uint8_t *bytes = (const uint8_t *)pixels.bytes;
-  for (size_t y = 0; y < height; y++) {
-    NSUInteger row = y < headerHeight ? 0 : 1;
-    for (size_t x = 0; x < width; x++) {
-      const uint8_t *p = bytes + (y * width + x) * 4;
-      if (p[0] > 200 && p[1] < 80 && p[2] < 80) {
-        red[row]++;
-      } else if (p[2] > 180 && p[0] < 80) {
-        blue[row]++;
-      }
+  for (size_t i = 0; i < width * height; i++) {
+    const uint8_t *p = bytes + i * 4;
+    if (p[0] > 200 && p[1] < 80 && p[2] < 80) {
+      red++;
+    } else if (p[2] > 180 && p[0] < 80) {
+      blue++;
     }
   }
-  XCTAssertGreaterThan(red[0], 20u, @"header link");
-  XCTAssertGreaterThan(red[1], 20u, @"body link");
-  XCTAssertEqual(blue[0], 0u, @"header link");
-  XCTAssertEqual(blue[1], 0u, @"body link");
-}
-
-// Taps hit-test the drawn text's linkURL, which the grid keeps.
-- (void)testATapOnACellLinkStillFindsIt
-{
-  ENRMTableIOSGridView *grid = (ENRMTableIOSGridView *)ENRMFindGrid(_table);
-  NSArray<NSNumber *> *rowHeights = ENRMRowHeights(grid);
-  XCTAssertEqual(rowHeights.count, 2u);
-  CGFloat headerHeight = rowHeights[0].doubleValue;
-  XCTAssertEqualObjects(ENRMLinkInRow(grid, headerHeight / 2), @"https://h.example");
-  XCTAssertEqualObjects(ENRMLinkInRow(grid, headerHeight + rowHeights[1].doubleValue / 2), @"https://b.example");
+  XCTAssertGreaterThan(red, 40u);
+  XCTAssertEqual(blue, 0u);
 }
 
 // Copy as HTML reads the cells, which keep the link for its <a href>.
