@@ -76,6 +76,7 @@ static NSRange ENRMPrependLinkIcon(NSMutableAttributedString *output, NSRange ra
   NSMutableAttributedString *inserted = [[NSMutableAttributedString alloc] initWithString:@"\uFFFC\u2060"
                                                                                attributes:prefix];
   [inserted addAttribute:NSAttachmentAttributeName value:icon range:NSMakeRange(0, 1)];
+  [inserted addAttribute:ENRMLinkIconJoinerAttributeName value:@YES range:NSMakeRange(1, 1)];
   [output insertAttributedString:inserted atIndex:range.location];
   return NSMakeRange(range.location, range.length + inserted.length);
 }

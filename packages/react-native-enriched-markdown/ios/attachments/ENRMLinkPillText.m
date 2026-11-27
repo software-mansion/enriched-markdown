@@ -6,6 +6,12 @@
 
 static const unichar kWordJoiner = 0x2060;
 
+static BOOL ENRMIsIconJoiner(NSAttributedString *text, NSUInteger index)
+{
+  return index < text.length && [text.string characterAtIndex:index] == kWordJoiner &&
+         [text attribute:ENRMLinkIconJoinerAttributeName atIndex:index effectiveRange:NULL] != nil;
+}
+
 /// Inline parents (strong, emphasis) restyle the placeholder's font after the pill was created; carry that over.
 static UIFont *ENRMFontAddingTraits(UIFont *font, UIFontDescriptorSymbolicTraits traits)
 {
@@ -71,9 +77,16 @@ NSAttributedString *ENRMAttributedStringByExpandingLinkPills(NSAttributedString 
   if (text.length == 0)
     return text;
   NSMutableArray<NSValue *> *ranges = nil;
-  NSMutableArray<NSTextAttachment *> *pills = nil;
+  // Per range, the pill it expands to, or NSNull for an icon (or a lone joiner) that is removed.
+  NSMutableArray *replaced = nil;
   NSRange all = NSMakeRange(0, text.length);
   NSRange cursor = NSMakeRange(0, 0);
+  // A range cut between an icon and its word joiner starts with the joiner alone.
+  if (ENRMIsIconJoiner(text, 0)) {
+    ranges = [NSMutableArray arrayWithObject:[NSValue valueWithRange:NSMakeRange(0, 1)]];
+    replaced = [NSMutableArray arrayWithObject:NSNull.null];
+    cursor = NSMakeRange(1, 0);
+  }
   while (NSMaxRange(cursor) < text.length) {
     id value = [text attribute:NSAttachmentAttributeName
                        atIndex:NSMaxRange(cursor)
@@ -81,19 +94,20 @@ NSAttributedString *ENRMAttributedStringByExpandingLinkPills(NSAttributedString 
                        inRange:all];
     if ([value isKindOfClass:ENRMLinkIconAttachment.class]) {
       // The word joiner after the icon goes with it.
-      if (NSMaxRange(cursor) < text.length && [text.string characterAtIndex:NSMaxRange(cursor)] == kWordJoiner)
+      if (ENRMIsIconJoiner(text, NSMaxRange(cursor)))
         cursor.length += 1;
+      value = NSNull.null;
     } else if (![value isKindOfClass:ENRMLinkPillAttachment.class]) {
       continue;
     }
-    if (!pills) {
+    if (!replaced) {
       ranges = [NSMutableArray new];
-      pills = [NSMutableArray new];
+      replaced = [NSMutableArray new];
     }
     [ranges addObject:[NSValue valueWithRange:cursor]];
-    [pills addObject:value];
+    [replaced addObject:value];
   }
-  if (!pills)
+  if (!replaced)
     return text;
 
   NSMutableAttributedString *result = [text mutableCopy];
@@ -101,12 +115,12 @@ NSAttributedString *ENRMAttributedStringByExpandingLinkPills(NSAttributedString 
   NSInteger start = (NSInteger)range.location;
   NSInteger end = (NSInteger)NSMaxRange(range);
   // Back to front, so earlier ranges stay valid while the string changes length.
-  for (NSInteger i = (NSInteger)pills.count - 1; i >= 0; i--) {
+  for (NSInteger i = (NSInteger)replaced.count - 1; i >= 0; i--) {
     NSRange placeholder = ranges[i].rangeValue;
     NSAttributedString *expanded =
-        [pills[i] isKindOfClass:ENRMLinkPillAttachment.class]
-            ? ENRMExpandedLinkPill((ENRMLinkPillAttachment *)pills[i], [text attributesAtIndex:placeholder.location
-                                                                                effectiveRange:NULL])
+        [replaced[i] isKindOfClass:ENRMLinkPillAttachment.class]
+            ? ENRMExpandedLinkPill((ENRMLinkPillAttachment *)replaced[i], [text attributesAtIndex:placeholder.location
+                                                                                   effectiveRange:NULL])
             : [NSAttributedString new];
     [result replaceCharactersInRange:placeholder withAttributedString:expanded];
     NSInteger growth = (NSInteger)expanded.length - (NSInteger)placeholder.length;
@@ -125,4 +139,12 @@ NSAttributedString *ENRMAttributedStringByExpandingLinkPills(NSAttributedString 
 NSString *ENRMStringByExpandingLinkPills(NSAttributedString *text)
 {
   return ENRMAttributedStringByExpandingLinkPills(text, NULL).string;
+}
+
+NSString *ENRMStringByExpandingLinkPillsAtIndex(NSAttributedString *text, NSUInteger *ioIndex)
+{
+  NSRange range = NSMakeRange(*ioIndex, 0);
+  NSString *expanded = ENRMAttributedStringByExpandingLinkPills(text, &range).string;
+  *ioIndex = range.location;
+  return expanded;
 }

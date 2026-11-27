@@ -4,6 +4,9 @@
 #if !TARGET_OS_OSX
 NS_ASSUME_NONNULL_BEGIN
 
+/// Marks the word joiner after an icon, so a range that starts between the two still drops it.
+FOUNDATION_EXPORT NSAttributedStringKey const ENRMLinkIconJoinerAttributeName;
+
 /**
  * The icon of a link variant's `inlineIcon`, drawn before the link's own text. In text
  * storage it is one placeholder character followed by a word joiner that keeps it on the

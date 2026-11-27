@@ -4,7 +4,6 @@
 #import "ENRMAccessibilityLabels.h"
 #import "ENRMLinkIconAttachment.h"
 #import "ENRMLinkPillAttachment.h"
-#import "ENRMLinkPillText.h"
 #include <TargetConditionals.h>
 
 typedef NS_ENUM(NSInteger, ElementType) { ElementTypeText, ElementTypeLink, ElementTypeImage };
@@ -125,14 +124,16 @@ static const CGFloat kFocusRectPadding = 2.0;
       type = ElementTypeText;
       label = [labels mathLabelForLatex:item[@"latex"]];
     } else {
-      label = [self spokenTextInRange:itemRange textStorage:textView.textStorage labels:labels];
       id attachment = [textView.textStorage attribute:NSAttachmentAttributeName
                                               atIndex:itemRange.location
                                        effectiveRange:NULL];
-      if ([attachment isKindOfClass:ENRMLinkPillAttachment.class])
-        label = [(ENRMLinkPillAttachment *)attachment linkAccessibilityLabel];
-      else if ([attachment isKindOfClass:ENRMLinkIconAttachment.class])
-        label = ENRMStringByExpandingLinkPills([textView.textStorage attributedSubstringFromRange:itemRange]);
+      // An inline icon and its word joiner lead the link's range; the label is the text after them.
+      NSRange spoken = itemRange;
+      if ([attachment isKindOfClass:ENRMLinkIconAttachment.class] && itemRange.length >= 2)
+        spoken = NSMakeRange(itemRange.location + 2, itemRange.length - 2);
+      label = [attachment isKindOfClass:ENRMLinkPillAttachment.class]
+                  ? [(ENRMLinkPillAttachment *)attachment linkAccessibilityLabel]
+                  : [self spokenTextInRange:spoken textStorage:textView.textStorage labels:labels];
     }
     [elements addObject:[self createElementForRange:itemRange
                                                type:type

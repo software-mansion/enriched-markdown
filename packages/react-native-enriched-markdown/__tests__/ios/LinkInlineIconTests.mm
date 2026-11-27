@@ -44,7 +44,10 @@
 
   NSMutableAttributedString *text = [[NSMutableAttributedString alloc] initWithString:@"See " attributes:attributes];
   [text appendAttributedString:[NSAttributedString attributedStringWithAttachment:icon]];
-  [text appendAttributedString:[[NSAttributedString alloc] initWithString:@"\u2060title and " attributes:attributes]];
+  NSMutableDictionary *joiner = [attributes mutableCopy];
+  joiner[ENRMLinkIconJoinerAttributeName] = @YES;
+  [text appendAttributedString:[[NSAttributedString alloc] initWithString:@"\u2060" attributes:joiner]];
+  [text appendAttributedString:[[NSAttributedString alloc] initWithString:@"title and " attributes:attributes]];
   [text appendAttributedString:[NSAttributedString attributedStringWithAttachment:pill]];
   [text appendAttributedString:[[NSAttributedString alloc] initWithString:@"." attributes:attributes]];
   _text = text;
@@ -82,6 +85,29 @@
     NSAttributedString *expanded = ENRMAttributedStringByExpandingLinkPills(_text, &range);
     XCTAssertEqualObjects([expanded.string substringWithRange:range], expected[i], @"selection %d", i);
   }
+}
+
+// Selection reads only the selected slice, which can start between the icon and its joiner.
+- (void)testASliceStartingAtTheWordJoinerDropsIt
+{
+  NSUInteger joiner = [self rangeOf:@"\u2060"].location;
+  NSRange title = [self rangeOf:@"title"];
+  NSAttributedString *slice = [_text attributedSubstringFromRange:NSMakeRange(joiner, NSMaxRange(title) - joiner)];
+  XCTAssertEqualObjects(ENRMStringByExpandingLinkPills(slice), @"title");
+}
+
+// onTextPress reports the text without icon characters, and the tapped character's index in it.
+- (void)testATextPressIndexMapsIntoTheExpandedText
+{
+  NSUInteger index = [self rangeOf:@"."].location;
+  NSString *text = ENRMStringByExpandingLinkPillsAtIndex(_text, &index);
+  XCTAssertEqualObjects(text, @"See title and pill.");
+  XCTAssertEqual([text characterAtIndex:index], '.');
+
+  // A press on the icon reports the link's first character.
+  index = [self rangeOf:@"\u2060"].location;
+  ENRMStringByExpandingLinkPillsAtIndex(_text, &index);
+  XCTAssertEqual([text characterAtIndex:index], 't');
 }
 
 // A new icon changes the measured width, so it must change the cached-measurement key.

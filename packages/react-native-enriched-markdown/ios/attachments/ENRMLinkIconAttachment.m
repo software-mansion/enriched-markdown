@@ -8,6 +8,8 @@
 
 #if !TARGET_OS_OSX
 
+NSAttributedStringKey const ENRMLinkIconJoinerAttributeName = @"ENRMLinkIconJoiner";
+
 // The icon is a square of the font size; the slot adds a quarter of it as the gap to the text.
 static const CGFloat kIconSlotRatio = 1.25;
 

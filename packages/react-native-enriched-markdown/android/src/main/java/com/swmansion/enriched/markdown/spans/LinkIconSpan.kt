@@ -79,7 +79,8 @@ class LinkIconSpan(
     text: CharSequence,
     start: Int,
   ): TextPaint {
-    set(source)
+    // TextPaint.set(TextPaint) is an overload, so a TextPaint typed as Paint would lose its baseline shift.
+    if (source is TextPaint) set(source) else set(source)
     // Start without a background, so only the word's own spans set one.
     bgColor = 0
     val spanned = text as? Spanned
@@ -141,8 +142,10 @@ class LinkIconSpan(
     if (visibility < 1f) labelPaint.alpha = (labelPaint.alpha * visibility).roundToInt()
     val metrics = drawMetrics.also { labelPaint.getFontMetrics(it) }
     val slot = slotWidth
+    // A text run is drawn at the baseline plus the paint's shift (superscript, subscript); a replacement gets the line's.
+    val baseline = y + labelPaint.baselineShift.toFloat()
     icon?.takeIf { slot > 0f }?.let {
-      val iconTop = y + (metrics.ascent + metrics.descent - fontSize) / 2
+      val iconTop = baseline + (metrics.ascent + metrics.descent - fontSize) / 2
       val scale = fontSize / max(it.width, it.height)
       rect.set(x, iconTop, x + it.width * scale, iconTop + it.height * scale)
       rect.offset((fontSize - rect.width()) / 2, (fontSize - rect.height()) / 2)
@@ -150,7 +153,7 @@ class LinkIconSpan(
       iconPaint.alpha = (255 * visibility).roundToInt()
       canvas.drawBitmap(it, null, rect, iconPaint)
     }
-    canvas.drawText(text, start, end, x + slot, y.toFloat(), labelPaint)
+    canvas.drawText(text, start, end, x + slot, baseline, labelPaint)
   }
 
   /** Lets an icon that arrives after layout redraw [view], and a failed one reflow it. */

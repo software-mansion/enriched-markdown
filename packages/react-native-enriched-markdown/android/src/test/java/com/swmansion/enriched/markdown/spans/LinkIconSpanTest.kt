@@ -78,6 +78,35 @@ class LinkIconSpanTest {
     assertEquals(Color.TRANSPARENT, cornerAfterDrawing(renderLink(text("Thread title"))))
   }
 
+  // A replacement span gets the line's baseline, so in a superscript it applies the run's shift itself.
+  @Test
+  fun theCoveredWordFollowsASuperscriptShift() {
+    val rendered = renderLink(text("Thread"))
+    val icon = iconSpan(rendered)!!
+    var baseline = Float.NaN
+    val canvas =
+      object : Canvas(Bitmap.createBitmap(200, 40, Bitmap.Config.ARGB_8888)) {
+        override fun drawText(
+          text: CharSequence,
+          start: Int,
+          end: Int,
+          x: Float,
+          y: Float,
+          paint: Paint,
+        ) {
+          baseline = y
+        }
+      }
+    val superscript =
+      TextPaint().apply {
+        textSize = FONT_SIZE
+        baselineShift = -6
+      }
+    icon.draw(canvas, rendered, rendered.getSpanStart(icon), rendered.getSpanEnd(icon), 0f, 0, 30, 40, superscript)
+
+    assertEquals(24f, baseline)
+  }
+
   private fun cornerAfterDrawing(rendered: Spannable): Int {
     val icon = iconSpan(rendered)!!
     val linePaint =

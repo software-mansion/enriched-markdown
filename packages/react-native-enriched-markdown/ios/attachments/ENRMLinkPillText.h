@@ -21,6 +21,10 @@ FOUNDATION_EXPORT NSAttributedString *ENRMAttributedStringByExpandingLinkPills(N
 
 FOUNDATION_EXPORT NSString *ENRMStringByExpandingLinkPills(NSAttributedString *text);
 
+/// `text` as a string with pills expanded and icons removed; `ioIndex` is a character index in
+/// `text` on input and the same character's index in the result on output.
+FOUNDATION_EXPORT NSString *ENRMStringByExpandingLinkPillsAtIndex(NSAttributedString *text, NSUInteger *ioIndex);
+
 /// Enclosing strong/emphasis restyle the placeholder after the pill was created. Run once
 /// rendering is finished so each label uses the font ordinary link text would have.
 FOUNDATION_EXPORT void ENRMLinkPillsAdoptPlaceholderFonts(NSAttributedString *text);
