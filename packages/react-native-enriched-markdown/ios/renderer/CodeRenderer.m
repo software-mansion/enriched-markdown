@@ -33,13 +33,13 @@
   UIFont *codeFont;
   if (codeFontFamily.length > 0) {
     NSString *weightStr = (weight == UIFontWeightBold) ? @"bold" : nil;
-    codeFont = [RCTFont updateFont:nil
-                        withFamily:codeFontFamily
-                              size:@(codeFontSize)
-                            weight:weightStr
-                             style:nil
-                           variant:nil
-                   scaleMultiplier:fontScale];
+    codeFont = [ENRMFont updateFont:nil
+                         withFamily:codeFontFamily
+                               size:@(codeFontSize)
+                             weight:weightStr
+                              style:nil
+                            variant:nil
+                    scaleMultiplier:fontScale];
   } else {
     codeFont = [UIFont monospacedSystemFontOfSize:codeFontSize * fontScale weight:weight];
   }

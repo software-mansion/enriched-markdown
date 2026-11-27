@@ -610,13 +610,13 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 {
   if (_primaryFont.needsRecreation || !_primaryFont.cachedFont) {
     _primaryFont.cachedFont =
-        [RCTFont updateFont:nil
-                 withFamily:_primaryFontFamily
-                       size:_primaryFontSize
-                     weight:normalizedFontWeight(_primaryFontWeight)
-                      style:nil
-                    variant:nil
-            scaleMultiplier:[self effectiveScaleMultiplierForFontSize:[_primaryFontSize floatValue]]];
+        [ENRMFont updateFont:nil
+                  withFamily:_primaryFontFamily
+                        size:_primaryFontSize
+                      weight:normalizedFontWeight(_primaryFontWeight)
+                       style:nil
+                     variant:nil
+             scaleMultiplier:[self effectiveScaleMultiplierForFontSize:[_primaryFontSize floatValue]]];
     _primaryFont.needsRecreation = NO;
   }
   return _primaryFont.cachedFont;
@@ -712,13 +712,13 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 - (UIFont *)paragraphFont
 {
   if (_paragraphFont.needsRecreation || !_paragraphFont.cachedFont) {
-    _paragraphFont.cachedFont = [RCTFont updateFont:nil
-                                         withFamily:_paragraphFontFamily
-                                               size:@(_paragraphFontSize)
-                                             weight:normalizedFontWeight(_paragraphFontWeight)
-                                              style:nil
-                                            variant:nil
-                                    scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_paragraphFontSize]];
+    _paragraphFont.cachedFont = [ENRMFont updateFont:nil
+                                          withFamily:_paragraphFontFamily
+                                                size:@(_paragraphFontSize)
+                                              weight:normalizedFontWeight(_paragraphFontWeight)
+                                               style:nil
+                                             variant:nil
+                                     scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_paragraphFontSize]];
     _paragraphFont.needsRecreation = NO;
   }
   return _paragraphFont.cachedFont;
@@ -813,13 +813,13 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 - (UIFont *)h1Font
 {
   if (_h1Font.needsRecreation || !_h1Font.cachedFont) {
-    _h1Font.cachedFont = [RCTFont updateFont:nil
-                                  withFamily:_h1FontFamily
-                                        size:@(_h1FontSize)
-                                      weight:normalizedFontWeight(_h1FontWeight)
-                                       style:nil
-                                     variant:nil
-                             scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_h1FontSize]];
+    _h1Font.cachedFont = [ENRMFont updateFont:nil
+                                   withFamily:_h1FontFamily
+                                         size:@(_h1FontSize)
+                                       weight:normalizedFontWeight(_h1FontWeight)
+                                        style:nil
+                                      variant:nil
+                              scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_h1FontSize]];
     _h1Font.needsRecreation = NO;
   }
   return _h1Font.cachedFont;
@@ -914,13 +914,13 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 - (UIFont *)h2Font
 {
   if (_h2Font.needsRecreation || !_h2Font.cachedFont) {
-    _h2Font.cachedFont = [RCTFont updateFont:nil
-                                  withFamily:_h2FontFamily
-                                        size:@(_h2FontSize)
-                                      weight:normalizedFontWeight(_h2FontWeight)
-                                       style:nil
-                                     variant:nil
-                             scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_h2FontSize]];
+    _h2Font.cachedFont = [ENRMFont updateFont:nil
+                                   withFamily:_h2FontFamily
+                                         size:@(_h2FontSize)
+                                       weight:normalizedFontWeight(_h2FontWeight)
+                                        style:nil
+                                      variant:nil
+                              scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_h2FontSize]];
     _h2Font.needsRecreation = NO;
   }
   return _h2Font.cachedFont;
@@ -1015,13 +1015,13 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 - (UIFont *)h3Font
 {
   if (_h3Font.needsRecreation || !_h3Font.cachedFont) {
-    _h3Font.cachedFont = [RCTFont updateFont:nil
-                                  withFamily:_h3FontFamily
-                                        size:@(_h3FontSize)
-                                      weight:normalizedFontWeight(_h3FontWeight)
-                                       style:nil
-                                     variant:nil
-                             scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_h3FontSize]];
+    _h3Font.cachedFont = [ENRMFont updateFont:nil
+                                   withFamily:_h3FontFamily
+                                         size:@(_h3FontSize)
+                                       weight:normalizedFontWeight(_h3FontWeight)
+                                        style:nil
+                                      variant:nil
+                              scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_h3FontSize]];
     _h3Font.needsRecreation = NO;
   }
   return _h3Font.cachedFont;
@@ -1116,13 +1116,13 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 - (UIFont *)h4Font
 {
   if (_h4Font.needsRecreation || !_h4Font.cachedFont) {
-    _h4Font.cachedFont = [RCTFont updateFont:nil
-                                  withFamily:_h4FontFamily
-                                        size:@(_h4FontSize)
-                                      weight:normalizedFontWeight(_h4FontWeight)
-                                       style:nil
-                                     variant:nil
-                             scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_h4FontSize]];
+    _h4Font.cachedFont = [ENRMFont updateFont:nil
+                                   withFamily:_h4FontFamily
+                                         size:@(_h4FontSize)
+                                       weight:normalizedFontWeight(_h4FontWeight)
+                                        style:nil
+                                      variant:nil
+                              scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_h4FontSize]];
     _h4Font.needsRecreation = NO;
   }
   return _h4Font.cachedFont;
@@ -1217,13 +1217,13 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 - (UIFont *)h5Font
 {
   if (_h5Font.needsRecreation || !_h5Font.cachedFont) {
-    _h5Font.cachedFont = [RCTFont updateFont:nil
-                                  withFamily:_h5FontFamily
-                                        size:@(_h5FontSize)
-                                      weight:normalizedFontWeight(_h5FontWeight)
-                                       style:nil
-                                     variant:nil
-                             scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_h5FontSize]];
+    _h5Font.cachedFont = [ENRMFont updateFont:nil
+                                   withFamily:_h5FontFamily
+                                         size:@(_h5FontSize)
+                                       weight:normalizedFontWeight(_h5FontWeight)
+                                        style:nil
+                                      variant:nil
+                              scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_h5FontSize]];
     _h5Font.needsRecreation = NO;
   }
   return _h5Font.cachedFont;
@@ -1318,13 +1318,13 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 - (UIFont *)h6Font
 {
   if (_h6Font.needsRecreation || !_h6Font.cachedFont) {
-    _h6Font.cachedFont = [RCTFont updateFont:nil
-                                  withFamily:_h6FontFamily
-                                        size:@(_h6FontSize)
-                                      weight:normalizedFontWeight(_h6FontWeight)
-                                       style:nil
-                                     variant:nil
-                             scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_h6FontSize]];
+    _h6Font.cachedFont = [ENRMFont updateFont:nil
+                                   withFamily:_h6FontFamily
+                                         size:@(_h6FontSize)
+                                       weight:normalizedFontWeight(_h6FontWeight)
+                                        style:nil
+                                      variant:nil
+                              scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_h6FontSize]];
     _h6Font.needsRecreation = NO;
   }
   return _h6Font.cachedFont;
@@ -1806,13 +1806,13 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 - (UIFont *)blockquoteFont
 {
   if (_blockquoteFont.needsRecreation || !_blockquoteFont.cachedFont) {
-    _blockquoteFont.cachedFont = [RCTFont updateFont:nil
-                                          withFamily:_blockquoteFontFamily
-                                                size:@(_blockquoteFontSize)
-                                              weight:normalizedFontWeight(_blockquoteFontWeight)
-                                               style:nil
-                                             variant:nil
-                                     scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_blockquoteFontSize]];
+    _blockquoteFont.cachedFont = [ENRMFont updateFont:nil
+                                           withFamily:_blockquoteFontFamily
+                                                 size:@(_blockquoteFontSize)
+                                               weight:normalizedFontWeight(_blockquoteFontWeight)
+                                                style:nil
+                                              variant:nil
+                                      scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_blockquoteFontSize]];
     _blockquoteFont.needsRecreation = NO;
   }
   return _blockquoteFont.cachedFont;
@@ -2074,13 +2074,13 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 - (UIFont *)listMarkerFont
 {
   if (_listMarkerFont.needsRecreation || !_listMarkerFont.cachedFont) {
-    _listMarkerFont.cachedFont = [RCTFont updateFont:nil
-                                          withFamily:_listStyleFontFamily
-                                                size:@(_listStyleFontSize)
-                                              weight:normalizedFontWeight(_listStyleMarkerFontWeight)
-                                               style:nil
-                                             variant:nil
-                                     scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_listStyleFontSize]];
+    _listMarkerFont.cachedFont = [ENRMFont updateFont:nil
+                                           withFamily:_listStyleFontFamily
+                                                 size:@(_listStyleFontSize)
+                                               weight:normalizedFontWeight(_listStyleMarkerFontWeight)
+                                                style:nil
+                                              variant:nil
+                                      scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_listStyleFontSize]];
     _listMarkerFont.needsRecreation = NO;
   }
   return _listMarkerFont.cachedFont;
@@ -2089,13 +2089,13 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 - (UIFont *)listStyleFont
 {
   if (_listStyleFont.needsRecreation || !_listStyleFont.cachedFont) {
-    _listStyleFont.cachedFont = [RCTFont updateFont:nil
-                                         withFamily:_listStyleFontFamily
-                                               size:@(_listStyleFontSize)
-                                             weight:normalizedFontWeight(_listStyleFontWeight)
-                                              style:nil
-                                            variant:nil
-                                    scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_listStyleFontSize]];
+    _listStyleFont.cachedFont = [ENRMFont updateFont:nil
+                                          withFamily:_listStyleFontFamily
+                                                size:@(_listStyleFontSize)
+                                              weight:normalizedFontWeight(_listStyleFontWeight)
+                                               style:nil
+                                             variant:nil
+                                     scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_listStyleFontSize]];
     _listStyleFont.needsRecreation = NO;
   }
   return _listStyleFont.cachedFont;
@@ -2258,13 +2258,13 @@ static const CGFloat kDefaultMinGap = 4.0;
 - (UIFont *)codeBlockFont
 {
   if (_codeBlockFont.needsRecreation || !_codeBlockFont.cachedFont) {
-    _codeBlockFont.cachedFont = [RCTFont updateFont:nil
-                                         withFamily:_codeBlockFontFamily
-                                               size:@(_codeBlockFontSize)
-                                             weight:normalizedFontWeight(_codeBlockFontWeight)
-                                              style:nil
-                                            variant:nil
-                                    scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_codeBlockFontSize]];
+    _codeBlockFont.cachedFont = [ENRMFont updateFont:nil
+                                          withFamily:_codeBlockFontFamily
+                                                size:@(_codeBlockFontSize)
+                                              weight:normalizedFontWeight(_codeBlockFontWeight)
+                                               style:nil
+                                             variant:nil
+                                     scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_codeBlockFontSize]];
     _codeBlockFont.needsRecreation = NO;
   }
   return _codeBlockFont.cachedFont;
@@ -2409,13 +2409,13 @@ static const CGFloat kDefaultMinGap = 4.0;
 - (UIFont *)tableFont
 {
   if (_tableFont.needsRecreation || !_tableFont.cachedFont) {
-    _tableFont.cachedFont = [RCTFont updateFont:nil
-                                     withFamily:_tableFontFamily
-                                           size:@(_tableFontSize)
-                                         weight:normalizedFontWeight(_tableFontWeight)
-                                          style:nil
-                                        variant:nil
-                                scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_tableFontSize]];
+    _tableFont.cachedFont = [ENRMFont updateFont:nil
+                                      withFamily:_tableFontFamily
+                                            size:@(_tableFontSize)
+                                          weight:normalizedFontWeight(_tableFontWeight)
+                                           style:nil
+                                         variant:nil
+                                 scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_tableFontSize]];
     _tableFont.needsRecreation = NO;
   }
   return _tableFont.cachedFont;
@@ -2436,13 +2436,13 @@ static const CGFloat kDefaultMinGap = 4.0;
 {
   if (_tableHeaderFont.needsRecreation || !_tableHeaderFont.cachedFont) {
     NSString *family = (_tableHeaderFontFamily.length > 0) ? _tableHeaderFontFamily : _tableFontFamily;
-    _tableHeaderFont.cachedFont = [RCTFont updateFont:nil
-                                           withFamily:family
-                                                 size:@(_tableFontSize)
-                                               weight:normalizedFontWeight(@"bold")
-                                                style:nil
-                                              variant:nil
-                                      scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_tableFontSize]];
+    _tableHeaderFont.cachedFont = [ENRMFont updateFont:nil
+                                            withFamily:family
+                                                  size:@(_tableFontSize)
+                                                weight:normalizedFontWeight(@"bold")
+                                                 style:nil
+                                               variant:nil
+                                       scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_tableFontSize]];
     _tableHeaderFont.needsRecreation = NO;
   }
   return _tableHeaderFont.cachedFont;

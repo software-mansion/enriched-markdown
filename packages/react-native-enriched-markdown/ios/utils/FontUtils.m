@@ -1,5 +1,6 @@
 #import "FontUtils.h"
 #import "RenderContext.h"
+#import <React/RCTFont.h>
 #import <React/RCTUtils.h>
 
 UIFont *cachedFontFromBlockStyle(BlockStyle *blockStyle, RenderContext *context)
@@ -61,3 +62,43 @@ UIFontWeight ENRMFontWeightFromString(NSString *weightString)
   }
   return UIFontWeightRegular;
 }
+
+@implementation ENRMFont
+
++ (UIFont *)updateFont:(UIFont *)font
+            withFamily:(NSString *)family
+                  size:(NSNumber *)size
+                weight:(NSString *)weight
+                 style:(NSString *)style
+               variant:(NSArray *)variant
+       scaleMultiplier:(CGFloat)scaleMultiplier
+{
+#if !TARGET_OS_OSX
+  // A restyled run (bold or italic inside code) passes its current font and no family. The system
+  // monospaced face has a hidden family name that RCTFont does not recognise.
+  BOOL systemMonospaced = family ? [family isEqualToString:@"ui-monospace"]
+                                 : (font && [font.familyName hasPrefix:@"."] &&
+                                    (font.fontDescriptor.symbolicTraits & UIFontDescriptorTraitMonoSpace));
+  if (systemMonospaced) {
+    UIFont *base = [RCTFont updateFont:font
+                            withFamily:@"System"
+                                  size:size
+                                weight:weight
+                                 style:style
+                               variant:variant
+                       scaleMultiplier:scaleMultiplier];
+    UIFontDescriptor *descriptor =
+        [base.fontDescriptor fontDescriptorWithDesign:UIFontDescriptorSystemDesignMonospaced];
+    return descriptor ? [UIFont fontWithDescriptor:descriptor size:base.pointSize] : base;
+  }
+#endif
+  return [RCTFont updateFont:font
+                  withFamily:family
+                        size:size
+                      weight:weight
+                       style:style
+                     variant:variant
+             scaleMultiplier:scaleMultiplier];
+}
+
+@end

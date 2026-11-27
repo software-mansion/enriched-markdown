@@ -40,13 +40,13 @@
                             UIFont *resolvedFont = nil;
 
                             if (emphasisFontFamily.length > 0) {
-                              resolvedFont = [RCTFont updateFont:currentFont
-                                                      withFamily:emphasisFontFamily
-                                                            size:nil
-                                                          weight:nil
-                                                           style:useNormalStyle ? nil : @"italic"
-                                                         variant:nil
-                                                 scaleMultiplier:1.0];
+                              resolvedFont = [ENRMFont updateFont:currentFont
+                                                       withFamily:emphasisFontFamily
+                                                             size:nil
+                                                           weight:nil
+                                                            style:useNormalStyle ? nil : @"italic"
+                                                          variant:nil
+                                                  scaleMultiplier:1.0];
                             } else if (currentFont &&
                                        !(currentFont.fontDescriptor.symbolicTraits & UIFontDescriptorTraitItalic)) {
                               resolvedFont = [self ensureFontIsItalic:currentFont];

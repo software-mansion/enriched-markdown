@@ -116,13 +116,13 @@ static NSRange ENRMCollapseLinkIntoPill(NSMutableAttributedString *output, NSRan
                             if (linkFontFamily.length > 0) {
                               UIFont *currentFont = attrs[NSFontAttributeName];
                               if (currentFont) {
-                                UIFont *linkFont = [RCTFont updateFont:currentFont
-                                                            withFamily:linkFontFamily
-                                                                  size:nil
-                                                                weight:nil
-                                                                 style:nil
-                                                               variant:nil
-                                                       scaleMultiplier:1.0];
+                                UIFont *linkFont = [ENRMFont updateFont:currentFont
+                                                             withFamily:linkFontFamily
+                                                                   size:nil
+                                                                 weight:nil
+                                                                  style:nil
+                                                                variant:nil
+                                                        scaleMultiplier:1.0];
                                 if (linkFont && ![currentFont isEqual:linkFont]) {
                                   newAttributes[NSFontAttributeName] = linkFont;
                                 }

@@ -28,4 +28,16 @@ extern UIFontWeight ENRMFontWeightFromString(NSString *_Nullable weightString);
 }
 #endif
 
+/** RCTFont's updateFont, plus the CSS generic family `ui-monospace` (the system monospaced font),
+ *  which React Native's Fabric text accepts but the legacy RCTFont does not. */
+@interface ENRMFont : NSObject
++ (UIFont *)updateFont:(nullable UIFont *)font
+            withFamily:(nullable NSString *)family
+                  size:(nullable NSNumber *)size
+                weight:(nullable NSString *)weight
+                 style:(nullable NSString *)style
+               variant:(nullable NSArray *)variant
+       scaleMultiplier:(CGFloat)scaleMultiplier;
+@end
+
 NS_ASSUME_NONNULL_END

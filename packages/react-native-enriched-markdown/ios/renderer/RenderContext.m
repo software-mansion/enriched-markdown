@@ -90,13 +90,13 @@ static NSArray<NSString *> *ENRMScopedKeyPaths(void)
 
   NSString *effectiveWeight = (fontWeight.length > 0) ? fontWeight : nil;
 
-  UIFont *font = [RCTFont updateFont:nil
-                          withFamily:fontFamily
-                                size:@(fontSize)
-                              weight:effectiveWeight
-                               style:nil
-                             variant:nil
-                     scaleMultiplier:effectiveMultiplier];
+  UIFont *font = [ENRMFont updateFont:nil
+                           withFamily:fontFamily
+                                 size:@(fontSize)
+                               weight:effectiveWeight
+                                style:nil
+                              variant:nil
+                      scaleMultiplier:effectiveMultiplier];
 
   if (font) {
     _fontCache[key] = font;
