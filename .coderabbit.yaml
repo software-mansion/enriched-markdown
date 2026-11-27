@@ -22,6 +22,8 @@ reviews:
     - '!.maestro/**/screenshots/**'
     # Vendored third-party code
     - '!packages/enriched-markdown-ios/Sources/EnrichedMarkdownLaTeX/Vendor/**'
+    # Generated WASM build of the core (CI checks it against packages/core/cpp)
+    - '!packages/react-native-enriched-markdown/src/web/wasm/md4c.js'
   path_instructions:
     - path: 'packages/core/cpp/**'
       instructions: >-
@@ -58,6 +60,19 @@ reviews:
         made here without a matching iOS change, unless the PR says why. Public API changes
         need `docs/docs/android/` and the package README updated. Changes to `ui` must
         keep `compose` working, since it wraps `ui`.
+    - path: 'apps/**'
+      instructions: >-
+        Example apps, not shipped to users. Hold them to a lower bar than the libraries,
+        but they must use only the public API of the package they demo (no imports of
+        internal files). The Maestro E2E flows in `.maestro/` find elements by `testID`
+        (`react-native-example`), `accessibilityIdentifier` (`ios-example`) and `testTag`
+        (`android-example`), and compare against screenshot baselines. CI does not run
+        Maestro, so flag renamed or removed IDs, and changes to sample content or layout
+        on screens the flows visit, that come without matching updates in `.maestro/`.
+    - path: 'apps/react-native-{macos,web}-example/**'
+      instructions: >-
+        No CI check builds this app, so check that the change still matches the current
+        API of `react-native-enriched-markdown`.
     - path: 'docs/**'
       instructions: >-
         Docusaurus site. Interactive examples in `docs/src/examples/` must mirror the pages
