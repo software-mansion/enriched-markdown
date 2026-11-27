@@ -453,9 +453,7 @@ class EnrichedMarkdownTextInputView(
       if (editSession.didTextChangeRecently) {
         editSession.didTextChangeRecently = false
       } else {
-        pendingStyles.clear()
-        pendingStyleRemovals.clear()
-        seedPendingStylesFromSelection(selStart, selEnd)
+        resetPendingStylesForSelection(selStart, selEnd)
       }
     }
 
@@ -490,6 +488,17 @@ class EnrichedMarkdownTextInputView(
       lastEmittedSelectionStart = start
       lastEmittedSelectionEnd = end
     }
+  }
+
+  // emitState checks pending styles before the store, so re-derive them from the store after a store
+  // change and before emitting.
+  private fun resetPendingStylesForSelection(
+    selStart: Int,
+    selEnd: Int,
+  ) {
+    pendingStyles.clear()
+    pendingStyleRemovals.clear()
+    seedPendingStylesFromSelection(selStart, selEnd)
   }
 
   /**
@@ -659,10 +668,8 @@ class EnrichedMarkdownTextInputView(
       }
       eventEmitter.emitState()
     } else {
+      resetPendingStylesForSelection(selStart, selEnd)
       applyFormattingAndEmit()
-      pendingStyles.clear()
-      pendingStyleRemovals.clear()
-      seedPendingStylesFromSelection(selStart, selEnd)
     }
   }
 
