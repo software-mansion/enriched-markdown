@@ -365,7 +365,7 @@ Pills are drawn by the native text stack, so `pill` applies on **iOS and Android
 
 #### Inline link icons {#inline-icon}
 
-A variant's `inlineIcon` draws an icon before the link's own text, which stays ordinary link text and wraps across lines. It is ignored when the variant sets `pill`. iOS and Android only.
+A variant's `inlineIcon` draws an icon before the link's own text, which stays ordinary link text and wraps across lines. It is ignored when the variant sets `pill`, and [`linkPillContent`](/react-native/api-reference/enriched-markdown-text#linkpillcontent) does not apply to it. iOS and Android only; see [Inline icons](/react-native/guides/link-pills#inline-icons) for the platform limits.
 
 | Property        | Type     | Default | Description                                                                                       |
 | --------------- | -------- | ------- | ------------------------------------------------------------------------------------------------- |

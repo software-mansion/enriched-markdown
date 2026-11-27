@@ -1,6 +1,6 @@
 import { normalizeMarkdownStyle } from '../src/normalizeMarkdownStyle';
 import { normalizeMarkdownStyle as normalizeWebStyle } from '../src/normalizeMarkdownStyle.web';
-import { normalizeColor } from '../src/styleUtils';
+import { isStyleEqual, normalizeColor } from '../src/styleUtils';
 import {
   isLinkPillContentEqual,
   normalizeLinkPillContent,
@@ -250,6 +250,7 @@ it('passes an inline icon and its tint to native', () => {
 });
 
 it.each([true, {}])('drops the inline icon of a pill variant (%s)', (pill) => {
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
   const style = normalizeMarkdownStyle({
     linkVariants: {
       '^app:': {
@@ -263,6 +264,10 @@ it.each([true, {}])('drops the inline icon of a pill variant (%s)', (pill) => {
     iconUri: '',
     iconTintColor: undefined,
   });
+  expect(warn).toHaveBeenCalledWith(
+    expect.stringContaining('sets both pill and inlineIcon')
+  );
+  warn.mockRestore();
 });
 
 it('does not reuse a cached style whose variant has the same number of keys', () => {
@@ -272,4 +277,14 @@ it('does not reuse a cached style whose variant has the same number of keys', ()
       linkVariants: { '^key:': { inlineIcon: { iconUri: 'icon.png' } } },
     }).linkVariants[0]?.inlineIcon.iconUri
   ).toBe('icon.png');
+});
+
+it('tells apart sub-styles with as many keys but different ones', () => {
+  expect(
+    isStyleEqual(
+      { link: { color: undefined } },
+      { link: { underline: false } },
+      ['link']
+    )
+  ).toBe(false);
 });

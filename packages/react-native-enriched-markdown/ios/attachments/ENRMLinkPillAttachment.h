@@ -6,6 +6,9 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+/// A 1pt clear image, for an attachment that has to draw nothing (a pill or an inline icon in a spoiler).
+FOUNDATION_EXPORT UIImage *ENRMClearLinkPillImage(void);
+
 /**
  * A link presented as a pill. Like image and inline-math attachments it is a
  * single U+FFFC in text storage, laid out and drawn by TextKit natively.

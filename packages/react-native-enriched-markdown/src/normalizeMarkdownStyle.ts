@@ -342,7 +342,7 @@ export const normalizeMarkdownStyle = (
   result.linkVariants = normalizeLinkVariantEntries(style.linkVariants).map(
     ([pattern, override]): LinkVariantEntryInternal => {
       const pill = normalizeLinkPillStyle(override);
-      const inlineIcon = normalizeLinkInlineIcon(override);
+      const inlineIcon = normalizeLinkInlineIcon(override, pattern);
       return {
         pattern,
         pill: {

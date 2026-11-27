@@ -66,7 +66,12 @@ linkVariants: {
 }
 ```
 
-The icon is drawn before the link text, on the same line as its first word, and the text wraps like any other link. The variant's `color`, `underline`, `backgroundColor` and `fontFamily` apply to the text. The icon is not part of the text: copy, export, the accessible name and link menus see only the link text. `inlineIcon` takes the same [icon sources](#icon-sources) as pills, and is ignored when the variant also sets `pill`.
+The icon is drawn before the link text, on the same line as its first word, and the text wraps like any other link. The variant's `color`, `underline`, `backgroundColor` and `fontFamily` apply to the text. The icon is not part of the text: copy, export, the accessible name and link menus see only the link text. `inlineIcon` takes the same [icon sources](#icon-sources) as pills.
+
+- A variant that sets both `pill` and `inlineIcon` draws the pill; in development a warning says the icon is ignored.
+- [`linkPillContent`](/react-native/api-reference/enriched-markdown-text#linkpillcontent) does not apply: the icon and its tint come from the variant.
+- On Android, the icon and the link's first word (up to 24 characters) stay together on one line.
+- On Android, a paragraph that contains right-to-left text draws the link without its icon.
 
 ## Icon sources {#icon-sources}
 

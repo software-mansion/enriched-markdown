@@ -1,5 +1,6 @@
 #import "ENRMLinkIconAttachment.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLinkPillAttachment.h"
 #import "ENRMLinkPillIconCache.h"
 #import "ENRMSpoilerTapUtils.h"
 #import "RuntimeKeys.h"
@@ -21,6 +22,7 @@ static const CGFloat kIconSlotRatio = 1.25;
   UIImage *_rendered;
   CGSize _renderedSize;
   BOOL _renderedRightToLeft;
+  UIUserInterfaceStyle _renderedInterfaceStyle;
 }
 
 - (instancetype)initWithIconUri:(NSString *)iconUri
@@ -67,22 +69,29 @@ static const CGFloat kIconSlotRatio = 1.25;
 {
   if (container)
     _textContainer = container;
-  if (!_icon || bounds.size.width <= 0 || bounds.size.height <= 0)
+  if (bounds.size.width <= 0 || bounds.size.height <= 0)
     return nil;
+  // Nil would draw the placeholder glyph in the slot of a remote icon that is still loading.
+  if (!_icon)
+    return ENRMClearLinkPillImage();
   BOOL rightToLeft = NO;
   if (container) {
     NSTextStorage *storage = container.layoutManager.textStorage;
     // The spoiler hides text by clearing its color, which this drawing does not use.
     if (index < storage.length && [storage attribute:SpoilerAttributeName atIndex:index effectiveRange:NULL])
-      return nil;
+      return ENRMClearLinkPillImage();
     NSParagraphStyle *paragraph = index < storage.length ? [storage attribute:NSParagraphStyleAttributeName
                                                                       atIndex:index
                                                                effectiveRange:NULL]
                                                          : nil;
     rightToLeft = paragraph.baseWritingDirection == NSWritingDirectionRightToLeft;
   }
-  if (_rendered && CGSizeEqualToSize(_renderedSize, bounds.size) && _renderedRightToLeft == rightToLeft)
+  // A dynamic tint resolves differently in light and dark mode.
+  UITraitCollection *traits = UITraitCollection.currentTraitCollection;
+  if (_rendered && CGSizeEqualToSize(_renderedSize, bounds.size) && _renderedRightToLeft == rightToLeft &&
+      _renderedInterfaceStyle == traits.userInterfaceStyle)
     return _rendered;
+  UIColor *tint = [_iconTint resolvedColorWithTraitCollection:traits];
   CGFloat side = bounds.size.height;
   UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat preferredFormat];
   format.opaque = NO;
@@ -95,11 +104,12 @@ static const CGFloat kIconSlotRatio = 1.25;
     CGRect iconRect =
         CGRectMake(slotX + (side - iconSize.width) / 2, (side - iconSize.height) / 2, iconSize.width, iconSize.height);
     UIImage *presented =
-        _iconTint ? [_icon imageWithTintColor:_iconTint renderingMode:UIImageRenderingModeAlwaysOriginal] : _icon;
+        tint ? [_icon imageWithTintColor:tint renderingMode:UIImageRenderingModeAlwaysOriginal] : _icon;
     [presented drawInRect:iconRect];
   }];
   _renderedSize = bounds.size;
   _renderedRightToLeft = rightToLeft;
+  _renderedInterfaceStyle = traits.userInterfaceStyle;
   return _rendered;
 }
 

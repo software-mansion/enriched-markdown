@@ -85,10 +85,19 @@ export function normalizeLinkPillStyle(style: LinkVariantStyle) {
 }
 
 /** A pill wins over an inline icon, so a variant never asks for both. */
-export function normalizeLinkInlineIcon(style: LinkVariantStyle) {
+export function normalizeLinkInlineIcon(
+  style: LinkVariantStyle,
+  pattern: string
+) {
   const pill =
     style.pill === true ||
     (typeof style.pill === 'object' && style.pill !== null);
+  if (isDev && pill && style.inlineIcon) {
+    console.warn(
+      `[MarkdownStyle] linkVariants pattern "${pattern}" sets both pill and inlineIcon; ` +
+        'the pill is drawn and inlineIcon is ignored.'
+    );
+  }
   return {
     iconUri: pill ? '' : (style.inlineIcon?.iconUri ?? ''),
     iconTintColor: pill ? undefined : style.inlineIcon?.iconTintColor,

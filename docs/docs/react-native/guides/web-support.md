@@ -309,6 +309,7 @@ Most of `markdownStyle` applies, but these keys are accepted and ignored:
 | `list.bulletColor`, `list.bulletSize`, `list.markerMinWidth`, `list.markerColor`, `list.markerFontWeight`, `list.gapWidth` | Web leaves list markers to the browser's `::marker`. Of the `list` keys only `fontSize`, `fontFamily`, `fontWeight`, `color`, `lineHeight`, `marginTop`, `marginBottom`, `marginLeft` and `itemSpacing` are read |
 | `table.horizontalOverflow` | Web tables are always `overflow-x: auto` |
 | `linkVariants[pattern].pill` | [Link pills](/react-native/guides/link-pills) are native-only; such links render as ordinary links with the variant's colors |
+| `linkVariants[pattern].inlineIcon` | [Inline link icons](/react-native/guides/link-pills#inline-icons) are native-only; such links render without the icon |
 | `taskList.borderColor`, `taskList.checkmarkColor` | The checkbox is the browser's native control, tinted through `accentColor` (`checkedColor`) only |
 
 ### Accessibility
