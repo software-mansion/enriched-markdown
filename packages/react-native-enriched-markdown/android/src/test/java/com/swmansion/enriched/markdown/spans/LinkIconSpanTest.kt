@@ -70,6 +70,23 @@ class LinkIconSpanTest {
     assertNull(iconSpan(rendered))
   }
 
+  // Each paragraph is checked for itself, so one with right-to-left text doesn't take the icon from another.
+  @Test
+  fun onlyTheRightToLeftParagraphLosesItsIcon() {
+    val rendered =
+      render(
+        style(),
+        paragraph(link(URL, text("First")), text(" and "), link(URL, text("Second"))),
+        paragraph(text("שלום "), link(URL, text("Third"))),
+      )
+
+    val covered =
+      rendered.getSpans(0, rendered.length, LinkIconSpan::class.java).map {
+        rendered.subSequence(rendered.getSpanStart(it), rendered.getSpanEnd(it)).toString()
+      }
+    assertEquals(listOf("First", "Second"), covered.sorted())
+  }
+
   // A replacement span gets no background from its line, so the icon's word draws the variant's own,
   // and none when the variant has none, whatever an earlier run left on the line's paint.
   @Test

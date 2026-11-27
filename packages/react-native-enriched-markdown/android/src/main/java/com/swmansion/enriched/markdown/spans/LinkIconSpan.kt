@@ -183,7 +183,8 @@ class LinkIconSpan(
   private fun releaseIconSlot() {
     reservesIconSlot = false
     withHosts { hosts ->
-      val host = hosts.firstOrNull { reflowIn(it) } ?: return@withHosts
+      // Every host reflows: a table can hold a detached cell next to the visible one that replaced it.
+      val host = hosts.filter { reflowIn(it) }.firstOrNull() ?: return@withHosts
       onSlotReleased?.let {
         it()
         return@withHosts

@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.renderer
 
 import android.text.SpannableStringBuilder
 import android.text.TextPaint
+import android.text.TextUtils
 import android.text.style.CharacterStyle
 import android.text.style.ReplacementSpan
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
@@ -12,6 +13,7 @@ import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.utils.text.extensions.applyBlockStyleFont
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
+import java.lang.ref.WeakReference
 import java.text.BreakIterator
 import kotlin.math.max
 import kotlin.math.min
@@ -31,6 +33,13 @@ class LinkRenderer(
   private val characterBreaks = BreakIterator.getCharacterInstance()
   private val lineBreaks = BreakIterator.getLineInstance()
   private val iconRunPaint = TextPaint()
+
+  // The last paragraph checked for right-to-left text, so icon links sharing a paragraph scan it
+  // once. The rendered text is a new builder every render, which keeps the result from going stale.
+  private var checkedText: WeakReference<CharSequence>? = null
+  private var checkedStart = 0
+  private var checkedEnd = 0
+  private var checkedRightToLeft = false
 
   override fun render(
     node: MarkdownASTNode,
@@ -154,16 +163,23 @@ class LinkRenderer(
     position: Int,
   ): Boolean {
     if (position < 0) return false
-    var index = position
-    while (index > 0 && text[index - 1] != '\n') index--
-    while (index < text.length && text[index] != '\n') {
+    if (checkedText?.get() === text && position >= checkedStart && position < checkedEnd) return checkedRightToLeft
+    var start = position
+    while (start > 0 && text[start - 1] != '\n') start--
+    val end = TextUtils.indexOf(text, '\n', position).takeIf { it >= 0 } ?: text.length
+    var rightToLeft = false
+    var index = start
+    while (index < end && !rightToLeft) {
       val codePoint = Character.codePointAt(text, index)
-      when (Character.getDirectionality(codePoint)) {
-        Character.DIRECTIONALITY_RIGHT_TO_LEFT, Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC -> return true
-      }
+      val direction = Character.getDirectionality(codePoint)
+      rightToLeft = direction == Character.DIRECTIONALITY_RIGHT_TO_LEFT || direction == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC
       index += Character.charCount(codePoint)
     }
-    return false
+    checkedText = WeakReference(text)
+    checkedStart = start
+    checkedEnd = end
+    checkedRightToLeft = rightToLeft
+    return rightToLeft
   }
 
   /**
