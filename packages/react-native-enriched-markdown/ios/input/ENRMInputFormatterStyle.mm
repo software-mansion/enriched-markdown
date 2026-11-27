@@ -1,6 +1,22 @@
 #import "ENRMInputFormatterStyle.h"
 #import "FontUtils.h"
 
+// RCTFont only knows "normal", "bold" and "100"-"900", and resolves any other name ("semibold", "medium", ...) to
+// regular, so hand it the weight ENRMFontWeightFromString settled on, as a number.
+static NSString *ENRMNumericFontWeight(NSString *weightString)
+{
+  const UIFontWeight weights[] = {UIFontWeightUltraLight, UIFontWeightThin,   UIFontWeightLight,
+                                  UIFontWeightRegular,    UIFontWeightMedium, UIFontWeightSemibold,
+                                  UIFontWeightBold,       UIFontWeightHeavy,  UIFontWeightBlack};
+  UIFontWeight weight = ENRMFontWeightFromString(weightString);
+  for (NSUInteger i = 0; i < sizeof(weights) / sizeof(weights[0]); i++) {
+    if (weights[i] == weight) {
+      return [NSString stringWithFormat:@"%lu", (unsigned long)(i + 1) * 100];
+    }
+  }
+  return @"400";
+}
+
 @implementation ENRMInputLinkVariantStyle
 @end
 
@@ -106,10 +122,9 @@
   NSString *weightString = _headingFontWeights[level];
   UIFont *font;
   if (weightString.length > 0) {
-    UIFontWeight weight = ENRMFontWeightFromString(weightString);
-    UIFontDescriptor *descriptor = [_baseFont.fontDescriptor
-        fontDescriptorByAddingAttributes:@{UIFontDescriptorTraitsAttribute : @{UIFontWeightTrait : @(weight)}}];
-    font = descriptor ? [UIFont fontWithDescriptor:descriptor size:size] : [UIFont systemFontOfSize:size weight:weight];
+    // Resolve the weight within the base font's family, as the renderer does: a custom font's descriptor names
+    // its exact face, so adding a weight trait to it is ignored.
+    font = ENRMUpdateFont(_baseFont, nil, @(size), ENRMNumericFontWeight(weightString), nil, 1.0);
   } else {
     font = [_baseFont fontWithSize:size];
   }
