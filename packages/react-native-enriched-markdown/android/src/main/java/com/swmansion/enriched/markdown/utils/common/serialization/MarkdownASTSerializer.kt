@@ -20,6 +20,22 @@ object MarkdownASTSerializer {
     return buffer.toString()
   }
 
+  private val backslashesBeforeLineEnding = Regex("""(?<!\\)\\+(?=[\r\n])""")
+
+  /**
+   * Serializes a table cell's content on one line: a line ending inside it (decoded from `&#10;` or
+   * `&#13;`) goes back to that entity, so it no longer ends the row. A break node can't reach a cell
+   * yet; once it can (#1037), it needs `<br>` instead.
+   */
+  fun serializeTableCell(cell: MarkdownASTNode): String {
+    val markdown = serializeChildren(cell)
+    if ('\n' !in markdown && '\r' !in markdown) return markdown
+    return markdown
+      .replace(backslashesBeforeLineEnding, "$0$0")
+      .replace("\r", "&#13;")
+      .replace("\n", "&#10;")
+  }
+
   /**
    * Serializes a Blockquote or Admonition node back to markdown, including
    * the `> ` prefix on every line and `> [!TYPE]` header for admonitions.
@@ -218,7 +234,7 @@ object MarkdownASTSerializer {
     for (section in node.children) {
       for (row in section.children) {
         if (row.type != NodeType.TableRow) continue
-        val cells = row.children.map { serializeChildren(it) }
+        val cells = row.children.map { serializeTableCell(it) }
         buffer.append("| ")
         buffer.append(cells.joinToString(" | "))
         buffer.append(" |\n")

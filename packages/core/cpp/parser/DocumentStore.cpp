@@ -7,13 +7,9 @@ namespace Markdown {
 
 namespace {
 
-// Several messages of a chat can stream or measure in one commit.
-constexpr size_t kMaxEntries = 16;
-// The tree and its strings take several times the Markdown's size. Past the
-// budget the oldest entries go; the newest always stays, so the callers of one
-// tick share even a document larger than the budget.
-constexpr size_t kTreeBytesPerByte = 8;
-constexpr size_t kBudgetBytes = 8 * 1024 * 1024;
+constexpr size_t kMaxEntries = kDocumentStoreMaxEntries;
+constexpr size_t kTreeBytesPerByte = kDocumentStoreTreeBytesPerByte;
+constexpr size_t kBudgetBytes = kDocumentStoreBudgetBytes;
 
 // Moves the first matching entry to the front; whether there was one.
 template <typename Entry, typename Matches> bool moveToFront(std::list<Entry> &entries, Matches matches) {

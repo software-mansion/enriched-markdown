@@ -188,7 +188,7 @@ static NSArray<NSArray<TableCellData *> *> *ENRMTableBuildRows(MarkdownASTNode *
         cell.plainText = ENRMTablePlainTextFromNode(cellNode, NO);
         NSString *linkedPlainText = ENRMTablePlainTextFromNode(cellNode, YES);
         cell.linkedPlainText = [linkedPlainText isEqualToString:cell.plainText] ? nil : linkedPlainText;
-        cell.markdownText = markdownFromASTNodeChildren(cellNode);
+        cell.markdownText = markdownFromTableCellNode(cellNode);
 
         StyleConfig *cellConfig = cell.isHeader ? headerCellConfig : bodyCellConfig;
         cell.attributedText =

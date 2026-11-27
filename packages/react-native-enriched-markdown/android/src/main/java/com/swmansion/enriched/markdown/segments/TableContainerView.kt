@@ -238,7 +238,7 @@ class TableContainerView(
               attributedText = renderCellNode(cell, isHeader, align),
               plainText = plainText,
               linkedPlainText = extractPlainText(cell, linksAsMarkdown = true).takeIf { it != plainText },
-              markdownText = MarkdownASTSerializer.serializeChildren(cell),
+              markdownText = MarkdownASTSerializer.serializeTableCell(cell),
               isHeader = isHeader,
               alignment = align,
             )
