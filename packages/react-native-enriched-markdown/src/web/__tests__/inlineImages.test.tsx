@@ -58,3 +58,11 @@ it.each([
 ])('keeps an image alone in its paragraph a block: %s', (markdown) => {
   expect(imageIsInline(markdown)).toBe(false);
 });
+
+// An image-only spoiler wraps its image in a cover box, which flows inline next to text.
+it('draws an image-only spoiler next to text inline', () => {
+  imageIsInline('text ||![](https://example.com/x.png)||');
+  expect(container.querySelector('img')!.parentElement!.style.display).toBe(
+    'inline-block'
+  );
+});
