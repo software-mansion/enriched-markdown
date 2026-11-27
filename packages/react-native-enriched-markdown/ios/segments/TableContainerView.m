@@ -1,6 +1,7 @@
 #import "TableContainerView.h"
 #import "AttributedRenderer.h"
 #import "ENRMAccessibilityLabels.h"
+#import "ENRMHorizontalScrollView.h"
 #import "ENRMImageAttachment.h"
 #import "ENRMLinkPillAttachment.h"
 #import "HTMLGenerator.h"
@@ -26,6 +27,24 @@
 @property (nonatomic, assign) BOOL isHeader;
 @property (nonatomic, assign) NSTextAlignment alignment;
 @end
+
+// The grids draw cell text with string drawing, which paints NSLinkAttributeName in the system link
+// color over the configured one. Taps read linkURL, and Copy as HTML reads the cells, which keep it.
+static NSAttributedString *ENRMWithoutLinkAttribute(NSAttributedString *text)
+{
+  if (text.length == 0) {
+    return text;
+  }
+  NSRange whole = NSMakeRange(0, text.length);
+  NSRange unlinked;
+  if (![text attribute:NSLinkAttributeName atIndex:0 longestEffectiveRange:&unlinked inRange:whole] &&
+      NSEqualRanges(unlinked, whole)) {
+    return text;
+  }
+  NSMutableAttributedString *drawn = [text mutableCopy];
+  [drawn removeAttribute:NSLinkAttributeName range:whole];
+  return drawn;
+}
 
 @implementation TableCellData
 @end
@@ -83,10 +102,12 @@ static NSMutableAttributedString *ENRMTableRenderCellNode(MarkdownASTNode *cellN
   RenderContext *context = [RenderContext new];
   context.allowFontScaling = allowFontScaling;
   context.maxFontSizeMultiplier = maxFontSizeMultiplier;
+  context.fontScale = cellConfig.fontScaleMultiplier;
 
   NSMutableAttributedString *attributedText = [renderer renderNodes:cellNode.children context:context block:nil];
 
   [context applyLinkAttributesToString:attributedText];
+  [context applyImageAttributesToString:attributedText];
 
   ENRMPinLineMetricsToStyledFonts(attributedText, NSMakeRange(0, attributedText.length));
   ENRMApplyWritingDirectionMode(attributedText, writingDirectionMode, resolvedLayoutDirection);
@@ -240,8 +261,31 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 @end
 #endif
 
+#if !TARGET_OS_OSX
+// Ticks the column animation without the display link retaining the table.
+@interface ENRMTableWidthsTicker : NSObject
+@property (nonatomic, weak) TableContainerView *table;
+@end
+
+@interface TableContainerView ()
+- (void)stepColumnWidths;
+@end
+
+@implementation ENRMTableWidthsTicker
+- (void)tick:(CADisplayLink *)link
+{
+  TableContainerView *table = self.table;
+  if (table) {
+    [table stepColumnWidths];
+  } else {
+    [link invalidate];
+  }
+}
+@end
+#endif
+
 @implementation TableContainerView {
-  RCTUIScrollView *_scrollView;
+  ENRMHorizontalScrollView *_scrollView;
   RCTUIView *_gridContainer;
   NSArray<NSArray<TableCellData *> *> *_rows;
   NSUInteger _colCount;
@@ -252,6 +296,13 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   CGFloat _totalTableHeight;
 
   NSString *_cachedMarkdown;
+
+  // While the columns move from `_widthsFrom` to `_colWidths`: what is drawn now.
+  NSArray<NSNumber *> *_shownColWidths;
+  NSArray<NSNumber *> *_widthsFrom;
+  CFTimeInterval _widthsStart;
+  CFTimeInterval _widthsDuration;
+  CADisplayLink *_widthsLink;
 
   NSArray *_cachedAccessibilityElements;
 
@@ -281,11 +332,10 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 
 - (void)setupScrollView
 {
-  _scrollView = [[RCTUIScrollView alloc] init];
+  _scrollView = [[ENRMHorizontalScrollView alloc] init];
   _scrollView.showsVerticalScrollIndicator = NO;
   _scrollView.showsHorizontalScrollIndicator = YES;
 #if !TARGET_OS_OSX
-  _scrollView.bounces = YES;
   _scrollView.alwaysBounceHorizontal = NO;
   _scrollView.isAccessibilityElement = NO;
   _scrollView.accessibilityElementsHidden = YES;
@@ -319,6 +369,11 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     if (strongSelf && strongSelf.onLinkPress)
       strongSelf.onLinkPress(url);
   };
+  iosGridView.onImageTap = ^(NSString *url, NSString *altText) {
+    TableContainerView *strongSelf = weakSelf;
+    if (strongSelf.onImagePress)
+      strongSelf.onImagePress(url, altText);
+  };
   iosGridView.hasLinkContextMenu =
       ^BOOL(NSString *url) { return [weakSelf.dynamicProps.linkContextMenus hasMenuForURL:url]; };
   iosGridView.onLinkLongTap = ^(NSString *url) {
@@ -338,6 +393,65 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   return _rows.count;
 }
 
+- (NSArray<NSNumber *> *)shownColumnWidths
+{
+  return _shownColWidths ?: _colWidths ?: @[];
+}
+
+- (CGFloat)shownTableWidth
+{
+  if (_shownColWidths == nil) {
+    return _totalTableWidth;
+  }
+  return [[_shownColWidths valueForKeyPath:@"@sum.self"] doubleValue] + self.config.tableBorderWidth;
+}
+
+#if !TARGET_OS_OSX
+- (void)animateColumnWidthsFrom:(NSArray<NSNumber *> *)widths duration:(NSTimeInterval)duration
+{
+  if (widths.count != _colWidths.count || [widths isEqualToArray:_colWidths] || duration <= 0) {
+    return;
+  }
+  _widthsFrom = [widths copy];
+  _widthsStart = CACurrentMediaTime();
+  _widthsDuration = duration;
+  if (_widthsLink == nil) {
+    ENRMTableWidthsTicker *ticker = [[ENRMTableWidthsTicker alloc] init];
+    ticker.table = self;
+    _widthsLink = [CADisplayLink displayLinkWithTarget:ticker selector:@selector(tick:)];
+    _widthsLink.preferredFrameRateRange = CAFrameRateRangeMake(30, 60, 60);
+    [_widthsLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+  }
+  [self stepColumnWidths];
+}
+
+- (void)stepColumnWidths
+{
+  double progress = MIN(1.0, (CACurrentMediaTime() - _widthsStart) / _widthsDuration);
+  if (progress >= 1 || _widthsFrom.count != _colWidths.count) {
+    [_widthsLink invalidate];
+    _widthsLink = nil;
+    _widthsFrom = nil;
+    _shownColWidths = nil;
+  } else {
+    double eased = 1 - pow(1 - progress, 3);
+    NSMutableArray<NSNumber *> *shown = [NSMutableArray arrayWithCapacity:_colWidths.count];
+    for (NSUInteger column = 0; column < _colWidths.count; column++) {
+      double from = [_widthsFrom[column] doubleValue];
+      [shown addObject:@(from + ([_colWidths[column] doubleValue] - from) * eased)];
+    }
+    _shownColWidths = shown;
+  }
+  [(ENRMTableIOSGridView *)_gridContainer setShownColumnWidths:_shownColWidths];
+  [self setNeedsLayout];
+  [self layoutIfNeeded];
+}
+#else
+- (void)animateColumnWidthsFrom:(NSArray<NSNumber *> *)widths duration:(NSTimeInterval)duration
+{
+}
+#endif
+
 #if !TARGET_OS_OSX
 - (void)animateNewRowsFromPreviousCount:(NSUInteger)previousRowCount duration:(NSTimeInterval)duration
 {
@@ -346,10 +460,23 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   }
   [(ENRMTableIOSGridView *)_gridContainer fadeInRowsFrom:previousRowCount duration:duration];
 }
+
+- (void)finishRowFade
+{
+  [(ENRMTableIOSGridView *)_gridContainer finishRowFade];
+  if (_widthsLink != nil) {
+    _widthsStart = 0;
+    [self stepColumnWidths];
+  }
+}
 #else
 - (void)animateNewRowsFromPreviousCount:(NSUInteger)previousRowCount duration:(NSTimeInterval)duration
 {
   // No-op on macOS
+}
+
+- (void)finishRowFade
+{
 }
 #endif
 
@@ -364,6 +491,15 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   _cachedMarkdown = [self buildMarkdownFromRows];
   _cachedAccessibilityElements = nil;
   [self computeLayout];
+#if !TARGET_OS_OSX
+  if (_shownColWidths.count != _colWidths.count) {
+    [_widthsLink invalidate];
+    _widthsLink = nil;
+    _widthsFrom = nil;
+    _shownColWidths = nil;
+    [(ENRMTableIOSGridView *)_gridContainer setShownColumnWidths:nil];
+  }
+#endif
   [self renderGrid];
 }
 
@@ -422,7 +558,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   NSMutableArray<NSAttributedString *> *cellTexts = [NSMutableArray arrayWithCapacity:_colCount];
   for (NSUInteger columnIndex = 0; columnIndex < _colCount; columnIndex++) {
     NSAttributedString *text = (columnIndex < rowCells.count) ? rowCells[columnIndex].attributedText : nil;
-    [cellTexts addObject:text ?: [[NSAttributedString alloc] init]];
+    [cellTexts addObject:text ? ENRMWithoutLinkAttribute(text) : [[NSAttributedString alloc] init]];
   }
   return [cellTexts copy];
 }
@@ -550,8 +686,13 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     return;
   }
 
+  // The row elements carry the old row frames.
+  _cachedAccessibilityElements = nil;
   [self renderGrid];
   [self setNeedsLayout];
+#if !TARGET_OS_OSX
+  UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+#endif
 
   [[self.superview enrm_imageLayoutObserver] imageAttachmentDidResolveLayout];
 }
@@ -603,7 +744,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
-  ENRMTableIOSLinkHit *link = [(ENRMTableIOSGridView *)_gridContainer linkAtPoint:location];
+  ENRMTableIOSItemHit *link = [(ENRMTableIOSGridView *)_gridContainer linkAtPoint:location];
   UIMenu *linkMenu = [self.dynamicProps.linkContextMenus menuForURL:link.url title:link.title];
   [_linkMenuLift end];
   // UIKit replaces a nil identifier with one of its own, so the frame tells the menus apart.
@@ -783,7 +924,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 #if !TARGET_OS_OSX
   CGFloat overhang = MAX(self.config.tableHorizontalOverflow, 0);
   CGFloat containerWidth = self.bounds.size.width;
-  BOOL tableOverflows = (overhang > 0 && _totalTableWidth > containerWidth);
+  CGFloat tableWidth = [self shownTableWidth];
+  BOOL tableOverflows = (overhang > 0 && tableWidth > containerWidth);
 
   if (tableOverflows) {
     UIEdgeInsets inset = UIEdgeInsetsMake(0, overhang, 0, overhang);
@@ -791,16 +933,16 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
       _scrollView.contentInset = inset;
       _scrollView.contentOffset = CGPointMake(-overhang, 0);
     }
-    _scrollView.contentSize = CGSizeMake(_totalTableWidth, _totalTableHeight);
+    _scrollView.contentSize = CGSizeMake(tableWidth, _totalTableHeight);
     _scrollView.scrollEnabled = YES;
-    _gridContainer.frame = CGRectMake(0, 0, _totalTableWidth, _totalTableHeight);
+    _gridContainer.frame = CGRectMake(0, 0, tableWidth, _totalTableHeight);
   } else {
-    CGFloat alignOffset = [self alignOffsetForFreeSpace:containerWidth - overhang * 2 - _totalTableWidth];
+    CGFloat alignOffset = [self alignOffsetForFreeSpace:containerWidth - overhang * 2 - tableWidth];
     _scrollView.contentInset = UIEdgeInsetsZero;
     _scrollView.contentOffset = CGPointZero;
-    _scrollView.contentSize = CGSizeMake(MAX(_totalTableWidth, containerWidth), _totalTableHeight);
-    _scrollView.scrollEnabled = (_totalTableWidth > containerWidth);
-    _gridContainer.frame = CGRectMake(overhang + alignOffset, 0, _totalTableWidth, _totalTableHeight);
+    _scrollView.contentSize = CGSizeMake(MAX(tableWidth, containerWidth), _totalTableHeight);
+    _scrollView.scrollEnabled = (tableWidth > containerWidth);
+    _gridContainer.frame = CGRectMake(overhang + alignOffset, 0, tableWidth, _totalTableHeight);
   }
 #else
   CGFloat overhang = MAX(self.config.tableHorizontalOverflow, 0);

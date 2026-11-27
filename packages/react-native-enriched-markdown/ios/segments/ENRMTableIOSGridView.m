@@ -1,12 +1,51 @@
 #import "ENRMTableIOSGridView.h"
+#import "ENRMDroppableContent.h"
 #import "LinkTapUtils.h"
 
 #if !TARGET_OS_OSX
 
-@interface ENRMTableIOSGridView () <UIGestureRecognizerDelegate>
+@interface ENRMTableIOSGridView () <UIGestureRecognizerDelegate, ENRMDroppableContent>
 @end
 
-@implementation ENRMTableIOSLinkHit
+// Where text sits across its cell: 0 at the left, 0.5 centred, 1 at the right.
+static CGFloat ENRMTableTextAnchor(NSAttributedString *text)
+{
+  NSParagraphStyle *style = [text attribute:NSParagraphStyleAttributeName atIndex:0 effectiveRange:NULL];
+  BOOL rightToLeft = style.baseWritingDirection == NSWritingDirectionRightToLeft;
+  switch (style.alignment) {
+    case NSTextAlignmentCenter:
+      return 0.5;
+    case NSTextAlignmentRight:
+      return 1;
+    case NSTextAlignmentLeft:
+      return 0;
+    default:
+      return rightToLeft ? 1 : 0;
+  }
+}
+
+// Ticks the row fade without the display link retaining the grid.
+@interface ENRMTableFadeTicker : NSObject
+@property (nonatomic, weak) ENRMTableIOSGridView *grid;
+@end
+
+@interface ENRMTableIOSGridView ()
+- (void)stepRowFade:(CADisplayLink *)link;
+@end
+
+@implementation ENRMTableFadeTicker
+- (void)tick:(CADisplayLink *)link
+{
+  ENRMTableIOSGridView *grid = self.grid;
+  if (grid) {
+    [grid stepRowFade:link];
+  } else {
+    [link invalidate];
+  }
+}
+@end
+
+@implementation ENRMTableIOSItemHit
 @end
 
 @implementation ENRMTableIOSRowData
@@ -18,8 +57,14 @@
   NSArray<NSNumber *> *_rowHeights;
   UIColor *_borderColor;
   CGFloat _borderWidth;
+  CGFloat _cornerRadius;
   CGFloat _horizontalCellPadding;
   CGFloat _verticalCellPadding;
+  NSArray<NSNumber *> *_shownColumnWidths;
+  // When each row started fading in; 0 for one shown as it is.
+  NSMutableArray<NSNumber *> *_rowFadeStarts;
+  NSTimeInterval _rowFadeDuration;
+  CADisplayLink *_rowFadeLink;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -58,6 +103,7 @@
   _rowHeights = [rowHeights copy];
   _borderColor = borderColor;
   _borderWidth = borderWidth;
+  _cornerRadius = cornerRadius;
   _horizontalCellPadding = horizontalCellPadding;
   _verticalCellPadding = verticalCellPadding;
   [self setNeedsDisplay];
@@ -68,11 +114,71 @@
   if (startRow >= _tableRows.count)
     return;
 
-  [UIView transitionWithView:self
-                    duration:duration
-                     options:UIViewAnimationOptionTransitionCrossDissolve
-                  animations:^{}
-                  completion:nil];
+  // Each row fades in where it is drawn: a cross-fade of the whole grid would show the old one
+  // through it while the columns widen.
+  if (_rowFadeStarts == nil) {
+    _rowFadeStarts = [NSMutableArray array];
+  }
+  while (_rowFadeStarts.count < _tableRows.count) {
+    [_rowFadeStarts addObject:@0];
+  }
+  CFTimeInterval now = CACurrentMediaTime();
+  for (NSUInteger row = startRow; row < _tableRows.count; row++) {
+    _rowFadeStarts[row] = @(now);
+  }
+  _rowFadeDuration = duration;
+  if (_rowFadeLink == nil) {
+    ENRMTableFadeTicker *ticker = [[ENRMTableFadeTicker alloc] init];
+    ticker.grid = self;
+    _rowFadeLink = [CADisplayLink displayLinkWithTarget:ticker selector:@selector(tick:)];
+    _rowFadeLink.preferredFrameRateRange = CAFrameRateRangeMake(30, 60, 60);
+    [_rowFadeLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+  }
+  [self setNeedsDisplay];
+}
+
+- (void)finishRowFade
+{
+  [_rowFadeLink invalidate];
+  _rowFadeLink = nil;
+  _rowFadeStarts = nil;
+  [self setNeedsDisplay];
+}
+
+- (void)stepRowFade:(CADisplayLink *)link
+{
+  CFTimeInterval now = CACurrentMediaTime();
+  BOOL fading = NO;
+  for (NSNumber *start in _rowFadeStarts) {
+    if (start.doubleValue > 0 && now - start.doubleValue < _rowFadeDuration) {
+      fading = YES;
+      break;
+    }
+  }
+  if (!fading) {
+    [self finishRowFade];
+    return;
+  }
+  [self setNeedsDisplay];
+}
+
+- (CGFloat)opacityOfRow:(NSUInteger)row at:(CFTimeInterval)now
+{
+  if (row >= _rowFadeStarts.count || _rowFadeDuration <= 0) {
+    return 1;
+  }
+  double start = _rowFadeStarts[row].doubleValue;
+  if (start <= 0) {
+    return 1;
+  }
+  double progress = MIN(1.0, MAX(0.0, (now - start) / _rowFadeDuration));
+  return 1 - pow(1 - progress, 2);
+}
+
+- (void)setShownColumnWidths:(NSArray<NSNumber *> *)widths
+{
+  _shownColumnWidths = [widths copy];
+  [self setNeedsDisplay];
 }
 
 #pragma mark - Drawing
@@ -82,15 +188,31 @@
   if (!_tableRows.count || !_columnWidths.count || !_rowHeights.count)
     return;
 
+  // Columns moving to their laid-out widths; otherwise the grid draws as it always has.
+  BOOL widthsAnimate = _shownColumnWidths.count == _columnWidths.count;
+  NSArray<NSNumber *> *shownWidths = widthsAnimate ? _shownColumnWidths : _columnWidths;
+  CGContextRef context = UIGraphicsGetCurrentContext();
+  CFTimeInterval now = CACurrentMediaTime();
   CGFloat yOffset = 0;
   for (NSUInteger r = 0; r < _tableRows.count; r++) {
     ENRMTableIOSRowData *rowData = _tableRows[r];
     CGFloat rowHeight = [_rowHeights[r] doubleValue];
+    CGFloat opacity = [self opacityOfRow:r at:now];
+    if (opacity <= 0) {
+      yOffset += rowHeight;
+      continue;
+    }
+    BOOL fading = opacity < 1;
+    if (fading) {
+      CGContextSaveGState(context);
+      CGContextSetAlpha(context, opacity);
+    }
     CGFloat xOffset = 0;
 
     NSUInteger colCount = MIN(rowData.cellTexts.count, _columnWidths.count);
     for (NSUInteger c = 0; c < colCount; c++) {
-      CGFloat columnWidth = [_columnWidths[c] doubleValue];
+      CGFloat columnWidth = [shownWidths[c] doubleValue];
+      CGFloat textWidth = [_columnWidths[c] doubleValue] - _horizontalCellPadding * 2;
       CGRect cellRect = CGRectMake(xOffset, yOffset, columnWidth + _borderWidth, rowHeight + _borderWidth);
 
       [rowData.backgroundColor setFill];
@@ -103,16 +225,36 @@
 
       NSAttributedString *text = rowData.cellTexts[c];
       if (text.length > 0) {
-        CGRect textRect = CGRectMake(xOffset + _horizontalCellPadding, yOffset + _verticalCellPadding,
-                                     columnWidth - _horizontalCellPadding * 2, rowHeight - _verticalCellPadding * 2);
+        // While the column is narrower than laid out, text keeps its side: trailing text its trailing edge.
+        CGFloat shift = (columnWidth - [_columnWidths[c] doubleValue]) * ENRMTableTextAnchor(text);
+        CGRect textRect = CGRectMake(xOffset + _horizontalCellPadding + shift, yOffset + _verticalCellPadding,
+                                     textWidth, rowHeight - _verticalCellPadding * 2);
+        if (widthsAnimate) {
+          CGContextSaveGState(context);
+          CGContextClipToRect(context, CGRectInset(cellRect, _borderWidth, _borderWidth));
+        }
         [text drawWithRect:textRect
                    options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
                    context:nil];
+        if (widthsAnimate) {
+          CGContextRestoreGState(context);
+        }
       }
 
       xOffset += columnWidth;
     }
+    if (fading) {
+      CGContextRestoreGState(context);
+    }
     yOffset += rowHeight;
+  }
+
+  // The container's corner mask cuts the square cell strokes; draw the arcs.
+  if (_cornerRadius > 0 && _borderWidth > 0) {
+    [_borderColor setStroke];
+    UIBezierPath *outline = [UIBezierPath bezierPathWithRoundedRect:self.bounds cornerRadius:_cornerRadius];
+    outline.lineWidth = _borderWidth;
+    [outline stroke];
   }
 }
 
@@ -152,7 +294,7 @@
   return NO;
 }
 
-static ENRMTableIOSLinkHit *linkInAttributedString(NSAttributedString *text, CGRect textRect, CGPoint point)
+static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGRect textRect, CGPoint point)
 {
   if (text.length == 0)
     return nil;
@@ -176,24 +318,30 @@ static ENRMTableIOSLinkHit *linkInAttributedString(NSAttributedString *text, CGR
   if (charIndex >= text.length)
     return nil;
 
-  NSRange linkRange;
-  NSString *url = [text attribute:@"linkURL"
-                          atIndex:charIndex
-            longestEffectiveRange:&linkRange
-                          inRange:NSMakeRange(0, text.length)];
-  if (!url)
+  NSRange itemRange;
+  NSRange whole = NSMakeRange(0, text.length);
+  NSString *linkURL = [text attribute:@"linkURL" atIndex:charIndex longestEffectiveRange:&itemRange inRange:whole];
+  NSString *imageURL =
+      linkURL ? nil : [text attribute:@"imageURL" atIndex:charIndex longestEffectiveRange:&itemRange inRange:whole];
+  if (!linkURL && !imageURL)
     return nil;
-  NSRange glyphRange = [layoutManager glyphRangeForCharacterRange:linkRange actualCharacterRange:NULL];
-  CGRect frame = [layoutManager boundingRectForGlyphRange:glyphRange inTextContainer:textContainer];
 
-  ENRMTableIOSLinkHit *hit = [[ENRMTableIOSLinkHit alloc] init];
-  hit.url = url;
-  hit.title = linkTitleAtIndex(text, charIndex);
+  NSRange glyphRange = [layoutManager glyphRangeForCharacterRange:itemRange actualCharacterRange:NULL];
+  CGRect frame = [layoutManager boundingRectForGlyphRange:glyphRange inTextContainer:textContainer];
+  // Links keep nearest-glyph hits; an image needs the tap inside its bounds.
+  if (imageURL && !CGRectContainsPoint(frame, local))
+    return nil;
+
+  ENRMTableIOSItemHit *hit = [[ENRMTableIOSItemHit alloc] init];
+  hit.kind = linkURL ? ENRMTableIOSItemKindLink : ENRMTableIOSItemKindImage;
+  hit.url = linkURL ?: imageURL;
+  hit.title = linkURL ? linkTitleAtIndex(text, charIndex)
+                      : [text attribute:@"imageAltText" atIndex:charIndex effectiveRange:NULL];
   hit.frame = CGRectOffset(frame, textRect.origin.x, textRect.origin.y);
   return hit;
 }
 
-- (ENRMTableIOSLinkHit *)linkAtPoint:(CGPoint)point
+- (ENRMTableIOSItemHit *)itemAtPoint:(CGPoint)point
 {
   CGFloat rowY, rowH, colX, colW;
   NSAttributedString *text;
@@ -205,7 +353,13 @@ static ENRMTableIOSLinkHit *linkInAttributedString(NSAttributedString *text, CGR
   if (!CGRectContainsPoint(textRect, point))
     return nil;
 
-  return linkInAttributedString(text, textRect, point);
+  return itemInAttributedString(text, textRect, point);
+}
+
+- (ENRMTableIOSItemHit *)linkAtPoint:(CGPoint)point
+{
+  ENRMTableIOSItemHit *hit = [self itemAtPoint:point];
+  return hit.kind == ENRMTableIOSItemKindLink ? hit : nil;
 }
 
 #pragma mark - Gesture handlers
@@ -221,8 +375,16 @@ static ENRMTableIOSLinkHit *linkInAttributedString(NSAttributedString *text, CGR
 
 - (void)handleTap:(UITapGestureRecognizer *)recognizer
 {
-  if (recognizer.state == UIGestureRecognizerStateEnded) {
-    [self handleLinkGesture:recognizer block:self.onLinkTap];
+  if (recognizer.state != UIGestureRecognizerStateEnded)
+    return;
+  ENRMTableIOSItemHit *hit = [self itemAtPoint:[recognizer locationInView:self]];
+  if (!hit)
+    return;
+  if (hit.kind == ENRMTableIOSItemKindLink) {
+    if (self.onLinkTap)
+      self.onLinkTap(hit.url);
+  } else if (self.onImageTap) {
+    self.onImageTap(hit.url, hit.title ?: @"");
   }
 }
 

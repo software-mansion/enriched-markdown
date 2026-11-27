@@ -20,15 +20,26 @@ static const unichar kZeroWidthSpace = 0x200B;
   }
 
   BOOL isInline = [self isInlineImageInOutput:output];
-  ENRMImageAttachment *attachment = [ENRMImageAttachment attachmentForURL:imageURL config:_config isInline:isInline];
+  // Stamped by the parser only while image sources are overridden (BlockSlots.hpp).
+  NSString *occurrenceId = node.attributes[@"imageOccurrenceId"];
+  ENRMImageSourceOverride *source = occurrenceId ? _config.imageSourceOverrides[occurrenceId] : nil;
+  // Extract alt text from children (![alt text](url) - "alt text" is in children)
+  NSString *altText = [self extractTextFromNode:node];
+  ENRMImageAttachment *attachment = [ENRMImageAttachment attachmentForURL:imageURL
+                                                                   source:source
+                                                                  altText:altText
+                                                                   config:_config
+                                                                 isInline:isInline];
 
   NSUInteger startIndex = output.length;
+
+  if (isInline) {
+    attachment.textFont = [context getTextAttributes][NSFontAttributeName];
+  }
 
   NSAttributedString *imageString = [NSAttributedString attributedStringWithAttachment:attachment];
   [output appendAttributedString:imageString];
 
-  // Extract alt text from children (![alt text](url) - "alt text" is in children)
-  NSString *altText = [self extractTextFromNode:node];
   NSRange imageRange = NSMakeRange(startIndex, output.length - startIndex);
   [context registerImageRange:imageRange altText:altText url:imageURL];
 }

@@ -1,12 +1,16 @@
 #import "ENRMMathContainerView.h"
 #import "ENRMAccessibilityLabels.h"
+#import "ENRMDroppableContent.h"
 #import "ENRMFeatureFlags.h"
+#import "ENRMHorizontalScrollView.h"
 #include <TargetConditionals.h>
 
 #if ENRICHED_MARKDOWN_MATH
 #import "ENRMMathFallback.h"
 #import "PasteboardUtils.h"
-#if __has_include("ReactNativeEnrichedMarkdown-Swift.h")
+#if SWIFT_PACKAGE
+@import ReactNativeEnrichedMarkdownMath;
+#elif __has_include("ReactNativeEnrichedMarkdown-Swift.h")
 #import "ReactNativeEnrichedMarkdown-Swift.h"
 #elif __has_include(<ReactNativeEnrichedMarkdown/ReactNativeEnrichedMarkdown-Swift.h>)
 #import <ReactNativeEnrichedMarkdown/ReactNativeEnrichedMarkdown-Swift.h>
@@ -18,7 +22,7 @@
 
 #if ENRICHED_MARKDOWN_MATH
 
-@interface ENRMRaTeXCanvasView : RCTUIView
+@interface ENRMRaTeXCanvasView : RCTUIView <ENRMDroppableContent>
 @property (nonatomic, strong, nullable) ENRMRaTeXRenderResult *renderResult;
 // Visible-source fallback when RaTeX cannot parse the block, drawn wrapped;
 // see ENRMMathFallback.h.
@@ -52,7 +56,7 @@
 
 #if !TARGET_OS_OSX
 @interface ENRMMathContainerView () <UIContextMenuInteractionDelegate>
-@property (nonatomic, strong, readonly) RCTUIScrollView *scrollView;
+@property (nonatomic, strong, readonly) ENRMHorizontalScrollView *scrollView;
 #else
 @interface ENRMMathContainerView ()
 #endif
@@ -84,10 +88,9 @@
     _mathView.backgroundColor = [RCTUIColor clearColor];
 
 #if !TARGET_OS_OSX
-    _scrollView = [[RCTUIScrollView alloc] init];
+    _scrollView = [[ENRMHorizontalScrollView alloc] init];
     _scrollView.showsVerticalScrollIndicator = NO;
     _scrollView.showsHorizontalScrollIndicator = YES;
-    _scrollView.bounces = YES;
     _scrollView.alwaysBounceHorizontal = NO;
     _scrollView.scrollEnabled = NO;
     [self addSubview:_scrollView];
@@ -297,8 +300,7 @@
 
 - (NSString *)accessibilityLabel
 {
-  return [_accessibilityLabels.mathEquation stringByReplacingOccurrencesOfString:@"{latex}"
-                                                                      withString:_cachedLatex ?: @""];
+  return [_accessibilityLabels mathLabelForLatex:_cachedLatex ?: @""];
 }
 
 #if !TARGET_OS_OSX

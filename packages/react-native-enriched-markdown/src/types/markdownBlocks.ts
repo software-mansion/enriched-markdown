@@ -1,0 +1,141 @@
+import type { ReactElement } from 'react';
+
+/**
+ * The container a replaceable block sits in directly: the document itself, a
+ * blockquote, or an admonition (`> [!NOTE]`). Inside a blockquote or an
+ * admonition the block is narrower and indented, so a renderer may size or
+ * style its element differently there.
+ */
+export type MarkdownBlockPlacement = 'root' | 'blockquote' | 'admonition';
+
+/** Shared by every block a `renderers` entry can replace. */
+export interface MarkdownSlotBlock {
+  /**
+   * An opaque string, the same on every platform. It stays the same while the
+   * block is unchanged, across streaming appends and edits elsewhere in the
+   * document, so it is safe as a React key. Do not parse it.
+   */
+  id: string;
+  placement: MarkdownBlockPlacement;
+}
+
+export interface MarkdownMediaBlock extends MarkdownSlotBlock {
+  url: string;
+}
+
+/** A paragraph whose only content is an image. */
+export interface MarkdownImageBlock extends MarkdownMediaBlock {
+  kind: 'image';
+  /** The Markdown alt text, `""` when there is none. */
+  altText: string;
+  /** The Markdown title, `""` when there is none. */
+  title: string;
+  /**
+   * The id of this image's `MarkdownImageOccurrence`, the one
+   * `resolveImageSource` is asked about. Block ids and occurrence ids are never
+   * equal, so one map can hold both.
+   */
+  occurrenceId: string;
+}
+
+/** A `<video src="...">` block. */
+export interface MarkdownVideoBlock extends MarkdownMediaBlock {
+  kind: 'video';
+}
+
+/**
+ * A paragraph whose only content is a link: `[label](url)`, an autolink or a
+ * bare URL on a line of its own. The hook for file cards, embeds and previews.
+ */
+export interface MarkdownLinkBlock extends MarkdownMediaBlock {
+  kind: 'link';
+  /** The link text; for a bare URL or autolink, the URL as written. */
+  label: string;
+  /** The Markdown title, `""` when there is none. */
+  title: string;
+}
+
+/**
+ * A fenced or indented code block. Its id depends on the language only, so it
+ * stays the same while the code streams in and when the fence closes; the
+ * element re-renders in place with the new `code`.
+ */
+export interface MarkdownCodeBlock extends MarkdownSlotBlock {
+  kind: 'code';
+  /** The fence's language (` ```ts ` gives `"ts"`), `""` when it has none. */
+  language: string;
+  /** The code, without trailing newlines. */
+  code: string;
+  /**
+   * `false` while the closing fence has not streamed in yet (with
+   * `streaming` and `codeBlockMode: 'progressive'`), `true` otherwise.
+   * Always `true` on web, where `streaming` does not apply.
+   */
+  isComplete: boolean;
+}
+
+/** Every block a `renderers` entry can replace, for code that handles any kind. */
+export type MarkdownBlock =
+  | MarkdownImageBlock
+  | MarkdownVideoBlock
+  | MarkdownLinkBlock
+  | MarkdownCodeBlock;
+
+/**
+ * React replacements for native blocks, keyed by block kind. Return a React
+ * element to render it in place of the native block, or nothing (`undefined`)
+ * to keep the native rendering for that block.
+ */
+export interface MarkdownRenderers {
+  image?: (block: MarkdownImageBlock) => ReactElement | undefined;
+  video?: (block: MarkdownVideoBlock) => ReactElement | undefined;
+  link?: (block: MarkdownLinkBlock) => ReactElement | undefined;
+  code?: (block: MarkdownCodeBlock) => ReactElement | undefined;
+}
+
+/**
+ * Where an image is rendered. `root`, `blockquote` and `admonition` mean an
+ * image paragraph (a replaceable block); `inline` is an image inside running
+ * text, `list` one inside a list item, `table` one in a table cell, and `link`
+ * an image that is the content of a link (`[![thumb](a)](b)`).
+ */
+export type MarkdownImagePlacement =
+  | MarkdownBlockPlacement
+  | 'inline'
+  | 'list'
+  | 'table'
+  | 'link';
+
+/**
+ * One image in the document, in document order, wherever it sits. The id is an
+ * opaque string that stays the same while the image is unchanged, across
+ * streaming appends and edits elsewhere. It never equals a block id; an image
+ * block names its occurrence in `MarkdownImageBlock.occurrenceId`.
+ */
+export interface MarkdownImageOccurrence {
+  id: string;
+  url: string;
+  altText: string;
+  title: string;
+  placement: MarkdownImagePlacement;
+}
+
+/**
+ * One link in the document, in document order, wherever it sits: inline links,
+ * autolinks and bare URLs in paragraphs, headings, lists, tables and quotes,
+ * link blocks included. Links that `linkRecognition` adds are not reported.
+ */
+export interface MarkdownLinkOccurrence {
+  url: string;
+  /** The link text; for a bare URL or autolink, the URL as written. */
+  label: string;
+  /** The Markdown title, `""` when there is none. */
+  title: string;
+}
+
+/** The request to make for an image instead of its Markdown URL. */
+export interface MarkdownImageSource {
+  uri: string;
+  /** Merged over `imageRequestHeaders`; header names are case-insensitive. */
+  headers?: Record<string, string>;
+}

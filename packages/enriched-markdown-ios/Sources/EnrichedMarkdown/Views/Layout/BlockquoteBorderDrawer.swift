@@ -75,6 +75,7 @@ enum BlockquoteBorderDrawer {
             // Line frames exclude paragraph spacing (an admonition title's
             // gap, a heading's margin); the bar and fill must run through it.
             paragraphFrame.size.height += (attrs[.paragraphStyle] as? NSParagraphStyle)?.paragraphSpacing ?? 0
+            paragraphFrame.size.height += drawContext.trailingPadding(after: paragraph.range)
             handler(attrs, paragraphFrame, depthNum)
         }
     }

@@ -6,6 +6,7 @@ sidebar_position: 2
 import InteractiveExample from '@site/src/components/InteractiveExample';
 import LivePreview from '@site/src/components/LivePreview';
 import FirstTextSrc from '!!raw-loader!@site/src/examples/react-native/basics/your-first-project/FirstText';
+import FirstEditor from '@site/src/examples/react-native/basics/your-first-project/FirstEditor';
 import FirstEditorSrc from '!!raw-loader!@site/src/examples/react-native/basics/your-first-project/FirstEditor';
 
 # Your first markdown view and editor
@@ -32,7 +33,7 @@ You can restyle every element through the `markdownStyle` prop - see the [Style 
 
 Here's a minimal editor with a single toolbar button that toggles **bold** and reflects whether bold is currently active:
 
-<InteractiveExample src={FirstEditorSrc} comingSoon />
+<InteractiveExample src={FirstEditorSrc} component={FirstEditor} />
 
 Two things are worth calling out, because every editor feature follows the same two patterns:
 

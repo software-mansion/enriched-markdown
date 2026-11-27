@@ -12,8 +12,8 @@ From the repo root:
 
 ```sh
 # iOS (needs a macOS host with Xcode + a booted iOS Simulator)
-yarn prepare                 # generate codegen the pod needs
-cd apps/react-native-example/ios && pod install && cd -
+yarn prepare
+cd apps/react-native-example/ios && pod install && cd -   # also runs codegen
 yarn turbo run test:ios --filter=react-native-enriched-markdown-example
 # runs apps/react-native-example/scripts/test-ios.sh, which resolves a simulator
 # (IOS_SIMULATOR_UDID -> a booted sim -> first available iPhone) and calls:
@@ -22,24 +22,37 @@ yarn turbo run test:ios --filter=react-native-enriched-markdown-example
 #     -destination "platform=iOS Simulator,id=<resolved-udid>"
 ```
 
-CI runs this in the `rn-ios-unit-tests` job.
+CI runs this in the `rn-ios-build-and-tests` job.
 
 ## Adding a test file to the target
 
+Drop a `.m`/`.mm` in this directory. Nothing else is needed - no
+`project.pbxproj` edit, no Xcode UI step.
+
 `EnrichedMarkdownExample.xcodeproj` is objectVersion 54 and lists sources
-explicitly, so a new `.mm`/`.m` here must be added to the
-`EnrichedMarkdownExampleTests` target's Compile Sources phase. In Xcode: open
-the workspace, drag the file into the `EnrichedMarkdownExampleTests` group with
-the target checked. By hand in `project.pbxproj`, add the file as a
-`PBXFileReference` (with `sourceTree = SOURCE_ROOT` and a path such as
-`../../../packages/react-native-enriched-markdown/__tests__/ios/<File>.mm`), a
-matching `PBXBuildFile`, and reference it from the target's
-`00E356EA...` Sources build phase.
+explicitly, which would normally mean four pbxproj entries per file and a file
+that silently never ran if you forgot them. Instead the test target has a
+`Generate library test sources` build phase running
+`apps/react-native-example/scripts/generate-ios-test-sources.sh`, which globs
+this directory and emits an include list that the single wired source,
+`EnrichedMarkdownExampleTests/ENRMLibraryTests.mm`, pulls in. That gives the iOS
+lane what Gradle already gives Android: auto-discovery.
+
+One consequence: every file here is compiled into one translation unit, so
+file-scope helpers share a namespace. Name helper classes and statics
+distinctly; the `ENRM` prefix already does this for classes.
 
 Test files import the code under test by relative path, e.g.
-`#import "../../ios/attachments/ENRMLinkPillTextStorage.h"`. Header search paths
-for the C++ core and pod internals are set on the test target's build
-configuration, mirroring `ReactNativeEnrichedMarkdown.podspec`.
+`#import "../../ios/attachments/ENRMLinkPillTextStorage.h"`. Those headers in
+turn import their siblings unqualified, so the test target's build
+configurations list every `ios/*` subdirectory in `HEADER_SEARCH_PATHS`, on top
+of the C++ core and pod internals that `ReactNativeEnrichedMarkdown.podspec`
+sets. `ios/vendor` is deliberately left out: sweeping it in pulls the RaTeX xcframework module maps into scope and clang rejects
+the duplicate `RaTeXFFI` module definitions.
+
+`scripts/test-ios.sh` counts the `- (void)test` prototypes here and fails if
+fewer tests than that actually ran, so a suite dropping out of the run cannot
+leave the lane green.
 
 `EnrichedMarkdownExampleTests.m` in the app-side target dir is a harness
 placeholder that keeps the bundle non-empty; it can stay or be removed once real

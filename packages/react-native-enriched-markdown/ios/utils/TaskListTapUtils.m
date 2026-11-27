@@ -122,9 +122,12 @@ BOOL handleTaskListTap(ENRMPlatformTextView *textView, ENRMTapRecognizer *recogn
 
 NSString *toggleTaskListItemAtIndex(NSString *markdown, NSInteger targetIndex, BOOL checked)
 {
-  NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"^([ \\t]*[-*+][ \\t]+)\\[[ xX]\\]"
-                                                                         options:NSRegularExpressionAnchorsMatchLines
-                                                                           error:nil];
+  // Must find the same tasks as the renderer, in order, or the toggle rewrites another item.
+  // [0-9] rather than \d, which also matches other scripts' digits.
+  NSRegularExpression *regex = [NSRegularExpression
+      regularExpressionWithPattern:@"^((?:[ \\t]*>)*[ \\t]*(?:[-*+]|[0-9]{1,9}[.)])[ \\t]+)\\[[ xX]\\](?=[ \\t\\r]|$)"
+                           options:NSRegularExpressionAnchorsMatchLines
+                             error:nil];
 
   NSArray<NSTextCheckingResult *> *matches = [regex matchesInString:markdown
                                                             options:0
@@ -137,7 +140,7 @@ NSString *toggleTaskListItemAtIndex(NSString *markdown, NSInteger targetIndex, B
   NSTextCheckingResult *match = matches[targetIndex];
   NSRange prefixRange = [match rangeAtIndex:1];
   NSString *prefix = [markdown substringWithRange:prefixRange];
-  NSString *replacement = [NSString stringWithFormat:@"%@[%@]", prefix, checked ? @" " : @"x"];
+  NSString *replacement = [NSString stringWithFormat:@"%@[%@]", prefix, checked ? @"x" : @" "];
 
   NSMutableString *result = [markdown mutableCopy];
   [result replaceCharactersInRange:match.range withString:replacement];

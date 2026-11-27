@@ -5,12 +5,16 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.text.Spannable
 import android.text.TextPaint
+import android.view.View
+import android.widget.TextView
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.spans.HighlightSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.spans.StrikethroughSpan
 import com.swmansion.enriched.markdown.spans.StrongSpan
 import com.swmansion.enriched.markdown.spans.UnderlineSpan
+import com.swmansion.enriched.markdown.spans.registerWithSpans
 import com.swmansion.enriched.markdown.styles.HighlightStyle
 import com.swmansion.enriched.markdown.test.MarkdownRenderAssertions.assertContains
 import com.swmansion.enriched.markdown.test.MarkdownRenderAssertions.assertSpanCovers
@@ -314,8 +318,18 @@ class InlineDecorationRendererTest {
     lineBottom: Int = BASELINE + LINE_PADDING,
   ): RecordingCanvas {
     val span = spansOver("marked", HighlightSpan::class.java).first()
+    // The band is placed from the layout of a view registered with the span.
+    val textView = TextView(ApplicationProvider.getApplicationContext())
+    textView.text = this
+    textView.registerWithSpans(this)
+    textView.measure(
+      View.MeasureSpec.makeMeasureSpec(500, View.MeasureSpec.EXACTLY),
+      View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+    )
+    textView.layout(0, 0, 500, textView.measuredHeight)
+    val laidOut = requireNotNull(textView.layout).text
     return RecordingCanvas().also {
-      span.drawBackground(it, paint, 0, 500, lineTop, BASELINE, lineBottom, this, 0, length, 0)
+      span.drawBackground(it, paint, 0, 500, lineTop, BASELINE, lineBottom, laidOut, 0, laidOut.length, 0)
     }
   }
 

@@ -92,3 +92,52 @@
   border-color: #8a6b2e;
   color: #e8c98a;
 }
+
+/* Experimental - violet, no icon, with a tooltip */
+.experimental {
+  position: relative;
+  cursor: help;
+  background-color: #f3eefc;
+  border: 1px solid #c9b5ef;
+  color: #5b3a9e;
+}
+
+[data-theme='dark'] .experimental {
+  background-color: rgba(201, 181, 239, 0.14);
+  border-color: #6f58a0;
+  color: #d4c4f3;
+}
+
+.tooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  z-index: 10;
+  width: max-content;
+  max-width: 240px;
+  padding: 0.375rem 0.5rem;
+  border-radius: 6px;
+  background-color: #2a2e39;
+  color: #fbfcfe;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: normal;
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-50%);
+  transition: opacity 0.15s ease;
+}
+
+[data-theme='dark'] .tooltip {
+  background-color: #f4f6fa;
+  color: #2a2e39;
+}
+
+.experimental:hover .tooltip,
+.experimental:focus-visible .tooltip {
+  opacity: 1;
+  visibility: visible;
+}

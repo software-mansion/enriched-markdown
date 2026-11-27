@@ -9,6 +9,8 @@ data class AccessibilityLabels(
   val nestedBlockquote: String = "",
   val tableRow: String = "",
   val mathEquation: String = "",
+  val codeBlockWrap: String = "",
+  val codeBlockUnwrap: String = "",
   val rotorHeadings: String = "",
   val rotorLinks: String = "",
   val rotorImages: String = "",

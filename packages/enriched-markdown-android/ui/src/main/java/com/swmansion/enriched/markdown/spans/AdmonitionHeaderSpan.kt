@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.spans
 
 import android.graphics.Paint
 import android.text.style.LineHeightSpan
+import com.swmansion.enriched.markdown.AdmonitionTitles
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
 import kotlin.math.ceil
 import kotlin.math.max
@@ -30,14 +31,14 @@ class AdmonitionHeaderSpan(
   /** Admonition type, one of [AdmonitionIcons.TYPES]. */
   val type: String,
   style: BlockquoteStyle,
+  /** The header text; empty draws the icon only. */
+  val title: String = AdmonitionTitles.Default.forType(type),
 ) : LineHeightSpan {
   /** Height of the icon + title row itself. */
   val contentHeight: Float = admonitionHeaderContentHeight(style)
 
   /** Total height of the spacer line: the icon + title row plus the gap down to the body. */
   val reservedHeight: Float = admonitionHeaderReservedHeight(style)
-
-  val title: String get() = AdmonitionIcons.title(type)
 
   override fun chooseHeight(
     text: CharSequence,

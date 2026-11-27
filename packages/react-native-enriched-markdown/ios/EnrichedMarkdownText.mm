@@ -3,20 +3,27 @@
 #import "ContextMenuUtils.h"
 #import "ENRMAccessibilityLabels.h"
 #import "ENRMAsyncRenderCoordinator.h"
-#import "ENRMAtomicSize.h"
 #import "ENRMContextMenuTextView+macOS.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLaidOutSize.h"
 #import "ENRMLatexErrorCoordinator.h"
 #import "ENRMLinkContextMenus.h"
+#import "ENRMLinkRegexProps.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMMarkdownTextView.h"
+#import "ENRMPreparedRenderStore.h"
 #import "ENRMSpoilerOverlayManager.h"
 #import "ENRMSpoilerTapUtils.h"
-#import "ENRMTailFadeInAnimator.h"
+#import "ENRMStreamingEffectsProps.h"
+#import "ENRMStreamingPacer.h"
 #import "ENRMTextInteractionUtils.h"
+#import "ENRMTextRenderCache.h"
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
+#import "ENRMTextViewport.h"
 #import "ENRMUIKit.h"
+#import "ENRMUTF8.h"
+#import "ENRMViewFreeMeasurement.h"
 #import "EditMenuUtils.h"
 #import "FontScaleObserver.h"
 #import "FontUtils.h"
@@ -34,18 +41,20 @@
 #import "RenderContext.h"
 #import "RuntimeKeys.h"
 #import "SelectionColorUtils.h"
+#import "StreamingMarkdownFilter.h"
 #import "StylePropsUtils.h"
 #import "TaskListTapUtils.h"
 
-#import <ReactNativeEnrichedMarkdown/EnrichedMarkdownTextComponentDescriptor.h>
-#import <ReactNativeEnrichedMarkdown/EventEmitters.h>
-#import <ReactNativeEnrichedMarkdown/Props.h>
-#import <ReactNativeEnrichedMarkdown/RCTComponentViewHelpers.h>
+#import "EnrichedMarkdownTextComponentDescriptor.h"
+#import <react/renderer/components/EnrichedMarkdownTextSpec/EventEmitters.h>
+#import <react/renderer/components/EnrichedMarkdownTextSpec/Props.h>
+#import <react/renderer/components/EnrichedMarkdownTextSpec/RCTComponentViewHelpers.h>
 
-#import "RCTFabricComponentsPlugins.h"
 #import <React/RCTConversions.h>
+#import <React/RCTFabricComponentsPlugins.h>
 #import <React/RCTFont.h>
 #import <React/RCTI18nUtil.h>
+#import <React/RCTMountingTransactionObserving.h>
 
 using namespace facebook::react;
 
@@ -54,23 +63,28 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   ENRMDirtyRender = 1 << 0,
 };
 
-@interface EnrichedMarkdownText () <RCTEnrichedMarkdownTextViewProtocol, UITextViewDelegate, ENRMImageLayoutObserver>
+@interface EnrichedMarkdownText () <RCTEnrichedMarkdownTextViewProtocol, UITextViewDelegate, ENRMImageLayoutObserver,
+                                    RCTMountingTransactionObserving>
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownTextMd4cFlagsStruct &)props;
 - (void)setupTextView;
 - (void)renderMarkdownContent:(NSString *)markdownString;
-- (void)applyRenderedText:(NSMutableAttributedString *)attributedText;
+- (void)applyRenderedText:(ENRMRenderResult *)result
+                 markdown:(NSString *)markdown
+        forceHeightUpdate:(BOOL)scheduledForceHeight;
 - (void)textTapped:(ENRMTapRecognizer *)recognizer;
 - (void)setupLayoutManager;
 - (void)emitLinkPress:(NSString *)url;
 - (void)emitLinkLongPress:(NSString *)url;
 - (void)emitLinkContextMenuItemPress:(NSString *)itemText pattern:(NSString *)pattern url:(NSString *)url;
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText;
+- (void)emitTextPress:(NSInteger)index text:(NSString *)text;
 - (void)emitCodeBlockPress:(NSString *)code language:(NSString *)language;
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text;
 - (void)emitContextMenuItemPress:(NSString *)itemText
                     selectedText:(NSString *)selectedText
                   selectionStart:(NSUInteger)selectionStart
                     selectionEnd:(NSUInteger)selectionEnd;
+- (ENRMSelectionCopyHandler)selectionCopyHandler;
 @end
 
 #if !TARGET_OS_OSX
@@ -83,11 +97,17 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   ENRMMarkdownParser *_parser;
   NSString *_cachedMarkdown;
   NSString *_renderedMarkdown;
+  NSString *_pendingRenderMarkdown;
   StyleConfig *_config;
   ENRMMd4cFlags *_md4cFlags;
   BOOL _isGFM;
+  ENRMLinkRegexConfig *_linkRegex;
+  ENRMLinkRegexConfig *_inlineCodeLinkRegex;
 
   ENRMAsyncRenderCoordinator *_renderCoordinator;
+  // Text laid out while detached is current when the view attaches; one that
+  // left a window may hold a stale layout and is refreshed on return (#155).
+  BOOL _needsWindowAttachRefresh;
 
   EnrichedMarkdownTextShadowNode::ConcreteState::Shared _state;
   int _heightUpdateCounter;
@@ -100,15 +120,30 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   BOOL _enableLinkPreview;
   BOOL _enableTaskListItemToggle;
   BOOL _enableImagePress;
+  BOOL _enableTextPress;
   BOOL _enableCodeBlockPress;
-  BOOL _streamingAnimation;
+  BOOL _streaming;
+  ENRMTableStreamingMode _tableStreamingMode;
+  ENRMCodeBlockStreamingMode _codeBlockStreamingMode;
+  ENRMMediaStreamingMode _mediaStreamingMode;
   BOOL _forceHeightUpdateOnNextRender;
 
   size_t _renderedStyleFingerprint;
   size_t _pendingStyleFingerprint;
 
   NSUInteger _previousTextLength;
-  ENRMTailFadeInAnimator *_fadeAnimator;
+  BOOL _streamEnding;
+  // The stream ended and onStreamingEnd waits for the render that shows the whole text.
+  BOOL _streamEndPending;
+  // Smooth pacing (streamingConfig.smooth): the view renders the markdown revealed so far.
+  ENRMStreamingPacer *_pacer;
+
+  // Reused by the next render on the render queue (see ENRMTextRenderCache); a recycled view
+  // starts a new epoch, which drops it.
+  ENRMTextRenderCache *_textRenderCache;
+  NSUInteger _textRenderCacheEpoch;
+  // The ENRMRenderResult revision the text view shows, which a patch must be based on.
+  uint64_t _renderedRevision;
 
   AccessibilityInfo *_accessibilityInfo;
   ENRMAccessibilityLabels *_accessibilityLabels;
@@ -126,6 +161,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   ENRMSelectionMenuLabels _selectionMenuLabels;
 
   ENRMSpoilerOverlayManager *_spoilerManager;
+  ENRMTextViewport *_viewport;
 
   NSLineBreakStrategy _lineBreakStrategy;
 
@@ -137,7 +173,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   ENRMDirtyFlags _dirtyFlags;
 
-  ENRMAtomicSize _lastCommittedSize;
+  ENRMLaidOutSize _laidOutSize;
+  // The markdown the text was rendered from, published with its size.
+  std::shared_ptr<const std::string> _laidOutMarkdown;
 
   ENRMLatexErrorCoordinator *_latexErrorCoordinator;
 }
@@ -149,16 +187,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownTextMd4cFlagsStruct &)props
 {
-  ENRMMd4cFlags *flags = [ENRMMd4cFlags defaultFlags];
-  flags.underline = props.underline;
-  flags.superscript = props.superscript;
-  flags.subscript = props.subscript;
-  flags.latexMath = props.latexMath;
-  flags.highlight = props.highlight;
-  flags.hardSoftBreaks = props.hardSoftBreaks;
-  flags.preserveBlankLines = props.preserveBlankLines;
-  flags.admonitions = props.admonitions;
-  return flags;
+  return ENRMMd4cFlagsFromProps(props);
 }
 
 #pragma mark - Measuring and State
@@ -193,17 +222,22 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 - (CGSize)measureSize:(CGFloat)maxWidth
 {
-  CGSize size = ENRMMeasureMarkdownText(_textView, maxWidth, _config, _allowTrailingMargin, _lastElementMarginBottom);
+  CGSize size =
+      ENRMMeasureMarkdownText(_viewport, _textView, maxWidth, _config, _allowTrailingMargin, _lastElementMarginBottom);
   if (CGSizeEqualToSize(size, CGSizeZero)) {
+    _laidOutSize.clear();
     CGFloat defaultHeight = UIFontLineHeight([UIFont systemFontOfSize:16.0]);
     return CGSizeMake(maxWidth, defaultHeight);
   }
+  _laidOutSize.store(maxWidth, size, _laidOutMarkdown);
   return size;
 }
 
-- (CGSize)lastCommittedLayoutSize
+- (CGSize)laidOutSizeForWidth:(CGFloat)width
+             pointScaleFactor:(CGFloat)pointScaleFactor
+                     markdown:(std::string_view)markdown
 {
-  return _lastCommittedSize.load();
+  return _laidOutSize.sizeFor(width, pointScaleFactor, markdown);
 }
 
 - (BOOL)hasRenderedMarkdown:(NSString *)markdown
@@ -226,21 +260,15 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   }
 }
 
-/// Publishes the committed size to the streaming fast path's mailbox, and picks
-/// up the Yoga-resolved direction inherited from any ancestor `direction` style.
-/// In FirstStrong mode the direction feeds the neutral-paragraph fallback, so a
-/// change requires a re-render of the cached markdown.
-///
-/// The mailbox holds a content size, not the border box: `measureContent`
-/// returns it straight to Yoga, which adds the `containerStyle` insets back on
-/// top of whatever it gets, so storing `frame.size` would double-count them.
+/// Picks up the Yoga-resolved direction inherited from any ancestor `direction`
+/// style. In FirstStrong mode the direction feeds the neutral-paragraph
+/// fallback, so a change requires a re-render of the cached markdown.
 - (void)updateLayoutMetrics:(const LayoutMetrics &)layoutMetrics
            oldLayoutMetrics:(const LayoutMetrics &)oldLayoutMetrics
 {
   [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
-
-  const auto contentSize = layoutMetrics.getContentFrame().size;
-  _lastCommittedSize.store(CGSizeMake(contentSize.width, contentSize.height));
+  // RCTViewComponentView framed the text view to the content box: the viewport keeps it there.
+  _viewport.contentFrame = RCTCGRectFromRect(layoutMetrics.getContentFrame());
 
   NSWritingDirection resolved = _resolvedLayoutDirection;
   if (layoutMetrics.layoutDirection == LayoutDirection::RightToLeft) {
@@ -267,9 +295,13 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 // pre-load fallback height, so drop those entries and re-measure.
 - (void)imageAttachmentDidResolveLayout
 {
-  // The text around the attachment moved, and the spoiler overlays with it.
+  // The text around the attachment moved, and the spoiler overlays and VoiceOver's frames with it.
   [_spoilerManager setNeedsUpdate];
   [_spoilerManager updateIfNeeded];
+  _accessibilityNeedsRebuild = YES;
+#if !TARGET_OS_OSX
+  UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+#endif
 
   if (_renderedMarkdown.length > 0) {
     facebook::react::MeasurementCache::shared().removeMatchingMarkdown(std::string(_renderedMarkdown.UTF8String));
@@ -299,6 +331,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     };
     _md4cFlags = [EnrichedMarkdownText flagsFromProps:defaultProps->md4cFlags];
     _isGFM = defaultProps->isGFM;
+    _linkRegex = ENRMLinkRegexConfigFromProps(defaultProps->linkRecognition.text);
+    _inlineCodeLinkRegex = ENRMLinkRegexConfigFromProps(defaultProps->linkRecognition.inlineCode);
 
     _renderCoordinator =
         [[ENRMAsyncRenderCoordinator alloc] initWithQueueLabel:"com.swmansion.enriched.markdown.render"];
@@ -324,6 +358,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _enableLinkPreview = YES;
     _enableTaskListItemToggle = YES;
     _enableImagePress = NO;
+    _enableTextPress = NO;
     _enableCodeBlockPress = NO;
     _forceHeightUpdateOnNextRender = NO;
     _selectionMenuConfig = (ENRMSelectionMenuConfig){.copyAsMarkdown = YES, .copyImageURL = YES};
@@ -334,8 +369,23 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _resolvedLayoutDirection =
         [[RCTI18nUtil sharedInstance] isRTL] ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight;
     _dirtyFlags = ENRMDirtyNone;
+    __weak EnrichedMarkdownText *weakPacingSelf = self;
+    _pacer = [[ENRMStreamingPacer alloc]
+        initWithReveal:^(NSString *markdown) { [weakPacingSelf renderMarkdownContent:markdown]; }
+        done:^{
+          EnrichedMarkdownText *strongSelf = weakPacingSelf;
+          if (!strongSelf) {
+            return;
+          }
+          [strongSelf stopStreaming];
+          [strongSelf renderMarkdownContent:strongSelf->_pacer.markdown];
+        }];
+    _tableStreamingMode = ENRMTableStreamingModeProgressive;
+    _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
+    _mediaStreamingMode = ENRMMediaStreamingModeProgressive;
 
     _fontScaleObserver = [[FontScaleObserver alloc] init];
+    _textRenderCache = [[ENRMTextRenderCache alloc] init];
     __weak EnrichedMarkdownText *weakSelf = self;
     _fontScaleObserver.onChange = ^{
       EnrichedMarkdownText *strongSelf = weakSelf;
@@ -358,21 +408,25 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 - (void)setupTextView
 {
-#if !TARGET_OS_OSX
-  ENRMMarkdownTextView *markdownTextView = [[ENRMMarkdownTextView alloc] init];
   __weak EnrichedMarkdownText *weakCopyOwner = self;
-  markdownTextView.copySelectionHandler = ^(NSRange range) {
+  void (^copySelectionHandler)(NSRange) = ^(NSRange range) {
     EnrichedMarkdownText *owner = weakCopyOwner;
     if (!owner)
       return;
     NSAttributedString *text = owner->_textView.textStorage;
-    copyAttributedStringToPasteboard([text attributedSubstringFromRange:range],
-                                     markdownForRange(text, range, owner->_cachedMarkdown), owner -> _config);
+    ENRMCopySelection([text attributedSubstringFromRange:range], range,
+                      markdownForRange(text, range, owner->_cachedMarkdown), owner -> _config,
+                      [owner selectionCopyHandler]);
   };
+#if !TARGET_OS_OSX
+  ENRMMarkdownTextView *markdownTextView = [[ENRMMarkdownTextView alloc] init];
+  markdownTextView.copySelectionHandler = copySelectionHandler;
   _textView = markdownTextView;
   _textView.text = @"";
 #else
-  _textView = [[ENRMContextMenuTextView alloc] init];
+  ENRMContextMenuTextView *contextMenuTextView = [[ENRMContextMenuTextView alloc] init];
+  contextMenuTextView.copySelectionHandler = copySelectionHandler;
+  _textView = contextMenuTextView;
   _textView.string = @"";
 #endif
   ENRMConfigureMarkdownTextView(_textView);
@@ -398,7 +452,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
         });
     return buildEditMenuForSelection(textView.textStorage, textView.selectedRange, strongSelf->_cachedMarkdown,
                                      strongSelf->_config, @[ baseMenu ], customItems,
-                                     strongSelf -> _selectionMenuConfig);
+                                     strongSelf -> _selectionMenuConfig, [strongSelf selectionCopyHandler]);
   };
 #endif
 
@@ -406,6 +460,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   [_textView addGestureRecognizer:tapRecognizer];
 
   self.contentView = _textView;
+
+  _viewport = [[ENRMTextViewport alloc] initWithTextView:_textView];
 }
 
 - (void)didAddSubview:(RCTUIView *)subview
@@ -432,6 +488,13 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 - (void)renderMarkdownContent:(NSString *)markdownString
 {
+  [self renderMarkdownContent:markdownString synchronously:NO];
+}
+
+// Parses on the render queue and applies on the main queue, unless
+// `synchronously`: then both run here and any render in flight is dropped.
+- (void)renderMarkdownContent:(NSString *)markdownString synchronously:(BOOL)synchronously
+{
   if (_renderCoordinator.blockAsyncRender)
     return;
 
@@ -441,6 +504,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   ENRMMarkdownParser *parser = _parser;
   ENRMMd4cFlags *md4cFlags = [_md4cFlags copy];
   BOOL isGFM = _isGFM;
+  ENRMLinkRegexConfig *linkRegex = _linkRegex;
+  ENRMLinkRegexConfig *inlineCodeLinkRegex = _inlineCodeLinkRegex;
 
   BOOL allowFontScaling = _fontScaleObserver.allowFontScaling;
   CGFloat maxFontSizeMultiplier = _maxFontSizeMultiplier;
@@ -448,39 +513,104 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   NSLineBreakStrategy lineBreakStrategy = _lineBreakStrategy;
   ENRMWritingDirectionMode writingDirectionMode = _writingDirectionMode;
   NSWritingDirection resolvedLayoutDirection = _resolvedLayoutDirection;
+  BOOL streaming = _streaming;
+  ENRMTableStreamingMode tableStreamingMode = _tableStreamingMode;
+  ENRMCodeBlockStreamingMode codeBlockStreamingMode = _codeBlockStreamingMode;
+  ENRMMediaStreamingMode mediaStreamingMode = _mediaStreamingMode;
+  // The render queue owns the cache; a synchronous render leaves it alone.
+  ENRMTextRenderCache *textRenderCache = synchronously ? nil : _textRenderCache;
+  NSArray *textRenderKey =
+      ENRMTextRenderKey(config, _pendingStyleFingerprint, allowFontScaling, maxFontSizeMultiplier, lineBreakStrategy,
+                        writingDirectionMode, resolvedLayoutDirection, _textRenderCacheEpoch);
 
   __block ENRMRenderResult *result = nil;
+  __block BOOL showsOnlyFinishedBlocks = NO;
 
-  [_renderCoordinator
-      scheduleRender:^BOOL {
-        MarkdownASTNode *ast = [parser parseMarkdown:markdownString flags:md4cFlags isGFM:isGFM];
-        if (!ast)
-          return NO;
+  BOOL (^render)(void) = ^BOOL {
+    NSString *renderableMarkdown =
+        streaming
+            ? ENRMRenderableMarkdownForStreaming(markdownString, md4cFlags, tableStreamingMode, codeBlockStreamingMode,
+                                                 mediaStreamingMode, isGFM, NULL, &showsOnlyFinishedBlocks)
+            : markdownString;
+    MarkdownASTNode *ast = [parser parseMarkdown:renderableMarkdown
+                                           flags:md4cFlags
+                                           isGFM:isGFM
+                                       linkRegex:linkRegex
+                             inlineCodeLinkRegex:inlineCodeLinkRegex];
+    if (!ast)
+      return NO;
 
-        result = ENRMRenderASTNodes(ast.children, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
-                                    lineBreakStrategy);
-        ENRMApplyWritingDirectionMode(result.attributedText, writingDirectionMode, resolvedLayoutDirection);
-        return YES;
-      }
-      apply:^{
-        self->_lastElementMarginBottom = result.lastElementMarginBottom;
-        self->_accessibilityInfo = result.accessibilityInfo;
-        self->_renderedStyleFingerprint = self->_pendingStyleFingerprint;
-        [self->_latexErrorCoordinator wireReporters:result.context.mathReporters];
-        [self applyRenderedText:result.attributedText];
-      }];
+    if (textRenderCache) {
+      [textRenderCache beginRenderWithKey:textRenderKey];
+      result = ENRMRenderTextCached(ast.children, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
+                                    lineBreakStrategy, writingDirectionMode, resolvedLayoutDirection, textRenderCache);
+      [textRenderCache endRender];
+      return YES;
+    }
+    result = ENRMRenderASTNodes(ast.children, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
+                                lineBreakStrategy, /*startingTaskIndex*/ 0);
+    ENRMApplyWritingDirectionMode(result.attributedText, writingDirectionMode, resolvedLayoutDirection);
+    return YES;
+  };
+  // What this render answers, taken now: an older render can still apply after a
+  // newer one is scheduled, and must not claim the newer one's style or forced height.
+  const size_t styleFingerprint = _pendingStyleFingerprint;
+  const BOOL forceHeightUpdate = _forceHeightUpdateOnNextRender;
+  dispatch_block_t apply = ^{
+    if (!result.attributedText && result.revision != self->_renderedRevision && ![self patchFits:result]) {
+      // A patch to text this view doesn't show (a render it skipped): render in full.
+      self->_textRenderCacheEpoch++;
+      [self renderMarkdownContent:self->_cachedMarkdown];
+      return;
+    }
+    self->_lastElementMarginBottom = result.lastElementMarginBottom;
+    self->_accessibilityInfo = result.accessibilityInfo;
+    self->_renderedStyleFingerprint = styleFingerprint;
+    [self->_latexErrorCoordinator wireReporters:result.context.mathReporters];
+    self->_laidOutMarkdown = ENRMLaidOutMarkdown(markdownString);
+    [self applyRenderedText:result markdown:markdownString forceHeightUpdate:forceHeightUpdate];
+    if (streaming && showsOnlyFinishedBlocks) {
+      [self settleStreamingEffects];
+    }
+    if (!streaming) {
+      [self emitStreamingEndIfPending];
+    }
+  };
+
+  if (synchronously) {
+    [_renderCoordinator invalidate];
+    // Its views show revisions the cache never made.
+    _textRenderCacheEpoch++;
+    // A first render reuses what Yoga's measurement rendered, when it matches.
+    ENRMRenderResult *prepared =
+        _renderedMarkdown.length == 0 && !_streaming
+            ? ENRMTakePreparedText({_props, _fontScaleObserver.effectiveFontScale, resolvedLayoutDirection, nil})
+            : nil;
+    if (prepared) {
+      result = prepared;
+    } else if (!render()) {
+      return;
+    }
+    apply();
+    return;
+  }
+  [_renderCoordinator scheduleRender:render apply:apply];
 }
 
 - (NSMutableAttributedString *)parseAndRenderMarkdown:(NSString *)markdownString
 {
-  MarkdownASTNode *ast = [_parser parseMarkdown:markdownString flags:_md4cFlags isGFM:_isGFM];
+  MarkdownASTNode *ast = [_parser parseMarkdown:markdownString
+                                          flags:_md4cFlags
+                                          isGFM:_isGFM
+                                      linkRegex:_linkRegex
+                            inlineCodeLinkRegex:_inlineCodeLinkRegex];
   if (!ast) {
     return nil;
   }
 
   ENRMRenderResult *result =
       ENRMRenderASTNodes(ast.children, _config, _allowTrailingMargin, _fontScaleObserver.allowFontScaling,
-                         _maxFontSizeMultiplier, _lineBreakStrategy);
+                         _maxFontSizeMultiplier, _lineBreakStrategy, /*startingTaskIndex*/ 0);
   ENRMApplyWritingDirectionMode(result.attributedText, _writingDirectionMode, _resolvedLayoutDirection);
 
   _lastElementMarginBottom = result.lastElementMarginBottom;
@@ -499,13 +629,19 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _renderCoordinator.blockAsyncRender = YES;
   _cachedMarkdown = [markdownString copy];
 
-  NSMutableAttributedString *attributedText = [self parseAndRenderMarkdown:markdownString];
+  NSString *renderableMarkdown =
+      _streaming ? ENRMRenderableMarkdownForStreaming(markdownString, _md4cFlags, _tableStreamingMode,
+                                                      _codeBlockStreamingMode, _mediaStreamingMode, _isGFM, NULL, NULL)
+                 : markdownString;
+  NSMutableAttributedString *attributedText = [self parseAndRenderMarkdown:renderableMarkdown];
   if (!attributedText) {
     return;
   }
 
   _textView.attributedText = attributedText;
+  _renderedRevision = 0;
   _renderedMarkdown = [_cachedMarkdown copy];
+  _laidOutMarkdown = ENRMLaidOutMarkdown(markdownString);
   _renderedStyleFingerprint = _pendingStyleFingerprint;
 }
 
@@ -524,14 +660,22 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   }
 }
 
-- (void)applyRenderedText:(NSMutableAttributedString *)attributedText
+- (BOOL)patchFits:(ENRMRenderResult *)result
 {
+  return [result patchFitsRevision:_renderedRevision length:_textView.textStorage.length];
+}
+
+/// `scheduledForceHeight` is the forced-height request set when this render was
+/// scheduled; one set since stays for the newer render it belongs to.
+- (void)applyRenderedText:(ENRMRenderResult *)result
+                 markdown:(NSString *)markdown
+        forceHeightUpdate:(BOOL)scheduledForceHeight
+{
+  const BOOL patches = [self patchFits:result];
+  NSMutableAttributedString *attributedText = result.attributedText;
   NSUInteger tailStart = _previousTextLength;
 
-  NSLayoutManager *layoutManager = _textView.layoutManager;
-  if ([layoutManager isKindOfClass:[TextViewLayoutManager class]]) {
-    [layoutManager setValue:_config forKey:@"config"];
-  }
+  ENRMSetLayoutManagerConfig(_textView.layoutManager, _config);
 
   objc_setAssociatedObject(_textView.textContainer, kTextViewKey, _textView, OBJC_ASSOCIATION_ASSIGN);
 
@@ -549,11 +693,25 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _accessibilityElements = nil;
   _accessibilityNeedsRebuild = YES;
 
-  _textView.attributedText = attributedText;
-  _renderedMarkdown = [_cachedMarkdown copy];
-
-  [_textView.layoutManager invalidateLayoutForCharacterRange:NSMakeRange(0, attributedText.length)
-                                        actualCharacterRange:NULL];
+  if (patches) {
+    NSTextStorage *storage = _textView.textStorage;
+    [storage beginEditing];
+    [storage replaceCharactersInRange:NSMakeRange(result.patchStart, storage.length - result.patchStart)
+                 withAttributedString:result.patchTail];
+    [storage endEditing];
+  } else if (attributedText) {
+    _textView.attributedText = attributedText;
+    [_textView.layoutManager invalidateLayoutForCharacterRange:NSMakeRange(0, attributedText.length)
+                                          actualCharacterRange:NULL];
+  }
+  // Otherwise the view shows this text already (the cache handed the same segment back).
+  _renderedRevision = result.revision;
+  // The markdown this render answers, not the newest: an older render can apply after a newer one
+  // is scheduled.
+  _renderedMarkdown = [markdown copy];
+  if (!self.window) {
+    _needsWindowAttachRefresh = contentBounds.size.width <= 0;
+  }
 
   // When bounds width is zero (recycled view not yet laid out), skip layout
   // and measurement — layoutSubviews will handle it once the view has real
@@ -564,8 +722,10 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   if (contentBounds.size.width > 0) {
     // Font/style changes can produce the same measured size before UIKit has
     // fully refreshed layout, so force one Yoga update after those renders.
-    BOOL forceHeightUpdate = _forceHeightUpdateOnNextRender;
-    _forceHeightUpdateOnNextRender = NO;
+    BOOL forceHeightUpdate = scheduledForceHeight && _forceHeightUpdateOnNextRender;
+    if (forceHeightUpdate) {
+      _forceHeightUpdateOnNextRender = NO;
+    }
 
     [_textView.layoutManager ensureLayoutForTextContainer:_textView.textContainer];
     ENRMSetNeedsDisplay(_textView);
@@ -585,12 +745,21 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     dispatch_async(dispatch_get_main_queue(), ^{ self->_textView.hidden = NO; });
   }
 
-  if (_streamingAnimation) {
-    if (!_fadeAnimator) {
-      _fadeAnimator = [[ENRMTailFadeInAnimator alloc] initWithTextView:_textView];
+  if (_streaming || _streamEnding) {
+#if !TARGET_OS_OSX
+    ENRMMarkdownTextView *markdownTextView = (ENRMMarkdownTextView *)_textView;
+    CFTimeInterval now = CACurrentMediaTime();
+    [markdownTextView.streamingEffects noteArrivalIn:markdownTextView.textStorage.string
+                                                from:tailStart
+                                                  to:result.textLength
+                                                  at:now];
+    if (_streamEnding) {
+      [markdownTextView.streamingEffects finishAt:now];
     }
-    [_fadeAnimator animateFrom:tailStart to:attributedText.length];
-    _previousTextLength = attributedText.length;
+    [markdownTextView streamingEffectsChanged];
+#endif
+    _previousTextLength = _streaming ? result.textLength : 0;
+    _streamEnding = NO;
   }
 }
 
@@ -602,14 +771,49 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 }
 #endif
 
+// After the first render scheduled once the stream ended: the last words are on screen.
+- (void)emitStreamingEndIfPending
+{
+  if (!_streamEndPending) {
+    return;
+  }
+  _streamEndPending = NO;
+  if (auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter)) {
+    emitter->onStreamingEnd({});
+  }
+}
+
+// Everything shown is finished, the next block still held back: the gradient's tail settles
+// instead of waiting for it.
+- (void)settleStreamingEffects
+{
+#if !TARGET_OS_OSX
+  ENRMMarkdownTextView *markdownTextView = (ENRMMarkdownTextView *)_textView;
+  if (markdownTextView.streamingEffects.type == ENRMStreamingEffectGradient) {
+    [markdownTextView.streamingEffects finishAt:CACurrentMediaTime()];
+    [markdownTextView streamingEffectsChanged];
+  }
+#endif
+}
+
+// The stream ended: the next render shows the whole text, and what still animates settles.
+- (void)stopStreaming
+{
+  _streaming = NO;
+  _streamEnding = YES;
+  _streamEndPending = YES;
+#if !TARGET_OS_OSX
+  [((ENRMMarkdownTextView *)_textView).streamingEffects finishAt:CACurrentMediaTime()];
+  [(ENRMMarkdownTextView *)_textView streamingEffectsChanged];
+#endif
+}
+
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
 {
   const auto &oldViewProps = *std::static_pointer_cast<EnrichedMarkdownTextProps const>(_props);
   const auto &newViewProps = *std::static_pointer_cast<EnrichedMarkdownTextProps const>(props);
 
-  if (oldViewProps.markdown != newViewProps.markdown) {
-    _dirtyFlags |= ENRMDirtyRender;
-  }
+  BOOL markdownChanged = oldViewProps.markdown != newViewProps.markdown;
 
   if (_config == nil) {
     _config = [[StyleConfig alloc] init];
@@ -686,9 +890,21 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _dirtyFlags |= ENRMDirtyRender;
   }
 
+  if (!ENRMLinkRegexPropsEqual(oldViewProps.linkRecognition.text, newViewProps.linkRecognition.text)) {
+    _linkRegex = ENRMLinkRegexConfigFromProps(newViewProps.linkRecognition.text);
+    _dirtyFlags |= ENRMDirtyRender;
+    _forceHeightUpdateOnNextRender = YES;
+  }
+  if (!ENRMLinkRegexPropsEqual(oldViewProps.linkRecognition.inlineCode, newViewProps.linkRecognition.inlineCode)) {
+    _inlineCodeLinkRegex = ENRMLinkRegexConfigFromProps(newViewProps.linkRecognition.inlineCode);
+    _dirtyFlags |= ENRMDirtyRender;
+    _forceHeightUpdateOnNextRender = YES;
+  }
+
   if (newViewProps.md4cFlags.underline != oldViewProps.md4cFlags.underline ||
       newViewProps.md4cFlags.superscript != oldViewProps.md4cFlags.superscript ||
       newViewProps.md4cFlags.subscript != oldViewProps.md4cFlags.subscript ||
+      newViewProps.md4cFlags.strikethrough != oldViewProps.md4cFlags.strikethrough ||
       newViewProps.md4cFlags.latexMath != oldViewProps.md4cFlags.latexMath ||
       newViewProps.md4cFlags.highlight != oldViewProps.md4cFlags.highlight ||
       newViewProps.md4cFlags.hardSoftBreaks != oldViewProps.md4cFlags.hardSoftBreaks ||
@@ -708,6 +924,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _enableLinkPreview = newViewProps.enableLinkPreview;
   _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
   _enableImagePress = newViewProps.enableImagePress;
+  _enableTextPress = newViewProps.enableTextPress;
   _enableCodeBlockPress = newViewProps.enableCodeBlockPress;
 
   if (ENRMLinkContextMenuItemsChanged(oldViewProps.linkContextMenuItems, newViewProps.linkContextMenuItems)) {
@@ -742,6 +959,10 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
         [[NSString alloc] initWithUTF8String:newViewProps.accessibilityLabels.table.row.c_str()];
     _accessibilityLabels.mathEquation =
         [[NSString alloc] initWithUTF8String:newViewProps.accessibilityLabels.math.equation.c_str()];
+    _accessibilityLabels.codeBlockWrap =
+        [[NSString alloc] initWithUTF8String:newViewProps.accessibilityLabels.codeBlock.wrap.c_str()];
+    _accessibilityLabels.codeBlockUnwrap =
+        [[NSString alloc] initWithUTF8String:newViewProps.accessibilityLabels.codeBlock.unwrap.c_str()];
     _accessibilityLabels.rotorHeadings =
         [[NSString alloc] initWithUTF8String:newViewProps.accessibilityLabels.rotor.headings.c_str()];
     _accessibilityLabels.rotorLinks =
@@ -751,16 +972,49 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _accessibilityNeedsRebuild = YES;
   }
 
-  if (newViewProps.streamingAnimation != oldViewProps.streamingAnimation) {
-    _streamingAnimation = newViewProps.streamingAnimation;
-    if (_streamingAnimation) {
+  BOOL streamingEnded = NO;
+  if (newViewProps.streaming != oldViewProps.streaming) {
+    if (newViewProps.streaming) {
+      // A new stream: the one before it has ended, whether or not its last words drained or its
+      // final render applied.
+      if (_streaming) {
+        _streamEndPending = YES;
+      }
+      [self emitStreamingEndIfPending];
+      _streaming = YES;
+      _streamEnding = NO;
+      // The streaming session decides what renders, so the text renders again.
+      _dirtyFlags |= ENRMDirtyRender;
       _previousTextLength = ENRMGetAttributedText(_textView).length;
     } else {
-      [_fadeAnimator cancel];
-      _fadeAnimator = nil;
-      _previousTextLength = 0;
+      streamingEnded = YES;
     }
   }
+  if (newViewProps.streamingConfig.smooth != oldViewProps.streamingConfig.smooth) {
+    _dirtyFlags |= ENRMDirtyRender;
+  }
+
+  // The modes decide what renders only while streaming.
+  if (newViewProps.streamingConfig.tableMode != oldViewProps.streamingConfig.tableMode) {
+    _tableStreamingMode = ENRMStreamingModeFromString<ENRMTableStreamingMode>(newViewProps.streamingConfig.tableMode);
+    _dirtyFlags |= _streaming ? ENRMDirtyRender : ENRMDirtyNone;
+  }
+  if (newViewProps.streamingConfig.codeBlockMode != oldViewProps.streamingConfig.codeBlockMode) {
+    _codeBlockStreamingMode =
+        ENRMStreamingModeFromString<ENRMCodeBlockStreamingMode>(newViewProps.streamingConfig.codeBlockMode);
+    _dirtyFlags |= _streaming ? ENRMDirtyRender : ENRMDirtyNone;
+  }
+  if (newViewProps.streamingConfig.mediaMode != oldViewProps.streamingConfig.mediaMode) {
+    _mediaStreamingMode = ENRMStreamingModeFromString<ENRMMediaStreamingMode>(newViewProps.streamingConfig.mediaMode);
+    _dirtyFlags |= _streaming ? ENRMDirtyRender : ENRMDirtyNone;
+  }
+#if !TARGET_OS_OSX
+  if (!ENRMSameStreamingAnimation(newViewProps.streamingConfig, oldViewProps.streamingConfig)) {
+    // Starts over: 'none' shows what still animates at once.
+    ENRMConfigureStreamingEffects(((ENRMMarkdownTextView *)_textView).streamingEffects, newViewProps.streamingConfig);
+    [(ENRMMarkdownTextView *)_textView streamingEffectsChanged];
+  }
+#endif
 
   if (newViewProps.spoilerOverlay != oldViewProps.spoilerOverlay) {
     NSString *modeStr = [[NSString alloc] initWithUTF8String:newViewProps.spoilerOverlay.c_str()];
@@ -796,37 +1050,80 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _dirtyFlags |= ENRMDirtyRender;
   }
 
-  if (_dirtyFlags & ENRMDirtyRender) {
-    _pendingStyleFingerprint =
-        computeStyleFingerprint(newViewProps.markdownStyle) ^ std::hash<bool>{}(newViewProps.allowTrailingMargin);
-    NSString *markdownString = [[NSString alloc] initWithUTF8String:newViewProps.markdown.c_str()];
-    [self renderMarkdownContent:markdownString];
+  if (markdownChanged || streamingEnded || (_dirtyFlags & ENRMDirtyRender)) {
+    // Smooth pacing renders what has been revealed and hands the rest over frame by frame, so new
+    // markdown that reveals nothing yet renders nothing. When the prop turns off, the words still
+    // waiting drain first, then streaming stops.
+    if ([_pacer updateMarkdown:ENRMStringFromUTF8(newViewProps.markdown)
+                     streaming:newViewProps.streaming
+                        smooth:newViewProps.streamingConfig.smooth]) {
+      [self stopStreaming];
+      _dirtyFlags |= ENRMDirtyRender;
+    }
+    NSString *markdown = _pacer.markdownToRender;
+    if ((_dirtyFlags & ENRMDirtyRender) || ![markdown isEqualToString:_cachedMarkdown]) {
+      _pendingStyleFingerprint =
+          computeStyleFingerprint(newViewProps.markdownStyle) ^ std::hash<bool>{}(newViewProps.allowTrailingMargin);
+      // Rendered in finalizeUpdates, once the view has its layout metrics.
+      _pendingRenderMarkdown = markdown;
+    }
     _dirtyFlags &= ~ENRMDirtyRender;
   }
 
   [super updateProps:props oldProps:oldProps];
 }
 
+- (void)finalizeUpdates:(RNComponentViewUpdateMask)updateMask
+{
+  [super finalizeUpdates:updateMask];
+
+  if (_pendingRenderMarkdown) {
+    NSString *markdown = _pendingRenderMarkdown;
+    _pendingRenderMarkdown = nil;
+    // The first content renders inline: Yoga has already laid the view out at
+    // its measured size, so an async render would show it empty (#1131).
+    [self renderMarkdownContent:markdown synchronously:_renderedMarkdown.length == 0];
+  }
+}
+
+// A layout change around this view (a message above it in a list growing) moves it on screen
+// without a scroll: a long text draws another part of itself.
+- (void)mountingTransactionDidMount:(const MountingTransaction &)transaction
+               withSurfaceTelemetry:(const SurfaceTelemetry &)surfaceTelemetry
+{
+  [_viewport update];
+}
+
 - (void)didMoveToWindow
 {
   [super didMoveToWindow];
 
-  if (self.window && _renderedMarkdown != nil) {
-    _textView.hidden = NO;
-    // Refresh in place: RCTViewComponentView owns the text view's frame and has
-    // already set it to the content frame, so re-assigning self.bounds here would
-    // drop the containerStyle insets (see contentBounds).
-    ENRMRefreshTextViewLayout(_textView);
+  if (!self.window) {
+    _needsWindowAttachRefresh = YES;
+    [_viewport update];
+    return;
+  }
+  if (_renderedMarkdown == nil) {
+    return;
+  }
+  _textView.hidden = NO;
+  BOOL refresh = _needsWindowAttachRefresh;
+  _needsWindowAttachRefresh = NO;
+  if (refresh) {
+    // Refresh in place, in the content frame RCTViewComponentView gave the viewport.
+    [_viewport refreshLayout];
+  } else {
+    [_viewport update];
+  }
 
-    [_spoilerManager setNeedsUpdate];
-    [_spoilerManager updateIfNeeded];
+  [_spoilerManager setNeedsUpdate];
+  [_spoilerManager updateIfNeeded];
 
-    CGRect contentBounds = [self contentBounds];
-    if (contentBounds.size.width > 0) {
-      CGSize measured = [self measureSize:contentBounds.size.width];
-      if (needsHeightUpdate(measured, contentBounds)) {
-        [self requestHeightUpdate];
-      }
+  CGRect contentBounds = [self contentBounds];
+  if (refresh && contentBounds.size.width > 0) {
+    CGSize measured = [self measureSize:contentBounds.size.width];
+    if (needsHeightUpdate(measured, contentBounds)) {
+      [self requestHeightUpdate];
     }
   }
 }
@@ -836,22 +1133,37 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   const auto resetProps = std::make_shared<const EnrichedMarkdownTextProps>();
   _props = resetProps;
   [_renderCoordinator invalidate];
+  _laidOutSize.clear();
+  _laidOutMarkdown = nullptr;
 
-  [_fadeAnimator cancel];
-  _fadeAnimator = nil;
   _previousTextLength = 0;
-  _streamingAnimation = NO;
+  _streamEnding = NO;
+  _streamEndPending = NO;
+  [_pacer reset];
+  _streaming = NO;
+#if !TARGET_OS_OSX
+  [((ENRMMarkdownTextView *)_textView).streamingEffects reset];
+#endif
+  _tableStreamingMode = ENRMTableStreamingModeProgressive;
+  _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
+  _mediaStreamingMode = ENRMMediaStreamingModeProgressive;
   _forceHeightUpdateOnNextRender = NO;
   _cachedMarkdown = nil;
   _renderedMarkdown = nil;
+  _pendingRenderMarkdown = nil;
   _config = nil;
   _md4cFlags = [EnrichedMarkdownText flagsFromProps:resetProps->md4cFlags];
   _isGFM = resetProps->isGFM;
+  _linkRegex = ENRMLinkRegexConfigFromProps(resetProps->linkRecognition.text);
+  _inlineCodeLinkRegex = ENRMLinkRegexConfigFromProps(resetProps->linkRecognition.inlineCode);
   _maxFontSizeMultiplier = 0;
   _lastElementMarginBottom = 0;
   _allowTrailingMargin = NO;
   _lineBreakStrategy = NSLineBreakStrategyNone;
   _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
+  _numberOfLines = 0;
+  _ellipsizeLineBreakMode = NSLineBreakByTruncatingTail;
+  [self applyLineClampToTextContainer];
   _renderedStyleFingerprint = 0;
   _pendingStyleFingerprint = 0;
   _linkContextMenus.entries = @[];
@@ -868,6 +1180,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     ENRMSetAttributedText(_textView, [[NSAttributedString alloc] initWithString:@""]);
     _textView.hidden = YES;
   }
+  _renderedRevision = 0;
+  _textRenderCacheEpoch++;
 
   [super prepareForRecycle];
 }
@@ -881,7 +1195,11 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
 {
   if (_textView) {
     CGPoint textViewPoint = [self convertPoint:point toView:_textView];
-    if (isPointOnInteractiveElement(_textView, textViewPoint, _enableImagePress, _enableCodeBlockPress)) {
+    // Only where textTapped would emit, so a parent Pressable still gets the rest, as on Android.
+    BOOL isTextPress = _enableTextPress && _textView.selectedRange.length == 0 &&
+                       textPressIndexAtPoint(_textView, textViewPoint) != NSNotFound;
+    if (isTextPress ||
+        isPointOnInteractiveElement(_textView, textViewPoint, _enableImagePress, _enableCodeBlockPress)) {
       return nil;
     }
   }
@@ -911,6 +1229,13 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
                                          .pattern = std::string(pattern.UTF8String),
                                          .itemText = std::string(itemText.UTF8String)});
   }
+}
+
+- (void)emitTextPress:(NSInteger)index text:(NSString *)text
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter);
+  if (emitter)
+    emitter->onTextPress({.index = (int)index, .text = std::string(text.UTF8String ?: "")});
 }
 
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText
@@ -950,6 +1275,24 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
     });
 }
 
+- (ENRMSelectionCopyHandler)selectionCopyHandler
+{
+  __weak EnrichedMarkdownText *weakSelf = self;
+  return ^(NSString *text, NSString *format, NSRange range) {
+    EnrichedMarkdownText *strongSelf = weakSelf;
+    if (!strongSelf)
+      return;
+    auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(strongSelf->_eventEmitter);
+    if (emitter)
+      emitter->onSelectionCopy({
+          .text = std::string(text.UTF8String ?: ""),
+          .format = std::string(format.UTF8String),
+          .selectionStart = (int)range.location,
+          .selectionEnd = (int)NSMaxRange(range),
+      });
+  };
+}
+
 - (void)updateEventEmitter:(const facebook::react::EventEmitter::Shared &)eventEmitter
 {
   [super updateEventEmitter:eventEmitter];
@@ -959,6 +1302,8 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
 - (void)textTapped:(ENRMTapRecognizer *)recognizer
 {
   ENRMPlatformTextView *textView = (ENRMPlatformTextView *)recognizer.view;
+  // Read before the link check below clears the selection.
+  BOOL hadSelection = textView.selectedRange.length > 0;
 
   if (_enableTaskListItemToggle &&
       handleTaskListTapWithSharedLogic(
@@ -994,6 +1339,13 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
       [self emitCodeBlockPress:codeBlock[@"code"] language:codeBlock[@"language"]];
       return;
     }
+  }
+
+  // Skip while text is selected so the tap only clears the selection.
+  if (_enableTextPress && !hadSelection) {
+    NSUInteger index = textPressIndexAtTapLocation(textView, recognizer);
+    if (index != NSNotFound)
+      [self emitTextPress:index text:ENRMGetAttributedText(textView).string];
   }
 }
 
@@ -1058,7 +1410,7 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
       ENRMBuildContextMenuActions(_contextMenuItemTexts, _contextMenuItemIcons, textView, range, handler);
 
   return buildEditMenuForSelection(textView.attributedText, range, _cachedMarkdown, _config, suggestedActions,
-                                   customActions, _selectionMenuConfig);
+                                   customActions, _selectionMenuConfig, [self selectionCopyHandler]);
 }
 #endif
 

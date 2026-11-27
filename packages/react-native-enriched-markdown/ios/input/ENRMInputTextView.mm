@@ -76,6 +76,33 @@ NSString *const kENRMMarkdownPasteboardType = @"com.swmansion.enriched-markdown.
   return [super canPerformAction:action withSender:sender];
 }
 
+/// Pins to the top while the text fits the height Yoga allows: the view is
+/// about to grow to fit it, so UIKit scrolling to the caret now would cause
+/// flickering as the text is bottom-aligned for a frame until the resize lands.
+- (void)setContentOffset:(CGPoint)contentOffset
+{
+  [super setContentOffset:[self pinnedContentOffset:contentOffset]];
+}
+
+- (void)setContentOffset:(CGPoint)contentOffset animated:(BOOL)animated
+{
+  [super setContentOffset:[self pinnedContentOffset:contentOffset] animated:animated];
+}
+
+- (CGPoint)pinnedContentOffset:(CGPoint)contentOffset
+{
+  if (self.markdownTextInput == nil) {
+    return contentOffset;
+  }
+  CGFloat textHeight = [self.layoutManager usedRectForTextContainer:self.textContainer].size.height +
+                       self.textContainerInset.top + self.textContainerInset.bottom;
+  // The textHeight is below the limits, so we undo the scroll to prevent flickering
+  if (textHeight <= self.markdownTextInput.maxContentHeight) {
+    contentOffset.y = -self.adjustedContentInset.top;
+  }
+  return contentOffset;
+}
+
 - (void)layoutSubviews
 {
   [super layoutSubviews];

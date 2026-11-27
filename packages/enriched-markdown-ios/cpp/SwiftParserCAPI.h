@@ -27,6 +27,11 @@ EMASTAttributeIterator *em_ast_node_attribute_iterator_create(const void *node);
 int em_ast_node_attribute_iterator_next(EMASTAttributeIterator *iterator, const char **key, const char **value);
 void em_ast_node_attribute_iterator_release(EMASTAttributeIterator *iterator);
 
+// Caller releases with em_string_release.
+char *em_code_block_language_display_name(const char *language);
+char *em_latex_spoken_form(const char *latex);
+void em_string_release(char *string);
+
 #ifdef __cplusplus
 }
 #endif

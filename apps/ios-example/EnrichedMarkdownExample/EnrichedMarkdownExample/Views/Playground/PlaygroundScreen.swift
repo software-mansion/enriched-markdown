@@ -22,6 +22,31 @@ private enum ImageSizingOption: CaseIterable {
 /// The sizing's own default first, then every explicit mode.
 private let imageContentModeCycle: [ImageContentMode?] = [nil] + ImageContentMode.allCases
 
+private let admonitionsMarkdown = """
+> [!NOTE]
+> Useful information that users should know, even when skimming content.
+
+> [!TIP]
+> Helpful advice for doing things better or more easily.
+
+> [!IMPORTANT]
+> Key information users need to know to achieve their goal.
+
+> [!WARNING]
+> Urgent info that needs immediate user attention to avoid problems.
+
+> [!CAUTION]
+> Advises about risks or negative outcomes of certain actions.
+"""
+
+private let polishTitles = MarkdownAdmonitionTitles(
+    note: "Uwaga",
+    tip: "Wskazówka",
+    important: "Ważne",
+    warning: "Ostrzeżenie",
+    caution: "Przestroga"
+)
+
 private func cycled<T: Equatable>(_ current: T, in options: [T]) -> T {
     let index = options.firstIndex(of: current) ?? 0
     return options[(index + 1) % options.count]
@@ -43,6 +68,7 @@ struct PlaygroundScreen: View {
     @State private var spoilerOverlay: PlaygroundSpoilerOverlay = .particles
     @State private var imageSizing: ImageSizingOption = .height
     @State private var imageContentMode: ImageContentMode?
+    @State private var polishAdmonitionTitles: Bool = false
 
     // MARK: - Views
 
@@ -122,6 +148,19 @@ struct PlaygroundScreen: View {
                     }
                 }
 
+                HStack(spacing: 8) {
+                    PlaygroundButton(label: "Insert Admonitions", accessibilityId: "insert-admonitions-button") {
+                        insertAdmonitions()
+                    }
+                    PlaygroundButton(
+                        label: "Titles: \(polishAdmonitionTitles ? "PL" : "EN")",
+                        accessibilityId: "admonition-titles-button",
+                        isActive: polishAdmonitionTitles
+                    ) {
+                        polishAdmonitionTitles.toggle()
+                    }
+                }
+
                 setMarkdownButton
                 preview
             }
@@ -135,6 +174,7 @@ struct PlaygroundScreen: View {
         .markdownSpoilerOverlay(spoilerOverlay.provider)
         .markdownSelectionColor(.orange)
         .markdownImageRequestHeaders(["Accept": acceptImageType])
+        .markdownAdmonitionTitles(polishAdmonitionTitles ? polishTitles : .default)
         .markdownLaTeX()
         .onMarkdownLinkLongPress { url in
             longPressedLink = url.absoluteString
@@ -264,6 +304,10 @@ struct PlaygroundScreen: View {
         $$
         """
         appendBlock(mathMarkdown)
+    }
+
+    private func insertAdmonitions() {
+        appendBlock(admonitionsMarkdown)
     }
 
     private func appendBlock(_ block: String) {

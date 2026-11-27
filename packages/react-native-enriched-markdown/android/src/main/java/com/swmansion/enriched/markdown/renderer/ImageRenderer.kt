@@ -5,6 +5,8 @@ import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.utils.text.extensions.isInlineImage
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 
+const val IMAGE_OCCURRENCE_ID_ATTRIBUTE = "imageOccurrenceId"
+
 class ImageRenderer : NodeRenderer {
   override fun render(
     node: MarkdownASTNode,
@@ -29,6 +31,7 @@ class ImageRenderer : NodeRenderer {
         imageUrl = imageUrl,
         isInline = isInline,
         altText = altText,
+        occurrenceId = node.getAttribute(IMAGE_OCCURRENCE_ID_ATTRIBUTE),
       )
 
     builder.setSpan(

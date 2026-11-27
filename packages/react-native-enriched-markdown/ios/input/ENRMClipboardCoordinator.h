@@ -6,7 +6,6 @@
 
 @class ENRMFormattingStore;
 @class ENRMBlockStore;
-@class ENRMInputFormatter;
 @protocol ENRMDetectorPipelineTransientRanges;
 
 NS_ASSUME_NONNULL_BEGIN
@@ -19,8 +18,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithFormattingStore:(ENRMFormattingStore *)formattingStore
                              blockStore:(ENRMBlockStore *)blockStore
-                 transientRangeProvider:(id<ENRMTransientRangeProvider>)transientRangeProvider
-                              formatter:(ENRMInputFormatter *)formatter;
+                 transientRangeProvider:(id<ENRMTransientRangeProvider>)transientRangeProvider;
 
 - (NSArray<ENRMFormattingRange *> *)allRangesIncludingTransient;
 

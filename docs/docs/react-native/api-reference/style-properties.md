@@ -60,7 +60,7 @@ Override any of these through the `markdownStyle` prop. The web build has its ow
 `react-native-enriched-markdown` uses a base block style architecture where all block elements (paragraphs, headings, lists, blockquotes, code blocks) share a common set of typography properties. This base block style includes:
 
 - `fontSize` - font size in points
-- `fontFamily` - font family name
+- `fontFamily` - font family name. On iOS, this and every other `fontFamily` key also take the generic families React Native's `Text` accepts: `system-ui`, `ui-sans-serif`, `ui-serif`, `ui-rounded` and `ui-monospace`
 - `fontWeight` - font weight
 - `color` - text color
 - `marginTop` - top margin
@@ -206,8 +206,8 @@ Each heading level (`h1`-`h6`) and `paragraph` is styled by its own key. Give ea
 
 | Property          | Type     | Default   | Description                              |
 | ----------------- | -------- | --------- | ---------------------------------------- |
-| `borderColor`     | `string` | `#D1D5DB` | Left border color                        |
-| `borderWidth`     | `number` | `3`       | Left border width                        |
+| `borderColor`     | `string` | `#D1D5DB` | Accent bar color                         |
+| `borderWidth`     | `number` | `3`       | Accent bar width                         |
 | `gapWidth`        | `number` | `16`      | Gap between border and text              |
 | `backgroundColor` | `string` | `#F9FAFB` | Background color                         |
 | `borderRadius`    | `number` | `0`       | Corner radius of the blockquote box      |
@@ -217,7 +217,7 @@ Each heading level (`h1`-`h6`) and `paragraph` is styled by its own key. Give ea
 
 ### Admonitions {#admonitions}
 
-A blockquote opening with `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, or `> [!CAUTION]` renders as a themed callout with an icon and title header. Admonitions nest under `blockquote` because they **inherit its geometry** - `borderWidth`, `gapWidth`, `padding`, `borderRadius`, font, and spacing all come from the blockquote style above - and override only the colors below.
+A blockquote opening with `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, or `> [!CAUTION]` renders as a themed callout with an icon and title header. Admonitions nest under `blockquote` because they **inherit its geometry** - `borderWidth`, `gapWidth`, `padding`, `borderRadius`, font, and spacing all come from the blockquote style above - and override only the colors below. The title text is not a style: set it with the [`admonitionTitles`](/react-native/api-reference/enriched-markdown-text#admonitiontitles) prop.
 
 | Property                                             | Type               | Default                       | Description              |
 | ---------------------------------------------------- | ------------------ | ----------------------------- | ------------------------ |
@@ -254,7 +254,7 @@ Requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#
 | ------------------ | -------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `bulletColor`      | `string` | `#6B7280` | Bullet point color                                                                                                                  |
 | `bulletSize`       | `number` | `6`       | Bullet point size                                                                                                                   |
-| `markerMinWidth`   | `number` | `0`       | Minimum reserved marker column width (floors the natural width of every list type)                                                  |
+| `markerMinWidth`   | `number` | `0`       | Minimum reserved marker column width (floors the natural width of every list type). An ordered list's column also grows to fit its widest number |
 | `markerColor`      | `string` | `#6B7280` | Number marker color                                                                                                                 |
 | `markerFontWeight` | `string` | `'500'`   | Number marker font weight                                                                                                           |
 | `gapWidth`         | `number` | `12`      | Gap between marker and text                                                                                                         |
@@ -340,6 +340,29 @@ You can also style links per URL pattern through the top-level `linkVariants` ke
 
 <LivePreview src={LinkSrc} />
 
+#### Link pills {#pill}
+
+A variant can also present its links as **pills** - rounded chips with an optional icon and label, wrapped as one unit - through its `pill` key. `pill: true` gives the default look; a `LinkPillStyle` object overrides it. The variant's `color`, `underline`, `backgroundColor` and `fontFamily` still apply, so a pill is styled the way its links already were.
+
+| Property            | Type     | Default            | Description                                                                                                                                      |
+| ------------------- | -------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `label`             | `string` | Original link text | Label shown by every link the pattern matches                                                                                                    |
+| `iconUri`           | `string` | No icon            | Icon shown by every link the pattern matches, drawn at the label's font size. See [Icon sources](/react-native/guides/link-pills#icon-sources)   |
+| `iconTintColor`     | `string` | No tint            | Tints this variant's own icon and keeps its alpha. An icon set per link through `linkPillContent` is not tinted by it                             |
+| `borderRadius`      | `number` | `8`                | Corner radius in points/DIP                                                                                                                      |
+| `paddingHorizontal` | `number` | `6`                | Horizontal inset in points/DIP                                                                                                                   |
+| `paddingVertical`   | `number` | `2`                | Vertical inset in points/DIP                                                                                                                     |
+| `borderWidth`       | `number` | `0`                | Border width in points/DIP                                                                                                                       |
+| `borderColor`       | `string` | `transparent`      | Border color                                                                                                                                     |
+| `maxWidth`          | `number` | `0`                | Positive maximum width in points/DIP. Zero uses the available text width                                                                         |
+| `lineHeight`        | `number` | Not set            | Minimum line height of a block that holds the pill, scaled with the system font size. See [Line height](/react-native/guides/link-pills#line-height) |
+
+Nonfinite dimensions fall back to their defaults and negative dimensions clamp to zero. Per-link labels, icons and tints are not style: they live in the [`linkPillContent`](/react-native/api-reference/enriched-markdown-text#linkpillcontent) prop and win over the three content fields above.
+
+:::note
+Pills are drawn by the native text stack, so `pill` applies on **iOS and Android only**. The web build and macOS render those links as ordinary links with the variant's colors and font. The [Link pills](/react-native/guides/link-pills) guide covers the rest: per-link content, line height, icon sources and behavior.
+:::
+
 ### Strong-specific
 
 | Property     | Type                 | Default        | Description                                                                                                                                              |
@@ -362,7 +385,7 @@ You can also style links per URL pattern through the top-level `linkVariants` ke
 
 ### Strikethrough-specific
 
-Strikethrough (`~~text~~`) is a GitHub Flavored Markdown extension, so these styles only apply under [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor).
+Strikethrough (`~~text~~`, or `~text~` unless subscript is on) is a GitHub Flavored Markdown extension, enabled by [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) or [`md4cFlags={{ strikethrough: true }}`](/react-native/api-reference/enriched-markdown-text#strikethrough).
 
 | Property | Type     | Default   | Description                                                                       |
 | -------- | -------- | --------- | --------------------------------------------------------------------------------- |
@@ -409,7 +432,7 @@ Sizing precedence is `aspectRatio` > `maxHeight` > `height`: the first one set w
 
 ### Video-specific
 
-Styles block-level videos embedded with the HTML `<video>` tag. [Element structure](/react-native/api-reference/element-structure#videos) owns the authoring rules - the two tag forms, the quoted-`src` trap, and what happens to a video inside a list. Because only `src` is read, every attribute of the video's appearance comes from the keys below. Playback controls come from the platform player (`AVPlayerViewController` on iOS, ExoPlayer on Android).
+Styles block-level videos embedded with the HTML `<video>` tag. [Element structure](/react-native/api-reference/element-structure#videos) owns the authoring rules - the two tag forms, the quoted-`src` trap, and what happens to a video inside a list. Because only `src` is read, every attribute of the video's appearance comes from the keys below. Playback controls come from the platform player (`AVPlayerViewController` on iOS, ExoPlayer on Android, the browser's built-in `<video>` controls on web).
 
 | Property          | Type     | Default   | Description                                                                                                        |
 | ----------------- | -------- | --------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -422,16 +445,16 @@ Styles block-level videos embedded with the HTML `<video>` tag. [Element structu
 Unlike [images](#image-specific), there is no `height` or `maxHeight` knob - `aspectRatio` is the only sizing control.
 
 :::note
-Requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) for native segment rendering, and the `enableVideo` build flag (on by default) in your app's `package.json` `enriched-markdown` block - see [Optional native features](/react-native/guides/native-assets#optional-features).
+On native, requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) for native segment rendering, and the `enableVideo` build flag (on by default) in your app's `package.json` `enriched-markdown` block - see [Optional native features](/react-native/guides/native-assets#optional-features). Web needs neither, and reads all five keys below.
 :::
 
-<LivePreview src={VideoSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - the published WebAssembly parser predates the <code>&lt;video&gt;</code> tag, so nothing renders on web.</>} />
+<LivePreview src={VideoSrc} />
 
 ### Inline image-specific
 
-| Property | Type     | Default | Description         |
-| -------- | -------- | ------- | ------------------- |
-| `size`   | `number` | `20`    | Image size (square) |
+| Property | Type     | Default | Description                                                                                                               |
+| -------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `size`   | `number` | `20`    | Side length of the square the image is drawn in. The image is scaled up or down to fit inside it, keeping its proportions |
 
 <LivePreview src={InlineImageSrc} />
 
@@ -520,7 +543,7 @@ Styles for spoiler text (`||hidden text||`). The text is concealed behind an ove
 Which overlay preset is used - `'particles'` or `'solid'` - is not a style property; it is chosen with the [`spoilerOverlay`](/react-native/api-reference/enriched-markdown-text#spoileroverlay) prop on the component. The keys below only tune appearance: `color` applies to both presets, while `particles.*` and `solid.*` each affect only their matching preset.
 
 :::note
-The spoiler overlay is iOS and Android only - the web build does not render it, so none of the spoiler style properties below have any effect on web.
+The web build always draws the solid cover, so `color` and `solid.borderRadius` apply there while `particles.*` has no effect. The preview below runs the web build, so it shows the solid cover whatever `spoilerOverlay` says.
 :::
 
 | Property             | Type     | Default   | Description                                             |
@@ -530,7 +553,7 @@ The spoiler overlay is iOS and Android only - the web build does not render it, 
 | `particles.speed`    | `number` | `20`      | Speed of particle movement                              |
 | `solid.borderRadius` | `number` | `4`       | Corner radius of the solid spoiler overlay rectangles   |
 
-<LivePreview src={SpoilerSrc} unavailable unavailableReason={<>iOS and Android only - the web build does not render the spoiler overlay, so these properties have no visible effect here. The source is shown for reference.</>} />
+<LivePreview src={SpoilerSrc} />
 
 ### Superscript-specific
 
@@ -545,7 +568,7 @@ Styles for superscript text (`^text^`). Requires [`md4cFlags={{ superscript: tru
 
 ### Subscript-specific
 
-Styles for subscript text (`~text~`). Requires [`md4cFlags={{ subscript: true }}`](/react-native/api-reference/enriched-markdown-text#subscript) to enable the parser. Note that single tildes mean nothing by default: `~text~` is literal text until this flag turns it into subscript. Double tildes (`~~text~~`) are strikethrough, and only under [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor).
+Styles for subscript text (`~text~`). Requires [`md4cFlags={{ subscript: true }}`](/react-native/api-reference/enriched-markdown-text#subscript) to enable the parser. Note that single tildes mean nothing by default: `~text~` is literal text until this flag turns it into subscript. Single and double tildes are strikethrough under [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) or with [`md4cFlags={{ strikethrough: true }}`](/react-native/api-reference/enriched-markdown-text#strikethrough); this flag then claims the single form, leaving `~~text~~` struck.
 
 | Property              | Type     | Default                                  | Description                                                        |
 | --------------------- | -------- | ---------------------------------------- | ------------------------------------------------------------------ |

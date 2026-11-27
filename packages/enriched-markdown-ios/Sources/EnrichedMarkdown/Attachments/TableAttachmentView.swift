@@ -39,7 +39,7 @@ final class TableAttachmentViewProvider: NSTextAttachmentViewProvider {
 }
 
 final class TableAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInteractionDelegate {
-    private let scrollView = UIScrollView()
+    private let scrollView = HorizontalBlockScrollView()
     private let gridView: TableGridView
     private let attachment: TableAttachment
     private var didRestoreOffset = false
@@ -130,20 +130,11 @@ final class TableAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInte
     /// which the SwiftUI view sets to its `onLinkPress` or `openURL`; a
     /// text view outside SwiftUI with no handler opens the URL directly.
     func openLink(_ url: URL) {
-        if let onLinkPress = hostTextView()?.onLinkPress {
+        if let onLinkPress = enclosingMarkdownTextView()?.onLinkPress {
             onLinkPress(url)
         } else {
             UIApplication.shared.open(url)
         }
-    }
-
-    private func hostTextView() -> MarkdownTextView? {
-        var view: UIView? = superview
-        while let current = view {
-            if let textView = current as? MarkdownTextView { return textView }
-            view = current.superview
-        }
-        return nil
     }
 
     // MARK: - Copy menu
@@ -177,6 +168,7 @@ final class TableGridView: UIView {
     private let model: TableModel
     private let layout: TableAttachmentLayout
     private let style: TableAttachmentStyle
+    private var linkLayouts: [Int: InlineBackgroundDrawer.Layout] = [:]
 
     init(model: TableModel, layout: TableAttachmentLayout, style: TableAttachmentStyle) {
         self.model = model
@@ -221,8 +213,16 @@ final class TableGridView: UIView {
                 context.stroke(cellRect)
 
                 if column < row.count {
-                    row[column].attributedText.draw(
-                        with: textRect(column: column, xOffset: xOffset, yOffset: yOffset, rowHeight: rowHeight),
+                    let textRect = textRect(column: column, xOffset: xOffset, yOffset: yOffset, rowHeight: rowHeight)
+                    let key = rowIndex * model.columnCount + column
+                    let links = linkLayouts[key] ?? InlineBackgroundDrawer.layout(of: row[column].attributedText, width: textRect.width)
+                    linkLayouts[key] = links
+                    context.saveGState()
+                    context.translateBy(x: textRect.minX, y: textRect.minY)
+                    InlineBackgroundDrawer.paint(links, in: context)
+                    context.restoreGState()
+                    row[column].drawnText.draw(
+                        with: textRect,
                         options: [.usesLineFragmentOrigin, .usesFontLeading],
                         context: nil
                     )
@@ -243,12 +243,9 @@ final class TableGridView: UIView {
             return nil
         }
 
-        let storage = NSTextStorage(attributedString: cell.text)
-        let layoutManager = NSLayoutManager()
-        let container = NSTextContainer(size: cell.textRect.size)
-        container.lineFragmentPadding = 0
-        layoutManager.addTextContainer(container)
-        storage.addLayoutManager(layoutManager)
+        let stack = TextKit1Stack(text: cell.text, size: cell.textRect.size)
+        let layoutManager = stack.layoutManager
+        let container = stack.container
 
         let glyphIndex = layoutManager.glyphIndex(for: local, in: container)
         guard glyphIndex < layoutManager.numberOfGlyphs else { return nil }

@@ -14,6 +14,7 @@ object SegmentSignature {
   internal const val CODE_BLOCK_KIND_SALT = 0x63626C6B00000000L // "cblk"
   internal const val BLOCKQUOTE_KIND_SALT = 0x6271746500000000L // "bqte"
   internal const val VIDEO_KIND_SALT = 0x7669646F00000000L // "video"
+  internal const val BLOCK_SLOT_KIND_SALT = 0x626C736C00000000L // "blsl"
 
   private fun fnvMixByte(
     hash: Long,
@@ -52,6 +53,8 @@ object SegmentSignature {
 
   fun signatureForNode(node: MarkdownASTNode?): Long {
     if (node == null) return FNV_OFFSET_BASIS
+    val cached = node.cachedSignature
+    if (cached != 0L) return cached
 
     var hash = FNV_OFFSET_BASIS
     hash = fnvMixLong(hash, node.type.ordinal.toLong())
@@ -68,13 +71,29 @@ object SegmentSignature {
       hash = fnvMixLong(hash, signatureForNode(child))
     }
 
+    node.cachedSignature = hash
     return hash
   }
 
-  fun signatureForNodes(nodes: List<MarkdownASTNode>): Long {
+  /**
+   * Folds a segment's first task index into its [signature] when the segment holds task-list
+   * items. Their spans carry document-global indices, so a segment whose content is unchanged
+   * but whose earlier tasks were added or removed must not reuse its view's stale indices.
+   */
+  fun withTaskIndexOffset(
+    signature: Long,
+    taskIndexOffset: Int,
+    hasTasks: Boolean,
+  ): Long = if (hasTasks) fnvMixLong(signature, taskIndexOffset.toLong()) else signature
+
+  fun signatureForNodes(nodes: List<MarkdownASTNode>): Long =
+    signatureForNodeSignatures(LongArray(nodes.size) { signatureForNode(nodes[it]) })
+
+  /** [signatureForNodes] from each node's [signatureForNode]. */
+  fun signatureForNodeSignatures(nodeSignatures: LongArray): Long {
     var hash = FNV_OFFSET_BASIS
-    for (node in nodes) {
-      hash = fnvMixLong(hash, signatureForNode(node))
+    for (nodeSignature in nodeSignatures) {
+      hash = fnvMixLong(hash, nodeSignature)
     }
     return hash
   }

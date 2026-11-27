@@ -5,15 +5,14 @@ package com.swmansion.enriched.markdown.segments
 import android.content.Context
 import android.text.Spannable
 import android.view.View
+import com.swmansion.enriched.markdown.AdmonitionTitles
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
-import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.plugin.PluginBlockSegment
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.plugin.PluginSegmentPayload
 import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.renderer.Renderer
-import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 
 sealed interface RenderedSegment {
@@ -33,7 +32,6 @@ sealed interface RenderedSegment {
      * spans, and a result that changes as the user merely selects text.
      */
     val styledText: Spannable,
-    val imageSpans: List<ImageSpan>,
     val needsJustify: Boolean,
     val lastElementMarginBottom: Float,
     override val signature: Long,
@@ -43,7 +41,14 @@ sealed interface RenderedSegment {
     val node: MarkdownASTNode,
     override val signature: Long,
     val imageRequestHeaders: Map<String, String> = emptyMap(),
-    val plugins: PluginSnapshot = EnrichedMarkdownPlugins.snapshot,
+    val plugins: PluginSnapshot,
+  ) : RenderedSegment
+
+  data class CodeBlock(
+    val node: MarkdownASTNode,
+    /** The code with its decorators' spans, from [CodeBlockContainerView.buildCodeText]. */
+    val text: CharSequence,
+    override val signature: Long,
   ) : RenderedSegment
 
   /** Holds the plugin that produced [payload], so its view is built by that same plugin. */
@@ -74,7 +79,8 @@ object MarkdownSegmentRenderer {
     onLinkPress: ((String) -> Unit)? = null,
     onLinkLongPress: ((String) -> Unit)? = null,
     onPluginEvent: PluginEventSink? = null,
-    plugins: PluginSnapshot = EnrichedMarkdownPlugins.snapshot,
+    plugins: PluginSnapshot,
+    admonitionTitles: AdmonitionTitles = AdmonitionTitles.Default,
   ): List<RenderedSegment> {
     // Task indices must stay document-global: each Text segment gets a fresh Renderer,
     // so the running count is threaded through explicitly rather than reset per segment.
@@ -92,6 +98,7 @@ object MarkdownSegmentRenderer {
           onPluginEvent,
           plugins,
           taskIndexOffset,
+          admonitionTitles,
         )
       taskIndexOffset = taskItemCount
       return rendered
@@ -106,6 +113,12 @@ object MarkdownSegmentRenderer {
         is MarkdownSegment.Table -> {
           val signature = SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.TABLE_KIND_SALT
           RenderedSegment.Table(segment.node, signature, imageRequestHeaders, plugins)
+        }
+
+        is MarkdownSegment.CodeBlock -> {
+          val signature = SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.CODE_BLOCK_KIND_SALT
+          val text = CodeBlockContainerView.buildCodeText(segment.node, style, plugins.codeBlockDecorators, context)
+          RenderedSegment.CodeBlock(segment.node, text, signature)
         }
 
         is MarkdownSegment.Custom -> {
@@ -145,8 +158,9 @@ object MarkdownSegmentRenderer {
     onPluginEvent: PluginEventSink?,
     plugins: PluginSnapshot,
     startingTaskIndex: Int,
+    admonitionTitles: AdmonitionTitles,
   ): Pair<RenderedSegment.Text, Int> {
-    val renderer = Renderer().apply { configure(style, context, imageRequestHeaders, onPluginEvent, plugins) }
+    val renderer = Renderer().apply { configure(style, context, imageRequestHeaders, onPluginEvent, plugins, admonitionTitles) }
     val signature = SegmentSignature.signatureForNodes(nodes) xor SegmentSignature.TEXT_KIND_SALT
 
     val styledText = renderer.renderContent(nodes, onLinkPress, onLinkLongPress, startingTaskIndex)
@@ -154,7 +168,6 @@ object MarkdownSegmentRenderer {
     val rendered =
       RenderedSegment.Text(
         styledText = styledText,
-        imageSpans = renderer.getCollectedImageSpans().toList(),
         needsJustify = style.needsJustify,
         lastElementMarginBottom = renderer.getLastElementMarginBottom(),
         signature = signature,

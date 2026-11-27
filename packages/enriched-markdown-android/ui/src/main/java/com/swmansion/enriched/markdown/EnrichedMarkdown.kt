@@ -10,13 +10,13 @@ import android.util.Log
 import android.view.View
 import androidx.annotation.VisibleForTesting
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
-import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
-import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.plugin.MarkdownPlugin
 import com.swmansion.enriched.markdown.plugin.PluginEvent
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.plugin.PluginSnapshot
+import com.swmansion.enriched.markdown.segments.CodeBlockContainerView
 import com.swmansion.enriched.markdown.segments.ContainerNodeView
 import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.segments.RenderedSegment
@@ -61,14 +61,26 @@ class EnrichedMarkdown(
   val currentMarkdown: String
     get() = TaskListToggleUtils.applyCheckedStates(baseMarkdown, taskListToggles)
 
-  var md4cFlags: Md4cFlags = Md4cFlags.Default
+  var options: MarkdownOptions = MarkdownOptions.Default
+    private set
+
+  /** Whether fenced code blocks wrap long lines or scroll them. */
+  var codeBlockLayout: CodeBlockLayout = CodeBlockLayout.Wrapping
     private set
 
   /** How unrevealed `||spoiler||` text is concealed. */
   var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles()
     private set
 
+  private var plugins: List<MarkdownPlugin> = emptyList()
+
+  /** What the [setPlugins] plugins registered, as the render path takes it. */
+  @InternalPluginApi
+  var pluginSnapshot: PluginSnapshot = PluginSnapshot.EMPTY
+    private set
+
   private var imageRequestHeaders: Map<String, String> = emptyMap()
+  private var admonitionTitles: AdmonitionTitles = AdmonitionTitles.Default
   private var selectionColor: Int? = null
   private var selectionHandleColor: Int? = null
   private var isSelectable = true
@@ -78,6 +90,7 @@ class EnrichedMarkdown(
   private var onLinkPressCallback: ((String) -> Unit)? = null
   private var onLinkLongPressCallback: ((String) -> Unit)? = null
   private var onTaskListItemPressCallback: ((TaskListItemToggle) -> Unit)? = null
+  private var onCodeBlockCopyCallback: ((CodeBlockCopy) -> Unit)? = null
   private var onPluginEventCallback: ((PluginEvent) -> Unit)? = null
 
   /** Events already reported, kept while the markdown only grows (streaming) and bounded in size. */
@@ -137,9 +150,36 @@ class EnrichedMarkdown(
     scheduleRenderIfNeeded()
   }
 
-  fun setMd4cFlags(flags: Md4cFlags) {
-    if (md4cFlags == flags) return
-    md4cFlags = flags
+  /** Renames or translates the GitHub alert titles; a title too wide for the callout ends in an ellipsis. */
+  fun setAdmonitionTitles(titles: AdmonitionTitles) {
+    if (admonitionTitles == titles) return
+    admonitionTitles = titles
+    needsSegmentReset = true
+    scheduleRenderIfNeeded()
+  }
+
+  /**
+   * The plugins this view renders with; none by default. Lists compare by value, so passing an
+   * equal list is a no-op.
+   */
+  fun setPlugins(plugins: List<MarkdownPlugin>) {
+    if (this.plugins == plugins) return
+    this.plugins = plugins
+    pluginSnapshot = PluginSnapshot.of(*plugins.toTypedArray())
+    needsSegmentReset = true // plugins change how nodes render, which the AST-based signatures don't capture
+    scheduleRenderIfNeeded()
+  }
+
+  fun setOptions(options: MarkdownOptions) {
+    if (this.options == options) return
+    this.options = options
+    scheduleRenderIfNeeded()
+  }
+
+  /** A switch re-splits the document, and the changed segments' signatures rebuild their views. */
+  fun setCodeBlockLayout(layout: CodeBlockLayout) {
+    if (codeBlockLayout == layout) return
+    codeBlockLayout = layout
     scheduleRenderIfNeeded()
   }
 
@@ -166,6 +206,17 @@ class EnrichedMarkdown(
   /** Called after a tap on a task-list checkbox has toggled the item. */
   fun setOnTaskListItemPressCallback(callback: ((TaskListItemToggle) -> Unit)?) {
     onTaskListItemPressCallback = callback
+  }
+
+  /**
+   * Called after a code block's code is copied, by its copy button or its long-press Copy; not
+   * for Copy as Markdown. Only [CodeBlockLayout.Scrollable] blocks have either.
+   */
+  fun setOnCodeBlockCopyCallback(callback: ((CodeBlockCopy) -> Unit)?) {
+    onCodeBlockCopyCallback = callback
+    segmentViews.filterIsInstance<CodeBlockContainerView>().forEach {
+      it.onCodeBlockCopy = callback
+    }
   }
 
   /**
@@ -222,6 +273,14 @@ class EnrichedMarkdown(
     }
   }
 
+  fun setAllowTrailingMargin(allow: Boolean) {
+    if (trailingMarginEnabled == allow) return
+    trailingMarginEnabled = allow
+    // Only the container's height and child offsets depend on it, so the
+    // rendered segments stay valid and a layout pass is enough.
+    requestLayout()
+  }
+
   /** Chooses the overlay that conceals unrevealed spoilers. */
   fun setSpoilerOverlay(overlay: SpoilerOverlay) {
     if (spoilerOverlay == overlay) return
@@ -247,6 +306,8 @@ class EnrichedMarkdown(
 
   fun setOnTaskListItemPressListener(listener: ((TaskListItemToggle) -> Unit)?) = setOnTaskListItemPressCallback(listener)
 
+  fun setOnCodeBlockCopyListener(listener: ((CodeBlockCopy) -> Unit)?) = setOnCodeBlockCopyCallback(listener)
+
   fun setOnPluginEventListener(listener: ((PluginEvent) -> Unit)?) = setOnPluginEventCallback(listener)
 
   fun setSelectionColor(color: Int?) {
@@ -270,6 +331,9 @@ class EnrichedMarkdown(
     segmentViews.filterIsInstance<TableContainerView>().forEach {
       it.selectionMenuConfig = config
     }
+    segmentViews.filterIsInstance<CodeBlockContainerView>().forEach {
+      it.selectionMenuConfig = config
+    }
   }
 
   private fun applySelectionColorsToSegments() {
@@ -286,10 +350,13 @@ class EnrichedMarkdown(
     setOnLinkPressCallback(null)
     setOnLinkLongPressCallback(null)
     setOnTaskListItemPressCallback(null)
+    setOnCodeBlockCopyCallback(null)
     setOnPluginEventCallback(null)
     setEnableTaskListItemToggle(true)
     setSpoilerOverlay(SpoilerOverlay.Particles())
+    setAllowTrailingMargin(false)
     setMarkdownContent("")
+    setPlugins(emptyList())
     taskListToggles.clear()
     forgetReportedPluginEvents()
     pendingSegments = null
@@ -311,13 +378,35 @@ class EnrichedMarkdown(
     }
   }
 
-  private fun scheduleRender() {
+  /**
+   * What the render thread does with a parsed document, over this view's style, plugins and code
+   * block layout as they are when it is called, so a render keeps the state it was scheduled with.
+   */
+  @VisibleForTesting
+  internal fun segmentRenderer(): (MarkdownASTNode) -> List<RenderedSegment> {
     val style = markdownStyle
-    val markdown = currentMarkdown
-    val plugins = EnrichedMarkdownPlugins.snapshot
+    val plugins = pluginSnapshot
+    val codeBlockLayout = codeBlockLayout
+    val imageRequestHeaders = imageRequestHeaders
+    val admonitionTitles = admonitionTitles
     val onPluginEvent = renderPluginEventSink()
+    return { ast ->
+      MarkdownSegmentRenderer.render(
+        splitASTIntoSegments(ast, plugins, codeBlockLayout),
+        style,
+        context,
+        imageRequestHeaders,
+        onPluginEvent = onPluginEvent,
+        plugins = plugins,
+        admonitionTitles = admonitionTitles,
+      )
+    }
+  }
 
-    warnIfMathPluginMissing(plugins)
+  private fun scheduleRender() {
+    val markdown = currentMarkdown
+    val parserFlags = pluginSnapshot.adjustParserFlags(options.toParserFlags())
+    val renderSegments = segmentRenderer()
 
     val renderId = ++currentRenderId
     // Segments rendered while detached are superseded by this render.
@@ -337,23 +426,14 @@ class EnrichedMarkdown(
 
       try {
         val ast =
-          parser.parseMarkdown(markdown, md4cFlags) ?: run {
+          parser.parseMarkdown(markdown, parserFlags) ?: run {
             mainHandler.post { if (renderId == currentRenderId) landRenderedSegments(emptyList()) }
             return@submit
           }
 
         if (renderId != currentRenderId) return@submit
 
-        val segments = splitASTIntoSegments(ast, plugins)
-        val renderedSegments =
-          MarkdownSegmentRenderer.render(
-            segments,
-            style,
-            context,
-            imageRequestHeaders,
-            onPluginEvent = onPluginEvent,
-            plugins = plugins,
-          )
+        val renderedSegments = renderSegments(ast)
 
         if (renderId != currentRenderId) return@submit
 
@@ -480,24 +560,8 @@ class EnrichedMarkdown(
       onLinkPress = onLinkPressCallback,
       onLinkLongPress = onLinkLongPressCallback,
       onPluginEvent = pluginEventSink,
+      onCodeBlockCopy = onCodeBlockCopyCallback,
     )
-
-  /**
-   * Parsing latex without a plugin to render it is a dependency the app forgot, not a content
-   * error, so it is reported once per process rather than per view or per render.
-   */
-  private fun warnIfMathPluginMissing(plugins: PluginSnapshot) {
-    if (!md4cFlags.latexMath || missingMathPluginWarned) return
-    if (MATH_NODE_TYPES.any { it in plugins.nodeRenderers || it in plugins.blockSegments }) return
-
-    missingMathPluginWarned = true
-    Log.w(
-      TAG,
-      "Md4cFlags(latexMath = true) but no plugin renders math, so equations show as their raw " +
-        "source. Add the com.swmansion.enriched.markdown:math artifact and call " +
-        "EnrichedMarkdownPlugins.install(LatexMathPlugin) at startup.",
-    )
-  }
 
   private inner class RootFactory : SegmentViewFactory {
     override fun matchesKind(
@@ -507,6 +571,7 @@ class EnrichedMarkdown(
       when (segment) {
         is RenderedSegment.Text -> view is EnrichedMarkdownInternalText
         is RenderedSegment.Table -> view is TableContainerView
+        is RenderedSegment.CodeBlock -> view is CodeBlockContainerView
         is RenderedSegment.Custom<*> -> segment.matchesView(view)
       }
 
@@ -514,6 +579,7 @@ class EnrichedMarkdown(
       when (segment) {
         is RenderedSegment.Text -> SegmentViewCreators.createTextView(segment, segmentViewConfig())
         is RenderedSegment.Table -> SegmentViewCreators.createTableView(segment, segmentViewConfig())
+        is RenderedSegment.CodeBlock -> SegmentViewCreators.createCodeBlockView(segment, segmentViewConfig())
         is RenderedSegment.Custom<*> -> segment.createView(segmentViewConfig())
       }
 
@@ -524,6 +590,7 @@ class EnrichedMarkdown(
       when (segment) {
         is RenderedSegment.Text -> SegmentViewCreators.updateTextView(view as EnrichedMarkdownInternalText, segment)
         is RenderedSegment.Table -> SegmentViewCreators.updateTableView(view as TableContainerView, segment, segmentViewConfig())
+        is RenderedSegment.CodeBlock -> SegmentViewCreators.updateCodeBlockView(view as CodeBlockContainerView, segment)
         is RenderedSegment.Custom<*> -> segment.updateView(view, segmentViewConfig())
       }
     }
@@ -532,11 +599,5 @@ class EnrichedMarkdown(
   companion object {
     private const val TAG = "EnrichedMarkdown"
     private const val MAX_REPORTED_PLUGIN_EVENTS = 256
-
-    private val MATH_NODE_TYPES =
-      listOf(MarkdownASTNode.NodeType.LatexMathInline, MarkdownASTNode.NodeType.LatexMathDisplay)
-
-    @Volatile
-    private var missingMathPluginWarned = false
   }
 }

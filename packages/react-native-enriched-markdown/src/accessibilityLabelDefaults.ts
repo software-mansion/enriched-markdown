@@ -23,7 +23,11 @@ export const DEFAULT_ACCESSIBILITY_LABELS: ResolvedAccessibilityLabels = {
     row: 'Row {n}: {content}',
   },
   math: {
-    equation: 'Math: {latex}',
+    equation: 'Math: {speech}',
+  },
+  codeBlock: {
+    wrap: 'Wrap lines',
+    unwrap: 'Disable line wrap',
   },
   rotor: {
     headings: 'Headings',
@@ -71,6 +75,13 @@ export function resolveAccessibilityLabels(
     math: {
       equation:
         labels?.math?.equation ?? DEFAULT_ACCESSIBILITY_LABELS.math.equation,
+    },
+    codeBlock: {
+      wrap:
+        labels?.codeBlock?.wrap ?? DEFAULT_ACCESSIBILITY_LABELS.codeBlock.wrap,
+      unwrap:
+        labels?.codeBlock?.unwrap ??
+        DEFAULT_ACCESSIBILITY_LABELS.codeBlock.unwrap,
     },
     rotor: {
       headings:

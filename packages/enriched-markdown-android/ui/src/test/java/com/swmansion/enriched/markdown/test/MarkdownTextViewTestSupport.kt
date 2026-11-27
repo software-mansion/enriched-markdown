@@ -126,7 +126,6 @@ object MarkdownTextViewTestSupport {
     val segment =
       RenderedSegment.Text(
         styledText = spannable,
-        imageSpans = emptyList(),
         needsJustify = false,
         lastElementMarginBottom = 0f,
         signature = SegmentSignature.signatureForNodes(emptyList()) xor SegmentSignature.TEXT_KIND_SALT,

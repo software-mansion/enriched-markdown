@@ -1,3 +1,4 @@
+import SwiftUI
 import UIKit
 import XCTest
 @testable import EnrichedMarkdown
@@ -52,10 +53,85 @@ extension XCTestCase {
         textView.styleConfig = config
         textView.frame = CGRect(x: 0, y: 0, width: width, height: 100)
         textView.setMarkdownAttributedText(rendered)
-        let height = textView.sizeThatFits(CGSize(width: width, height: CGFloat.greatestFiniteMagnitude)).height
-        textView.frame = CGRect(x: 0, y: 0, width: width, height: height)
+        textView.frame = CGRect(x: 0, y: 0, width: width, height: height(of: textView, width: width))
         textView.layoutIfNeeded()
         return textView
+    }
+
+    func frame(of range: NSRange, in textView: MarkdownTextView) -> CGRect {
+        var union = CGRect.null
+        TextLayoutHelpers.enumerateSegmentFrames(of: range, in: textView) { segment, _, _ in union = union.union(segment) }
+        return union
+    }
+
+    func height(of textView: MarkdownTextView, width: CGFloat = 200) -> CGFloat {
+        textView.sizeThatFits(CGSize(width: width, height: CGFloat.greatestFiniteMagnitude)).height
+    }
+
+    func host(
+        _ representable: MarkdownTextViewRepresentable,
+        size: CGSize = CGSize(width: 300, height: 600)
+    ) throws -> (window: UIWindow, textView: MarkdownTextView) {
+        let host = UIHostingController(rootView: representable.fixedSize(horizontal: false, vertical: true))
+        let window = UIWindow(frame: CGRect(origin: .zero, size: size))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        host.view.layoutIfNeeded()
+        return (window, try XCTUnwrap(host.view.firstSubview(of: MarkdownTextView.self)))
+    }
+
+    func backgroundRows(
+        of textView: MarkdownTextView,
+        in rect: CGRect,
+        pass: MarkdownDecorationPass = .background
+    ) throws -> [[UInt8]] {
+        let decorator = MarkdownViewportDecorator(
+            backgroundView: MarkdownDecorationView(),
+            foregroundView: MarkdownDecorationView()
+        )
+        return try renderedRows(size: rect.size) { context in
+            decorator.draw(in: context, textView: textView, tile: rect, pass: pass)
+        }
+    }
+
+    func renderedRows(size: CGSize, draw: (CGContext) -> Void) throws -> [[UInt8]] {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
+            UIColor.white.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+            draw(context.cgContext)
+        }
+        return try rgbaRows(of: try XCTUnwrap(image.cgImage))
+    }
+
+    func rgbaRows(of cgImage: CGImage) throws -> [[UInt8]] {
+        let data = try XCTUnwrap(cgImage.dataProvider?.data) as Data
+        let bytesPerPixel = cgImage.bitsPerPixel / 8
+        return (0..<cgImage.height).map { row in
+            (0..<cgImage.width).flatMap { column -> [UInt8] in
+                let offset = row * cgImage.bytesPerRow + column * bytesPerPixel
+                let pixel = Array(data[offset..<offset + bytesPerPixel])
+                switch bytesPerPixel {
+                case 4: return pixel
+                case 2: return [pixel[0], pixel[0], pixel[0], pixel[1]]
+                default: return [pixel[0], pixel[0], pixel[0], 255]
+                }
+            }
+        }
+    }
+
+    func pixel(in rows: [[UInt8]], column: Int, row: Int) -> [UInt8] {
+        let start: Int = column * 4
+        return Array(rows[row][start..<(start + 4)])
+    }
+
+    func backgroundPixel(
+        of textView: MarkdownTextView,
+        at point: CGPoint,
+        pass: MarkdownDecorationPass = .background
+    ) throws -> [UInt8] {
+        pixel(in: try backgroundRows(of: textView, in: textView.bounds, pass: pass), column: Int(point.x), row: Int(point.y))
     }
 
     /// Lets the main queue drain, where a settled layout is announced.
@@ -71,6 +147,32 @@ extension XCTestCase {
     }
 }
 
+extension MarkdownTextViewRepresentable {
+    static func fixture(
+        attributedText: NSAttributedString,
+        isBottomMarginEnabled: Bool = false,
+        openURL: @escaping (URL) -> Void = { _ in }
+    ) -> MarkdownTextViewRepresentable {
+        MarkdownTextViewRepresentable(
+            attributedText: attributedText,
+            source: nil,
+            isBottomMarginEnabled: isBottomMarginEnabled,
+            styleConfig: .baseline(),
+            openURL: openURL,
+            onLinkPress: nil,
+            onLinkLongPress: nil,
+            selectionMenuConfig: MarkdownSelectionMenu(),
+            isSelectionEnabled: true,
+            selectionColor: nil,
+            onTaskListItemTap: nil,
+            spoilerOverlay: ParticleSpoilerOverlayProvider(),
+            onSpoilerTap: nil,
+            onCodeBlockCopy: nil,
+            accessibilityLabels: .default
+        )
+    }
+}
+
 extension UIView {
     func firstSubview<T: UIView>(of type: T.Type) -> T? {
         for subview in subviews {
@@ -78,4 +180,12 @@ extension UIView {
         }
         return nil
     }
+}
+
+func XCTAssertEqual(_ lhs: CGRect, _ rhs: CGRect, accuracy: CGFloat, _ message: String = "",
+                    file: StaticString = #filePath, line: UInt = #line) {
+    XCTAssertEqual(lhs.minX, rhs.minX, accuracy: accuracy, message, file: file, line: line)
+    XCTAssertEqual(lhs.minY, rhs.minY, accuracy: accuracy, message, file: file, line: line)
+    XCTAssertEqual(lhs.width, rhs.width, accuracy: accuracy, message, file: file, line: line)
+    XCTAssertEqual(lhs.height, rhs.height, accuracy: accuracy, message, file: file, line: line)
 }

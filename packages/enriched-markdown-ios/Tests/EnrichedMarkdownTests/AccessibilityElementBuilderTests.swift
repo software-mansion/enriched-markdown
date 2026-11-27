@@ -154,7 +154,7 @@ final class AccessibilityElementBuilderTests: XCTestCase {
         let result = specs(for: "Intro\n\n```swift\nlet a = 1\nlet b = 2\n```\n\nOutro")
 
         XCTAssertEqual(result.map(\.label), ["Intro", "let a = 1\nlet b = 2", "Outro"])
-        XCTAssertEqual(result[1].kind, .codeBlock(copyAction: "Copy code"))
+        XCTAssertEqual(result[1].kind, .codeBlock(copyAction: "Copy code", language: "swift"))
     }
 
     // MARK: - Lists

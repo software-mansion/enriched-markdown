@@ -1,0 +1,92 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - block
+  - advanced
+  - list
+  - task_list
+  - text
+  - android-only
+---
+- launchApp:
+    permissions: {}
+
+- waitForAnimationToEnd
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- assertVisible:
+    id: playground-screen
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        1. Ordered parent
+           - Bullet child
+           - Second bullet child
+        2. Following ordered sibling
+
+        - Bullet parent
+          1. Ordered child
+          2. Second ordered child
+        - Following bullet sibling
+
+- scrollUntilVisible:
+    element:
+      id: blur-button
+    direction: UP
+    visibilityPercentage: 100
+
+- tapOn:
+    id: blur-button
+
+- scroll
+
+- waitForAnimationToEnd
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'mixed_nested_list_markers_bullet_ordered_display'
+
+- scrollUntilVisible:
+    element:
+      id: set-markdown-button
+    direction: UP
+    visibilityPercentage: 100
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        - Bullet parent
+          - [ ] Unchecked task child
+          - [x] Checked task child
+
+        1. Ordered parent
+           - [ ] Unchecked task child
+           - [x] Checked task child
+
+        - [ ] Unchecked task parent
+          - Bullet child
+        - [x] Checked task parent
+          - Second bullet child
+
+- scrollUntilVisible:
+    element:
+      id: blur-button
+    direction: UP
+    visibilityPercentage: 100
+
+- tapOn:
+    id: blur-button
+
+- scroll
+
+- waitForAnimationToEnd
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'mixed_nested_list_markers_tasks_display'

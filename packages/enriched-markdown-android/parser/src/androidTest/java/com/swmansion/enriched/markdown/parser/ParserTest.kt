@@ -29,6 +29,40 @@ class ParserTest {
   }
 
   @Test
+  fun decodesNamedCharacterReferencesWithoutReparsingSyntax() {
+    val ast = requireNotNull(parser.parseMarkdown("&amp; &copy; &CounterClockwiseContourIntegral; &NotEqualTilde;"))
+    assertEquals(
+      "& © ∳ ≂̸",
+      ast.assertHasChildType(MarkdownASTNode.NodeType.Paragraph).assertHasChildType(MarkdownASTNode.NodeType.Text).content,
+    )
+    val citation = requireNotNull(parser.parseMarkdown("&#91;1&#93;\n\n[1]: https://example.test"))
+    assertEquals(
+      "[1]",
+      citation.assertHasChildType(MarkdownASTNode.NodeType.Paragraph).assertHasChildType(MarkdownASTNode.NodeType.Text).content,
+    )
+    assertNull(citation.firstOfType(MarkdownASTNode.NodeType.Link))
+  }
+
+  @Test
+  fun decodesNumericCharacterReferencesAndKeepsCodeLiteral() {
+    val ast = requireNotNull(parser.parseMarkdown("&#91;1&#93; &#x1F600; &#0; &#xD800; &#x110000;"))
+    assertEquals(
+      "[1] 😀 � � �",
+      ast.assertHasChildType(MarkdownASTNode.NodeType.Paragraph).assertHasChildType(MarkdownASTNode.NodeType.Text).content,
+    )
+    val code = requireNotNull(parser.parseMarkdown("`&amp;`"))
+    assertEquals(
+      "&amp;",
+      requireNotNull(code.firstOfType(MarkdownASTNode.NodeType.Code)).assertHasChildType(MarkdownASTNode.NodeType.Text).content,
+    )
+    val unknown = requireNotNull(parser.parseMarkdown("&bogus;"))
+    assertEquals(
+      "&bogus;",
+      unknown.assertHasChildType(MarkdownASTNode.NodeType.Paragraph).assertHasChildType(MarkdownASTNode.NodeType.Text).content,
+    )
+  }
+
+  @Test
   fun parsesStrongAndEmphasis() {
     val ast = requireNotNull(parser.parseMarkdown("**bold** and *italic*"))
 

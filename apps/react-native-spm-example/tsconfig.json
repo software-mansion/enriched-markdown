@@ -1,0 +1,12 @@
+{
+  "extends": "@react-native/typescript-config/tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-native",
+    "baseUrl": ".",
+    "paths": {
+      "react-native-enriched-markdown": [
+        "../../packages/react-native-enriched-markdown/src/index"
+      ]
+    }
+  }
+}

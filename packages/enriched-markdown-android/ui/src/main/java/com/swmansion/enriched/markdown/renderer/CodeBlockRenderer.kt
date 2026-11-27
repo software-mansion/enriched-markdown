@@ -1,3 +1,5 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.renderer
 
 import android.graphics.Paint
@@ -5,13 +7,17 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.LineHeightSpan
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.plugin.CodeBlockDecorator
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.spans.CodeBlockSpan
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
+import com.swmansion.enriched.markdown.utils.text.span.createLineHeightSpan
 
 class CodeBlockRenderer(
   private val config: RendererConfig,
+  private val decorators: List<CodeBlockDecorator> = emptyList(),
 ) : NodeRenderer {
   override fun render(
     node: MarkdownASTNode,
@@ -20,6 +26,10 @@ class CodeBlockRenderer(
     onLinkLongPress: ((String) -> Unit)?,
     factory: RendererFactory,
   ) {
+    if (builder.isNotEmpty() && builder.last() != '\n') {
+      builder.append("\n")
+    }
+
     val start = builder.length
     val style = config.style.codeBlockStyle
     val context = factory.blockStyleContext
@@ -44,11 +54,26 @@ class CodeBlockRenderer(
 
     // Apply background, borders, and horizontal padding to content only
     builder.setSpan(
-      CodeBlockSpan(style, factory.context, factory.styleCache),
+      CodeBlockSpan(style, factory.context, factory.styleCache, context.accumulatedIndent),
       contentStart,
       end,
       SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
     )
+
+    // After CodeBlockSpan: character styles apply in insertion order, and the block's span
+    // repaints every color it does not preserve, so a decorator's colors must come later.
+    if (decorators.isNotEmpty()) {
+      val language = node.getAttribute("language")?.takeIf { it.isNotBlank() }
+      for (decorator in decorators) {
+        decorator.decorate(builder, contentStart, end, language, config.style, factory.context)
+      }
+    }
+
+    // Before the padding span: line height spans apply in order, and the line height would
+    // swallow the padding that span adds to the first and last lines.
+    if (style.lineHeight > 0f) {
+      builder.setSpan(createLineHeightSpan(style.lineHeight), contentStart, end, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
+    }
 
     // Apply vertical padding via line height manipulation
     builder.setSpan(

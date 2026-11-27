@@ -1,5 +1,24 @@
 import type { ASTNode } from './types';
 
+/**
+ * Whether `text` has a letter to resolve `dir="auto"` from. Chromium resolves
+ * an element with none (digits, punctuation, empty) to LTR instead of
+ * inheriting, so such elements must not get `dir="auto"`.
+ */
+export function hasStrongChar(text: string): boolean {
+  return /\p{L}/u.test(text);
+}
+
+/**
+ * `hasStrongChar` over the text a parent's `dir="auto"` reads: code blocks
+ * carry their own `dir="ltr"` and an image's alt text is not content.
+ */
+export function hasStrongText(node: ASTNode): boolean {
+  if (node.type === 'CodeBlock' || node.type === 'Image') return false;
+  if (node.content !== undefined) return hasStrongChar(node.content);
+  return node.children?.some(hasStrongText) ?? false;
+}
+
 /** Recursively collects plain text content from an AST node's subtree. */
 export function extractNodeText(node: ASTNode): string {
   if (node.type === 'SoftBreak' || node.type === 'LineBreak') return ' ';
@@ -30,6 +49,13 @@ export function indexTaskItems(node: ASTNode, counter = { value: 0 }): void {
   node.children?.forEach((child) => indexTaskItems(child, counter));
 }
 
+/** Whether a node holds anything besides images, at any depth (even a space). */
+export function hasNonImageContent(node: ASTNode): boolean {
+  if (node.type === 'Image') return false;
+  if (!node.children?.length) return true;
+  return node.children.some(hasNonImageContent);
+}
+
 /**
  * Stamps Image nodes with `isInline` when they appear inside a paragraph
  * that also contains other content (text, links, etc.).
@@ -50,4 +76,10 @@ export function markInlineImages(node: ASTNode): void {
     }
   }
   node.children?.forEach(markInlineImages);
+}
+
+/** Whether a node holds a block-level image (one not stamped inline). */
+export function hasBlockImage(node: ASTNode): boolean {
+  if (node.type === 'Image') return !node.attributes?.isInline;
+  return node.children?.some(hasBlockImage) ?? false;
 }

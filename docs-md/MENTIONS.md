@@ -69,9 +69,9 @@ linkVariants: {
 }
 ```
 
-`fontFamily` can be overridden per variant and otherwise inherits the base `link` family.
+On `EnrichedMarkdownText`, `fontFamily` can also be overridden per variant and otherwise inherits the base `link` family; `EnrichedMarkdownTextInput` variants accept only `color`, `underline` and `backgroundColor`.
 
-Each key is a regex tested against the link URL. First match wins. Unspecified properties inherit from the base `link` style. Patterns are auto-sorted longest-first.
+Each key is a regex tested against the link URL. First match wins. Unspecified `color` and `underline` (and `fontFamily` on `EnrichedMarkdownText`) inherit from the base `link` style; `backgroundColor` defaults to `transparent`. Patterns are auto-sorted longest-first.
 
 ## Native link pills
 

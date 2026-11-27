@@ -175,8 +175,13 @@ class StyleConfig(
 
   var imageRequestHeaders: Map<String, String> = emptyMap()
 
+  /** Per-image request overrides keyed by `imageOccurrenceId` (the `imageSources` prop). */
+  var imageSourceOverrides: Map<String, ImageSourceOverride> = emptyMap()
+
   /** Per-link pill content keyed by exact URL; content, so it lives outside the style map. */
   var linkPillContent: Map<String, LinkPillContent> = emptyMap()
+
+  var admonitionTitles: Map<String, String> = emptyMap()
 
   val videoStyle: VideoStyle by lazy {
     val map =
@@ -360,7 +365,9 @@ class StyleConfig(
       subscriptStyle == other.subscriptStyle &&
       highlightStyle == other.highlightStyle &&
       imageRequestHeaders == other.imageRequestHeaders &&
-      linkPillContent == other.linkPillContent
+      imageSourceOverrides == other.imageSourceOverrides &&
+      linkPillContent == other.linkPillContent &&
+      admonitionTitles == other.admonitionTitles
   }
 
   override fun hashCode(): Int {
@@ -389,7 +396,9 @@ class StyleConfig(
     result = 31 * result + subscriptStyle.hashCode()
     result = 31 * result + highlightStyle.hashCode()
     result = 31 * result + imageRequestHeaders.hashCode()
+    result = 31 * result + imageSourceOverrides.hashCode()
     result = 31 * result + linkPillContent.hashCode()
+    result = 31 * result + admonitionTitles.hashCode()
     return result
   }
 }

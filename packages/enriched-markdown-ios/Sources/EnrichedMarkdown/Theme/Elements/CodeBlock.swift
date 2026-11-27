@@ -1,6 +1,6 @@
 import SwiftUI
 
-public struct CodeBlock: MarkdownThemeElement, BackgroundThemeElement, BorderThemeElement {
+public struct CodeBlock: MarkdownThemeElement, BackgroundThemeElement, BorderThemeElement, CornerRadiusThemeElement {
     public var fontSpec: ThemeFontSpec?
     public var fontWeight: Font.Weight?
     public var fontDesign: Font.Design?
@@ -15,6 +15,7 @@ public struct CodeBlock: MarkdownThemeElement, BackgroundThemeElement, BorderThe
     public var padding: CGFloat?
     public var cornerRadius: CGFloat?
     public var borderWidth: CGFloat?
+    public var headerForegroundColorSpec: ThemeColorSpec?
 
     public init() {}
 
@@ -26,9 +27,16 @@ public struct CodeBlock: MarkdownThemeElement, BackgroundThemeElement, BorderThe
         return copy
     }
 
-    public func cornerRadius(_ value: CGFloat) -> Self {
+    @_disfavoredOverload
+    public func headerForegroundStyle(_ color: Color) -> Self {
         var copy = self
-        copy.cornerRadius = value
+        copy.headerForegroundColorSpec = ThemeColorModifiers.spec(from: color)
+        return copy
+    }
+
+    public func headerForegroundStyle(_ semantic: ThemeColorSpec.SemanticColor) -> Self {
+        var copy = self
+        copy.headerForegroundColorSpec = ThemeColorModifiers.spec(from: semantic)
         return copy
     }
 
@@ -39,6 +47,9 @@ public struct CodeBlock: MarkdownThemeElement, BackgroundThemeElement, BorderThe
             color: &config.codeBlock.borderColor, width: &config.codeBlock.borderWidth, traitCollection: traitCollection
         )
         if let padding { config.codeBlock.padding = padding }
-        if let cornerRadius { config.codeBlock.cornerRadius = cornerRadius }
+        applyCornerRadius(to: &config.codeBlock.cornerRadius)
+        if let headerForegroundColorSpec {
+            config.codeBlock.headerForegroundColor = headerForegroundColorSpec.resolve(traitCollection: traitCollection)
+        }
     }
 }

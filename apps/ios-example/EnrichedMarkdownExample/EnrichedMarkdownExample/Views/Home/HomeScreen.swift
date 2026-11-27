@@ -31,6 +31,20 @@ private let menuItems: [HomeMenuItem] = [
         accessibilityId: "home-block-math"
     ),
     HomeMenuItem(
+        route: .code,
+        label: "Code",
+        subtext: "syntax-highlighted code blocks",
+        color: .tileIndigo,
+        accessibilityId: "home-block-code"
+    ),
+    HomeMenuItem(
+        route: .links,
+        label: "Links",
+        subtext: "mention chips and link styling",
+        color: .tileTeal,
+        accessibilityId: "home-block-links"
+    ),
+    HomeMenuItem(
         route: .input,
         label: "Input",
         subtext: "chat-style rich text input",

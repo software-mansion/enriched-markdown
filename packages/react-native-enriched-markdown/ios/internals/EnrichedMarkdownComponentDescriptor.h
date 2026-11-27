@@ -1,7 +1,7 @@
 #pragma once
+#include "ENRMMarkdownStreams.h"
+#include "ENRMReactHeaders.h"
 #include "EnrichedMarkdownShadowNode.h"
-#include <react/debug/react_native_assert.h>
-#include <react/renderer/core/ConcreteComponentDescriptor.h>
 
 namespace facebook::react {
 
@@ -12,6 +12,12 @@ public:
   void adopt(ShadowNode &shadowNode) const override {
     react_native_assert(dynamic_cast<EnrichedMarkdownShadowNode *>(&shadowNode));
     ConcreteComponentDescriptor::adopt(shadowNode);
+  }
+
+  Props::Shared cloneProps(const PropsParserContext &context, const Props::Shared &props,
+                           RawProps rawProps) const override {
+    return ENRMResolveStreamedMarkdown<EnrichedMarkdownProps>(
+        props, ConcreteComponentDescriptor::cloneProps(context, props, std::move(rawProps)));
   }
 };
 

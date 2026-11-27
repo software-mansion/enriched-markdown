@@ -2,11 +2,10 @@ package com.swmansion.enriched.markdown.renderer
 
 import android.content.Context
 import android.text.SpannableStringBuilder
+import com.swmansion.enriched.markdown.AdmonitionTitles
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
-import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.plugin.PluginSnapshot
-import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 
@@ -17,8 +16,8 @@ class Renderer {
   private var cachedImageRequestHeaders: Map<String, String> = emptyMap()
   private var cachedOnPluginEvent: PluginEventSink? = null
   private var cachedPlugins: PluginSnapshot? = null
+  private var cachedAdmonitionTitles: AdmonitionTitles = AdmonitionTitles.Default
 
-  private val collectedImageSpans = mutableListOf<ImageSpan>()
   private var lastElementMarginBottom: Float = 0f
 
   fun configure(
@@ -26,13 +25,15 @@ class Renderer {
     context: Context,
     imageRequestHeaders: Map<String, String> = emptyMap(),
     onPluginEvent: PluginEventSink? = null,
-    plugins: PluginSnapshot = EnrichedMarkdownPlugins.snapshot,
+    plugins: PluginSnapshot,
+    admonitionTitles: AdmonitionTitles = AdmonitionTitles.Default,
   ) {
     if (cachedStyle === style &&
       cachedContext === context &&
       cachedImageRequestHeaders == imageRequestHeaders &&
       cachedOnPluginEvent === onPluginEvent &&
-      cachedPlugins === plugins
+      cachedPlugins === plugins &&
+      cachedAdmonitionTitles == admonitionTitles
     ) {
       return
     }
@@ -42,12 +43,13 @@ class Renderer {
     cachedImageRequestHeaders = imageRequestHeaders
     cachedOnPluginEvent = onPluginEvent
     cachedPlugins = plugins
+    cachedAdmonitionTitles = admonitionTitles
     cachedFactory =
       RendererFactory(
-        RendererConfig(style, imageRequestHeaders, onPluginEvent),
+        RendererConfig(style, imageRequestHeaders, onPluginEvent, admonitionTitles),
         context,
         plugins,
-      ) { span -> reportImageSpan(span) }
+      )
   }
 
   fun renderDocument(
@@ -78,7 +80,6 @@ class Renderer {
     factory.resetForNewRender()
     // Must run after resetForNewRender, which zeroes taskItemCount.
     factory.blockStyleContext.taskItemCount = startingTaskIndex
-    collectedImageSpans.clear()
     lastElementMarginBottom = 0f
 
     val builder = SpannableStringBuilder()
@@ -127,16 +128,4 @@ class Renderer {
    * and can be used in MeasurementStore to adjust the measured height.
    */
   fun getLastElementMarginBottom(): Float = lastElementMarginBottom
-
-  /**
-   * Internal helper used by the Factory's lambda to collect spans.
-   */
-  private fun reportImageSpan(span: ImageSpan) {
-    collectedImageSpans.add(span)
-  }
-
-  /**
-   * Provides the segment's text view with the exact list of spans that need registration.
-   */
-  fun getCollectedImageSpans(): List<ImageSpan> = collectedImageSpans
 }

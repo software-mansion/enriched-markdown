@@ -6,7 +6,8 @@
   "scripts": {
     "start": "expo start",
     "web": "expo start --web",
-    "build:web": "expo export --platform web"
+    "build:web": "expo export --platform web",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "expo": "~55.0.0",

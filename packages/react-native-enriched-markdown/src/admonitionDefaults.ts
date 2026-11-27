@@ -1,5 +1,12 @@
+import { useMemo } from 'react';
 import { normalizeColor } from './styleUtils';
 import type { AdmonitionsStyle } from './types/MarkdownStyle';
+import type {
+  AdmonitionTitles,
+  AdmonitionType,
+} from './types/admonitionTitles';
+
+export type { AdmonitionType };
 
 // The five GitHub-flavored admonition/alert types, in the order md4c reports
 // them (see MD_ADMONITION_TAGS). The `admonitionType` attribute emitted by the
@@ -10,9 +17,17 @@ export const ADMONITION_TYPES = [
   'important',
   'warning',
   'caution',
-] as const;
+] as const satisfies readonly AdmonitionType[];
 
-export type AdmonitionType = (typeof ADMONITION_TYPES)[number];
+export const DEFAULT_ADMONITION_TITLES: Readonly<
+  Record<AdmonitionType, string>
+> = Object.freeze({
+  note: 'Note',
+  tip: 'Tip',
+  important: 'Important',
+  warning: 'Warning',
+  caution: 'Caution',
+});
 
 // GitHub alert palette. Each `color` tints the left accent bar, the title label
 // and the icon for that type. Backgrounds default to transparent (no fill) per
@@ -55,4 +70,31 @@ export function resolveAdmonitionColors(
     };
   }
   return result;
+}
+
+// The header draws one line, so line breaks in a title become spaces.
+const LINE_BREAKS = /[\r\n\u0085\u2028\u2029]+/g;
+
+export type ResolvedAdmonitionTitles = Readonly<Record<AdmonitionType, string>>;
+
+// Every type's title, defaults filled in. Memoized on the strings, so an inline
+// `admonitionTitles` literal is stable.
+export function useAdmonitionTitles(
+  titles: AdmonitionTitles | undefined
+): ResolvedAdmonitionTitles {
+  const note = titles?.note;
+  const tip = titles?.tip;
+  const important = titles?.important;
+  const warning = titles?.warning;
+  const caution = titles?.caution;
+  return useMemo(() => {
+    const given = { note, tip, important, warning, caution };
+    const result = {} as Record<AdmonitionType, string>;
+    for (const type of ADMONITION_TYPES) {
+      result[type] = (given[type] ?? DEFAULT_ADMONITION_TITLES[type])
+        .replace(LINE_BREAKS, ' ')
+        .trim();
+    }
+    return Object.freeze(result);
+  }, [note, tip, important, warning, caution]);
 }

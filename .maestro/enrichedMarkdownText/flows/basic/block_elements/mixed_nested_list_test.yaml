@@ -26,6 +26,13 @@ tags:
             2. FastAPI
 
 - runFlow:
+    when:
+      platform: Android
+    commands:
+      - scroll
+      - waitForAnimationToEnd
+
+- runFlow:
     file: '../../../subflows/capture_or_assert_screenshot.yaml'
     env:
       SCREENSHOT_NAME: 'mixed_nested_list_display'

@@ -29,14 +29,7 @@ class EditSession {
   val shouldSuppressAnchorSync: Boolean
     get() = phase == EditPhase.ManagingAnchors
 
-  fun enter(newPhase: EditPhase) {
-    phase = newPhase
-  }
-
-  fun exit() {
-    phase = EditPhase.Idle
-  }
-
+  /** Runs [block] in [newPhase], then restores the enclosing phase so sessions nest. */
   fun <T> scoped(
     newPhase: EditPhase,
     block: () -> T,

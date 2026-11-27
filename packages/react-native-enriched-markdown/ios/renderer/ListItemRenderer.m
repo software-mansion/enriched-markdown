@@ -83,25 +83,29 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
 
   // currentDepth - 1 handles the horizontal offset for nested lists
   const NSInteger nestingLevel = currentDepth - 1;
-  const CGFloat baseMarkerWidth = isTask                                  ? [_config effectiveListMarginLeftForTask]
-                                  : (context.listType == ListTypeOrdered) ? [_config effectiveListMarginLeftForNumber]
+  // A task in a widened ordered list moves with its numbered siblings.
+  const CGFloat baseMarkerWidth = isTask ? [_config effectiveListMarginLeftForTask] + context.listMarkerExtra
+                                  : (context.listType == ListTypeOrdered) ? context.listMarkerWidth
                                                                           : [_config effectiveListMarginLeftForBullet];
 
   const CGFloat blockquoteIndent =
       blockquoteIndentForDepth(context.blockquoteDepth, [_config blockquoteBorderWidth] + [_config blockquoteGapWidth]);
 
   const CGFloat totalIndent = blockquoteIndent + baseMarkerWidth + [_config effectiveListGapWidth] +
-                              (nestingLevel * [_config listStyleMarginLeft]);
+                              (nestingLevel * [_config listStyleMarginLeft]) + context.ancestorMarkerOffset;
 
   const NSUInteger startLocation = output.length;
 
   // Manual save/restore — a scope snapshot would also roll back the listItemNumber increment
+  const CGFloat prevMarkerExtra = context.listItemMarkerExtra;
+  context.listItemMarkerExtra = context.listMarkerExtra;
   const CGFloat prevIndent = context.accumulatedIndent;
   context.accumulatedIndent = totalIndent;
   @try {
     [_rendererFactory renderChildrenOfNode:node into:output context:context];
   } @finally {
     context.accumulatedIndent = prevIndent;
+    context.listItemMarkerExtra = prevMarkerExtra;
   }
 
   // Ensure every list item ends with a newline to prevent paragraph merging

@@ -43,7 +43,7 @@ Lcom/swmansion/enriched/markdown/input/autolink/AutoDetectedLinkMarkerSpan;
 Lcom/swmansion/enriched/markdown/input/autolink/AutoDetectedLinkUnderlineSpan;
 Lcom/swmansion/enriched/markdown/input/autolink/AutoLinkDetector;
 Lcom/swmansion/enriched/markdown/input/autolink/AutoLinkDetectorKt;
-Lcom/swmansion/enriched/markdown/input/autolink/LinkRegexConfig;
+Lcom/swmansion/enriched/markdown/utils/common/LinkRegexConfig;
 
 # Input - Detection
 Lcom/swmansion/enriched/markdown/input/detection/DetectorPipeline;
@@ -77,14 +77,10 @@ Lcom/swmansion/enriched/markdown/input/formatting/FormattingStore;
 Lcom/swmansion/enriched/markdown/input/formatting/FormattingStore$EditOverlap;
 Lcom/swmansion/enriched/markdown/input/formatting/InputFormatter;
 Lcom/swmansion/enriched/markdown/input/formatting/InputParser;
-Lcom/swmansion/enriched/markdown/input/formatting/InputRemend;
-Lcom/swmansion/enriched/markdown/input/formatting/InputRemend$DelimiterPair;
 Lcom/swmansion/enriched/markdown/input/formatting/MarkdownSerializer;
-Lcom/swmansion/enriched/markdown/input/formatting/MarkdownSerializer$BoundaryEvent;
 Lcom/swmansion/enriched/markdown/input/formatting/MarkdownSpan;
 Lcom/swmansion/enriched/markdown/input/formatting/MarkdownSpan$SpanDescriptor;
 Lcom/swmansion/enriched/markdown/input/formatting/ParseResult;
-Lcom/swmansion/enriched/markdown/input/formatting/ParseResult$ActiveStyle;
 
 # Input - Layout
 Lcom/swmansion/enriched/markdown/input/layout/InputEventEmitter;
@@ -181,7 +177,7 @@ Lcom/swmansion/enriched/markdown/spans/CodeBackgroundSpan;
 Lcom/swmansion/enriched/markdown/spans/CodeBlockSpan;
 Lcom/swmansion/enriched/markdown/spans/CodeSpan;
 Lcom/swmansion/enriched/markdown/spans/EmphasisSpan;
-Lcom/swmansion/enriched/markdown/spans/FadeInSpan;
+Lcom/swmansion/enriched/markdown/spans/StreamingEffectSpan;
 Lcom/swmansion/enriched/markdown/spans/HeadingSpan;
 Lcom/swmansion/enriched/markdown/spans/HighlightSpan;
 Lcom/swmansion/enriched/markdown/spans/ImageSpan;
@@ -283,7 +279,8 @@ Lcom/swmansion/enriched/markdown/utils/input/MarkdownStyleParser;
 # Utilities - Text
 Lcom/swmansion/enriched/markdown/utils/text/ImageCache;
 Lcom/swmansion/enriched/markdown/utils/text/ImageDownloader;
-Lcom/swmansion/enriched/markdown/utils/text/TailFadeInAnimator;
+Lcom/swmansion/enriched/markdown/utils/text/StreamingEffectRuns;
+Lcom/swmansion/enriched/markdown/utils/text/StreamingEffectsAnimator;
 Lcom/swmansion/enriched/markdown/utils/text/conversion/HTMLGenerator;
 Lcom/swmansion/enriched/markdown/utils/text/conversion/HTMLGenerator$CachedStyles;
 Lcom/swmansion/enriched/markdown/utils/text/conversion/HTMLGenerator$GeneratorState;

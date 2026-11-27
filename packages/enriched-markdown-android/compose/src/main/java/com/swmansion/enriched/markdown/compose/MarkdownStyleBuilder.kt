@@ -224,20 +224,18 @@ class MarkdownStyleBuilder internal constructor() {
 /**
  * Creates a [MarkdownStyle] using Compose types (`Color`, `Dp`, `sp`, [androidx.compose.ui.text.font.FontFamily]).
  *
- * Call from a `@Composable` to read [androidx.compose.material3.MaterialTheme] tokens:
+ * Not a composable, so hoist styles with fixed values to file scope:
  *
  * ```
- * MaterialTheme {
- *   MarkdownTheme(style = markdownStyle {
- *     paragraph { color = MaterialTheme.colorScheme.onSurface }
- *     link { color = MaterialTheme.colorScheme.primary }
- *   }) {
- *     NavHost(...)
- *   }
+ * val AppMarkdownStyle = markdownStyle {
+ *   paragraph { fontSize = 16.sp }
+ *   link { color = Color(0xFF2563EB) }
  * }
  * ```
  *
- * For styles that track Material color-scheme changes automatically, prefer [rememberMarkdownStyle].
+ * For values read from composition, read them first and build the style in `remember`, keyed on
+ * them. For a style colored from the Material scheme, use
+ * [com.swmansion.enriched.markdown.compose.material3.rememberMaterialMarkdownStyle].
  */
 fun markdownStyle(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle =
   MarkdownStyle(listOf(MarkdownStyleBuilder().apply(block).captureLayer()))

@@ -18,7 +18,9 @@ struct BlockDecorationConfig {
     var listBulletSize: CGFloat = 6
     var listBulletColor: UIColor = UIColor(red: 0.42, green: 0.45, blue: 0.50, alpha: 1)
     var listMarkerColor: UIColor = UIColor(red: 0.42, green: 0.45, blue: 0.50, alpha: 1)
-    var listMarkerFont: UIFont = .systemFont(ofSize: 16, weight: .medium)
+    static let defaultListMarkerFont: UIFont = .systemFont(ofSize: 16, weight: .medium)
+
+    var listMarkerFont: UIFont = defaultListMarkerFont
 
     var taskCheckboxSize: CGFloat = 14
     var taskCheckboxBorderRadius: CGFloat = 3

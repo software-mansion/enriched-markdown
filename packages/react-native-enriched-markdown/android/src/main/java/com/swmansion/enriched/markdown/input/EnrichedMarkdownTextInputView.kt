@@ -8,6 +8,8 @@ import android.graphics.Color
 import android.os.Build
 import android.text.Editable
 import android.text.InputType
+import android.text.SpannableString
+import android.text.TextPaint
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
@@ -23,8 +25,8 @@ import com.facebook.react.uimanager.BackgroundStyleApplicator
 import com.facebook.react.uimanager.PixelUtil
 import com.facebook.react.uimanager.StateWrapper
 import com.facebook.react.views.text.ReactTypefaceUtils
+import com.facebook.react.views.text.TextAttributes
 import com.swmansion.enriched.markdown.input.autolink.AutoLinkDetector
-import com.swmansion.enriched.markdown.input.autolink.LinkRegexConfig
 import com.swmansion.enriched.markdown.input.detection.DetectorPipeline
 import com.swmansion.enriched.markdown.input.editing.BlockEditCoordinator
 import com.swmansion.enriched.markdown.input.editing.ClipboardCoordinator
@@ -47,12 +49,16 @@ import com.swmansion.enriched.markdown.input.formatting.InputFormatter
 import com.swmansion.enriched.markdown.input.formatting.InputParser
 import com.swmansion.enriched.markdown.input.layout.InputEventEmitter
 import com.swmansion.enriched.markdown.input.layout.InputLayoutManager
+import com.swmansion.enriched.markdown.input.layout.InputMeasurementStore
 import com.swmansion.enriched.markdown.input.model.BlockRange
 import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.FormattingRange
 import com.swmansion.enriched.markdown.input.model.InputFormatterStyle
 import com.swmansion.enriched.markdown.input.model.StyleType
+import com.swmansion.enriched.markdown.input.spans.applyBodyLineHeightSpan
+import com.swmansion.enriched.markdown.input.spans.bodyLineMinimumFontMetrics
 import com.swmansion.enriched.markdown.input.toolbar.InputContextMenu
+import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.input.AutoCapitalizeUtils
 import kotlin.math.ceil
 
@@ -83,8 +89,16 @@ class EnrichedMarkdownTextInputView(
   private var pendingAutoFocusKeyboard = false
 
   private var typefaceDirty = false
+
+  /**
+   * Whenever formatting has changed, set this to true to ensure `onAfterUpdateTransaction` calls
+   * `applyFormatting` after all new props have been processed. We use this instead of directly
+   * calling `applyFormatting` to avoid duplicate calls when setting multiple props.
+   */
+  private var formattingDirty = false
   private var fontFamilyValue: String? = null
   private var fontWeightValue: Int = ReactConstants.UNSET
+  internal val textAttributes = TextAttributes()
 
   val contextMenu = InputContextMenu(this)
   val eventEmitter = InputEventEmitter(this)
@@ -98,7 +112,10 @@ class EnrichedMarkdownTextInputView(
       override val editable: Editable? get() = text
       override val emitMarkdown: Boolean get() = this@EnrichedMarkdownTextInputView.emitMarkdown
 
-      override fun syncEmptyListAnchor(restamp: Boolean) = this@EnrichedMarkdownTextInputView.syncEmptyListAnchor(restamp)
+      override fun syncEmptyListAnchor(
+        restamp: Boolean,
+        anchorLineStart: Int?,
+      ) = this@EnrichedMarkdownTextInputView.syncEmptyListAnchor(restamp, anchorLineStart)
 
       override fun forceScrollToSelection() = this@EnrichedMarkdownTextInputView.forceScrollToSelection()
 
@@ -132,9 +149,9 @@ class EnrichedMarkdownTextInputView(
   /** Typed `# `, `- `, `1. ` become blocks (opt-in per family from JS). */
   var markdownShortcuts: MarkdownShortcutsConfig = MarkdownShortcutsConfig()
 
-  private val clipboardCoordinator = ClipboardCoordinator(formattingStore, blockStore, detectorPipeline, formatter)
+  private val clipboardCoordinator = ClipboardCoordinator(formattingStore, blockStore, detectorPipeline)
 
-  private var headingOverrideBaseSizePx: Float? = null
+  private var bodySizeBeforeHeadingOverridePx: Float? = null
   private var baseHintColor: Int? = null
 
   // Number of ZWSP empty-list anchors believed live in the buffer. Bumped on insert,
@@ -147,6 +164,11 @@ class EnrichedMarkdownTextInputView(
 
   // The consumer-set placeholder, hidden while a bullet is drawn on an empty editor.
   private var userHint: CharSequence? = null
+
+  // userHint with the body line-height span, so the hint lays out at the same
+  // line height that InputMeasurementStore measures it with.
+  private var styledHint: CharSequence? = null
+  private var styledHintLineHeight = Float.NaN
 
   init {
     setupDetectorPipeline()
@@ -177,6 +199,13 @@ class EnrichedMarkdownTextInputView(
 
     setEditableFactory(MarkdownEditableFactory(this))
     setPadding(0, 0, 0, 0)
+    // Line height comes from InputLineHeightSpan, so there is no extra line
+    // spacing, as in React Native's text layout:
+    // https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/text/TextLayoutManager.kt#L676
+    setLineSpacing(0f, 1f)
+    // Start from EditText's default size so heading line heights can be
+    // derived even when no fontSize prop is set.
+    textAttributes.fontSize = textSize / (resources.displayMetrics.density * resources.configuration.fontScale)
     background = null
     BackgroundStyleApplicator.setBackgroundColor(this, Color.TRANSPARENT)
     contextMenu.install()
@@ -329,7 +358,24 @@ class EnrichedMarkdownTextInputView(
     y: Int,
   ) {
     if (!scrollEnabled) return
-    super.scrollTo(x, y)
+    // Pin to the top while the text fits the height Yoga allows: the view is
+    // about to grow to fit it, so scrolling to the caret now would show the text
+    // bottom-aligned for a frame until the resize lands.
+    val textHeight = layout?.height
+    val maxHeight = InputMeasurementStore.getMaxHeight(id)
+    val textFitsMaxHeight = textHeight != null && maxHeight != null && textHeight <= maxHeight
+    super.scrollTo(x, if (textFitsMaxHeight) 0 else y)
+  }
+
+  override fun onLayout(
+    changed: Boolean,
+    left: Int,
+    top: Int,
+    right: Int,
+    bottom: Int,
+  ) {
+    super.onLayout(changed, left, top, right, bottom)
+    InputMeasurementStore.onLaidOut(id, (bottom - top - paddingTop - paddingBottom).toFloat())
   }
 
   override fun canScrollVertically(direction: Int): Boolean = scrollEnabled && super.canScrollVertically(direction)
@@ -369,8 +415,7 @@ class EnrichedMarkdownTextInputView(
     val currentText = text?.toString() ?: ""
     if (currentText == lastProcessedText) return
 
-    editSession.enter(EditPhase.Processing)
-    try {
+    editSession.scoped(EditPhase.Processing) {
       val context =
         EditContext(
           editStart = editStart,
@@ -383,11 +428,12 @@ class EnrichedMarkdownTextInputView(
           pendingStyleRemovals = pendingStyleRemovals.toSet(),
         )
       editPipeline.processTextChange(context)
+      // Measure only once the pipeline has settled the text and its formatting
+      // (list continuation, shortcuts, the ZWSP anchor), never mid-edit.
+      layoutManager.invalidateLayout()
       editSession.isTextChanging = false
       editSession.didTextChangeRecently = true
       lastProcessedText = text?.toString() ?: currentText
-    } finally {
-      editSession.exit()
     }
     emitSelectionIfChanged()
   }
@@ -407,9 +453,7 @@ class EnrichedMarkdownTextInputView(
       if (editSession.didTextChangeRecently) {
         editSession.didTextChangeRecently = false
       } else {
-        pendingStyles.clear()
-        pendingStyleRemovals.clear()
-        seedPendingStylesFromSelection(selStart, selEnd)
+        resetPendingStylesForSelection(selStart, selEnd)
       }
     }
 
@@ -444,6 +488,17 @@ class EnrichedMarkdownTextInputView(
       lastEmittedSelectionStart = start
       lastEmittedSelectionEnd = end
     }
+  }
+
+  // emitState checks pending styles before the store, so re-derive them from the store after a store
+  // change and before emitting.
+  private fun resetPendingStylesForSelection(
+    selStart: Int,
+    selEnd: Int,
+  ) {
+    pendingStyles.clear()
+    pendingStyleRemovals.clear()
+    seedPendingStylesFromSelection(selStart, selEnd)
   }
 
   /**
@@ -488,27 +543,72 @@ class EnrichedMarkdownTextInputView(
     start: Int,
     end: Int,
     newText: String,
-    postAdjust: (Editable) -> Unit = {},
+    crossinline postAdjust: (Editable) -> Unit = {},
   ) {
     val editable = text ?: return
-    editSession.enter(EditPhase.Processing)
-    try {
+    editSession.scoped(EditPhase.Processing) {
       editable.replace(start, end, newText)
       adjustStoresForEdit(start, end - start, newText.length)
       postAdjust(editable)
       lastProcessedText = editable.toString()
       applyFormattingAndEmit()
       eventEmitter.emitChangeText()
-    } finally {
-      editSession.exit()
     }
+    // The scope above suppresses the text watcher, so the pipeline's own hint
+    // sync never ran. Without this, an insert into an empty editor (paste,
+    // insertText, insertLink, startMention) leaves the placeholder in place and
+    // the next selection change calls setHint from inside
+    // Editor.selectCurrentWordAndStartDrag, which crashes — same as setValue.
+    syncHintVisibility()
     emitSelectionIfChanged()
   }
 
   fun applyFormatting() {
     val editable = text ?: return
+    formattingDirty = false
+    // textAttributes is mutated in place by the prop setters, while
+    // InputFormatter.copy() (used for measurement snapshots) shares
+    // bodyTextAttributes on the assumption that it is never mutated.
+    formatter.bodyTextAttributes = textAttributes.copy()
     formatter.applyFormatting(editable, formattingStore.allRanges)
     formatter.applyBlockFormatting(editable, blockStore.allRanges)
+    applyBodyLineHeightSpan(editable, textAttributes)
+    updateMinimumFontMetrics()
+    updateStyledHint()
+    // Formatting can change the height without changing the text (toggling a
+    // heading or list, or a new font size or line height), so Yoga has to
+    // re-measure here, not only on text changes.
+    layoutManager.invalidateLayout()
+  }
+
+  /** Ensures empty lines also apply the lineHeight. See [bodyLineMinimumFontMetrics]. */
+  private fun updateMinimumFontMetrics() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) return
+
+    // The minimum is for body lines, so compute it at the body font size.
+    //
+    // On an empty heading line, syncCursorSizeWithBlock has enlarged the paint to
+    // the heading size and saved the body size in bodySizeBeforeHeadingOverridePx,
+    // so use a copy of the paint at that saved size.
+    val bodyPaint = TextPaint(paint).apply { bodySizeBeforeHeadingOverridePx?.let { textSize = it } }
+    val metrics = bodyLineMinimumFontMetrics(bodyPaint, textAttributes)
+    val current = minimumFontMetrics
+    val unchanged =
+      metrics == current ||
+        (
+          metrics != null &&
+            current != null &&
+            metrics.top == current.top &&
+            metrics.ascent == current.ascent &&
+            metrics.descent == current.descent &&
+            metrics.bottom == current.bottom
+        )
+    if (unchanged) return
+
+    minimumFontMetrics = metrics
+    // setMinimumFontMetrics doesn't rebuild the layout and DynamicLayout keeps
+    // the metrics it was built with; re-setting the break strategy does both.
+    breakStrategy = breakStrategy
   }
 
   private fun applyFormattingAndEmit() {
@@ -568,10 +668,8 @@ class EnrichedMarkdownTextInputView(
       }
       eventEmitter.emitState()
     } else {
+      resetPendingStylesForSelection(selStart, selEnd)
       applyFormattingAndEmit()
-      pendingStyles.clear()
-      pendingStyleRemovals.clear()
-      seedPendingStylesFromSelection(selStart, selEnd)
     }
   }
 
@@ -592,8 +690,8 @@ class EnrichedMarkdownTextInputView(
   private fun toggleListType(type: BlockType) {
     val editable = text ?: return
     blockCoordinator.toggleList(editable, type, selectionStart, selectionStart, selectionEnd)
+    syncEmptyListAnchor(restamp = false)
     applyFormattingAndEmit()
-    syncEmptyListAnchor()
   }
 
   /** Increases the nesting depth of the selected list item(s). QoL: indenting a plain paragraph starts a list. */
@@ -606,8 +704,8 @@ class EnrichedMarkdownTextInputView(
     val editable = text ?: return
     val result = blockCoordinator.changeDepth(editable, selectionStart, selectionStart, selectionEnd, delta)
     if (result == BlockEditCoordinator.DepthChangeResult.NO_OP) return
+    syncEmptyListAnchor(restamp = false)
     applyFormattingAndEmit()
-    syncEmptyListAnchor()
   }
 
   /**
@@ -615,8 +713,10 @@ class EnrichedMarkdownTextInputView(
    * indents (a [android.text.style.LeadingMarginSpan] doesn't indent an empty
    * paragraph). Inserts the ZWSP on the caret's empty list line, strips stale ones.
    *
-   * @param restamp re-apply block formatting here (selection/command paths); the
-   *   text-change pass passes false and stamps once afterwards.
+   * @param restamp re-apply block formatting here (selection path); the text-change
+   *   pass and list commands pass false and stamp once afterwards.
+   * @param anchorLineStart one more empty list line to anchor, away from the caret
+   *   (the item an Enter at the start of a non-empty item leaves above it).
    * @return true if an anchor was inserted or stripped (text/ranges mutated).
    *
    * When called from `onAfterTextChanged` this mutates the [Editable] from inside
@@ -632,12 +732,16 @@ class EnrichedMarkdownTextInputView(
    * deferring the insert/delete (e.g. via `post`) would run it outside every guard
    * and reintroduce the double-bullet and stale-caret bugs.
    */
-  private fun syncEmptyListAnchor(restamp: Boolean = true): Boolean {
+  private fun syncEmptyListAnchor(
+    restamp: Boolean = true,
+    anchorLineStart: Int? = null,
+  ): Boolean {
     if (editSession.shouldSuppressAnchorSync) return false
     val editable = text ?: return false
-    editSession.enter(EditPhase.ManagingAnchors)
-    var anchorChanged = false
-    try {
+    return editSession.scoped(EditPhase.ManagingAnchors) {
+      // Before the strip, which can shift text after it. The caret sits on a later
+      // line, so the selection shifts past the inserted ZWSP on its own.
+      var anchorChanged = anchorLineStart != null && insertEmptyListAnchor(editable, anchorLineStart)
       // Strip every stale ZWSP first (a line that gained content or stopped being a
       // list). Skip the full-document scan when we've inserted no anchors — there is
       // nothing to strip, so a caret move in a document with no empty list lines is
@@ -657,6 +761,7 @@ class EnrichedMarkdownTextInputView(
             val isEmptyListLine = onlyZwsp && blockCoordinator.listBlockAtLineStart(ls) != null
             if (!isEmptyListLine) {
               runAsATransaction { editable.delete(i, i + 1) }
+              formattingStore.adjustForEdit(i, 1, 0)
               blockStore.adjustForEdit(i, 1, 0)
               anchorChanged = true
             } else {
@@ -668,17 +773,10 @@ class EnrichedMarkdownTextInputView(
         zwspAnchorCount = keptAnchors
       }
 
-      val caret = selectionStart
       if (selectionStart == selectionEnd) {
-        val ls = blockCoordinator.lineStartOf(editable, caret)
-        val le = blockCoordinator.lineEndOf(editable, caret)
-        val block = blockCoordinator.listBlockAtLineStart(ls)
-        if (block != null && le == ls) {
-          runAsATransaction { editable.insert(ls, ZWSP.toString()) }
-          blockStore.adjustForEdit(ls, 0, 1)
-          blockStore.normalizeToLineBounds(editable)
+        val ls = blockCoordinator.lineStartOf(editable, selectionStart)
+        if (insertEmptyListAnchor(editable, ls)) {
           setSelection(ls + 1)
-          zwspAnchorCount++
           anchorChanged = true
         }
       }
@@ -691,27 +789,60 @@ class EnrichedMarkdownTextInputView(
         if (emitMarkdown) eventEmitter.emitChangeMarkdown()
       }
       syncHintVisibility()
-      return anchorChanged
-    } finally {
-      editSession.exit()
+      anchorChanged
     }
+  }
+
+  /** Inserts a ZWSP anchor on the empty list line starting at [lineStart]; false if it isn't one. */
+  private fun insertEmptyListAnchor(
+    editable: Editable,
+    lineStart: Int,
+  ): Boolean {
+    if (blockCoordinator.lineEndOf(editable, lineStart) != lineStart) return false
+    if (blockCoordinator.listBlockAtLineStart(lineStart) == null) return false
+    runAsATransaction { editable.insert(lineStart, ZWSP.toString()) }
+    formattingStore.adjustForEdit(lineStart, 0, 1)
+    blockStore.adjustForEdit(lineStart, 0, 1)
+    blockStore.normalizeToLineBounds(editable)
+    zwspAnchorCount++
+    return true
   }
 
   /**
    * The hint shows only on a truly empty editor with no block range — a bullet's
    * ZWSP anchor counts as content, so the hint never overlaps a marker. Mirrors iOS.
    */
-  private fun syncHintVisibility() {
+  private fun syncHintVisibility(force: Boolean = false) {
     val content = text
     val hasRealText = content != null && content.any { it != ZWSP }
     val hasBlock = blockStore.allRanges.isNotEmpty()
-    val target: CharSequence? = if (hasRealText || hasBlock) "" else userHint
-    if (hint != target) super.setHint(target)
+    val target: CharSequence? = if (hasRealText || hasBlock) "" else styledHint
+    // Compare as strings: setHint copies the hint, so the spanned copy is never
+    // identical to target. A line-height change passes force instead.
+    if (!force && hint?.toString() == target?.toString()) return
+
+    super.setHint(target)
+    // An empty editor is measured with its hint, not its text (see
+    // InputMeasurementStore.getMeasureById), and the snapshot Yoga holds was
+    // taken before this change — re-measure so a hint that lays out taller than
+    // the text it replaced is not left clipped.
+    layoutManager.invalidateLayout()
   }
 
   fun setUserHint(value: CharSequence?) {
     userHint = value
-    syncHintVisibility()
+    updateStyledHint(force = true)
+  }
+
+  /** Rebuilds [styledHint] when the hint text or the body line height changes. */
+  private fun updateStyledHint(force: Boolean = false) {
+    val lineHeight = textAttributes.effectiveLineHeight
+    // compareTo treats NaN (no line height) as equal to itself, unlike !=.
+    if (!force && lineHeight.compareTo(styledHintLineHeight) == 0) return
+
+    styledHintLineHeight = lineHeight
+    styledHint = userHint?.let { SpannableString(it).apply { applyBodyLineHeightSpan(this, textAttributes) } }
+    syncHintVisibility(force = true)
   }
 
   // Copies the whole input as markdown without disturbing the current selection,
@@ -800,9 +931,15 @@ class EnrichedMarkdownTextInputView(
       for (block in parsed.blockRanges) {
         blockStore.setBlock(block.type, block.level, block.start + contentStart, block.end + contentStart, editable)
       }
+      // Empty list items arrive with their ZWSP anchor already seeded.
+      zwspAnchorCount += parsed.plainText.count { it == ZWSP }
       setSelection(selStart + plainText.length)
       detectorPipeline.processTextChange(editable, editable.toString(), selStart, plainText.length)
     }
+    // An empty item pasted into a line with text brings an anchor that line must not
+    // keep. The paste ran with the text watcher and the anchor pass suppressed, so
+    // strip it here, after the detectors saw the pasted lengths.
+    syncEmptyListAnchor()
   }
 
   /** Toggles a heading (H1-H6) on the cursor's paragraph(s); the active level toggles back to a paragraph. */
@@ -819,8 +956,10 @@ class EnrichedMarkdownTextInputView(
     val selStart = selectionStart.coerceIn(0, editable.length)
     val selEnd = selectionEnd.coerceIn(selStart, editable.length)
     blockCoordinator.toggleBlock(editable, type, level, selStart, selEnd)
-    applyFormattingAndEmit()
+    // Resize the caret first: on an empty heading line the measured height comes
+    // from the paint's text size.
     syncCursorSizeWithBlock()
+    applyFormattingAndEmit()
   }
 
   private fun blockOnParagraphAt(pos: Int): BlockRange? {
@@ -851,8 +990,8 @@ class EnrichedMarkdownTextInputView(
 
     if (block != null && block.type in BlockType.HEADINGS && editable.isEmpty()) {
       val headingSizePx = formatter.resolveHeadingFontSizePx(block.level) ?: return
-      if (headingOverrideBaseSizePx == null) {
-        headingOverrideBaseSizePx = paint.textSize
+      if (bodySizeBeforeHeadingOverridePx == null) {
+        bodySizeBeforeHeadingOverridePx = paint.textSize
         baseHintColor = currentHintTextColor
         setHintTextColor(Color.TRANSPARENT)
       }
@@ -860,9 +999,9 @@ class EnrichedMarkdownTextInputView(
         setTextSize(TypedValue.COMPLEX_UNIT_PX, headingSizePx)
       }
     } else {
-      headingOverrideBaseSizePx?.let { baseSizePx ->
-        setTextSize(TypedValue.COMPLEX_UNIT_PX, baseSizePx)
-        headingOverrideBaseSizePx = null
+      bodySizeBeforeHeadingOverridePx?.let { bodySizePx ->
+        setTextSize(TypedValue.COMPLEX_UNIT_PX, bodySizePx)
+        bodySizeBeforeHeadingOverridePx = null
         baseHintColor?.let { setHintTextColor(it) }
         baseHintColor = null
       }
@@ -979,33 +1118,32 @@ class EnrichedMarkdownTextInputView(
   /**
    * Applies the parsed `markdownStyle` (which now carries `list.itemSpacing`).
    * Display density is folded in at [InputFormatter] construction, so the style is
-   * handed to the formatter as-is. Returns true if the effective style changed
-   * (caller re-applies formatting).
+   * handed to the formatter as-is. Formatting is re-applied in [afterUpdateTransaction]
+   * if the effective style changed.
    */
-  fun setMarkdownStyleFromProps(style: InputFormatterStyle): Boolean {
+  fun setMarkdownStyleFromProps(style: InputFormatterStyle) {
     setAutoLinkStyle(style)
-    return formatter.updateStyle(style)
+    if (formatter.updateStyle(style)) formattingDirty = true
   }
 
   fun allFormattingRangesForSerialization(): List<FormattingRange> = clipboardCoordinator.allRangesForSerialization(text)
 
   fun setValueFromJS(markdown: String) {
     val parsed = InputParser.parseToPlainTextAndRanges(markdown)
-    editSession.enter(EditPhase.Importing)
-    try {
+    editSession.scoped(EditPhase.Importing) {
       formattingStore.clearAll()
       formattingStore.setRanges(parsed.formattingRanges)
       blockStore.setRanges(parsed.blockRanges)
       setText(parsed.plainText)
       setSelection(text?.length ?: 0)
-      zwspAnchorCount = 0
+      // Empty list items arrive with their ZWSP anchor already seeded.
+      zwspAnchorCount = parsed.plainText.count { it == ZWSP }
       applyFormatting()
       forceScrollToSelection()
-      layoutManager.invalidateLayout()
+      // No invalidateLayout() needed: applyFormatting() already re-measures.
       lastProcessedText = text?.toString() ?: ""
-    } finally {
-      editSession.exit()
     }
+    syncHintVisibility()
     emitSelectionIfChanged()
   }
 
@@ -1015,9 +1153,20 @@ class EnrichedMarkdownTextInputView(
 
   fun setFontSizeFromProps(size: Float) {
     if (size <= 0f) return
+    textAttributes.fontSize = size
     val sizePx = ceil(PixelUtil.toPixelFromSP(size))
     setTextSize(TypedValue.COMPLEX_UNIT_PX, sizePx)
-    layoutManager.invalidateLayout()
+    // Heading line heights are derived from the body font size.
+    formattingDirty = true
+  }
+
+  fun setLineHeightFromProps(lineHeight: Float) {
+    // Mirrors React Native TextInput: lineHeight stays in SP on TextAttributes
+    // and is applied as a span on the text rather than through setLineSpacing:
+    // https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/textinput/ReactEditText.kt#L332-L334
+    // https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/textinput/ReactEditText.kt#L856-L858
+    textAttributes.lineHeight = if (lineHeight > 0f) lineHeight else Float.NaN
+    formattingDirty = true
   }
 
   fun setColorFromProps(colorInt: Int?) {
@@ -1051,8 +1200,9 @@ class EnrichedMarkdownTextInputView(
     }
   }
 
-  private fun updateTypeface() {
-    if (!typefaceDirty) return
+  /** Returns true if the typeface changed. */
+  private fun updateTypeface(): Boolean {
+    if (!typefaceDirty) return false
     typefaceDirty = false
 
     val newTypeface =
@@ -1065,7 +1215,7 @@ class EnrichedMarkdownTextInputView(
       )
     typeface = newTypeface
     paint.typeface = newTypeface
-    layoutManager.invalidateLayout()
+    return true
   }
 
   fun setAutoCapitalize(flagName: String?) {
@@ -1096,8 +1246,16 @@ class EnrichedMarkdownTextInputView(
     inputMethodManager?.showSoftInput(this, 0)
   }
 
+  /** Called after props updates */
   fun afterUpdateTransaction() {
-    updateTypeface()
+    val typefaceChanged = updateTypeface()
+    // Props that affect formatting only mark it dirty, so a transaction that
+    // changes several of them restamps spans and re-measures once.
+    if (formattingDirty) {
+      applyFormatting()
+    } else if (typefaceChanged) {
+      layoutManager.invalidateLayout()
+    }
     if (autoFocusRequested) {
       autoFocusRequested = false
       pendingAutoFocusKeyboard = true
@@ -1139,5 +1297,15 @@ class EnrichedMarkdownTextInputView(
 
   companion object {
     private val TAG: String = EnrichedMarkdownTextInputView::class.java.simpleName
+  }
+}
+
+/** Copy of the body text attributes the input uses, safe to keep after the original changes. */
+internal fun TextAttributes.copy(): TextAttributes {
+  val source = this
+  return TextAttributes().apply {
+    allowFontScaling = source.allowFontScaling
+    fontSize = source.fontSize
+    lineHeight = source.lineHeight
   }
 }

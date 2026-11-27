@@ -1,9 +1,11 @@
 #import "MarkdownExtractor.h"
 #import "BaselineShiftTextAttributes.h"
 #import "BlockquoteBorder.h"
+#import "CodeBackground.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMImageAttachment.h"
 #import "ENRMLinkPillText.h"
+#import "ENRMTextLinkAttributes.h"
 #import "ENRMUIKit.h"
 #import "HighlightRenderer.h"
 #include <TargetConditionals.h>
@@ -81,42 +83,55 @@ static void extractFontTraits(NSDictionary *attrs, BOOL *isBold, BOOL *isItalic,
   }
 }
 
-static NSString *applyInlineFormatting(NSString *text, BOOL isBold, BOOL isItalic, BOOL isMonospace,
-                                       BOOL isStrikethrough, BOOL isUnderline, BOOL isSuperscript, BOOL isSubscript,
-                                       BOOL isHighlight, NSString *linkURL)
+/// Builds the opening and closing Markdown delimiters for one run's inline formatting.
+/// The run's text goes between them. Both are empty when the run has no inline formatting.
+static void buildInlineDelimiters(BOOL isBold, BOOL isItalic, BOOL isMonospace, BOOL isStrikethrough, BOOL isUnderline,
+                                  BOOL isSuperscript, BOOL isSubscript, BOOL isHighlight, NSString *linkURL,
+                                  NSString **outOpen, NSString **outClose)
 {
-  NSMutableString *result = [NSMutableString stringWithString:text];
+  NSMutableString *open = [NSMutableString string];
+  NSMutableString *close = [NSMutableString string];
 
   // Innermost first
   if (isMonospace && !linkURL) {
-    result = [NSMutableString stringWithFormat:@"`%@`", result];
+    [open insertString:@"`" atIndex:0];
+    [close appendString:@"`"];
   }
   if (isStrikethrough) {
-    result = [NSMutableString stringWithFormat:@"~~%@~~", result];
+    [open insertString:@"~~" atIndex:0];
+    [close appendString:@"~~"];
   }
   if (isSubscript) {
-    result = [NSMutableString stringWithFormat:@"~%@~", result];
+    [open insertString:@"~" atIndex:0];
+    [close appendString:@"~"];
   }
   if (isSuperscript) {
-    result = [NSMutableString stringWithFormat:@"^%@^", result];
+    [open insertString:@"^" atIndex:0];
+    [close appendString:@"^"];
   }
   if (isUnderline && !linkURL) {
-    result = [NSMutableString stringWithFormat:@"<u>%@</u>", result];
+    [open insertString:@"<u>" atIndex:0];
+    [close appendString:@"</u>"];
   }
   if (isItalic) {
-    result = [NSMutableString stringWithFormat:@"*%@*", result];
+    [open insertString:@"*" atIndex:0];
+    [close appendString:@"*"];
   }
   if (isBold) {
-    result = [NSMutableString stringWithFormat:@"**%@**", result];
+    [open insertString:@"**" atIndex:0];
+    [close appendString:@"**"];
   }
   if (linkURL) {
-    result = [NSMutableString stringWithFormat:@"[%@](%@)", result, linkURL];
+    [open insertString:@"[" atIndex:0];
+    [close appendFormat:@"](%@)", linkURL];
   }
   if (isHighlight) {
-    result = [NSMutableString stringWithFormat:@"==%@==", result];
+    [open insertString:@"==" atIndex:0];
+    [close appendString:@"=="];
   }
 
-  return result;
+  *outOpen = open;
+  *outClose = close;
 }
 
 #pragma mark - Main Extraction Function
@@ -136,6 +151,14 @@ NSString *_Nullable extractMarkdownFromAttributedString(NSAttributedString *attr
   __block NSString *currentHeadingType = nil;
   __block NSMutableString *headingContent = nil;
   __block ExtractionState state = {.blockquoteDepth = -1, .listDepth = -1, .needsBlankLine = NO};
+
+  // The last formatted inline segment appended to `result`, so the next run can extend it.
+  // Attribute runs split on attributes that carry no inline formatting (e.g. the list-marker
+  // anchor on an item's first character), and wrapping each run on its own would turn
+  // **What** into **W****hat**.
+  __block NSString *lastInlineOpen = nil;
+  __block NSString *lastInlineClose = nil;
+  __block NSUInteger lastInlineEnd = NSNotFound;
 
   void (^flushHeading)(void) = ^{
     if (!currentHeadingType || headingContent.length == 0)
@@ -297,11 +320,16 @@ NSString *_Nullable extractMarkdownFromAttributedString(NSAttributedString *attr
 
                         // Inline formatting
                         BOOL isBold, isItalic, isMonospace;
+                        BOOL recognizedLink = [attrs[ENRMRecognizedLinkAttributeName] boolValue];
                         extractFontTraits(attrs, &isBold, &isItalic, &isMonospace);
+                        if (recognizedLink)
+                          isMonospace = [attrs[CodeAttributeName] boolValue];
 
                         NSNumber *strikethroughStyle = attrs[NSStrikethroughStyleAttributeName];
                         BOOL isStrikethrough = (strikethroughStyle != nil && [strikethroughStyle integerValue] != 0);
-                        NSNumber *underlineStyle = attrs[NSUnderlineStyleAttributeName];
+                        NSNumber *underlineStyle = recognizedLink
+                                                       ? attrs[ENRMRecognizedLinkOriginalUnderlineAttributeName]
+                                                       : attrs[NSUnderlineStyleAttributeName];
                         BOOL isUnderline = (underlineStyle != nil && [underlineStyle integerValue] != 0);
                         // Line-height alignment also shifts baselines. Only semantic script spans
                         // should produce superscript/subscript Markdown on the clipboard.
@@ -310,10 +338,27 @@ NSString *_Nullable extractMarkdownFromAttributedString(NSAttributedString *attr
                         BOOL isSubscript = [script isEqualToString:ENRMScriptValueSubscript];
 
                         BOOL isHighlight = [attrs[HighlightAttributeName] boolValue];
-                        NSString *linkURL = attrs[NSLinkAttributeName];
-                        NSString *segment =
-                            applyInlineFormatting(text, isBold, isItalic, isMonospace, isStrikethrough, isUnderline,
-                                                  isSuperscript, isSubscript, isHighlight, linkURL);
+                        NSString *linkURL = recognizedLink ? nil : attrs[NSLinkAttributeName];
+                        NSString *inlineOpen = nil;
+                        NSString *inlineClose = nil;
+                        buildInlineDelimiters(isBold, isItalic, isMonospace, isStrikethrough, isUnderline,
+                                              isSuperscript, isSubscript, isHighlight, linkURL, &inlineOpen,
+                                              &inlineClose);
+
+                        // Same formatting as the segment that still ends `result`: move its closing
+                        // delimiters past this run's text instead of opening a new span.
+                        if (inlineClose.length > 0 && result.length == lastInlineEnd && !state.needsBlankLine &&
+                            [inlineOpen isEqualToString:lastInlineOpen] &&
+                            [inlineClose isEqualToString:lastInlineClose]) {
+                          [result deleteCharactersInRange:NSMakeRange(result.length - inlineClose.length,
+                                                                      inlineClose.length)];
+                          [result appendString:text];
+                          [result appendString:inlineClose];
+                          lastInlineEnd = result.length;
+                          return;
+                        }
+
+                        NSString *segment = [NSString stringWithFormat:@"%@%@%@", inlineOpen, text, inlineClose];
 
                         // Add block prefixes at line start
                         if (isAtLineStart(result)) {
@@ -347,6 +392,9 @@ NSString *_Nullable extractMarkdownFromAttributedString(NSAttributedString *attr
                         }
 
                         [result appendString:segment];
+                        lastInlineOpen = inlineOpen;
+                        lastInlineClose = inlineClose;
+                        lastInlineEnd = result.length;
                       }];
 
   // Flush remaining heading

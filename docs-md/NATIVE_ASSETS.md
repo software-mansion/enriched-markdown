@@ -16,7 +16,7 @@ idempotent — a `.stamp` fingerprint in each vendor directory makes repeated in
 |---|---|---|
 | tree-sitter runtime | GitHub release tarball (`github.com/tree-sitter/tree-sitter`) | code highlighting (iOS + Android) |
 | grammar sources (`parser.c`/`scanner.c`/`highlights.scm`) | npm registry (`registry.npmjs.org`) | code highlighting (iOS + Android) |
-| [RaTeX](https://ratex.lites.dev/) XCFramework + fonts | GitHub release | LaTeX math (iOS only) |
+| [RaTeX](https://ratex.lites.dev/) XCFramework + core Swift sources + fonts | GitHub release | LaTeX math (iOS only) |
 
 The pins live in `grammar-versions.json` and `ratex-version.json` inside the installed package. The
 pre-built highlight registry for the default language set **is** shipped in the tarball, so the only
@@ -38,9 +38,9 @@ and exits successfully. What the native build does when an asset is missing depe
 **explicitly enabled** the feature in your app `package.json`:
 
 - **On by default** (no `enriched-markdown` entry for it): the build treats the feature as disabled —
-  code highlighting compiles a no-op stub, iOS math is skipped with a CocoaPods warning — so the build
-  stays green.
-- **Explicitly enabled** (`"enableMath": true` / `"enableCodeHighlight": true`): the build **fails with
+  code highlighting compiles a no-op stub, iOS math is skipped with a warning from `pod install` (or
+  `npx react-native spm`) — so the build stays green.
+- **Explicitly enabled** (`"enableMath": true` on iOS / `"enableCodeHighlight": true` on either platform; Android math is a Maven dependency with no asset to miss): the build **fails with
   an actionable error** telling you to re-run postinstall, because you asked for a feature whose assets
   are not present.
 
@@ -62,7 +62,16 @@ directly from your project root as a fallback:
 node node_modules/react-native-enriched-markdown/postinstall.mjs
 ```
 
-Then re-run `pod install` (iOS) or rebuild (Android).
+Then re-run `pod install` (iOS; `npx react-native spm` if your app uses Swift Package Manager) or
+rebuild (Android).
+
+To see what the postinstall decided without downloading anything, run it with `--resolve-config` from
+the same directory the install ran from. It prints the workspace members it found and the merged
+`enriched-markdown` block (`{}` means download everything):
+
+```sh
+INIT_CWD=$PWD node node_modules/react-native-enriched-markdown/postinstall.mjs --resolve-config
+```
 
 ## Package-manager notes
 
@@ -76,7 +85,11 @@ Then re-run `pod install` (iOS) or rebuild (Android).
     - react-native-enriched-markdown
   ```
 
-  Without this the native build fails until you run the recovery command above.
+  Without this the native build fails until you run the recovery command above. pnpm also caches a
+  package's postinstall output (`sideEffectsCache`, on by default) keyed by package and platform, not by
+  your `enriched-markdown` block, so a project that opted out of an asset can leave the next project on
+  the same machine without it. If that happens, run the recovery command above or install with
+  `sideEffectsCache: false`.
 - **Yarn PnP** is not supported for this package — PnP stores dependencies as read-only archives, so
   the postinstall cannot write the vendored assets into the package. Use the `node-modules` linker
   (`nodeLinker: node-modules`), which is the norm for React Native projects anyway.
@@ -111,12 +124,15 @@ rebuild; re-enabling also needs a reinstall so the assets download again.
 > (`Product > Clean Build Folder`, or delete the app's DerivedData): Xcode's incremental build does not
 > reliably rebuild the pod's static library when only its source list changes, so it can otherwise link a
 > stale copy that still contains the old code. Android reconfigures on every build and needs neither step.
+> With Swift Package Manager, run `npx react-native spm` instead of `pod install`.
 
-**Which `package.json`?** The *download* opt-out is read from wherever the install runs (via `INIT_CWD`)
-— in a monorepo that is the workspace root, and there is one shared `node_modules`, so the download
-opt-out is global. The *build* flag is read from the **app's** `package.json` (the one beside `ios/` /
-`android/`), so each app in a monorepo enables or disables features independently. Neither has any
-effect inside this repo's own monorepo development.
+**Which `package.json`?** The *download* opt-out is read from wherever the install runs (via `INIT_CWD`).
+In a monorepo that is the workspace root, and there is one shared `node_modules`, so the download
+decision is global: a block in the root `package.json` wins, and when the root has none the postinstall
+reads the workspace members (npm/yarn `workspaces` or `pnpm-workspace.yaml`) that depend on this package
+and skips an asset only when **every** one of them opts out. The *build* flag is read from the **app's**
+`package.json` (the one beside `ios/` / `android/`), so each app in a monorepo enables or disables
+features independently. Neither has any effect inside this repo's own monorepo development.
 
 ## Disabling the features at build time
 

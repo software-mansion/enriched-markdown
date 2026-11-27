@@ -34,18 +34,30 @@ function TableRowRenderer({ node, renderChildren }: RendererProps) {
 function TableHeaderCellRenderer({
   node,
   styles,
+  capabilities,
   renderChildren,
 }: RendererProps) {
   return (
-    <th style={styles.tableHeaderCell[node.attributes?.align ?? 'default']}>
+    <th
+      style={styles.tableHeaderCell[node.attributes?.align ?? 'default']}
+      dir={capabilities.blockDir}
+    >
       {renderChildren(node)}
     </th>
   );
 }
 
-function TableCellRenderer({ node, styles, renderChildren }: RendererProps) {
+function TableCellRenderer({
+  node,
+  styles,
+  capabilities,
+  renderChildren,
+}: RendererProps) {
   return (
-    <td style={styles.tableCell[node.attributes?.align ?? 'default']}>
+    <td
+      style={styles.tableCell[node.attributes?.align ?? 'default']}
+      dir={capabilities.blockDir}
+    >
       {renderChildren(node)}
     </td>
   );

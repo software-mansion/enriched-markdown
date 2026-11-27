@@ -20,6 +20,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// Base text properties
 @property (nonatomic, strong) UIFont *baseFont;
 @property (nonatomic, strong) RCTUIColor *baseTextColor;
+@property (nonatomic, assign) CGFloat baseLineHeight;
 
 /// Bold — color override (nil = inherit baseTextColor)
 @property (nonatomic, strong, nullable) RCTUIColor *boldColor;
@@ -56,6 +57,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// size and weight (from markdownStyle h1..h6). Does not carry inline traits —
 /// those are merged on top in the formatter's font pass.
 - (UIFont *)headingFontForLevel:(NSInteger)level;
+
+/// Line height for a heading level: headingFontSize + (baseLineHeight - baseFontSize).
+- (CGFloat)derivedLineHeightForHeadingLevel:(NSInteger)level;
 
 - (UIFont *)fontForTraits:(UIFontDescriptorSymbolicTraits)traits;
 - (void)invalidateFontCache;

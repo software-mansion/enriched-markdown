@@ -1,12 +1,12 @@
 package com.swmansion.enriched.markdown.segments
 
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.defaultStyle
+import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.renderSegments
 import com.swmansion.enriched.markdown.test.TestAstFactory.blockquote
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.emphasis
@@ -35,8 +35,6 @@ import org.robolectric.annotation.Config
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [28, 35])
 class TableSegmentTest {
-  private val context: Context = ApplicationProvider.getApplicationContext()
-
   private fun simpleTable(headerText: String = "Header") =
     table(
       head = tableHead(tableRow(tableHeaderCell("default", text(headerText)))),
@@ -50,7 +48,7 @@ class TableSegmentTest {
     val tableNode = simpleTable()
     val doc = document(paragraph(text("Before")), tableNode, paragraph(text("After")))
 
-    val segments = splitASTIntoSegments(doc)
+    val segments = splitASTIntoSegments(doc, PluginSnapshot.EMPTY)
 
     assertEquals(3, segments.size)
     assertTrue(segments[0] is MarkdownSegment.Text)
@@ -70,7 +68,7 @@ class TableSegmentTest {
         paragraph(text("Outro")),
       )
 
-    val segments = splitASTIntoSegments(doc)
+    val segments = splitASTIntoSegments(doc, PluginSnapshot.EMPTY)
 
     assertEquals(5, segments.size)
     assertTrue(segments[1] is MarkdownSegment.Table)
@@ -81,7 +79,7 @@ class TableSegmentTest {
   fun adjacentTablesWithNoTextBetweenProduceNoEmptyTextSegment() {
     val doc = document(simpleTable("A"), simpleTable("B"))
 
-    val segments = splitASTIntoSegments(doc)
+    val segments = splitASTIntoSegments(doc, PluginSnapshot.EMPTY)
 
     assertEquals(2, segments.size)
     assertTrue(segments.all { it is MarkdownSegment.Table })
@@ -90,7 +88,7 @@ class TableSegmentTest {
   @Test
   fun tableSignatureDiffersFromTextSignatureForTheSameNode() {
     val tableNode = simpleTable()
-    val segments = MarkdownSegmentRenderer.render(listOf(MarkdownSegment.Table(tableNode)), defaultStyle, context)
+    val segments = renderSegments(listOf(MarkdownSegment.Table(tableNode)))
 
     val tableSignature = (segments[0] as RenderedSegment.Table).signature
     val textKindSignature = SegmentSignature.signatureForNode(tableNode) xor SegmentSignature.TEXT_KIND_SALT
@@ -103,10 +101,10 @@ class TableSegmentTest {
     val original = MarkdownSegment.Table(simpleTable("Header"))
     val changed = MarkdownSegment.Table(simpleTable("Changed"))
 
-    val originalSignature = (MarkdownSegmentRenderer.render(listOf(original), defaultStyle, context)[0] as RenderedSegment.Table).signature
-    val changedSignature = (MarkdownSegmentRenderer.render(listOf(changed), defaultStyle, context)[0] as RenderedSegment.Table).signature
+    val originalSignature = (renderSegments(listOf(original))[0] as RenderedSegment.Table).signature
+    val changedSignature = (renderSegments(listOf(changed))[0] as RenderedSegment.Table).signature
     val rerenderedSignature =
-      (MarkdownSegmentRenderer.render(listOf(original), defaultStyle, context)[0] as RenderedSegment.Table).signature
+      (renderSegments(listOf(original))[0] as RenderedSegment.Table).signature
 
     assertNotEquals(originalSignature, changedSignature)
     assertEquals(originalSignature, rerenderedSignature)
@@ -134,7 +132,7 @@ class TableSegmentTest {
         ),
       )
 
-    val rendered = MarkdownSegmentRenderer.render(listOf(firstList, tableSegment, secondList), defaultStyle, context)
+    val rendered = renderSegments(listOf(firstList, tableSegment, secondList))
 
     val firstText = (rendered[0] as RenderedSegment.Text).styledText
     val secondText = (rendered[2] as RenderedSegment.Text).styledText
@@ -153,7 +151,7 @@ class TableSegmentTest {
   fun tableNestedInBlockquoteIsNotHoistedIntoItsOwnSegment() {
     val doc = document(blockquote(paragraph(text("Quoted")), simpleTable("Header text")))
 
-    val segments = splitASTIntoSegments(doc)
+    val segments = splitASTIntoSegments(doc, PluginSnapshot.EMPTY)
 
     assertEquals(1, segments.size)
     assertTrue(segments[0] is MarkdownSegment.Text)
@@ -163,7 +161,7 @@ class TableSegmentTest {
   fun tableNestedInListItemIsNotHoistedIntoItsOwnSegment() {
     val doc = document(unorderedList(listItem(paragraph(text("Item")), simpleTable("Header text"))))
 
-    val segments = splitASTIntoSegments(doc)
+    val segments = splitASTIntoSegments(doc, PluginSnapshot.EMPTY)
 
     assertEquals(1, segments.size)
     assertTrue(segments[0] is MarkdownSegment.Text)

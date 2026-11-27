@@ -73,7 +73,7 @@ npm install katex
 yarn add katex
 ```
 
-KaTeX is loaded lazily the first time a LaTeX node is encountered, so it has no impact on pages that do not render math. No stylesheet or `<link>` tag is needed.
+KaTeX is required whenever the component renders with `latexMath` enabled (the default), whether or not the content contains math; set `md4cFlags={{ latexMath: false }}` to skip it. No stylesheet or `<link>` tag is needed.
 
 > [!NOTE]
 > MathML is supported natively in Chrome 109+, Firefox, and Safari. Older browsers will display the raw LaTeX source as a text fallback.
@@ -148,10 +148,9 @@ changing it. See [Skipping the download](./NATIVE_ASSETS.md#skipping-the-downloa
 > installs are unaffected.
 
 > [!NOTE]
-> **macOS**: LaTeX math is not yet enabled on macOS and remains off in the macOS example
-> app. The previous blocker (`use_frameworks!` was required for the RaTeX Swift Package)
-> no longer applies now that RaTeX is a vendored XCFramework with a macOS slice, so macOS
-> support is a possible future follow-up.
+> **macOS**: LaTeX math is not yet validated on macOS. It is compiled in by default like on
+> iOS (RaTeX is a vendored XCFramework with a macOS slice), but the macOS example app turns it
+> off. To leave it out, set `"enableMath": false` in your app's `package.json`.
 
 ### 3. Expo
 

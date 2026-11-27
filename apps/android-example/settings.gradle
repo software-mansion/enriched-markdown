@@ -26,9 +26,11 @@ include ":compose"
 include ":ui"
 include ":parser"
 include ":math"
+include ":code-highlight"
 
 def libraryRoot = new File(settingsDir, "../../packages/enriched-markdown-android")
 project(":compose").projectDir = new File(libraryRoot, "compose")
 project(":ui").projectDir = new File(libraryRoot, "ui")
 project(":parser").projectDir = new File(libraryRoot, "parser")
 project(":math").projectDir = new File(libraryRoot, "math")
+project(":code-highlight").projectDir = new File(libraryRoot, "code-highlight")

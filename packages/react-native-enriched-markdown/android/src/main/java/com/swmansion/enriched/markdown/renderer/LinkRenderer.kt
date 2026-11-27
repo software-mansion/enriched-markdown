@@ -24,10 +24,11 @@ class LinkRenderer(
     factory: RendererFactory,
   ) {
     val url = node.getAttribute("url") ?: return
+    val recognizedLink = node.getAttribute("recognizedLink") == "true"
 
     factory.renderWithSpan(builder, { factory.renderChildren(node, builder, onLinkPress, onLinkLongPress) }) { start, end, blockStyle ->
       val variant = factory.styleCache.resolvedVariantForUrl(url)
-      if (variant?.pill != null && canPresentAsPill(builder, start, end)) {
+      if (variant?.pill != null && canPresentAsPill(builder, factory, start, end)) {
         val fontFamily = variant.fontFamily.ifEmpty { factory.styleCache.linkFontFamily }.ifEmpty { blockStyle.fontFamily }
         val font = fontProbe.apply { applyBlockStyleFont(blockStyle.copy(fontFamily = fontFamily), factory.context) }
         val pill =
@@ -47,7 +48,16 @@ class LinkRenderer(
         factory.runAfterRender { text -> pill.resolveLeadingMargin(text, text.getSpanStart(pill), text.getSpanEnd(pill)) }
       }
       builder.setSpan(
-        LinkSpan(url, onLinkPress, onLinkLongPress, factory.styleCache, blockStyle, factory.context),
+        LinkSpan(
+          url,
+          onLinkPress,
+          onLinkLongPress,
+          factory.styleCache,
+          blockStyle,
+          factory.context,
+          recognizedLink = recognizedLink,
+          keepsCodeFont = recognizedLink && node.children.any { it.type == MarkdownASTNode.NodeType.Code },
+        ),
         start,
         end,
         SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
@@ -63,11 +73,13 @@ class LinkRenderer(
    */
   private fun canPresentAsPill(
     builder: SpannableStringBuilder,
+    factory: RendererFactory,
     start: Int,
     end: Int,
   ): Boolean {
     if (builder.getSpans(start, end, ReplacementSpan::class.java).isNotEmpty()) return false
-    if (builder.getSpans(start, end, SpoilerSpan::class.java).isNotEmpty()) return false
+    // Spoiler spans are deferred, so the ones inside this link are not in the builder yet.
+    if (factory.hasDeferredSpan(SpoilerSpan::class.java, start, end)) return false
     for (index in start until end) {
       val char = builder[index]
       if (char == '\n' || char == '\r' || char == '\u2028' || char == '\u2029') return false

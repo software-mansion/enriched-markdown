@@ -16,8 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.swmansion.enriched.markdown.compose.CodeBlockLayout
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.Md4cFlags
+import com.swmansion.enriched.markdown.compose.MarkdownOptions
 import com.swmansion.enriched.markdown.math.LatexError
 
 @Composable
@@ -39,7 +40,8 @@ fun TextScreen(
       markdown = markdown,
       modifier = Modifier.fillMaxWidth(),
       style = CustomMarkdownStyle,
-      flags = Md4cFlags(superscript = true, subscript = true, highlight = true, admonitions = true, latexMath = true),
+      options = MarkdownOptions(superscript = true, subscript = true, highlight = true, admonitions = true),
+      codeBlockLayout = CodeBlockLayout.Scrollable,
       onLinkClick = { url ->
         runCatching {
           context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -60,6 +62,14 @@ fun TextScreen(
           .makeText(
             context,
             "Task ${event.index} is now ${if (event.checked) "checked" else "unchecked"}: ${event.text}",
+            Toast.LENGTH_SHORT,
+          ).show()
+      },
+      onCodeBlockCopy = { copy ->
+        Toast
+          .makeText(
+            context,
+            "Copied ${copy.language ?: "code"} (${copy.code.lines().size} lines)",
             Toast.LENGTH_SHORT,
           ).show()
       },

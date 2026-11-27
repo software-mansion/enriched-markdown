@@ -15,6 +15,9 @@ public:
   std::shared_ptr<void> getComponentViewRef() const {
     return viewRef_;
   }
+  EnrichedMarkdownTextState withHeightRecalculationCounter(int counter, std::shared_ptr<void> ref) const {
+    return EnrichedMarkdownTextState(counter, ref);
+  }
 
 private:
   int counter_{0};

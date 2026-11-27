@@ -1,11 +1,21 @@
 import UIKit
 
-/// Extension seam for optional sibling modules (EnrichedMarkdownLaTeX today).
-/// Plugins are consulted before the built-in renderers.
+/// Extension seam for optional sibling modules (EnrichedMarkdownLaTeX,
+/// EnrichedMarkdownSyntaxHighlighting). Plugins are consulted before the
+/// built-in renderers.
 package protocol MarkdownRenderPlugin {
     /// A renderer for `type`, or nil to leave it to the next plugin or the
     /// built-ins. Called once per node type per render; the result is cached.
     func renderer(for type: NodeType, config: MarkdownStyleConfiguration) -> NodeRenderer?
+
+    /// Recolors a laid-out code block's code; only `.foregroundColor` may change.
+    /// Called for blocks whose info string names a language.
+    func styleCodeBlock(
+        in output: NSMutableAttributedString,
+        range: NSRange,
+        language: String,
+        config: MarkdownStyleConfiguration
+    )
 
     /// Adjusts parser options before parsing, e.g. enabling the md4c extension
     /// whose nodes the plugin renders.
@@ -26,6 +36,15 @@ package protocol MarkdownRenderPlugin {
 }
 
 package extension MarkdownRenderPlugin {
+    func renderer(for type: NodeType, config: MarkdownStyleConfiguration) -> NodeRenderer? { nil }
+
+    func styleCodeBlock(
+        in output: NSMutableAttributedString,
+        range: NSRange,
+        language: String,
+        config: MarkdownStyleConfiguration
+    ) {}
+
     func adjustParsingOptions(_ options: inout MarkdownParsingOptions) {}
 
     var rootBlockNodeTypes: Set<NodeType> { [] }

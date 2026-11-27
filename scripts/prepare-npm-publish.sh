@@ -53,7 +53,6 @@ case "$mode" in
     cp "$REPO_ROOT/vendor/vendor-ratex.mjs" vendor-ratex.mjs
 
     cp "$REPO_ROOT/LICENSE" LICENSE
-    cp -R "$REPO_ROOT/docs" docs
     ;;
   postpack)
     cd "$RN_PKG"
@@ -61,7 +60,6 @@ case "$mode" in
     ln -s ../core/cpp cpp
 
     rm -f LICENSE ratex-version.json vendor-grammars.mjs vendor-ratex.mjs
-    rm -rf docs
     ;;
   *)
     echo "[react-native-enriched-markdown] usage: $0 prepack|postpack" >&2

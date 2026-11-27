@@ -11,9 +11,13 @@ import com.swmansion.enriched.markdown.events.CopyPressEvent
 import com.swmansion.enriched.markdown.events.LatexErrorEvent
 import com.swmansion.enriched.markdown.events.LinkLongPressEvent
 import com.swmansion.enriched.markdown.events.LinkPressEvent
+import com.swmansion.enriched.markdown.events.SelectionCopyEvent
+import com.swmansion.enriched.markdown.events.StreamingEndEvent
 import com.swmansion.enriched.markdown.events.TaskListItemPressEvent
 import com.swmansion.enriched.markdown.parser.Md4cFlags
+import com.swmansion.enriched.markdown.styles.ImageSourceOverride
 import com.swmansion.enriched.markdown.styles.LinkPillContent
+import com.swmansion.enriched.markdown.utils.text.view.SelectionCopyFormat
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 
 fun markdownEventTypeConstants(): MutableMap<String, Any> {
@@ -31,6 +35,10 @@ fun markdownEventTypeConstants(): MutableMap<String, Any> {
     mapOf("registrationName" to ContextMenuItemPressEvent.EVENT_NAME)
   map[LatexErrorEvent.EVENT_NAME] =
     mapOf("registrationName" to LatexErrorEvent.EVENT_NAME)
+  map[SelectionCopyEvent.EVENT_NAME] =
+    mapOf("registrationName" to SelectionCopyEvent.EVENT_NAME)
+  map[StreamingEndEvent.EVENT_NAME] =
+    mapOf("registrationName" to StreamingEndEvent.EVENT_NAME)
   return map
 }
 
@@ -130,16 +138,33 @@ fun emitContextMenuItemPress(
   )
 }
 
+fun emitSelectionCopy(
+  view: View,
+  text: String,
+  format: SelectionCopyFormat,
+  selectionStart: Int,
+  selectionEnd: Int,
+) {
+  val context = view.context as com.facebook.react.bridge.ReactContext
+  val surfaceId = UIManagerHelper.getSurfaceId(context)
+  val eventDispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, view.id)
+  eventDispatcher?.dispatchEvent(
+    SelectionCopyEvent(surfaceId, view.id, text, format.value, selectionStart, selectionEnd),
+  )
+}
+
+// The view and measurement parse the flags here, so both parse with the same defaults.
 fun parseMd4cFlags(flags: ReadableMap?): Md4cFlags =
   Md4cFlags(
-    underline = flags?.getBoolean("underline") ?: false,
-    latexMath = FeatureFlags.IS_MATH_ENABLED && (flags?.getBoolean("latexMath") ?: true),
-    superscript = flags?.getBoolean("superscript") ?: false,
-    subscript = flags?.getBoolean("subscript") ?: false,
-    highlight = flags?.getBoolean("highlight") ?: false,
-    hardSoftBreaks = flags?.getBoolean("hardSoftBreaks") ?: false,
-    preserveBlankLines = flags?.getBoolean("preserveBlankLines") ?: false,
-    admonitions = flags?.getBoolean("admonitions") ?: true,
+    underline = flags.getBooleanOrDefault("underline", false),
+    latexMath = FeatureFlags.IS_MATH_ENABLED && flags.getBooleanOrDefault("latexMath", true),
+    superscript = flags.getBooleanOrDefault("superscript", false),
+    subscript = flags.getBooleanOrDefault("subscript", false),
+    strikethrough = flags.getBooleanOrDefault("strikethrough", false),
+    highlight = flags.getBooleanOrDefault("highlight", false),
+    hardSoftBreaks = flags.getBooleanOrDefault("hardSoftBreaks", false),
+    preserveBlankLines = flags.getBooleanOrDefault("preserveBlankLines", false),
+    admonitions = flags.getBooleanOrDefault("admonitions", true),
   )
 
 fun parseContextMenuItems(value: ReadableArray?): List<String> =
@@ -152,6 +177,20 @@ fun parseImageRequestHeaders(value: ReadableArray?): Map<String, String> =
       val name = header.getString("name") ?: return@mapNotNull null
       val headerValue = header.getString("value") ?: return@mapNotNull null
       name to headerValue
+    }.toMap()
+
+// Header names are lowercased so overrides and cache identity ignore HTTP header casing.
+fun parseImageSources(value: ReadableArray?): Map<String, ImageSourceOverride> =
+  (0 until (value?.size() ?: 0))
+    .mapNotNull { index ->
+      val entry = value?.getMap(index) ?: return@mapNotNull null
+      val id = entry.getString("id") ?: return@mapNotNull null
+      val headers =
+        parseImageRequestHeaders(entry.getArray("headers"))
+          .entries
+          .sortedBy { it.key }
+          .associate { it.key.lowercase() to it.value }
+      id to ImageSourceOverride(entry.getString("uri") ?: "", headers)
     }.toMap()
 
 fun parseLinkPillContent(value: ReadableArray?): Map<String, LinkPillContent> =
@@ -181,6 +220,7 @@ fun parseAccessibilityLabels(value: ReadableMap?): AccessibilityLabels {
   val blockquote = value.getMap("blockquote")
   val table = value.getMap("table")
   val math = value.getMap("math")
+  val codeBlock = value.getMap("codeBlock")
   val rotor = value.getMap("rotor")
   return AccessibilityLabels(
     bulletPoint = list?.getString("bulletPoint") ?: "",
@@ -191,6 +231,8 @@ fun parseAccessibilityLabels(value: ReadableMap?): AccessibilityLabels {
     nestedBlockquote = blockquote?.getString("nestedQuote") ?: "",
     tableRow = table?.getString("row") ?: "",
     mathEquation = math?.getString("equation") ?: "",
+    codeBlockWrap = codeBlock?.getString("wrap") ?: "",
+    codeBlockUnwrap = codeBlock?.getString("unwrap") ?: "",
     rotorHeadings = rotor?.getString("headings") ?: "",
     rotorLinks = rotor?.getString("links") ?: "",
     rotorImages = rotor?.getString("images") ?: "",

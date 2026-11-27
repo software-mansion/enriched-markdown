@@ -37,9 +37,6 @@ class ImageRenderer : NodeRenderer {
       end,
       SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
     )
-
-    // Notify factory for external span tracking/collection
-    factory.registerImageSpan(span)
   }
 
   /**

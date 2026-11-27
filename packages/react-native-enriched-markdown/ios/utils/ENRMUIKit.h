@@ -8,6 +8,7 @@
 #define RCTUIColor UIColor
 #define RCTUIImage UIImage
 #define RCTUIView UIView
+#define RCTPlatformView UIView
 #define RCTUIScrollView UIScrollView
 #define RCTUIGraphicsImageRenderer UIGraphicsImageRenderer
 #define RCTUIGraphicsImageRendererContext UIGraphicsImageRendererContext
@@ -35,6 +36,16 @@ static inline CGFloat UIFontLineHeight(UIFont *font)
 #define ENRMPlatformTextView RCTUITextView
 #define ENRMTapRecognizer NSClickGestureRecognizer
 #endif
+
+/// Value for `usesFontLeading` on every NSLayoutManager that draws or
+/// measures markdown. NSLayoutManager defaults to YES, which adds each font's
+/// built-in leading on top of the paragraph line height. React Native turns it
+/// off for Text layout, and drawing and measuring must agree, or the reported
+/// height and the on-screen layout drift apart. Fonts pulled in by glyph
+/// fallback make this visible: Geeza Pro (Arabic) has nonzero leading, so with
+/// YES every Arabic line measures taller than it renders.
+/// https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm#L237
+static const BOOL ENRMLayoutManagerUsesFontLeading = NO;
 
 /// On iOS, explicitly sets opaque=NO — without it the renderer produces an opaque backing,
 /// breaking transparent backgrounds. macOS handles transparency by default.
@@ -273,7 +284,7 @@ static inline void ENRMConfigureMarkdownTextView(ENRMPlatformTextView *textView)
   textView.drawsBackground = NO;
 #endif
   textView.textContainer.lineFragmentPadding = 0;
-  textView.layoutManager.usesFontLeading = NO;
+  textView.layoutManager.usesFontLeading = ENRMLayoutManagerUsesFontLeading;
   textView.linkTextAttributes = @{};
   textView.selectable = YES;
 #if !TARGET_OS_OSX
@@ -335,15 +346,6 @@ static inline void ENRMRefreshTextViewLayout(ENRMPlatformTextView *textView)
     [textView.layoutManager ensureLayoutForTextContainer:textView.textContainer];
   }
   ENRMSetNeedsDisplay(textView);
-}
-
-/// Refreshes a text view's layout and display after it is attached to a window.
-/// Sets the frame and text container to the given bounds, invalidates layout for
-/// any existing content, then triggers a redraw.
-static inline void ENRMRefreshTextViewAfterWindowAttach(ENRMPlatformTextView *textView, CGRect bounds)
-{
-  textView.frame = bounds;
-  ENRMRefreshTextViewLayout(textView);
 }
 
 /// Cross-platform text deselection: UITextView uses selectedTextRange (nullable);
@@ -408,12 +410,12 @@ static inline ENRMPlaceholderLabel *ENRMCreatePlaceholderLabel(ENRMPlatformTextV
 #endif
 }
 
-/// Cross-platform placeholder text setter.
-static inline void ENRMSetPlaceholderText(ENRMPlaceholderLabel *label, NSString *text)
+/// Cross-platform placeholder attributed text setter.
+static inline void ENRMSetPlaceholderAttributedText(ENRMPlaceholderLabel *label, NSAttributedString *text)
 {
 #if !TARGET_OS_OSX
-  label.text = text;
+  label.attributedText = text;
 #else
-  label.stringValue = text;
+  label.attributedStringValue = text;
 #endif
 }

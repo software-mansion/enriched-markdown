@@ -1,3 +1,12 @@
+import type { MarkdownStream } from '../markdownStream';
+import type { AdmonitionTitles } from './admonitionTitles';
+import type { LinkRecognition } from './linkRecognition';
+import type {
+  MarkdownImageOccurrence,
+  MarkdownImageSource,
+  MarkdownLinkOccurrence,
+  MarkdownRenderers,
+} from './markdownBlocks';
 import type { CSSProperties, HTMLAttributes } from 'react';
 import type { MarkdownStyle, Md4cFlags } from './MarkdownStyle';
 import type {
@@ -18,10 +27,16 @@ export interface EnrichedMarkdownTextProps extends Omit<
    */
   testID?: string;
   /**
-   * Markdown content to render.
+   * Markdown content to render. Ignored while `stream` is set.
    * @platform ios, android, web
    */
-  markdown: string;
+  markdown?: string;
+  /**
+   * Markdown arriving in pieces, from `createMarkdownStream()`. Shown instead of
+   * `markdown` and updated about every other frame without re-rendering your component.
+   * @platform ios, android, web
+   */
+  stream?: MarkdownStream;
   /**
    * Style configuration for markdown elements.
    * @platform ios, android, web
@@ -38,6 +53,12 @@ export interface EnrichedMarkdownTextProps extends Omit<
    * @platform ios, android, web
    */
   md4cFlags?: Md4cFlags;
+  /**
+   * Turns regex matches in plain text (`text`) and whole inline-code spans
+   * (`inlineCode`) into links. The matched text is the URL; the source is unchanged.
+   * @platform ios, android, web
+   */
+  linkRecognition?: LinkRecognition;
   /**
    * Callback fired when a link is pressed.
    * Receives the link URL directly.
@@ -126,10 +147,45 @@ export interface EnrichedMarkdownTextProps extends Omit<
    */
   allowTrailingMargin?: boolean;
   /**
-   * Sets the text direction on the root container.
-   * Useful for RTL languages — CSS logical properties in the renderers
-   * automatically flip blockquote borders, list indentation, etc.
+   * Text direction. By default (or `'auto'`) each paragraph, heading, list,
+   * blockquote and table cell resolves its own direction from its first
+   * strong character, so mixed Arabic/English documents lay out per paragraph.
+   * `'ltr'` / `'rtl'` force one direction for the whole document.
    * @platform web
    */
   dir?: 'ltr' | 'rtl' | 'auto';
+  /**
+   * Admonition header titles by type. Omitted types keep the English title;
+   * an empty string shows the icon only.
+   * @platform ios, android, macos, web
+   */
+  admonitionTitles?: AdmonitionTitles;
+  /**
+   * React replacements for blocks, keyed by kind: a paragraph whose only
+   * content is an image or a link, `<video>` blocks and code blocks, directly
+   * in the document, a blockquote or an admonition, outside any list. Return
+   * nothing (`undefined`) to keep the default rendering for a block.
+   * @platform ios, android, web
+   */
+  renderers?: MarkdownRenderers;
+  /**
+   * Chooses the `src` used for each image instead of its Markdown URL. Headers
+   * are ignored on web, where `<img>` requests cannot carry them. Until it
+   * answers, and when a promise rejects or resolves to an empty `uri`, the
+   * image renders without a source.
+   * @platform ios, android, web
+   */
+  resolveImageSource?: (
+    image: MarkdownImageOccurrence
+  ) =>
+    | MarkdownImageSource
+    | undefined
+    | Promise<MarkdownImageSource | undefined>;
+  /**
+   * Called with the document's links whenever they change, and once with the
+   * first ones: every inline link, autolink and bare URL in document order.
+   * Links that `linkRecognition` adds are not reported.
+   * @platform ios, android, web
+   */
+  onLinksChange?: (links: MarkdownLinkOccurrence[]) => void;
 }

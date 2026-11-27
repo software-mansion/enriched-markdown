@@ -1,7 +1,6 @@
 #import "RenderContext.h"
 #import "CodeBackground.h"
 #import "FontUtils.h"
-#import <React/RCTFont.h>
 
 @implementation BlockStyle
 @end
@@ -24,6 +23,10 @@ static NSArray<NSString *> *ENRMScopedKeyPaths(void)
       @"listDepth",
       @"listType",
       @"listItemNumber",
+      @"listMarkerWidth",
+      @"listMarkerExtra",
+      @"ancestorMarkerOffset",
+      @"listItemMarkerExtra",
       @"accumulatedIndent",
     ];
   });
@@ -39,6 +42,7 @@ static NSArray<NSString *> *ENRMScopedKeyPaths(void)
 - (instancetype)init
 {
   if (self = [super init]) {
+    _fontScale = 1.0;
     _linkRanges = [NSMutableArray array];
     _linkURLs = [NSMutableArray array];
     _headingRanges = [NSMutableArray array];
@@ -71,9 +75,14 @@ static NSArray<NSString *> *ENRMScopedKeyPaths(void)
 
 #pragma mark - Font Cache
 
+- (CGFloat)effectiveFontScale
+{
+  return _allowFontScaling ? ENRMCapFontScale(_fontScale, _maxFontSizeMultiplier) : 1.0;
+}
+
 - (UIFont *)cachedFontForSize:(CGFloat)fontSize family:(NSString *)fontFamily weight:(NSString *)fontWeight
 {
-  CGFloat effectiveMultiplier = _allowFontScaling ? RCTFontSizeMultiplierWithMax(_maxFontSizeMultiplier) : 1.0;
+  CGFloat effectiveMultiplier = [self effectiveFontScale];
 
   NSString *weightKey = (fontWeight.length > 0) ? fontWeight : @"";
   NSString *key =
@@ -86,13 +95,7 @@ static NSArray<NSString *> *ENRMScopedKeyPaths(void)
 
   NSString *effectiveWeight = (fontWeight.length > 0) ? fontWeight : nil;
 
-  UIFont *font = [RCTFont updateFont:nil
-                          withFamily:fontFamily
-                                size:@(fontSize)
-                              weight:effectiveWeight
-                               style:nil
-                             variant:nil
-                     scaleMultiplier:effectiveMultiplier];
+  UIFont *font = ENRMUpdateFont(nil, fontFamily, @(fontSize), effectiveWeight, nil, effectiveMultiplier);
 
   if (font) {
     _fontCache[key] = font;
@@ -313,6 +316,10 @@ static NSArray<NSString *> *ENRMScopedKeyPaths(void)
   _listDepth = 0;
   _listType = ListTypeUnordered;
   _listItemNumber = 0;
+  _listMarkerWidth = 0;
+  _listMarkerExtra = 0;
+  _ancestorMarkerOffset = 0;
+  _listItemMarkerExtra = 0;
   _accumulatedIndent = 0;
   _taskItemCount = 0;
 

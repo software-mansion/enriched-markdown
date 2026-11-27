@@ -53,7 +53,7 @@ Inline elements inherit the typography of their parent block and add their own s
 | Bold | `**text**` (or `__text__`) | `strong` | Bold weight, optional color |
 | Italic | `*text*` (or `_text_`) | `em` | Italic style, optional color |
 | Underline | `_text_` | `underline` | Underline; custom underline color on iOS and web, Android always underlines in the text color (requires [`md4cFlags={{ underline: true }}`](/react-native/api-reference/enriched-markdown-text#underline)) |
-| Strikethrough | `~~text~~` | `strikethrough` | Strike line; custom line color on iOS and web, Android always strikes in the text color (requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor)) |
+| Strikethrough | `~~text~~` (or `~text~`) | `strikethrough` | Strike line; custom line color on iOS and web, Android always strikes in the text color (requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) or [`md4cFlags={{ strikethrough: true }}`](/react-native/api-reference/enriched-markdown-text#strikethrough)) |
 | Bold + italic | `***text***` (or `___text___`) | `strong` + `em` | Combined emphasis |
 | Links | `[text](url)` | `link` | Optional font family, color, background color, underline. Bare URLs autolink too, in both flavors. Per-URL overrides go through `linkVariants` |
 | Inline code | `` `code` `` | `code` | Monospace font, background, optional fontSize |
@@ -68,7 +68,7 @@ Inline elements inherit the typography of their parent block and add their own s
 Some delimiters are ambiguous, and how they parse depends on your [`md4cFlags`](/react-native/api-reference/enriched-markdown-text#md4cflags):
 
 - **Underscores** (`__text__`, `_text_`) mean bold/italic by default. Enabling [`md4cFlags={{ underline: true }}`](/react-native/api-reference/enriched-markdown-text#underline) takes `_` away from emphasis **entirely**: `_text_` becomes underline and `__text__` becomes doubly underlined rather than bold. The `*` forms are unaffected, which is why they are the safer ones to author with - and why the "(or `__text__`)" / "(or `___text___`)" alternatives in the table above do not hold with the flag on.
-- **Single tildes** (`~text~`) mean nothing by default. Enable [`md4cFlags={{ subscript: true }}`](/react-native/api-reference/enriched-markdown-text#subscript) to parse them as subscript. Double tildes (`~~text~~`) are strikethrough, but only under [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) - under `commonmark` they render literally.
+- **Tildes** (`~text~`, `~~text~~`) are both strikethrough under [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) or with [`md4cFlags={{ strikethrough: true }}`](/react-native/api-reference/enriched-markdown-text#strikethrough). Otherwise, CommonMark renders them literally. Enabling [`md4cFlags={{ subscript: true }}`](/react-native/api-reference/enriched-markdown-text#subscript) takes single tildes for subscript, in either case; double tildes keep their meaning.
 - **Double pipes** (`||text||`) are always parsed as spoilers, so `a || b || c` renders `b` as a spoiler span rather than plain text.
 :::
 
@@ -178,7 +178,7 @@ An admonition is still a blockquote, so it holds any block content - more paragr
 > - your `enriched-markdown` config block
 ```
 
-Admonitions reuse the blockquote's geometry and override only its colors, so they are styled through [`markdownStyle.blockquote.admonitions`](/react-native/api-reference/style-properties#admonitions) - one color pair per type, on top of the `blockquote` box itself.
+Admonitions reuse the blockquote's geometry and override only its colors, so they are styled through [`markdownStyle.blockquote.admonitions`](/react-native/api-reference/style-properties#admonitions) - one color pair per type, on top of the `blockquote` box itself. The header titles are set with [`admonitionTitles`](/react-native/api-reference/enriched-markdown-text#admonitiontitles).
 
 :::note
 Requires both [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) and the [`md4cFlags.admonitions`](/react-native/api-reference/enriched-markdown-text#admonitions) flag. The flag is on by default, but it is forced off under `flavor="commonmark"`, where `> [!NOTE]` renders as a plain blockquote with the marker as text.
@@ -189,7 +189,7 @@ Requires both [`flavor="github"`](/react-native/api-reference/enriched-markdown-
 Images are automatically detected as block or inline based on context:
 
 - **Block images** use block-level spacing and sit on their own line.
-- **Inline images** align with the text baseline inside the surrounding run of text.
+- **Inline images** sit inside the surrounding run of text, centred on its cap height, in a square of `inlineImage.size`. The image is scaled up or down to fit inside that square, keeping its proportions, so it is never distorted or cropped.
 
 You don't need to specify which type - the renderer determines it from the image's position. Note that a single newline does not split a paragraph, so an image on its own source line directly below text is still inline; separate it with a blank line to make it a block image.
 
@@ -211,21 +211,17 @@ Videos are embedded with an HTML `<video>` tag - the tag is the one piece of HTM
 <video src="https://example.com/ocean.mp4" />
 ```
 
-The paired form `<video src="url"></video>` works identically. Only `src` is read: `width`, `height`, `controls`, `autoplay` and every other attribute are ignored, so all appearance comes from [`markdownStyle.video`](/react-native/api-reference/style-properties#video-specific). Playback controls come from the platform player - `AVPlayerViewController` on iOS, ExoPlayer on Android.
+The paired form `<video src="url"></video>` works identically. Only `src` is read: `width`, `height`, `controls`, `autoplay` and every other attribute are ignored, so all appearance comes from [`markdownStyle.video`](/react-native/api-reference/style-properties#video-specific). Playback controls come from the platform player - `AVPlayerViewController` on iOS, ExoPlayer on Android, and the browser's built-in `<video>` controls on web.
 
 :::important
 Quote the URL. An unquoted `src` ends at the first `/`, so `<video src=https://example.com/a.mp4 />` parses as the URL `https:` and nothing loads.
 :::
 
 :::note
-Requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) and the `enableVideo` build flag (on by default) - see [Optional native features](/react-native/guides/native-assets#optional-features). No other HTML is rendered: inline HTML is disabled and any other tag is ignored.
+On native, requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) and the `enableVideo` build flag (on by default) - see [Optional native features](/react-native/guides/native-assets#optional-features). Web has neither knob and always renders the player. No other HTML is rendered on any target: inline HTML is disabled and any other tag is ignored.
 :::
 
-A video inside a blockquote or an admonition renders normally. A video inside a **list item** is different: it is promoted out of the list and rendered as a standalone block above the remaining items, without a bullet or number, which splits the list in two.
-
-:::caution
-Videos do not render on web. The published WebAssembly parser predates the feature, so it never emits a `Video` node and the tag produces nothing there.
-:::
+A video inside a blockquote or an admonition renders normally. A video inside a **list item** is different: it is promoted out of the list and rendered as a standalone block above the remaining items, without a bullet or number, which splits the list in two. The promotion happens in the parser, so web behaves the same way.
 
 ## Line breaks
 
@@ -284,17 +280,13 @@ To reproduce editor content line for line, combine `preserveBlankLines` with `ha
 
 ## What happens to an unsupported element
 
-Not every target renders every element, and the three renderers fail in **three different ways**. This matters most for spoilers on web and for math in a build compiled without the native math engine.
+Not every target renders every element, and the three renderers fail in **three different ways**. This matters most for math in a build compiled without the native math engine.
 
 | Target      | Unmapped node                                                                   |
 | ----------- | ------------------------------------------------------------------------------- |
 | iOS / macOS | Recurses into the node's children, so the **text survives** without its styling |
 | Android     | Falls back to a plain text renderer that emits only the node's own content and never visits children, so an unsupported **container loses all of its text** |
 | Web         | Drops the node **and its whole subtree**                                        |
-
-:::danger
-The clearest case is **spoilers on web**: the parser emits the node, the web renderer has no entry for it, so the concealed text is deleted rather than concealed - `a ||secret|| b` renders as `a  b`. Do not put content behind a spoiler if the same Markdown is rendered on web.
-:::
 
 ## Reading the AST
 

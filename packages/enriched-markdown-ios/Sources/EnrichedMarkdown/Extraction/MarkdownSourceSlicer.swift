@@ -84,6 +84,11 @@ private extension MarkdownSourceSlicer {
         var failed = false
 
         attributedText.enumerateAttributes(in: selection, options: []) { attrs, runRange, stop in
+            if attrs[MarkdownAttribute.admonitionHeader] != nil {
+                failed = true
+                stop.pointee = true
+                return
+            }
             if attrs[.attachment] != nil {
                 // Attachments map all-or-nothing: their placeholder is a
                 // single character, so the node range is never narrowed.
@@ -478,6 +483,7 @@ private extension MarkdownSourceSlicer {
 
     static func isCodeBlockRun(_ run: MappedRun) -> Bool {
         MarkdownAttributeValue.boolValue(from: run.attrs[MarkdownAttribute.codeBlock])
+            || run.attrs[.attachment] is CodeBlockAttachment
     }
 
     /// A fully-selected code block starts at its content's first byte; the

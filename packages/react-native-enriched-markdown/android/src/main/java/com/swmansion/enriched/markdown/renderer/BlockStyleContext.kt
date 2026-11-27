@@ -41,10 +41,19 @@ class BlockStyleContext {
   var listDepth = 0
   var listType: ListType? = null
   var listItemNumber = 0
+  var listMarkerExtra = 0f
+  var ancestorMarkerOffset = 0f
+  var listItemMarkerExtra = 0f
+  var listItemMarkerWidth: Float? = null
   var taskItemCount = 0
   var accumulatedIndent = 0
 
   val listItemStarts = mutableListOf<Int>()
+
+  // Where each item of the last top-level list started, and the task count before it: a stream
+  // growing that list renders again from its last items only (TextRenderCache).
+  val topLevelListItemStarts = mutableListOf<Int>()
+  val topLevelListItemTaskStarts = mutableListOf<Int>()
 
   private val orderedListItemNumbers = ArrayDeque<Int>()
 
@@ -151,9 +160,15 @@ class BlockStyleContext {
     listDepth = 0
     listType = null
     listItemNumber = 0
+    listMarkerExtra = 0f
+    ancestorMarkerOffset = 0f
+    listItemMarkerExtra = 0f
+    listItemMarkerWidth = null
     taskItemCount = 0
     accumulatedIndent = 0
     listItemStarts.clear()
+    topLevelListItemStarts.clear()
+    topLevelListItemTaskStarts.clear()
     orderedListItemNumbers.clear()
   }
 }

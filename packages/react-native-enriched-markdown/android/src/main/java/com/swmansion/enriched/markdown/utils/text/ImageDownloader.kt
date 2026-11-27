@@ -6,7 +6,9 @@ import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import okhttp3.Cache
+import okhttp3.CacheControl
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
@@ -25,9 +27,17 @@ object ImageDownloader {
 
   @Volatile
   private var client: OkHttpClient? = null
+
+  // No disk cache: it keys by URL alone and would mix header sets.
+  @Volatile
+  private var headerClient: OkHttpClient? = null
   private var maxTargetWidth: Int = 0
 
   private val inFlight = HashMap<String, MutableList<(Bitmap?) -> Unit>>()
+
+  /** Replaceable so unit tests never touch the network. */
+  @VisibleForTesting
+  internal var remoteLoader: (Context, String, Map<String, String>, (Bitmap?) -> Unit) -> Unit = ::fetch
 
   private fun getClient(context: Context): OkHttpClient =
     client ?: synchronized(this) {
@@ -35,6 +45,15 @@ object ImageDownloader {
         client = it
         maxTargetWidth = context.applicationContext.resources.displayMetrics.widthPixels
       }
+    }
+
+  private fun getHeaderClient(context: Context): OkHttpClient =
+    headerClient ?: synchronized(this) {
+      headerClient ?: getClient(context)
+        .newBuilder()
+        .cache(null)
+        .build()
+        .also { headerClient = it }
     }
 
   private fun buildClient(context: Context): OkHttpClient {
@@ -52,7 +71,15 @@ object ImageDownloader {
     url: String,
     headers: Map<String, String> = emptyMap(),
     callback: (Bitmap?) -> Unit,
+  ) = remoteLoader(context, url, headers, callback)
+
+  private fun fetch(
+    context: Context,
+    url: String,
+    headers: Map<String, String>,
+    callback: (Bitmap?) -> Unit,
   ) {
+    val headers = ImageCache.normalizedHeaders(headers)
     val requestKey = ImageCache.requestKey(url, headers)
 
     ImageCache.getOriginal(requestKey)?.let {
@@ -75,14 +102,27 @@ object ImageDownloader {
         Request
           .Builder()
           .url(url)
-          .apply { headers.forEach { (name, value) -> addHeader(name, value) } }
-          .build()
+          .apply {
+            headers.forEach { (name, value) -> addHeader(name, value) }
+            // The HTTP cache keys by URL and server Vary, which may omit the headers
+            // that make this request distinct; keep header-bearing responses out of it.
+            if (headers.isNotEmpty()) {
+              cacheControl(
+                CacheControl
+                  .Builder()
+                  .noCache()
+                  .noStore()
+                  .build(),
+              )
+            }
+          }.build()
       } catch (e: IllegalArgumentException) {
         Log.e(TAG, "Invalid image request: $url", e)
         dispatchCallbacks(requestKey, null)
         return
       }
-    getClient(context).newCall(request).enqueue(
+    val client = if (headers.isEmpty()) getClient(context) else getHeaderClient(context)
+    client.newCall(request).enqueue(
       object : Callback {
         override fun onResponse(
           call: Call,

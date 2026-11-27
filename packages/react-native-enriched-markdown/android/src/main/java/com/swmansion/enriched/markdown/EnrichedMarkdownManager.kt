@@ -1,20 +1,23 @@
 package com.swmansion.enriched.markdown
 
 import android.content.Context
+import android.view.View
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.uimanager.ReactStylesDiffMap
-import com.facebook.react.uimanager.SimpleViewManager
 import com.facebook.react.uimanager.StateWrapper
 import com.facebook.react.uimanager.ThemedReactContext
+import com.facebook.react.uimanager.ViewGroupManager
 import com.facebook.react.uimanager.ViewManagerDelegate
 import com.facebook.react.uimanager.annotations.ReactProp
 import com.facebook.react.viewmanagers.EnrichedMarkdownManagerDelegate
 import com.facebook.react.viewmanagers.EnrichedMarkdownManagerInterface
 import com.facebook.yoga.YogaMeasureMode
-import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
+import com.swmansion.enriched.markdown.segments.AdmonitionIcons
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayMode
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
+import com.swmansion.enriched.markdown.utils.common.MediaStreamingMode
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.applyReactBorderProps
 import com.swmansion.enriched.markdown.utils.common.emitCodeBlockPress
@@ -23,19 +26,26 @@ import com.swmansion.enriched.markdown.utils.common.emitCopyPress
 import com.swmansion.enriched.markdown.utils.common.emitLatexError
 import com.swmansion.enriched.markdown.utils.common.emitLinkLongPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkPress
+import com.swmansion.enriched.markdown.utils.common.emitSelectionCopy
 import com.swmansion.enriched.markdown.utils.common.emitTaskListItemPress
+import com.swmansion.enriched.markdown.utils.common.getBooleanOrDefault
 import com.swmansion.enriched.markdown.utils.common.markdownEventTypeConstants
 import com.swmansion.enriched.markdown.utils.common.parseAccessibilityLabels
 import com.swmansion.enriched.markdown.utils.common.parseContextMenuItems
 import com.swmansion.enriched.markdown.utils.common.parseImageRequestHeaders
+import com.swmansion.enriched.markdown.utils.common.parseImageSources
 import com.swmansion.enriched.markdown.utils.common.parseLinkPillContent
+import com.swmansion.enriched.markdown.utils.common.parseLinkRecognition
 import com.swmansion.enriched.markdown.utils.common.parseMd4cFlags
 import com.swmansion.enriched.markdown.utils.common.parseSelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.text.StreamingEffects
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListToggleUtils
 
+// A ViewGroupManager because the React slot children (`renderers`) mount into the
+// host; they go to its slot layer, never between the segment views.
 @ReactModule(name = EnrichedMarkdownManager.NAME)
 class EnrichedMarkdownManager :
-  SimpleViewManager<EnrichedMarkdown>(),
+  ViewGroupManager<EnrichedMarkdown>(),
   EnrichedMarkdownManagerInterface<EnrichedMarkdown> {
   private val mDelegate: ViewManagerDelegate<EnrichedMarkdown> = EnrichedMarkdownManagerDelegate(this)
 
@@ -47,6 +57,9 @@ class EnrichedMarkdownManager :
     val view = EnrichedMarkdown(reactContext)
     view.onContextMenuItemPressCallback = { itemText, selectedText, selectionStart, selectionEnd ->
       emitContextMenuItemPress(view, itemText, selectedText, selectionStart, selectionEnd)
+    }
+    view.onSelectionCopyCallback = { text, format, selectionStart, selectionEnd ->
+      emitSelectionCopy(view, text, format, selectionStart, selectionEnd)
     }
 
     view.setOnLinkPressCallback { url ->
@@ -60,7 +73,8 @@ class EnrichedMarkdownManager :
     view.setOnTaskListItemPressCallback { taskIndex, checked, itemText ->
       val newChecked = !checked
       val updatedMarkdown = TaskListToggleUtils.toggleAtIndex(view.currentMarkdown, taskIndex, newChecked)
-      view.setMarkdownContent(updatedMarkdown)
+      // A checkbox flip keeps every code block where it was, so keep their wrap state too.
+      view.setMarkdownContent(updatedMarkdown, isTaskToggle = true)
       view.commitProps()
       emitTaskListItemPress(view, taskIndex, newChecked, itemText)
     }
@@ -100,15 +114,40 @@ class EnrichedMarkdownManager :
     stateWrapper: StateWrapper?,
   ): Any? {
     view.stateWrapper = stateWrapper
+    view.applySlotPlacements(stateWrapper?.stateData)
     return super.updateState(view, props, stateWrapper)
+  }
+
+  override fun addView(
+    parent: EnrichedMarkdown,
+    child: View,
+    index: Int,
+  ) {
+    parent.slotLayer.addView(child, index.coerceIn(0, parent.slotLayer.childCount))
+  }
+
+  override fun getChildCount(parent: EnrichedMarkdown): Int = parent.slotLayer.childCount
+
+  override fun getChildAt(
+    parent: EnrichedMarkdown,
+    index: Int,
+  ): View? = parent.slotLayer.getChildAt(index)
+
+  override fun removeViewAt(
+    parent: EnrichedMarkdown,
+    index: Int,
+  ) {
+    parent.slotLayer.removeViewAt(index)
+  }
+
+  override fun removeAllViews(parent: EnrichedMarkdown) {
+    parent.slotLayer.removeAllViews()
   }
 
   override fun onDropViewInstance(view: EnrichedMarkdown) {
     super.onDropViewInstance(view)
     view.cleanup()
     MeasurementStore.release(view.id)
-    MeasurementStore.clearStreamingTableMode(view.id)
-    MeasurementStore.clearStreamingCodeBlockMode(view.id)
     MeasurementStore.clearBreakStrategy(view.id)
     MeasurementStore.clearFontScalingSettings(view.id)
   }
@@ -122,6 +161,19 @@ class EnrichedMarkdownManager :
   ) {
     view?.setMarkdownContent(markdown ?: "")
   }
+
+  // A stream's text arrives as `markdown`, filled in by the component descriptor.
+  @ReactProp(name = "streamId", defaultInt = 0)
+  override fun setStreamId(
+    view: EnrichedMarkdown?,
+    streamId: Int,
+  ) = Unit
+
+  @ReactProp(name = "streamLength", defaultInt = 0)
+  override fun setStreamLength(
+    view: EnrichedMarkdown?,
+    streamLength: Int,
+  ) = Unit
 
   @ReactProp(name = "markdownStyle")
   override fun setMarkdownStyle(
@@ -151,6 +203,16 @@ class EnrichedMarkdownManager :
     value: Int?,
   ) {
     view?.setSelectionHandleColor(value)
+  }
+
+  @ReactProp(name = "linkRecognition")
+  override fun setLinkRecognition(
+    view: EnrichedMarkdown?,
+    value: ReadableMap?,
+  ) {
+    val recognition = parseLinkRecognition(value)
+    view?.setLinkRegex(recognition.text)
+    view?.setInlineCodeLinkRegex(recognition.inlineCode)
   }
 
   @ReactProp(name = "md4cFlags")
@@ -225,6 +287,14 @@ class EnrichedMarkdownManager :
     view?.setEnableImagePress(enableImagePress)
   }
 
+  @ReactProp(name = "enableTextPress", defaultBoolean = false)
+  override fun setEnableTextPress(
+    view: EnrichedMarkdown?,
+    enableTextPress: Boolean,
+  ) {
+    view?.setEnableTextPress(enableTextPress)
+  }
+
   @ReactProp(name = "enableBlockContextMenu", defaultBoolean = true)
   override fun setEnableBlockContextMenu(
     view: EnrichedMarkdown?,
@@ -239,6 +309,14 @@ class EnrichedMarkdownManager :
     enableCodeBlockPress: Boolean,
   ) {
     view?.enableCodeBlockPress = enableCodeBlockPress
+  }
+
+  @ReactProp(name = "enableCodeBlockWrapToggle", defaultBoolean = true)
+  override fun setEnableCodeBlockWrapToggle(
+    view: EnrichedMarkdown?,
+    enableCodeBlockWrapToggle: Boolean,
+  ) {
+    view?.enableCodeBlockWrapToggle = enableCodeBlockWrapToggle
   }
 
   @ReactProp(name = "lineBreakStrategyIOS")
@@ -257,12 +335,12 @@ class EnrichedMarkdownManager :
     // No-op on Android — first-strong per-paragraph resolution is the platform default
   }
 
-  @ReactProp(name = "streamingAnimation", defaultBoolean = false)
-  override fun setStreamingAnimation(
+  @ReactProp(name = "streaming", defaultBoolean = false)
+  override fun setStreaming(
     view: EnrichedMarkdown?,
-    streamingAnimation: Boolean,
+    streaming: Boolean,
   ) {
-    view?.streamingAnimation = streamingAnimation
+    view?.setStreamingProp(streaming)
   }
 
   @ReactProp(name = "streamingConfig")
@@ -271,17 +349,11 @@ class EnrichedMarkdownManager :
     config: ReadableMap?,
   ) {
     if (view == null) return
-    val tableMode =
-      when (config?.getString("tableMode")) {
-        "hidden" -> TableStreamingMode.HIDDEN
-        else -> TableStreamingMode.PROGRESSIVE
-      }
-    view.tableStreamingMode = tableMode
-    view.codeBlockStreamingMode =
-      when (config?.getString("codeBlockMode")) {
-        "hidden" -> CodeBlockStreamingMode.HIDDEN
-        else -> CodeBlockStreamingMode.PROGRESSIVE
-      }
+    view.tableStreamingMode = TableStreamingMode.fromString(config?.getString("tableMode"))
+    view.codeBlockStreamingMode = CodeBlockStreamingMode.fromString(config?.getString("codeBlockMode"))
+    view.mediaStreamingMode = MediaStreamingMode.fromString(config?.getString("mediaMode"))
+    view.setStreamingAnimation(StreamingEffects.Config.from(config, view.context))
+    view.smooth = config.getBooleanOrDefault("smooth", false)
   }
 
   @ReactProp(name = "spoilerOverlay")
@@ -289,7 +361,7 @@ class EnrichedMarkdownManager :
     view: EnrichedMarkdown?,
     mode: String?,
   ) {
-    view?.spoilerOverlay = SpoilerOverlay.fromString(mode)
+    view?.spoilerOverlay = SpoilerOverlayMode.fromString(mode)
   }
 
   @ReactProp(name = "textBreakStrategy")
@@ -342,6 +414,15 @@ class EnrichedMarkdownManager :
     view.setImageRequestHeaders(parseImageRequestHeaders(value))
   }
 
+  @ReactProp(name = "imageSources")
+  override fun setImageSources(
+    view: EnrichedMarkdown?,
+    value: ReadableArray?,
+  ) {
+    if (view == null) return
+    view.setImageSources(parseImageSources(value))
+  }
+
   @ReactProp(name = "linkPillContent")
   override fun setLinkPillContent(
     view: EnrichedMarkdown?,
@@ -369,6 +450,15 @@ class EnrichedMarkdownManager :
     view.setAccessibilityLabels(parseAccessibilityLabels(value))
   }
 
+  @ReactProp(name = "admonitionTitles")
+  override fun setAdmonitionTitles(
+    view: EnrichedMarkdown?,
+    value: ReadableMap?,
+  ) {
+    if (view == null) return
+    view.setAdmonitionTitles(AdmonitionIcons.TYPES.associateWith { value?.getString(it).orEmpty() })
+  }
+
   override fun setPadding(
     view: EnrichedMarkdown,
     left: Int,
@@ -392,7 +482,19 @@ class EnrichedMarkdownManager :
     attachmentsPositions: FloatArray?,
   ): Long {
     val id = localData?.getInt("viewTag")
-    return MeasurementStore.getMeasureById(context, id, width, widthMode, height, heightMode, props, splitTableSegments = true)
+    val slotIds = localData?.takeIf { it.hasKey("blockSlotIds") }?.getArray("blockSlotIds")
+    val blockSlotIds = (0 until (slotIds?.size() ?: 0)).mapNotNull { slotIds?.getString(it) }
+    return MeasurementStore.getMeasureById(
+      context,
+      id,
+      width,
+      widthMode,
+      height,
+      heightMode,
+      props,
+      splitTableSegments = true,
+      blockSlotIds = blockSlotIds,
+    )
   }
 
   companion object {

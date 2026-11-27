@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct TableCellModel: Equatable {
     let attributedText: NSAttributedString
+    let drawnText: NSAttributedString
     let plainText: String
     /// Cell content with inline markdown markers restored (bold, code,
     /// links, …), for Copy as Markdown.
@@ -134,7 +135,7 @@ struct TableAttachmentLayout: Equatable {
 
 /// A GFM table embedded as a full-width block attachment whose view
 /// provider hosts the live grid view.
-final class TableAttachment: NSTextAttachment {
+final class TableAttachment: NSTextAttachment, HorizontallyScrollingAttachment {
     /// Must be a resolvable UTI — NSTextAttachment silently drops any other
     /// string, which breaks the provider-class lookup.
     static let fileType: String = UTType(
@@ -154,8 +155,6 @@ final class TableAttachment: NSTextAttachment {
     let layout: TableAttachmentLayout
     let style: TableAttachmentStyle
 
-    /// TextKit 2 recreates the provider view whenever the table re-enters
-    /// the viewport; the horizontal scroll position survives here.
     var preservedContentOffset: CGPoint = .zero
 
     init(model: TableModel, style: TableAttachmentStyle) {

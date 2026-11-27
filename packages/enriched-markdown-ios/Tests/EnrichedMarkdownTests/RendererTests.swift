@@ -609,7 +609,7 @@ final class RendererTests: XCTestCase {
         customConfig.codeBlock.marginBottom = 0
         customConfig.codeBlock.marginTop = 0
 
-        let result = MarkdownRenderer.render("```\ncode line\n```", config: customConfig)
+        let result = MarkdownRenderer.render("```\ncode line\n```\n\nafter", config: customConfig)
 
         var codeBlockRange = NSRange(location: NSNotFound, length: 0)
         result.enumerateAttribute(MarkdownAttribute.codeBlock, in: NSRange(location: 0, length: result.length)) { value, range, _ in

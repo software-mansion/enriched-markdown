@@ -25,26 +25,28 @@
 #import "ENRMStyleHandler.h"
 #import "ENRMStyleMergingConfig.h"
 #import "ENRMUIKit.h"
+#import "ENRMViewFreeMeasurement.h"
 #import "EnrichedMarkdownTextInput+Internal.h"
 #import "InputStylePropsUtils.h"
 #import "ParagraphStyleUtils.h"
 #import "PasteboardUtils.h"
 #import "SelectionColorUtils.h"
+#import "StyleConfig.h"
 #import <QuartzCore/CABase.h>
 #import <React/RCTI18nUtil.h>
 #if TARGET_OS_OSX
 #import <React/RCTBackedTextInputDelegate.h>
 #endif
 
-#import <ReactNativeEnrichedMarkdown/EnrichedMarkdownTextInputComponentDescriptor.h>
-#import <ReactNativeEnrichedMarkdown/EventEmitters.h>
-#import <ReactNativeEnrichedMarkdown/Props.h>
-#import <ReactNativeEnrichedMarkdown/RCTComponentViewHelpers.h>
+#import "EnrichedMarkdownTextInputComponentDescriptor.h"
+#import <react/renderer/components/EnrichedMarkdownTextSpec/EventEmitters.h>
+#import <react/renderer/components/EnrichedMarkdownTextSpec/Props.h>
+#import <react/renderer/components/EnrichedMarkdownTextSpec/RCTComponentViewHelpers.h>
 
 #import "EnrichedMarkdownTextInputShadowNode.h"
 #import "HeightUpdateUtils.h"
-#import "RCTFabricComponentsPlugins.h"
 #import <React/RCTConversions.h>
+#import <React/RCTFabricComponentsPlugins.h>
 
 using namespace facebook::react;
 
@@ -79,8 +81,13 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   ENRMInputTypingAttributesController *_typingController;
   ENRMInputEventEmitter *_inputEventEmitter;
   ENRMEditSession *_editSession;
+  // How Yoga last sized the input; see -maxContentHeight.
+  CGFloat _measureMaxHeight;
+  CGFloat _measuredHeight;
+  CGFloat _laidOutHeight; // NAN while the committed layout matches the last measure
 
   ENRMPlaceholderLabel *_placeholderLabel;
+  NSString *_placeholderText;
 
   NSUInteger _lastTextLength;
   NSRange _lastSelectedRange;
@@ -168,6 +175,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
     _formatMenuConfig = (ENRMFormatMenuConfig){
         .bold = YES, .italic = YES, .underline = YES, .strikethrough = YES, .spoiler = YES, .link = YES};
 
+    _laidOutHeight = NAN;
     [self setupTextView];
     _editSession = [[ENRMEditSession alloc] initWithTextView:_textView];
     _typingController = [[ENRMInputTypingAttributesController alloc] initWithTextView:_textView
@@ -188,8 +196,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
                                                            autoLinkDetector:_autoLinkDetector];
     _clipboardCoordinator = [[ENRMClipboardCoordinator alloc] initWithFormattingStore:_formattingStore
                                                                            blockStore:_blockStore
-                                                               transientRangeProvider:_detectorPipeline
-                                                                            formatter:_formatter];
+                                                               transientRangeProvider:_detectorPipeline];
   }
   return self;
 }
@@ -217,6 +224,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 {
 #if !TARGET_OS_OSX
   _layoutManager = [[ENRMInputLayoutManager alloc] init];
+  _layoutManager.usesFontLeading = ENRMLayoutManagerUsesFontLeading;
   NSTextContainer *textContainer = [[NSTextContainer alloc] initWithSize:CGSizeMake(0, CGFLOAT_MAX)];
   textContainer.widthTracksTextView = YES;
   [_layoutManager addTextContainer:textContainer];
@@ -228,6 +236,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 #else
   ENRMInputTextView *inputTextView = [[ENRMInputTextView alloc] initWithFrame:CGRectZero];
   _layoutManager = [[ENRMInputLayoutManager alloc] init];
+  _layoutManager.usesFontLeading = ENRMLayoutManagerUsesFontLeading;
   [inputTextView.textContainer replaceLayoutManager:_layoutManager];
 #endif
   inputTextView.markdownTextInput = self;
@@ -327,6 +336,13 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 {
   [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
 
+  // When the committed height doesn't match the last measure, Yoga sized the
+  // view on its own (a fixed or stretched height) and won't measure again until
+  // the style or constraints change, so that height is the limit.
+  CGFloat contentHeight = layoutMetrics.getContentFrame().size.height;
+  BOOL sizedByMeasure = fabs(contentHeight - _measuredHeight) <= 1.0 / RCTScreenScale();
+  _laidOutHeight = sizedByMeasure ? NAN : contentHeight;
+
   NSWritingDirection resolved = _resolvedLayoutDirection;
   if (layoutMetrics.layoutDirection == LayoutDirection::RightToLeft) {
     resolved = NSWritingDirectionRightToLeft;
@@ -344,6 +360,22 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
 #pragma mark - Measurement
 
+- (void)didMeasureWithMaxHeight:(CGFloat)maxHeight measuredHeight:(CGFloat)measuredHeight
+{
+  // A new measured height means Yoga is sizing the view to its text again, so
+  // an older laid-out height no longer applies.
+  if (measuredHeight != _measuredHeight) {
+    _laidOutHeight = NAN;
+  }
+  _measureMaxHeight = maxHeight;
+  _measuredHeight = measuredHeight;
+}
+
+- (CGFloat)maxContentHeight
+{
+  return isnan(_laidOutHeight) ? _measureMaxHeight : _laidOutHeight;
+}
+
 - (CGSize)measureSize:(CGFloat)maxWidth
 {
   NSMutableAttributedString *measuredText =
@@ -356,22 +388,13 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
                                                                          attributes:_textView.typingAttributes]];
   }
 
-  // Trailing newlines are not counted by boundingRectWithSize — append
-  // a mock character so the extra line is included in the height.
-  if (measuredText.length > 0) {
-    unichar lastChar = [measuredText.string characterAtIndex:measuredText.length - 1];
-    if ([[NSCharacterSet newlineCharacterSet] characterIsMember:lastChar]) {
-      [measuredText appendAttributedString:[[NSAttributedString alloc] initWithString:@"I"
-                                                                           attributes:_textView.typingAttributes]];
-    }
-  }
-
-  CGRect boundingBox =
-      [measuredText boundingRectWithSize:CGSizeMake(maxWidth, CGFLOAT_MAX)
-                                 options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
-                                 context:nil];
-
-  return CGSizeMake(maxWidth, ceil(boundingBox.size.height));
+  // Same TextKit path as the read-only view, with font leading off. The extra
+  // line fragment after a trailing newline is kept so that blank line counts
+  // toward the height, as in RN TextInput.
+  StyleConfig *config = [[StyleConfig alloc] init];
+  CGSize size = ENRMMeasureAttributedTextViewFree(measuredText, maxWidth, config, NO, 0, RCTScreenScale(), 0,
+                                                  NSLineBreakByWordWrapping, NO);
+  return CGSizeMake(maxWidth, size.height);
 }
 
 #pragma mark - Props
@@ -415,12 +438,14 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 #endif
 
   if (newViewProps.placeholder != oldViewProps.placeholder) {
-    ENRMSetPlaceholderText(_placeholderLabel, [NSString stringWithUTF8String:newViewProps.placeholder.c_str()]);
+    _placeholderText = [NSString stringWithUTF8String:newViewProps.placeholder.c_str()];
+    [self updatePlaceholderText];
   }
 
   if (newViewProps.placeholderTextColor != oldViewProps.placeholderTextColor) {
     if (isColorMeaningful(newViewProps.placeholderTextColor)) {
       _placeholderLabel.textColor = RCTUIColorFromSharedColor(newViewProps.placeholderTextColor);
+      [self updatePlaceholderText];
     }
   }
 
@@ -523,14 +548,10 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   }
 
   if (styleChanged) {
-    _placeholderLabel.font = _formatterStyle.baseFont;
+    [self updatePlaceholderText];
 
     [self resetBaseTypingAttributes];
-
-    if (_formattingStore.allRanges.count > 0) {
-      [self applyFormatting];
-    }
-
+    [self applyFormatting];
     [self requestHeightUpdate];
   } else if (writingDirectionChanged && _textView.textStorage.length > 0) {
     [self applyFormatting];
@@ -626,6 +647,15 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 #endif
 
 #if !TARGET_OS_OSX
+
+#pragma mark - Hit testing
+
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
+{
+  UIView *hitView = [super hitTest:point withEvent:event];
+  return hitView == self ? _textView : hitView;
+}
+
 - (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection
 {
   [super traitCollectionDidChange:previousTraitCollection];
@@ -635,7 +665,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
     [self resetBaseTypingAttributes];
 
-    _placeholderLabel.font = _formatterStyle.baseFont;
+    [self updatePlaceholderText];
 
     [self applyFormatting];
     [self requestHeightUpdate];
@@ -656,6 +686,27 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 }
 
 #pragma mark - Placeholder
+
+/// Lays the placeholder out like a body paragraph: base font, and the body line
+/// height with the same baseline centering the formatter applies to typed text.
+- (void)updatePlaceholderText
+{
+  NSMutableDictionary *attrs = [@{
+    NSFontAttributeName : _formatterStyle.baseFont,
+    NSForegroundColorAttributeName : _placeholderLabel.textColor,
+  } mutableCopy];
+  if (_formatterStyle.baseLineHeight > 0) {
+    attrs[NSParagraphStyleAttributeName] = ENRMInputParagraphStyleWithLineHeight(_formatterStyle, nil);
+  }
+  NSMutableAttributedString *text = [[NSMutableAttributedString alloc] initWithString:_placeholderText ?: @""
+                                                                           attributes:attrs];
+  NSRange fullRange = NSMakeRange(0, text.length);
+  CGFloat baselineOffset = calculateBaselineOffset(text, fullRange);
+  if (baselineOffset > 0) {
+    [text addAttribute:NSBaselineOffsetAttributeName value:@(baselineOffset) range:fullRange];
+  }
+  ENRMSetPlaceholderAttributedText(_placeholderLabel, text);
+}
 
 - (void)updatePlaceholderVisibility
 {
@@ -804,10 +855,14 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
 - (void)resetBaseTypingAttributes
 {
-  ENRMSetDefaultTypingAttributes(_textView, @{
+  NSMutableDictionary *attrs = [@{
     NSFontAttributeName : _formatterStyle.baseFont,
     NSForegroundColorAttributeName : _formatterStyle.baseTextColor,
-  });
+  } mutableCopy];
+  if (_formatterStyle.baseLineHeight > 0) {
+    attrs[NSParagraphStyleAttributeName] = ENRMInputParagraphStyleWithLineHeight(_formatterStyle, nil);
+  }
+  ENRMSetDefaultTypingAttributes(_textView, attrs);
 }
 
 - (void)applyFormatting
@@ -993,8 +1048,8 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
                                                    inText:text];
 
   if (alreadyActive) {
-    // Strip the stored block paragraph style directly: an empty item's line has no
-    // stamped block-marker attribute (zero-length ranges are never stamped), so the
+    // Strip the stored block paragraph style directly: an empty item on the last
+    // line has no terminator to carry the block-marker attribute, so the
     // applyFormatting reset below — which is keyed off that marker — cannot reach it.
     NSRange paragraphRange = [text paragraphRangeForRange:_textView.selectedRange];
     NSTextStorage *storage = _textView.textStorage;
@@ -1432,6 +1487,16 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   copyItemsToPasteboard(items);
 }
 
+// TODO: model history (port of src/web/input/editing/EditHistory.ts). Until
+// then the commands do nothing and `onChangeHistoryState` is never emitted.
+- (void)undo
+{
+}
+
+- (void)redo
+{
+}
+
 - (void)requestMarkdown:(NSInteger)requestId
 {
   [_inputEventEmitter requestMarkdown:requestId];
@@ -1685,6 +1750,8 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 - (void)handleTextChanged
 {
   if (_editSession.isComposing) {
+    // Marked text is already in the view; hide the placeholder under it.
+    [self updatePlaceholderVisibility];
     return;
   }
 

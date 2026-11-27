@@ -1,0 +1,276 @@
+/*
+ * Checks the streaming filter every host and the JS collector share: block
+ * math, tables, code fences and trailing media. See scripts/test-core-parser.sh.
+ */
+#include "StreamingFilter.hpp"
+#include <iostream>
+#include <string>
+
+namespace {
+
+int failures = 0;
+
+void check(bool condition, const std::string &what) {
+  if (!condition) {
+    std::cerr << "FAIL: " << what << "\n";
+    failures++;
+  }
+}
+
+using Markdown::StreamingBlockMode;
+using Markdown::StreamingFilterOptions;
+
+std::string filter(const std::string &markdown, StreamingBlockMode mediaMode = StreamingBlockMode::Progressive,
+                   StreamingBlockMode tableMode = StreamingBlockMode::Progressive,
+                   StreamingBlockMode codeBlockMode = StreamingBlockMode::Progressive) {
+  StreamingFilterOptions options;
+  options.tableMode = tableMode;
+  options.codeBlockMode = codeBlockMode;
+  options.mediaMode = mediaMode;
+  return Markdown::renderableMarkdownForStreaming(markdown, options).markdown;
+}
+
+void expect(const std::string &markdown, const std::string &expected, const std::string &what,
+            StreamingBlockMode mediaMode = StreamingBlockMode::Progressive,
+            StreamingBlockMode tableMode = StreamingBlockMode::Progressive,
+            StreamingBlockMode codeBlockMode = StreamingBlockMode::Progressive) {
+  std::string got = filter(markdown, mediaMode, tableMode, codeBlockMode);
+  check(got == expected, what + "\n  expected: [" + expected + "]\n  got:      [" + got + "]");
+}
+
+void expectItems(const std::string &markdown, const std::string &end, const std::string &lastItem,
+                 const std::string &what) {
+  Markdown::FinishedListItems items = Markdown::finishedListItems(markdown);
+  size_t expectedEnd = end.empty() ? 0 : markdown.find(end);
+  size_t expectedLastItem = lastItem.empty() ? 0 : markdown.find(lastItem);
+  check(items.end == expectedEnd && items.lastItem == expectedLastItem,
+        what + "\n  expected: " + std::to_string(expectedEnd) + ", " + std::to_string(expectedLastItem) +
+            "\n  got:      " + std::to_string(items.end) + ", " + std::to_string(items.lastItem));
+}
+
+void checkFinishedListItems() {
+  expectItems("- one", "", "", "a single item is not finished");
+  expectItems("- one\n- two", "- two", "- one", "an item finishes the one before it");
+  expectItems("- one\n- two\n- three\n", "- three", "- two", "the last item of three");
+  expectItems("Intro\n\n- one\n- two", "- two", "- one", "a list after a paragraph");
+  expectItems("# Steps\n1. one\n2. two", "2. two", "1. one", "a list right after a heading");
+  expectItems("1) one\n2) two", "2) two", "1) one", "an ordered list with parentheses");
+  expectItems("- one\n\n- two", "- two", "- one", "a loose list");
+  expectItems("- one\n  more\n\n  second paragraph\n- two", "- two", "- one", "an item of several lines");
+  expectItems("- one\n  - nested a\n  - nested b\n- two", "- two", "- one", "nested items are the item's content");
+  expectItems("- one\n  ```\n  - code\n  - code\n  ```\n- two", "- two", "- one", "a fence inside an item");
+  expectItems(
+      "- one\n  ```go\n  func main() {\n\tfmt.Println()\n  }\n  ```\n- two\n  ```sh\n  go run .\n  ```\n- three",
+      "- three", "- two", "a tab-indented line inside an item's fence");
+  expectItems("- one\n- two\n\ntext\n\n- three\n- four", "- four", "- three", "a second list");
+  expectItems("- one\n- two\n\n* three", "- two", "- one", "another bullet starts another list");
+  expectItems("- one\n- two\n\nAfter the list.", "- two", "- one", "text after the list keeps its last item");
+
+  expectItems("- one\n- ", "", "", "a marker still arriving may become a thematic break");
+  expectItems("- one\n- -", "", "", "so may a marker followed by its own character");
+  expectItems("- one\n- - -\n", "", "", "a thematic break is not an item");
+  expectItems("- one\n- - x", "- - x", "- one", "text after the marker makes it an item");
+  expectItems("1. one\n2.", "", "", "a number without its space is not a marker yet");
+  expectItems("- one\n* two", "", "", "another bullet right after an item is not followed");
+  expectItems("- one\nlazy\n- two", "", "", "a lazy line may have ended the list");
+  expectItems("Para\n1. one\n2. two", "", "", "a list that interrupts a paragraph is not followed");
+  expectItems("-\n\n  text\n- two\n- three", "", "", "a blank line ends an item without text");
+  expectItems("-\tone\n\n  text\n- two", "", "", "a tab after the marker moves the item's content");
+  expectItems("```\n- one\n- two\n", "", "", "lines of a code fence");
+  expectItems("<div>\n- one\n- two\n</div>", "", "", "lines of an HTML block");
+  expectItems("<!--\n\n- one\n- two\n", "", "", "lines of a comment");
+  expectItems("> - one\n> - two", "", "", "a quoted list");
+  expectItems("$$\n\n- one\n- two\n", "", "", "lines of block math");
+  check(Markdown::finishedListItems("$$\n\n- one\n- two\n", false).end == 10, "block math only with LaTeX on");
+}
+
+} // namespace
+
+int main() {
+  const auto H = StreamingBlockMode::Hidden;
+  const auto P = StreamingBlockMode::Progressive;
+  const std::string img = "![Hero](https://e.com/hero.png)";
+  const std::string video = "<video src=\"https://e.com/clip.mp4\"></video>";
+
+  // Media: partial syntax is cut in both modes.
+  expect("Intro\n\n![Hero](https://e", "Intro\n\n", "partial image cut (progressive)");
+  expect("Intro\n\n![Hero](https://e", "Intro\n\n", "partial image cut (hidden)", H);
+  expect("Intro\n\n<video src=\"https://com", "Intro\n\n", "partial video cut");
+  expect("Intro\n\n![Hero", "Intro\n\n", "image without ]( cut");
+  expect("Intro\n\n!", "Intro\n\n", "lone ! may start an image");
+  expect("Intro\n\n<", "Intro\n\n", "lone < may start a video or autolink");
+  expect("Intro\n\n<vid", "Intro\n\n", "partial <video tag cut");
+  expect("Intro\n\n<htt", "Intro\n\n", "partial <http autolink cut");
+  expect("Intro\n\n<3 kyoto", "Intro\n\n<3 kyoto", "text that diverges from block syntax kept");
+  expect("Intro\n\n!important", "Intro\n\n!important", "text starting with ! kept");
+
+  // Media: complete syntax shows in progressive, waits for a blank line in hidden.
+  expect("Intro\n\n" + img, "Intro\n\n" + img, "complete image kept (progressive)");
+  expect("Intro\n\n" + img + "\n", "Intro\n\n" + img + "\n", "complete image with newline kept (progressive)");
+  expect("Intro\n\n" + img, "Intro\n\n", "complete image withheld (hidden)", H);
+  expect("Intro\n\n" + img + "\n", "Intro\n\n", "complete image withheld until blank line (hidden)", H);
+  expect("Intro\n\n" + img + "\n\n", "Intro\n\n" + img + "\n\n", "blank line releases the image (hidden)", H);
+  expect("Intro\n\n" + video + "\n", "Intro\n\n", "complete video withheld (hidden)", H);
+
+  // Media: only a standalone image is a block; a paragraph starting with one is text.
+  expect("Intro\n\n![icon](u) and some prose", "Intro\n\n![icon](u) and some prose", "inline-leading paragraph kept",
+         H);
+  expect("1. " + img, "1. " + img, "ordered list items are not media blocks", H);
+  expect("> Quote\n> ![Q](https://e", "> Quote\n", "quoted partial image cut");
+  expect("> > " + img, "> > " + img, "nested quote image kept (progressive)");
+  expect("> " + img + "\n", "", "quoted image withheld (hidden)", H);
+  expect("> Quote\n> " + img + "\n", "> Quote\n", "quoted image after text withheld (hidden)", H);
+  expect(img + "\nCaption line", img + "\nCaption line", "image that is not the last line kept");
+  expect(img + "\n\nAfter", img + "\n\nAfter", "image followed by text kept (hidden)", H);
+
+  // Media composes with the other rules on the remaining text.
+  expect(img + "\n$$\nE=mc", "", "image before an open math block is trailing and withheld (hidden)", H);
+  expect(img + "\n$$\nE=mc", img + "\n", "image before an open math block kept (progressive)");
+  expect(img + "\n```js\nlet a", img + "\n```js\nlet a", "a fence terminates the image paragraph (hidden)", H);
+  expect("![a](https://e\n```js\nlet a", "```js\nlet a", "partial image before a fence cut");
+  expect(img + "\n```js\nlet a", img + "\n", "hidden code fence cuts the block, image kept", H, P, H);
+
+  // Links: a link-only paragraph is a block too; task boxes, footnotes and
+  // reference definitions are not.
+  const std::string link = "[Q3 report.pdf](https://e.com/q3.pdf)";
+  expect("Intro\n\n[Q3 report](https://e", "Intro\n\n", "partial link cut");
+  expect("Intro\n\n" + link, "Intro\n\n" + link, "complete link kept (progressive)");
+  expect("Intro\n\n" + link + "\n", "Intro\n\n", "complete link withheld (hidden)", H);
+  expect("See " + link, "See " + link, "link inside text kept");
+  expect(link + " and more", link + " and more", "link-leading paragraph kept", H);
+  expect("[ ] todo", "[ ] todo", "task box kept");
+  expect("[^1]: note", "[^1]: note", "footnote kept");
+  expect("[ref]: https://e.com", "[ref]: https://e.com", "reference definition kept");
+  expect("Intro\n\nhttps://github.com/sof", "Intro\n\n", "a trailing bare url can still grow: withheld");
+  expect("Intro\n\nhttps://github.com/sof\n", "Intro\n\n", "a bare url followed by a newline is still open");
+  expect("Intro\n\nhttps://github.com/a/b\n\n", "Intro\n\nhttps://github.com/a/b\n\n",
+         "a blank line releases the bare url");
+  expect("Intro\n\nhttps://e.com and text", "Intro\n\nhttps://e.com and text", "a url followed by text is prose");
+  expect("Intro\n\n<https://e.com/q3.pdf>", "Intro\n\n<https://e.com/q3.pdf>", "a closed autolink is complete");
+  expect("Intro\n\n<https://e.com/q3", "Intro\n\n", "an open autolink is withheld");
+
+  // Prose that merely starts with brackets, nested parentheses,
+  // autolinks followed by text, indented code, escapes and code spans.
+  expect("[INFO] The operation completed", "[INFO] The operation completed", "bracketed prefix is prose", H);
+  expect("[INFO] The operation completed", "[INFO] The operation completed", "bracketed prefix is prose (prog)");
+  expect("![a](https://e.com/a(b)", "", "nested paren still open: cut");
+  expect("![a](https://e.com/a(b))", "![a](https://e.com/a(b))", "nested paren closed: complete (progressive)");
+  expect("![a](https://e.com/a(b))\n", "", "nested paren closed: withheld (hidden)", H);
+  expect("[a](https://e.com \"t (x)\")", "[a](https://e.com \"t (x)\")", "title with parens: complete");
+  expect("See [docs](https://e.com/a(b)) now", "See [docs](https://e.com/a(b)) now", "closed nested inline link kept");
+  expect("<https://e.com> and more text", "<https://e.com> and more text", "autolink with prose is prose", H);
+  expect("Intro\n\n    ![a](https://e", "Intro\n\n    ![a](https://e", "indented code is not media");
+  expect("Intro\n\n    ![a](u)\n", "Intro\n\n    ![a](u)\n", "indented code is not media (hidden)", H);
+  expect(">     ![a](https://e", ">     ![a](https://e", "indented code inside a quote");
+  expect("Use \\[literal", "Use \\[literal", "escaped bracket is prose");
+  expect("Use ``a[0](`` here", "Use ``a[0](`` here", "double-backtick code span kept");
+  expect("Use `a[0](` and more", "Use `a[0](` and more", "single-backtick code span kept");
+
+  // Parentheses inside titles, pointy destinations, nested labels.
+  expect("[a](u \"t(\")", "[a](u \"t(\")", "title with an unmatched paren: complete");
+  expect("[a](u \"t(\")\n", "", "title with an unmatched paren: withheld (hidden)", H);
+  expect("[a](u \"t )", "", "title still open: cut");
+  expect("[a](u 't )", "", "single-quoted title still open: cut");
+  expect("[a](u (t )", "", "parenthesised title still open: cut");
+  expect("[a](u (t))", "[a](u (t))", "parenthesised title: complete");
+  expect("![a](u \"t(\")", "![a](u \"t(\")", "image title with an unmatched paren: complete");
+  expect("[a](<u v>)", "[a](<u v>)", "pointy destination with a space: complete");
+  expect("[a](<u v", "", "pointy destination still open: cut");
+  expect("[a](u \"t\") after", "[a](u \"t\") after", "titled link followed by prose is prose", H);
+  expect("[![thumb](u)](https://e", "", "outer link around a closed image still open: cut");
+  expect("[![thumb](u)](v)", "[![thumb](u)](v)", "linked image: complete (progressive)");
+  expect("[![thumb](u)](v)\n", "", "linked image: withheld (hidden)", H);
+  expect("[a [b]](u)", "[a [b]](u)", "nested brackets in a label: complete");
+  expect("[a [b]](u)\n", "", "nested brackets in a label: withheld (hidden)", H);
+  expect("[a [b]](https://e", "", "nested brackets in an open label: cut");
+  expect("[a [b] c", "", "label with nested brackets still open: cut");
+  expect("[a `]` b](https://e", "", "bracket in a code span inside a label: still open");
+
+  // Containers and other blocks.
+  expect("> ```md\n> ![a](https://e", "> ```md\n> ![a](https://e", "fence inside a quote holds code");
+  check(Markdown::renderableMarkdownForStreaming("> ```md\n> ![a](https://e", {}).endsInsideOpenCodeFence,
+        "quoted open fence flagged");
+  expect("- ```md\n  ![a](https://e", "- ```md\n  ![a](https://e", "fence inside a list item holds code");
+  expect("```\n$$\n```\n\nafter text\nmore", "```\n$$\n```\n\nafter text\nmore", "math marker inside a fence ignored");
+  expect("> $$\n> x", "", "quoted open math cut");
+  expect("<!--\n![a](https://e", "<!--\n![a](https://e", "html comment content kept");
+  expect("<video\n  src=\"https://e", "", "multi-line video tag still open: cut");
+  expect("Intro\n\n<video\n  src=\"u\">\n", "Intro\n\n<video\n  src=\"u\">\n",
+         "multi-line video complete (progressive)");
+  expect("Intro\n\n<video\n  src=\"u\">\n", "Intro\n\n", "multi-line video withheld (hidden)", H);
+
+  // Tables without outer pipes, quoted tables.
+  expect("a | b\n--|--\n1 | 2", "", "table without outer pipes withheld (hidden)", P, H);
+  expect("a | b\n--|--\n1 | 2", "a | b\n--|--\n1 | 2", "table without outer pipes kept (progressive)");
+  expect("a | b\n--|--\n1 ", "a | b\n--|--\n", "short row of a table without pipes trimmed");
+  expect("a | b", "a | b", "a lone line with a pipe is prose", P, H);
+  expect("> | a | b |\n> |---|---|\n> | 1 | 2 |", "", "quoted table withheld (hidden)", P, H);
+  expect("| a | b |\n| --- | --- | -", "", "delimiter row with too many cells is not a table");
+
+  // A finished header row shows while its delimiter row arrives.
+  expect("A\n\n| a | b |", "A\n\n", "header row still arriving withheld");
+  expect("A\n\n| a | b |\n", "A\n\n| a | b |\n| --- | --- |", "ended header row shown with a delimiter");
+  expect("A\n\n| a | b |\n|:-", "A\n\n| a | b |\n| --- | --- |", "partial delimiter row stands in");
+  expect("A\n\n| a | b |\nc", "A\n\n| a | b |\nc", "row of pipes followed by prose is prose");
+  expect("A\n\n| a | b |\n", "A\n\n", "ended header row withheld (hidden)", P, H);
+  expect("> | a | b |\n> |-", "> | a | b |\n> | --- | --- |", "quoted header row keeps its markers");
+  expect("| a | b |\n```js\nx", "```js\nx", "header row before a fence is not a table");
+  expect("A\n\n| a | b |\n| - |\n", "A\n\n", "ended row that is not a delimiter row withholds the header");
+  expect("A\n\n    | a | b |\n", "A\n\n", "indented code is not a header row");
+  expect("A\n\n||hidden|| text ||\n", "A\n\n", "a row of spoilers is not a header row");
+  expect("A\n\n\t| a | b |\n", "A\n\n", "a tab-indented row is code, not a header row");
+  expect("A\n\n| `a|b` | c |\n", "A\n\n", "a pipe in a code span leaves the cell count to the delimiter row");
+  expect("A\n\n| ||s|| | b |\n", "A\n\n", "a spoiler inside a cell leaves the cell count to the delimiter row");
+  {
+    StreamingFilterOptions noTables;
+    noTables.tables = false;
+    auto got = Markdown::renderableMarkdownForStreaming("A\n\n| a | b |\n", noTables);
+    check(got.markdown == "A\n\n" && got.addedBytes == 0, "without tables no delimiter row is added");
+    auto added = Markdown::renderableMarkdownForStreaming("A\n\n| a | b |\n", {});
+    check(added.addedBytes == std::string("| --- | --- |").size(), "the added delimiter row is reported");
+  }
+
+  // Pre-existing rules keep their behaviour.
+  expect("A\n\n| a | b |\n|---|---|\n| 1 |", "A\n\n| a | b |\n|---|---|\n", "incomplete table row trimmed");
+  expect("A\n\n| a | b |\n|---|---|\n| 1 | 2 |", "A\n\n", "table withheld (hidden)", P, H);
+  expect("A\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n", "A\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n",
+         "table released by blank line (hidden)", P, H);
+  expect("A\n\n$$\nx", "A\n\n", "open math cut");
+  expect("A\n\n$$\nx\n$$\n", "A\n\n$$\nx\n$$\n", "closed math kept");
+  expect("A\n```js\nlet a", "A\n", "open fence cut (hidden)", P, P, H);
+  check(Markdown::renderableMarkdownForStreaming("A\n```js\nlet a", {}).endsInsideOpenCodeFence,
+        "open fence flagged (progressive)");
+  check(!Markdown::renderableMarkdownForStreaming("A\n```js\nlet a\n```\n", {}).endsInsideOpenCodeFence,
+        "closed fence not flagged");
+  // An opening line still streaming in may grow its language: the fence waits for its newline.
+  expect("A\n\n```mer", "A\n\n", "a fence whose opening line has not ended waits");
+  expect("A\n\n```", "A\n\n", "a bare opening fence waits for its info string");
+  expect("A\n\n```mermaid\n", "A\n\n```mermaid\n", "an ended opening line shows the fence");
+  expect("> ```js", "", "a quoted opening line waits");
+  // The line after a final newline has not streamed its `>` in yet, so it keeps a quoted fence open.
+  for (const char *quotedFence : {"> ```js\n> let a\n", "> [!NOTE]\n> ```py\n> x\n", "> ```js\n", "> ```js\r\n> a\r\n"})
+    check(Markdown::renderableMarkdownForStreaming(quotedFence, {}).endsInsideOpenCodeFence,
+          std::string("a quoted fence stays open at a line end: ") + quotedFence);
+  expect("> ```mermaid\n", "> ```mermaid\n", "a quoted fence shows once its opening line ends");
+  expect("A\n\n> ```js\n> let a\n", "A\n\n", "a quoted open fence is cut at a line end (hidden)", P, P, H);
+  check(filter("See [docs](https://e\n| a |\n```js") == filter("See [docs](https://e\n| a |\n```js", P, P, H),
+        "a waiting fence is cut as a hidden one would be");
+  check(!Markdown::renderableMarkdownForStreaming("A\n\n```mer", {}).endsInsideOpenCodeFence,
+        "a waiting fence is not flagged");
+  check(Markdown::renderableMarkdownForStreaming("- one\n  ```go\n\tfmt.Println()\n", {}).endsInsideOpenCodeFence,
+        "a tab-indented line stays inside an item's fence");
+  expect("", "", "empty input");
+  expect("\r\n" + img + "\r\n", "\r\n" + img + "\r\n", "CRLF: complete image kept (progressive)");
+  expect("\r\n" + img + "\r\n\r", "\r\n", "CRLF: trailing CR line is blank, image still open (hidden)", H);
+
+  check(Markdown::streamingBlockModeFromName("hidden") == H && Markdown::streamingBlockModeFromName("x") == P,
+        "mode names");
+
+  checkFinishedListItems();
+
+  if (failures == 0) {
+    std::cout << "    streaming filter ok\n";
+    return 0;
+  }
+  return 1;
+}

@@ -2,7 +2,9 @@ package com.swmansion.enriched.markdown.segments
 
 import android.content.Context
 import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
+import com.swmansion.enriched.markdown.utils.common.SlotLayoutReuse
 import kotlin.math.ceil
 import kotlin.math.max
 
@@ -33,6 +35,109 @@ open class ContainerNodeView(
   protected lateinit var segmentViewFactory: SegmentViewFactory
 
   protected var trailingMarginEnabled: Boolean = false
+
+  // Code block views in document order, descending into nested blockquotes: the
+  // order CodeBlockWrapState indexes them in.
+  internal fun codeBlockViews(): Sequence<CodeBlockContainerView> =
+    sequence {
+      segmentViews.forEach { view ->
+        when (view) {
+          is CodeBlockContainerView -> yield(view)
+          is ContainerNodeView -> yieldAll(view.codeBlockViews())
+        }
+      }
+    }
+
+  /**
+   * Pushes the slot heights the shadow node measured into every placeholder,
+   * recursing into nested containers; a missing id collapses the slot. Returns
+   * whether any height changed.
+   */
+  internal fun applyBlockSlotHeights(heights: Map<String, Int>): Boolean {
+    var changed = false
+    segmentViews.forEach { view ->
+      when (view) {
+        is BlockSlotSegmentView -> {
+          val height = heights[view.slotId] ?: 0
+          if (view.slotHeight != height) {
+            view.slotHeight = height
+            changed = true
+          }
+        }
+
+        is ContainerNodeView -> {
+          if (view.applyBlockSlotHeights(heights)) changed = true
+        }
+      }
+    }
+    return changed
+  }
+
+  // The host's slot views by id; a nested container reaches them through its parent.
+  internal open fun slotViewsForAccessibility(): Map<String, View> =
+    (parent as? ContainerNodeView)?.slotViewsForAccessibility() ?: emptyMap()
+
+  // A container read as a whole (a quote is long-clickable, so important) still
+  // lists its own children here, and its placeholders give way to slot views too.
+  override fun addChildrenForAccessibility(outChildren: ArrayList<View>) {
+    val slotViews = slotViewsForAccessibility()
+    if (slotViews.isEmpty()) {
+      super.addChildrenForAccessibility(outChildren)
+      return
+    }
+    addSegmentsForAccessibility(slotViews, outChildren)
+  }
+
+  /**
+   * The views accessibility reads, in document order: each placeholder gives way
+   * to the slot view standing in for it, and nested containers are flattened,
+   * so a React replacement is read where its block sits.
+   */
+  internal fun addSegmentsForAccessibility(
+    slotViews: Map<String, View>,
+    outChildren: ArrayList<View>,
+  ) {
+    segmentViews.forEach { view ->
+      when {
+        view is BlockSlotSegmentView -> {
+          slotViews[view.slotId]?.let { addForAccessibility(it, outChildren) }
+        }
+
+        view is ContainerNodeView && !view.isImportantForAccessibility -> {
+          view.addSegmentsForAccessibility(slotViews, outChildren)
+        }
+
+        else -> {
+          addForAccessibility(view, outChildren)
+        }
+      }
+    }
+  }
+
+  // An important view is read itself, an unimportant group through its
+  // children. Leaves are kept either way: the framework's own filter
+  // (includeForAccessibility) is hidden, and services that ask for unimportant
+  // views, as UI test tools do, would lose them.
+  private fun addForAccessibility(
+    view: View,
+    outChildren: ArrayList<View>,
+  ) {
+    if (view.visibility != VISIBLE) return
+    if (view.isImportantForAccessibility || view !is ViewGroup) {
+      outChildren.add(view)
+    } else {
+      view.addChildrenForAccessibility(outChildren)
+    }
+  }
+
+  internal fun forEachBlockSlot(action: (BlockSlotSegmentView) -> Unit) {
+    segmentViews.forEach { view ->
+      when (view) {
+        is BlockSlotSegmentView -> action(view)
+        is ContainerNodeView -> view.forEachBlockSlot(action)
+      }
+    }
+  }
 
   /**
    * Reconciles the current child views against renderedSegments, attaching and
@@ -65,6 +170,7 @@ open class ContainerNodeView(
     // getChildAt out of step with segmentViews. detach/attach splices the child array
     // without a detach-from-window pass, so a moved child keeps its selection, focus
     // and scroll state; each step fixes one index without disturbing the ones before it.
+    // Segments take the first indices, so a host's slot layer stays the last child.
     result.views.forEachIndexed { index, view ->
       if (getChildAt(index) !== view) {
         detachViewFromParent(view)
@@ -80,7 +186,7 @@ open class ContainerNodeView(
     return result.viewsToAttach.isNotEmpty() || result.viewsToRemove.isNotEmpty()
   }
 
-  protected fun layoutSegments() {
+  protected open fun layoutSegments() {
     val containerWidth = width
     if (containerWidth <= 0) return
 
@@ -148,13 +254,31 @@ open class ContainerNodeView(
     segmentViews.forEach { it.measure(widthSpec, heightSpec) }
   }
 
+  /**
+   * The content height and root slot placeholders for MeasurementStore.storeLaidOutSize, px within
+   * the content box. A slot growing in counts at the height it reserved, as the shadow node
+   * measures it, and so does where each slot after it starts. Read after [layoutSegments].
+   */
+  internal fun reservedSlotLayout(): Pair<Int, List<SlotLayoutReuse.ShownSlot>> {
+    var reservedShift = 0
+    val slots = mutableListOf<SlotLayoutReuse.ShownSlot>()
+    segmentViews.forEach { view ->
+      if (view is BlockSlotSegmentView) {
+        slots.add(SlotLayoutReuse.ShownSlot(view.slotId, (view.top - paddingTop + reservedShift).toFloat(), view.slotHeight.toFloat()))
+        reservedShift += view.slotHeight - view.revealedHeight
+      }
+    }
+    return (computeSegmentsTotalHeight() - paddingTop - paddingBottom) to slots
+  }
+
   protected fun computeSegmentsTotalHeight(): Int {
     var totalHeight = paddingTop + paddingBottom
     val lastIndex = segmentViews.lastIndex
     segmentViews.forEachIndexed { index, view ->
       val segment = view as? BlockSegmentView
       totalHeight += segment?.segmentMarginTop ?: 0
-      totalHeight += view.measuredHeight
+      // A slot growing into place takes its share in the layout only.
+      totalHeight += (view as? BlockSlotSegmentView)?.slotHeight ?: view.measuredHeight
       if (index != lastIndex || trailingMarginEnabled) {
         totalHeight += segment?.segmentMarginBottom ?: 0
       }

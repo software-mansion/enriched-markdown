@@ -17,14 +17,14 @@ import com.swmansion.enriched.markdown.styles.SpoilerStyle
 import java.lang.ref.WeakReference
 import kotlin.math.roundToLong
 
-/** Draws a [SpoilerSegmentOverlay] over each line of every concealed spoiler, and runs reveals. */
+/** Draws a [SpoilerSliceOverlay] over each line of every concealed spoiler, and runs reveals. */
 internal class SpoilerOverlayDrawer(
   textView: TextView,
 ) : SpoilerOverlayHost {
-  private class LiveSegment(
+  private class LiveSlice(
     val span: SpoilerSpan,
-    val overlay: SpoilerSegmentOverlay,
-    val segment: SpoilerSegment,
+    val overlay: SpoilerSliceOverlay,
+    val slice: SpoilerSlice,
     val contentVersion: Int,
   )
 
@@ -36,21 +36,21 @@ internal class SpoilerOverlayDrawer(
     fun progressAt(time: Long): Float = if (durationMillis <= 0) 1f else ((time - startTime).toFloat() / durationMillis).coerceIn(0f, 1f)
   }
 
-  private class LineSegment(
+  private class SlicePlacement(
     val line: Int,
     val start: Int,
     val end: Int,
-    val rect: SegmentRect,
+    val rect: SliceRect,
   )
 
   private val textViewReference = WeakReference(textView)
   private val animator = SpoilerAnimator(::onFrame)
 
-  private val segments = LinkedHashMap<SegmentKey, LiveSegment>()
+  private val slices = LinkedHashMap<SliceKey, LiveSlice>()
   private val reveals = LinkedHashMap<SpoilerSpan, Reveal>()
 
-  private val activeKeys = HashSet<SegmentKey>()
-  private val lineSegments = ArrayList<LineSegment>()
+  private val activeKeys = HashSet<SliceKey>()
+  private val placements = ArrayList<SlicePlacement>()
   private val metricsPaint = TextPaint()
   private val fontMetrics = Paint.FontMetrics()
 
@@ -107,46 +107,46 @@ internal class SpoilerOverlayDrawer(
       val spanEnd = ctx.text.getSpanEnd(span)
       if (spanStart < 0 || spanEnd < 0 || spanStart >= spanEnd) continue
 
-      collectLineSegments(ctx, span, spanStart, spanEnd)
+      collectPlacements(ctx, span, spanStart, spanEnd)
       val reveal = reveals[span]
-      for ((index, lineSegment) in lineSegments.withIndex()) {
-        val key = SegmentKey(span, lineSegment.line, lineSegment.start, lineSegment.end)
-        var existing = segments[key]
-        // New content under a segment that stayed put (an image loading) starts its overlay over,
+      for ((index, placement) in placements.withIndex()) {
+        val key = SliceKey(span, placement.line, placement.start, placement.end)
+        var existing = slices[key]
+        // New content under a slice that stayed put (an image loading) starts its overlay over,
         // so nothing it cached goes stale. A reveal in flight keeps fading out what it started with.
         if (existing != null && existing.contentVersion != span.contentVersion && reveal == null) {
-          segments.remove(key)?.overlay?.onRemoved()
+          slices.remove(key)?.overlay?.onRemoved()
           existing = null
         }
-        // A reveal in flight only fades out the segments it started with.
+        // A reveal in flight only fades out the slices it started with.
         if (existing == null && reveal != null) continue
         val live =
-          existing ?: LiveSegment(
+          existing ?: LiveSlice(
             span = span,
-            overlay = spoilerOverlay.createSegmentOverlay(this, style),
-            segment = SpoilerSegment(spanStart, spanEnd, lineSegment.start, lineSegment.end, ctx.text),
+            overlay = spoilerOverlay.createSliceOverlay(this, style),
+            slice = SpoilerSlice(spanStart, spanEnd, placement.start, placement.end, ctx.text),
             contentVersion = span.contentVersion,
-          ).also { segments[key] = it }
+          ).also { slices[key] = it }
         activeKeys.add(key)
 
-        live.segment.place(
+        live.slice.place(
           layout = ctx.layout,
-          rect = lineSegment.rect,
-          lineBaseline = ctx.layout.getLineBaseline(lineSegment.line).toFloat(),
+          rect = placement.rect,
+          lineBaseline = ctx.layout.getLineBaseline(placement.line).toFloat(),
           paddingLeft = ctx.paddingLeft,
           paddingTop = ctx.paddingTop,
-          isRtl = ctx.layout.getParagraphDirection(lineSegment.line) == Layout.DIR_RIGHT_TO_LEFT,
+          isRtl = ctx.layout.getParagraphDirection(placement.line) == Layout.DIR_RIGHT_TO_LEFT,
           index = index,
-          count = lineSegments.size,
+          count = placements.size,
           frameTimeMillis = now,
         )
-        drawSegment(canvas, live, lineSegment.rect, reveal?.progressAt(now))
+        drawSlice(canvas, live, placement.rect, reveal?.progressAt(now))
       }
     }
 
-    pruneStaleSegments()
+    pruneStaleSlices()
 
-    if (reveals.isNotEmpty() || segments.values.any { it.overlay.isAnimated }) {
+    if (reveals.isNotEmpty() || slices.values.any { it.overlay.isAnimated }) {
       animator.requestFrame()
     }
   }
@@ -169,7 +169,7 @@ internal class SpoilerOverlayDrawer(
       return
     }
     // Nothing on screen to fade out: the span was never drawn, or has no area.
-    if (segments.keys.none { it.span === span }) {
+    if (slices.keys.none { it.span === span }) {
       span.markRevealed()
       refreshText(span)
       onAllComplete()
@@ -183,7 +183,7 @@ internal class SpoilerOverlayDrawer(
 
   fun stop() {
     animator.stop()
-    segments.keys.toList().forEach(::dropSegment)
+    slices.keys.toList().forEach(::dropSlice)
     reveals.keys.toList().forEach(::finishReveal)
   }
 
@@ -206,13 +206,13 @@ internal class SpoilerOverlayDrawer(
     textView.invalidate()
   }
 
-  private fun collectLineSegments(
+  private fun collectPlacements(
     ctx: SpoilerDrawContext,
     span: SpoilerSpan,
     spanStart: Int,
     spanEnd: Int,
   ) {
-    lineSegments.clear()
+    placements.clear()
 
     // Measured with the block's font size, which can differ from the view's (e.g. in a heading).
     metricsPaint.set(ctx.layout.paint)
@@ -222,36 +222,36 @@ internal class SpoilerOverlayDrawer(
     val firstLine = ctx.layout.getLineForOffset(spanStart)
     val lastLine = ctx.layout.getLineForOffset(spanEnd)
     for (line in firstLine..lastLine) {
-      val segmentStart = maxOf(spanStart, ctx.layout.getLineStart(line))
-      val segmentEnd = minOf(spanEnd, ctx.layout.getLineEnd(line))
-      if (segmentStart >= segmentEnd) continue
+      val start = maxOf(spanStart, ctx.layout.getLineStart(line))
+      val end = minOf(spanEnd, ctx.layout.getLineEnd(line))
+      if (start >= end) continue
 
       val rect =
-        computeSegmentRect(
+        computeSliceRect(
           ctx.layout,
           line,
-          segmentStart,
-          segmentEnd,
+          start,
+          end,
           fontMetrics,
           ctx.paddingLeft,
           ctx.paddingTop,
         ) ?: continue
-      lineSegments.add(LineSegment(line, segmentStart, segmentEnd, rect))
+      placements.add(SlicePlacement(line, start, end, rect))
     }
   }
 
-  private fun drawSegment(
+  private fun drawSlice(
     canvas: Canvas,
-    live: LiveSegment,
-    rect: SegmentRect,
+    live: LiveSlice,
+    rect: SliceRect,
     revealProgress: Float?,
   ) {
     canvas.withTranslation(rect.left, rect.top) {
       clipRect(0f, 0f, rect.width, rect.height)
       if (revealProgress != null) {
-        live.overlay.drawReveal(this, live.segment, revealProgress)
+        live.overlay.drawReveal(this, live.slice, revealProgress)
       } else {
-        live.overlay.draw(this, live.segment)
+        live.overlay.draw(this, live.slice)
       }
     }
   }
@@ -273,27 +273,27 @@ internal class SpoilerOverlayDrawer(
 
   private fun finishReveal(span: SpoilerSpan) {
     val reveal = reveals.remove(span) ?: return
-    segments.keys.filter { it.span === span }.forEach { key -> segments.remove(key)?.overlay?.onRemoved() }
+    slices.keys.filter { it.span === span }.forEach { key -> slices.remove(key)?.overlay?.onRemoved() }
     span.markRevealed()
     refreshText(span)
     reveal.onComplete()
   }
 
-  private fun pruneStaleSegments() {
-    if (segments.size == activeKeys.size) return
-    segments.keys.filter { it !in activeKeys }.forEach(::dropSegment)
+  private fun pruneStaleSlices() {
+    if (slices.size == activeKeys.size) return
+    slices.keys.filter { it !in activeKeys }.forEach(::dropSlice)
   }
 
-  // A reflow, an overlay switch or a detach can drop a segment mid-reveal; finishing the reveal
+  // A reflow, an overlay switch or a detach can drop a slice mid-reveal; finishing the reveal
   // keeps the span from being stuck in `revealing` with nothing left to complete it.
-  private fun dropSegment(key: SegmentKey) {
-    val live = segments.remove(key) ?: return
+  private fun dropSlice(key: SliceKey) {
+    val live = slices.remove(key) ?: return
     live.overlay.onRemoved()
     finishReveal(live.span)
   }
 
   private fun rebuild() {
-    segments.keys.toList().forEach(::dropSegment)
+    slices.keys.toList().forEach(::dropSlice)
     textViewReference.get()?.invalidate()
   }
 

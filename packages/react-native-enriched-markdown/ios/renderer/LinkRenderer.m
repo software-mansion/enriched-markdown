@@ -2,11 +2,11 @@
 #import "CodeBackground.h"
 #import "ENRMLinkPillAttachment.h"
 #import "ENRMSpoilerTapUtils.h"
+#import "ENRMTextLinkAttributes.h"
 #import "FontUtils.h"
 #import "RenderContext.h"
 #import "RendererFactory.h"
 #import "StyleConfig.h"
-#import <React/RCTFont.h>
 
 #if !TARGET_OS_OSX
 static BOOL ENRMRangeHasAttribute(NSAttributedString *text, NSRange range, NSAttributedStringKey key)
@@ -66,6 +66,7 @@ static NSRange ENRMCollapseLinkIntoPill(NSMutableAttributedString *output, NSRan
                      into:(NSMutableAttributedString *)output
                   context:(RenderContext *)context
 {
+  BOOL recognizedLink = [node.attributes[@"recognizedLink"] isEqualToString:@"true"];
   NSUInteger start = output.length;
 
   // 1. Render children first to establish base attributes
@@ -94,6 +95,11 @@ static NSRange ENRMCollapseLinkIntoPill(NSMutableAttributedString *output, NSRan
                              options:NSAttributedStringEnumerationLongestEffectiveRangeNotRequired
                           usingBlock:^(NSDictionary<NSAttributedStringKey, id> *attrs, NSRange subrange, BOOL *stop) {
                             NSMutableDictionary *newAttributes = [NSMutableDictionary dictionary];
+                            if (recognizedLink) {
+                              newAttributes[ENRMRecognizedLinkAttributeName] = @YES;
+                              newAttributes[ENRMRecognizedLinkOriginalUnderlineAttributeName] =
+                                  attrs[NSUnderlineStyleAttributeName] ?: @0;
+                            }
 
                             // Only apply link color if the subrange isn't already colored by the link style
                             if (linkColor && ![attrs[NSForegroundColorAttributeName] isEqual:linkColor]) {
@@ -109,13 +115,7 @@ static NSRange ENRMCollapseLinkIntoPill(NSMutableAttributedString *output, NSRan
                             if (linkFontFamily.length > 0) {
                               UIFont *currentFont = attrs[NSFontAttributeName];
                               if (currentFont) {
-                                UIFont *linkFont = [RCTFont updateFont:currentFont
-                                                            withFamily:linkFontFamily
-                                                                  size:nil
-                                                                weight:nil
-                                                                 style:nil
-                                                               variant:nil
-                                                       scaleMultiplier:1.0];
+                                UIFont *linkFont = ENRMUpdateFont(currentFont, linkFontFamily, nil, nil, nil, 1.0);
                                 if (linkFont && ![currentFont isEqual:linkFont]) {
                                   newAttributes[NSFontAttributeName] = linkFont;
                                 }

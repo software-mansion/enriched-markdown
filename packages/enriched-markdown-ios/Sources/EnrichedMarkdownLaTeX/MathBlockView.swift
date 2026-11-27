@@ -1,3 +1,4 @@
+import EnrichedMarkdown
 import UIKit
 
 /// TextKit 2 creates and destroys providers with viewport layout, so all
@@ -31,7 +32,7 @@ final class MathAttachmentViewProvider: NSTextAttachmentViewProvider {
 /// The line-wide panel hosting a root-level display formula, inset and
 /// aligned inside it and scrolling horizontally when wider than the line.
 final class MathBlockView: UIView, UIScrollViewDelegate, UIContextMenuInteractionDelegate {
-    let scrollView = UIScrollView()
+    let scrollView = HorizontalBlockScrollView()
     let formulaView = UIImageView()
     private let attachment: MathAttachment
     private let panel: MathPanelStyle

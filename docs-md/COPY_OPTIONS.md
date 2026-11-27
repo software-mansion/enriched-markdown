@@ -4,7 +4,7 @@ When text is selected, `react-native-enriched-markdown` provides enhanced copy f
 
 ## Smart Copy
 
-The default **Copy** action copies the selected text with rich formatting support:
+The default **Copy** action and the keyboard shortcut (⌘C / Ctrl+C) copy the selected text with rich formatting support:
 
 ### iOS
 
@@ -28,7 +28,7 @@ A dedicated **Copy as Markdown** option is available in the context menu on both
 
 ## Copy Image URL
 
-When selecting text that contains images, a **Copy Image URL** option appears to copy the image's source URL. On Android, if multiple images are selected, all URLs are copied (one per line).
+When selecting text that contains images, a **Copy Image URL** option appears to copy the image's source URL. If multiple images are selected, all URLs are copied (one per line).
 
 ## Controlling Built-in Menu Items
 
@@ -46,7 +46,7 @@ Use `selectionMenuConfig` to hide built-in selection menu actions while keeping 
 ```
 
 On iOS, Android, and macOS, `enableBlockContextMenu={false}` disables the
-long-press popup on code blocks, tables, block math, and blockquotes/admonitions.
+long-press popup on code blocks, tables, block math, blockquotes/admonitions, and video blocks.
 It leaves the code-block header copy button, accessibility copy action, and system
 text-selection menu unchanged.
 
@@ -105,7 +105,9 @@ Notes:
   flavor renders code inline with no header button): it is the button's
   contentDescription on Android, and on iOS it names the VoiceOver custom
   action that triggers the copy. To be notified when code is copied from a code
-  block, use the [`onCopyPress`](./API_REFERENCE.md#oncopypress) callback; to react
+  block, use the [`onCopyPress`](./API_REFERENCE.md#oncopypress) callback; to be
+  notified when a text selection is copied, use
+  [`onSelectionCopy`](./API_REFERENCE.md#onselectioncopy); to react
   to a tap anywhere on a code block, use
   [`onCodeBlockPress`](./API_REFERENCE.md#oncodeblockpress).
 - OS-provided actions (Look Up, Translate…) and the system **Cut / Paste /

@@ -50,20 +50,17 @@ import { Linking } from 'react-native';
 
 ```kotlin
 dependencies {
-  implementation("com.swmansion.enriched.markdown:compose:0.2.0")
+  implementation("com.swmansion.enriched.markdown:compose:0.3.0")
 }
 ```
 
 ```kotlin
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.MarkdownTheme
 
-MarkdownTheme {
-  EnrichedMarkdownText(
-    markdown = "# Hello\n\nThis is **enriched** [markdown](https://commonmark.org).",
-    onLinkClick = { url -> /* open url */ },
-  )
-}
+EnrichedMarkdownText(
+  markdown = "# Hello\n\nThis is **enriched** [markdown](https://commonmark.org).",
+  onLinkClick = { url -> /* open url */ },
+)
 ```
 
 ### iOS
@@ -82,9 +79,10 @@ import EnrichedMarkdown
 import SwiftUI
 
 EnrichedMarkdownText("# Hello\n\nThis is **enriched** [markdown](https://commonmark.org).")
-  .onLinkPress { url in
+  .environment(\.openURL, OpenURLAction { url in
     UIApplication.shared.open(url)
-  }
+    return .handled
+  })
 ```
 
 ## Contributing

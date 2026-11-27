@@ -5,7 +5,10 @@ set(LIB_LITERAL EnrichedMarkdownTextSpec)
 set(LIB_TARGET_NAME react_codegen_${LIB_LITERAL})
 
 set(LIB_ANDROID_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
-set(LIB_ANDROID_GENERATED_JNI_DIR ${LIB_ANDROID_DIR}/generated/jni)
+# Written by this library's generateCodegenArtifactsFromSchema (run by its preBuild).
+# The RN Gradle plugin runs it before the app's CMake configure only when the app
+# module is named "app", as it wires :app:preBuild to every library's preBuild.
+set(LIB_ANDROID_GENERATED_JNI_DIR ${LIB_ANDROID_DIR}/build/generated/source/codegen/jni)
 set(LIB_ANDROID_GENERATED_COMPONENTS_DIR ${LIB_ANDROID_GENERATED_JNI_DIR}/react/renderer/components/${LIB_LITERAL})
 
 # cpp/ is a symlink to packages/core/cpp in the monorepo; published tarballs
@@ -15,39 +18,46 @@ set(LIB_ANDROID_GENERATED_COMPONENTS_DIR ${LIB_ANDROID_GENERATED_JNI_DIR}/react/
 set(CPP_IN_PACKAGE "${CMAKE_CURRENT_SOURCE_DIR}/../../../../cpp")
 set(CPP_IN_MONOREPO "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../core/cpp")
 
-if(EXISTS "${CPP_IN_PACKAGE}/md4c/md4c.c")
+if(EXISTS "${CPP_IN_PACKAGE}/enrmrkd/enrmrkd.c")
   set(CPP_ROOT "${CPP_IN_PACKAGE}")
-elseif(EXISTS "${CPP_IN_MONOREPO}/md4c/md4c.c")
+elseif(EXISTS "${CPP_IN_MONOREPO}/enrmrkd/enrmrkd.c")
   set(CPP_ROOT "${CPP_IN_MONOREPO}")
 else()
   message(FATAL_ERROR "EnrichedMarkdown C++ sources not found. Expected cpp/ or packages/core/cpp.")
 endif()
 
 set(ANDROID_CPP_DIR "${LIB_ANDROID_DIR}/src/main/cpp")
+# RN-specific C++ shared with iOS (the EnrichedMarkdownParser TurboModule).
+set(COMMON_CPP_DIR "${LIB_ANDROID_DIR}/../common")
 
-# Optional tree-sitter code highlighting. build.gradle writes this config during
-# configuration (enable flag, selected languages, generated registry dir); absent
-# on a bare CMake invocation, in which case highlighting stays compiled out.
+# Optional tree-sitter code highlighting and the math flag. build.gradle writes
+# this config during configuration (enable flags, selected languages, generated
+# registry dir); absent on a bare CMake invocation, in which case highlighting
+# stays compiled out and math stays on.
 set(HIGHLIGHT_CONFIG "${LIB_ANDROID_DIR}/build/generated/highlight/highlight-config.cmake")
 if(EXISTS "${HIGHLIGHT_CONFIG}")
   include("${HIGHLIGHT_CONFIG}")
 endif()
 
-file(GLOB MD4C_SOURCES "${CPP_ROOT}/md4c/*.c")
+file(GLOB ENRMRKD_SOURCES "${CPP_ROOT}/enrmrkd/*.c")
 file(GLOB PARSER_SOURCES "${CPP_ROOT}/parser/*.cpp")
+file(GLOB REPAIR_SOURCES "${CPP_ROOT}/repair/*.cpp")
 file(GLOB HIGHLIGHT_SOURCES "${CPP_ROOT}/highlight/*.cpp")
+file(GLOB LATEX_SOURCES "${CPP_ROOT}/latex/*.cpp")
+file(GLOB INPUT_SOURCES "${CPP_ROOT}/input/*.cpp")
 
-# md4c is C code, build as separate static library with C flags
-add_library(md4c_lib STATIC ${MD4C_SOURCES})
-target_include_directories(md4c_lib PUBLIC ${CPP_ROOT}/md4c)
-target_compile_definitions(md4c_lib PRIVATE MD4C_USE_UTF8=1)
-set_target_properties(md4c_lib PROPERTIES
+# The vendored parser is C code, build as separate static library with C flags
+add_library(enrmrkd_lib STATIC ${ENRMRKD_SOURCES})
+target_include_directories(enrmrkd_lib PUBLIC ${CPP_ROOT}/enrmrkd)
+target_compile_definitions(enrmrkd_lib PRIVATE ENRMRKD_USE_UTF8=1)
+set_target_properties(enrmrkd_lib PROPERTIES
   C_STANDARD 11
   C_STANDARD_REQUIRED ON
 )
 
 file(GLOB LIB_CODEGEN_SRCS CONFIGURE_DEPENDS ${LIB_ANDROID_GENERATED_JNI_DIR}/*.cpp ${LIB_ANDROID_GENERATED_COMPONENTS_DIR}/*.cpp)
-file(GLOB LIB_CUSTOM_JNI_SRCS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/react/renderer/components/${LIB_LITERAL}/*.cpp)
+# Not jni/*.cpp: a stub left there by 1.1 would duplicate the codegen provider (#1216).
+file(GLOB LIB_CUSTOM_JNI_SRCS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/react/renderer/components/${LIB_LITERAL}/*.cpp)
 
 add_library(
   ${LIB_TARGET_NAME}
@@ -55,8 +65,14 @@ add_library(
   ${LIB_CODEGEN_SRCS}
   ${LIB_CUSTOM_JNI_SRCS}
   ${PARSER_SOURCES}
+  ${REPAIR_SOURCES}
   ${HIGHLIGHT_SOURCES}
+  ${LATEX_SOURCES}
+  ${INPUT_SOURCES}
   ${ANDROID_CPP_DIR}/jni-adapter.cpp
+  ${ANDROID_CPP_DIR}/input-jni.cpp
+  ${COMMON_CPP_DIR}/EnrichedMarkdownParser.cpp
+  ${COMMON_CPP_DIR}/ENRMMarkdownStreams.cpp
 )
 
 target_include_directories(
@@ -65,13 +81,18 @@ target_include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/react/renderer/components/${LIB_LITERAL}
   ${LIB_ANDROID_GENERATED_JNI_DIR}
+  ${LIB_ANDROID_GENERATED_JNI_DIR}/react/renderer/components
   ${LIB_ANDROID_GENERATED_COMPONENTS_DIR}
-  ${CPP_ROOT}/md4c
+  ${COMMON_CPP_DIR}
+  ${CPP_ROOT}/enrmrkd
   ${CPP_ROOT}/parser
+  ${CPP_ROOT}/repair
   ${CPP_ROOT}/highlight
+  ${CPP_ROOT}/latex
+  ${CPP_ROOT}/input
 )
 
-target_compile_definitions(${LIB_TARGET_NAME} PRIVATE MD4C_USE_UTF8=1)
+target_compile_definitions(${LIB_TARGET_NAME} PRIVATE ENRMRKD_USE_UTF8=1)
 
 find_package(fbjni REQUIRED CONFIG)
 find_package(ReactAndroid REQUIRED CONFIG)
@@ -80,7 +101,7 @@ find_library(LOG_LIB log)
 target_link_libraries(
   ${LIB_TARGET_NAME}
   ${LOG_LIB}
-  md4c_lib
+  enrmrkd_lib
   fbjni::fbjni
   ReactAndroid::jsi
   ReactAndroid::reactnative
@@ -93,6 +114,11 @@ target_include_directories(
 )
 
 target_compile_reactnative_options(${LIB_TARGET_NAME} PRIVATE)
+
+# Math off in the build: the JS block collector parses without it, like the host.
+if(DEFINED ENRICHED_MARKDOWN_MATH AND NOT ENRICHED_MARKDOWN_MATH)
+  target_compile_definitions(${LIB_TARGET_NAME} PRIVATE ENRICHED_MARKDOWN_MATH_DISABLED=1)
+endif()
 
 # --- Code-block syntax highlighting (tree-sitter) ---
 # CodeBlockHighlighter.cpp / CodeBlockLanguages.cpp are already in the target via

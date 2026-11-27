@@ -6,10 +6,12 @@ import UIKit
 final class BlockquoteRenderer: NodeRenderer {
     private let factory: RendererFactory
     private let config: MarkdownStyleConfiguration
+    private let titles: MarkdownAdmonitionTitles
 
-    init(factory: RendererFactory, config: MarkdownStyleConfiguration) {
+    init(factory: RendererFactory, config: MarkdownStyleConfiguration, titles: MarkdownAdmonitionTitles = .default) {
         self.factory = factory
         self.config = config
+        self.titles = titles
     }
 
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
@@ -27,11 +29,22 @@ final class BlockquoteRenderer: NodeRenderer {
         if let admonition {
             appendHeader(for: admonition, font: font, to: output)
         }
+        // An enclosing list item shifts the whole quote by its own indent, which
+        // already includes any widened marker column, so lists inside start fresh.
+        let prevMarkerOffset = context.ancestorMarkerOffset
+        let prevItemMarkerExtra = context.listItemMarkerExtra
+        context.ancestorMarkerOffset = 0
+        context.listItemMarkerExtra = 0
         factory.renderChildren(of: node, into: output, context: context)
+        context.ancestorMarkerOffset = prevMarkerOffset
+        context.listItemMarkerExtra = prevItemMarkerExtra
         context.clearBlockStyle()
         context.exitBlockquote()
 
         guard output.length > start else { return }
+        // Bars share one offset per paragraph, so widening from lists inside this
+        // quote must not move this quote's own bar when an outer item shifts it.
+        output.removeAttribute(MarkdownAttribute.blockquoteMarkerExtra, range: NSRange(location: start, length: output.length - start))
 
         applyStylingAndSpacing(to: output, start: start, end: output.length, levels: levels)
     }
@@ -44,13 +57,18 @@ final class BlockquoteRenderer: NodeRenderer {
     private func appendHeader(for type: AdmonitionType, font: UIFont, to output: NSMutableAttributedString) {
         let style = NSMutableParagraphStyle()
         style.paragraphSpacing = AdmonitionHeader.bodyGap(for: font)
+        style.lineBreakMode = .byTruncatingTail
+        // A line break would split the header into several header paragraphs.
+        let title = titles[type].components(separatedBy: .newlines).joined(separator: " ")
+            .trimmingCharacters(in: .whitespaces)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: FontHelpers.ensureBold(font) ?? font,
             .foregroundColor: config.blockquote.admonitionTint(for: type),
             .paragraphStyle: style,
-            MarkdownAttribute.admonitionHeader: type.rawValue
+            MarkdownAttribute.admonitionHeader: type.rawValue,
+            MarkdownAttribute.admonitionTitle: title
         ]
-        output.append(NSAttributedString(string: type.title + "\n", attributes: attributes))
+        output.append(NSAttributedString(string: (title.isEmpty ? "\u{200B}" : title) + "\n", attributes: attributes))
     }
 
     private func applyStylingAndSpacing(

@@ -2,6 +2,7 @@
 #import "ENRMBlockHandler.h"
 #import "ENRMBoldStyleHandler.h"
 #import "ENRMHeadingBlockHandler.h"
+#import "ENRMInputBlockType.h"
 #import "ENRMItalicStyleHandler.h"
 #import "ENRMLinkStyleHandler.h"
 #import "ENRMOrderedListBlockHandler.h"
@@ -10,6 +11,7 @@
 #import "ENRMStyleHandler.h"
 #import "ENRMUnderlineStyleHandler.h"
 #import "ENRMUnorderedListBlockHandler.h"
+#import "ParagraphStyleUtils.h"
 
 /// Sets `key` to `value` only on sub-runs whose value differs, recording each
 /// written range in `changed` so the caller can invalidate just what changed.
@@ -200,6 +202,8 @@ static void ENRMRemoveAttributeIfPresent(NSMutableAttributedString *storage, NSA
 
   free(traitMap);
 
+  [self applyBaseLineHeight:style.baseLineHeight toNonHeadingParagraphsInTextStorage:textStorage range:scopeRange];
+
   [textStorage endEditing];
 
   NSLayoutManager *layoutManager = textStorage.layoutManagers.firstObject;
@@ -270,22 +274,33 @@ static void ENRMRemoveAttributeIfPresent(NSMutableAttributedString *storage, NSA
     [textStorage removeAttribute:ENRMBlockLevelAttributeName range:range];
     [textStorage removeAttribute:ENRMBlockOrdinalAttributeName range:range];
     [textStorage removeAttribute:NSParagraphStyleAttributeName range:range];
+    [textStorage removeAttribute:NSBaselineOffsetAttributeName range:range];
   }
 
+  NSString *string = textStorage.string;
   for (ENRMBlockRange *blockRange in blockRanges) {
+    NSUInteger location = blockRange.range.location;
     BOOL isHeadingAnchor = blockRange.range.length == 0 && ENRMHeadingLevelForBlockType(blockRange.type) > 0;
+    // An empty list item on a line of its own, away from the end: stamped on the
+    // line terminator like a heading anchor, so its marker and indent show
+    // wherever the caret is. An empty item on the last line has no terminator;
+    // updateEmptyBulletMarker draws that one while the caret is on it.
+    BOOL isListAnchor = blockRange.range.length == 0 && ENRMBlockTypeIsListItem(blockRange.type) &&
+                        location < textLength && [string characterAtIndex:location] == '\n' &&
+                        (location == 0 || [string characterAtIndex:location - 1] == '\n');
+    BOOL isAnchor = isHeadingAnchor || isListAnchor;
 
-    if (!isHeadingAnchor && (blockRange.range.length == 0 || NSMaxRange(blockRange.range) > textLength)) {
+    if (!isAnchor && (blockRange.range.length == 0 || NSMaxRange(blockRange.range) > textLength)) {
       continue;
     }
-    if (isHeadingAnchor && blockRange.range.location > textLength) {
+    if (isAnchor && location > textLength) {
       continue;
     }
 
     // Scope check: normal blocks are line-scoped and either fully inside or
-    // outside; a zero-length heading anchor is in-scope when its point falls
-    // within [scopeStart, scopeEnd] inclusive.
-    if (isHeadingAnchor) {
+    // outside; a zero-length anchor is in-scope when its point falls within
+    // [scopeStart, scopeEnd] inclusive.
+    if (isAnchor) {
       if (blockRange.range.location < scopeRange.location || blockRange.range.location > NSMaxRange(scopeRange)) {
         continue;
       }
@@ -317,10 +332,10 @@ static void ENRMRemoveAttributeIfPresent(NSMutableAttributedString *storage, NSA
     attributes[ENRMBlockLevelAttributeName] = @(blockRange.level);
     attributes[ENRMBlockOrdinalAttributeName] = @(blockRange.ordinal);
 
-    // For a zero-length heading anchor on an empty line, stamp onto the line
-    // terminator so the paragraph style (heading font size) takes effect.
+    // For a zero-length anchor on an empty line, stamp onto the line terminator
+    // so the paragraph style (heading font size, list indent) takes effect.
     NSRange applyRange = blockRange.range;
-    if (isHeadingAnchor && applyRange.location < textLength) {
+    if (isAnchor && applyRange.location < textLength) {
       applyRange = NSMakeRange(applyRange.location, 1);
     }
 
@@ -334,12 +349,80 @@ static void ENRMRemoveAttributeIfPresent(NSMutableAttributedString *storage, NSA
 
     if (applyRange.length > 0) {
       [textStorage addAttributes:attributes range:applyRange];
+      if (paragraphStyle.minimumLineHeight > 0) {
+        applyBaselineOffset(textStorage, applyRange);
+      }
     }
   }
+
+  // Default body line height on lists and plain paragraphs after block styles
+  // (indent, heading override) are reconciled.
+  [self applyBaseLineHeight:style.baseLineHeight toNonHeadingParagraphsInTextStorage:textStorage range:scopeRange];
 
   [textStorage endEditing];
 
   ENRMSetNeedsDisplay(textView);
+}
+
+/// Body line height on every paragraph that is not a heading. Lists share this
+/// default so toggling a list cannot drop line height. Headings keep the
+/// derived height from the heading handler. When lineHeight is <= 0, clears a
+/// previously applied body line height. Writes only what differs, so unchanged
+/// paragraphs are not re-laid out.
+- (void)applyBaseLineHeight:(CGFloat)lineHeight
+    toNonHeadingParagraphsInTextStorage:(NSTextStorage *)textStorage
+                                  range:(NSRange)scopeRange
+{
+  if (scopeRange.length == 0) {
+    return;
+  }
+
+  NSString *string = textStorage.string;
+  NSUInteger position = scopeRange.location;
+  NSUInteger scopeEnd = NSMaxRange(scopeRange);
+  while (position < scopeEnd) {
+    NSRange paragraphRange = [string paragraphRangeForRange:NSMakeRange(position, 0)];
+    paragraphRange = NSIntersectionRange(paragraphRange, scopeRange);
+    if (paragraphRange.length == 0) {
+      break;
+    }
+
+    id blockType = [textStorage attribute:ENRMBlockTypeAttributeName
+                                  atIndex:paragraphRange.location
+                           effectiveRange:NULL];
+    NSInteger headingLevel = 0;
+    if ([blockType isKindOfClass:[NSNumber class]]) {
+      headingLevel = ENRMHeadingLevelForBlockType((ENRMInputBlockType)[blockType integerValue]);
+    }
+    if (headingLevel == 0) {
+      // Unlike applyLineHeight, overwrite the line height left by an earlier
+      // pass, or clear it when lineHeight is <= 0. Leave paragraphs that never
+      // had a line height without a paragraph style.
+      NSMutableParagraphStyle *paragraphStyle = getOrCreateParagraphStyle(textStorage, paragraphRange.location);
+      if (lineHeight > 0 || paragraphStyle.minimumLineHeight > 0) {
+        paragraphStyle.minimumLineHeight = 0;
+        paragraphStyle.maximumLineHeight = 0;
+        ENRMApplyLineHeightToParagraphStyle(paragraphStyle, lineHeight);
+        ENRMSetAttributeIfChanged(textStorage, NSParagraphStyleAttributeName, paragraphStyle, paragraphRange, nil);
+      }
+
+      // Unlike applyBaselineOffset, overwrite an offset centered for a previous
+      // line height or font, and clear it when none is needed. Unlike the text renderer,
+      // the input has no block images or super/subscript offsets to preserve.
+      CGFloat baselineOffset = calculateBaselineOffset(textStorage, paragraphRange);
+      if (baselineOffset > 0) {
+        ENRMSetAttributeIfChanged(textStorage, NSBaselineOffsetAttributeName, @(baselineOffset), paragraphRange, nil);
+      } else {
+        ENRMRemoveAttributeIfPresent(textStorage, NSBaselineOffsetAttributeName, paragraphRange, nil);
+      }
+    }
+
+    NSUInteger nextPosition = NSMaxRange(paragraphRange);
+    if (nextPosition <= position) {
+      break;
+    }
+    position = nextPosition;
+  }
 }
 
 /// Applies `blockFont` over `range` while preserving the symbolic traits already

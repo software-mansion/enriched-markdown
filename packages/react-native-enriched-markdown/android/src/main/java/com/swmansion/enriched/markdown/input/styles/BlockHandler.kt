@@ -1,12 +1,14 @@
 package com.swmansion.enriched.markdown.input.styles
 
+import com.facebook.react.views.text.TextAttributes
 import com.swmansion.enriched.markdown.input.model.BlockRange
 import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.InputFormatterStyle
 
 /**
- * A block handler owns how its [BlockType] styles its paragraph and how it
- * serializes to a markdown line prefix. Mirrors [StyleHandler] for the inline
+ * A block handler owns how its [BlockType] styles its paragraph. Its markdown
+ * marker is derived by the shared input core from the range's type, level and
+ * ordinal, not by the handler. Mirrors [StyleHandler] for the inline
  * pipeline. Parser recognition is NOT handler-driven: it lives in
  * [com.swmansion.enriched.markdown.input.formatting.InputParser]'s central
  * `nodeTypeToBlockType` map, exactly as `nodeTypeToStyleType` does for inline
@@ -40,15 +42,9 @@ interface BlockHandler {
   fun createSpans(
     blockRange: BlockRange,
     style: InputFormatterStyle,
+    bodyTextAttributes: TextAttributes,
   ): List<Any>
 
   /** Span classes this handler produces, for cleanup/identity (mirrors [StyleHandler.spanClasses]). */
   fun spanClasses(): List<Class<*>>
-
-  /**
-   * Markdown prefix prepended to each line of the block during serialization,
-   * e.g. `"# "` for an H1 or `"- "` for a bullet. Returns `""` when the block
-   * needs no prefix. Owning the marker here replaces a central serializer switch.
-   */
-  fun markdownLinePrefix(blockRange: BlockRange): String
 }

@@ -50,7 +50,16 @@ object TestAstFactory {
 
   fun code(content: String): MarkdownASTNode = MarkdownASTNode(NodeType.Code, children = listOf(text(content)))
 
-  fun codeBlock(content: String): MarkdownASTNode = MarkdownASTNode(NodeType.CodeBlock, children = listOf(text(content)))
+  /** A fenced code block; [language] is the info string's first word, as md4c reports it. */
+  fun codeBlock(
+    content: String,
+    language: String? = null,
+  ): MarkdownASTNode =
+    MarkdownASTNode(
+      type = NodeType.CodeBlock,
+      attributes = language?.let { mapOf("language" to it) }.orEmpty(),
+      children = listOf(text(content)),
+    )
 
   fun blockquote(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Blockquote, children = children.toList())
 
@@ -68,6 +77,17 @@ object TestAstFactory {
   fun unorderedList(vararg items: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.UnorderedList, children = items.toList())
 
   fun orderedList(vararg items: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.OrderedList, children = items.toList())
+
+  /** The parser only sets `start` when the first number isn't 1. */
+  fun orderedList(
+    start: Int,
+    vararg items: MarkdownASTNode,
+  ): MarkdownASTNode =
+    MarkdownASTNode(
+      NodeType.OrderedList,
+      children = items.toList(),
+      attributes = if (start != 1) mapOf("start" to start.toString()) else emptyMap(),
+    )
 
   fun listItem(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.ListItem, children = children.toList())
 

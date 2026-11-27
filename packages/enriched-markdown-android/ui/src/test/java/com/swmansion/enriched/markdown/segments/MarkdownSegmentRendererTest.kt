@@ -1,10 +1,10 @@
 package com.swmansion.enriched.markdown.segments
 
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.defaultStyle
+import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.renderSegments
 import com.swmansion.enriched.markdown.test.TestAstFactory.blockquote
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.heading
@@ -20,8 +20,6 @@ import org.robolectric.annotation.Config
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [28, 35])
 class MarkdownSegmentRendererTest {
-  private val context: Context = ApplicationProvider.getApplicationContext()
-
   @Test
   fun splitASTIntoSegmentsCollapsesTableFreeDocumentIntoOneTextSegment() {
     val doc =
@@ -33,7 +31,7 @@ class MarkdownSegmentRendererTest {
         blockquote(paragraph(text("Quoted"))),
       )
 
-    val segments = splitASTIntoSegments(doc)
+    val segments = splitASTIntoSegments(doc, PluginSnapshot.EMPTY)
 
     assertEquals(1, segments.size)
     val textSegment = segments[0] as MarkdownSegment.Text
@@ -67,7 +65,7 @@ class MarkdownSegmentRendererTest {
         ),
       )
 
-    val rendered = MarkdownSegmentRenderer.render(listOf(firstSegment, secondSegment), defaultStyle, context)
+    val rendered = renderSegments(listOf(firstSegment, secondSegment))
 
     val firstText = (rendered[0] as RenderedSegment.Text).styledText
     val secondText = (rendered[1] as RenderedSegment.Text).styledText

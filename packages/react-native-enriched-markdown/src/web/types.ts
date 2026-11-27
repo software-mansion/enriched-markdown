@@ -9,6 +9,7 @@ import type {
   CodeBlockPressEvent,
 } from '../types/events';
 import type { KaTeXInstance } from './katex';
+import type { ResolvedAdmonitionTitles } from '../admonitionDefaults';
 
 export type NodeType =
   | 'Document'
@@ -22,6 +23,7 @@ export type NodeType =
   | 'Emphasis'
   | 'Strikethrough'
   | 'Underline'
+  | 'Spoiler'
   | 'Superscript'
   | 'Subscript'
   | 'Highlight'
@@ -48,6 +50,8 @@ export type NodeType =
 export interface NodeAttributes {
   level?: string;
   url?: string;
+  /** Stamped by recognizeTextLinks() — not present in the raw WASM output. */
+  recognizedLink?: string;
   title?: string;
   language?: string;
   fenceChar?: string;
@@ -65,6 +69,10 @@ export interface NodeAttributes {
   align?: 'left' | 'center' | 'right' | 'default';
   /** Present on BlankLine nodes — count of blank lines in the source run. */
   count?: string;
+  /** Stamped by collectBlocks() on the paragraph, video or code block a `renderers` entry may replace. */
+  blockSlotId?: string;
+  /** Stamped by collectBlocks() on every Image; the key for `resolveImageSource`. */
+  imageOccurrenceId?: string;
 }
 
 export interface ASTNode {
@@ -89,6 +97,19 @@ export interface RenderCapabilities {
   katex: KaTeXInstance | null;
   /** When false, task list checkboxes render read-only and ignore clicks. */
   enableTaskListItemToggle: boolean;
+  /** React replacements by block id (`renderers` results that were not null). */
+  blockSlots?: ReadonlyMap<string, ReactNode>;
+  /**
+   * Resolved `src` by image occurrence id. `null` means pending, rejected or
+   * empty: render the image without a source. Absent ids load the Markdown URL.
+   */
+  imageSources?: ReadonlyMap<string, string | null>;
+  /**
+   * `dir` for each top-level block. `'auto'` resolves every paragraph from its
+   * first strong character, like native; `undefined` inherits a forced root `dir`.
+   */
+  blockDir: 'auto' | undefined;
+  admonitionTitles?: ResolvedAdmonitionTitles;
 }
 
 export interface RendererProps {

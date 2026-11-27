@@ -2,12 +2,20 @@
 
 #include <CoreGraphics/CGBase.h>
 #include <React/RCTUtils.h>
+#include <algorithm>
+#include <cmath>
+#include <functional>
 #include <list>
+#include <memory>
 #include <mutex>
+#include <optional>
 #include <react/renderer/graphics/Float.h>
 #include <string>
+#include <string_view>
 #include <tuple>
+#include <type_traits>
 #include <unordered_map>
+#include <vector>
 
 namespace facebook::react {
 
@@ -38,6 +46,7 @@ struct MeasurementCacheKey {
   bool md4cFlagsUnderline;
   bool md4cFlagsSuperscript;
   bool md4cFlagsSubscript;
+  bool md4cFlagsStrikethrough;
   bool md4cFlagsHighlight;
   bool md4cFlagsLatexMath;
   bool md4cFlagsHardSoftBreaks;
@@ -45,26 +54,35 @@ struct MeasurementCacheKey {
   bool md4cFlagsAdmonitions;
   size_t styleFingerprint;
   size_t linkPillContentFingerprint;
+  // Overridden image sources change block image heights (maxHeight/aspectRatio sizing).
+  size_t imageSourcesFingerprint;
+  // Code blocks the user wrapped (view state, not props); 0 when none.
+  size_t wrappedCodeBlocksFingerprint;
   CGFloat fontScale;
   MarkdownFlavor flavor;
   std::string lineBreakStrategyIOS;
   std::string writingDirection;
   int numberOfLines;
   std::string ellipsizeMode;
+  std::string linkRegexKey;
+  std::string inlineCodeLinkRegexKey;
 
   bool operator==(const MeasurementCacheKey &other) const
   {
     return std::tie(markdown, maxWidth, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
-                    md4cFlagsUnderline, md4cFlagsSuperscript, md4cFlagsSubscript, md4cFlagsHighlight,
-                    md4cFlagsLatexMath, md4cFlagsHardSoftBreaks, md4cFlagsPreserveBlankLines, md4cFlagsAdmonitions,
-                    styleFingerprint, linkPillContentFingerprint, fontScale, flavor, lineBreakStrategyIOS,
-                    writingDirection, numberOfLines, ellipsizeMode) ==
+                    md4cFlagsUnderline, md4cFlagsSuperscript, md4cFlagsSubscript, md4cFlagsStrikethrough,
+                    md4cFlagsHighlight, md4cFlagsLatexMath, md4cFlagsHardSoftBreaks, md4cFlagsPreserveBlankLines,
+                    md4cFlagsAdmonitions, styleFingerprint, linkPillContentFingerprint, imageSourcesFingerprint,
+                    wrappedCodeBlocksFingerprint, fontScale, flavor, lineBreakStrategyIOS, writingDirection,
+                    numberOfLines, ellipsizeMode, linkRegexKey, inlineCodeLinkRegexKey) ==
            std::tie(other.markdown, other.maxWidth, other.allowTrailingMargin, other.allowFontScaling,
                     other.maxFontSizeMultiplier, other.md4cFlagsUnderline, other.md4cFlagsSuperscript,
-                    other.md4cFlagsSubscript, other.md4cFlagsHighlight, other.md4cFlagsLatexMath,
-                    other.md4cFlagsHardSoftBreaks, other.md4cFlagsPreserveBlankLines, other.md4cFlagsAdmonitions,
-                    other.styleFingerprint, other.linkPillContentFingerprint, other.fontScale, other.flavor,
-                    other.lineBreakStrategyIOS, other.writingDirection, other.numberOfLines, other.ellipsizeMode);
+                    other.md4cFlagsSubscript, other.md4cFlagsStrikethrough, other.md4cFlagsHighlight,
+                    other.md4cFlagsLatexMath, other.md4cFlagsHardSoftBreaks, other.md4cFlagsPreserveBlankLines,
+                    other.md4cFlagsAdmonitions, other.styleFingerprint, other.linkPillContentFingerprint,
+                    other.imageSourcesFingerprint, other.wrappedCodeBlocksFingerprint, other.fontScale, other.flavor,
+                    other.lineBreakStrategyIOS, other.writingDirection, other.numberOfLines, other.ellipsizeMode,
+                    other.linkRegexKey, other.inlineCodeLinkRegexKey);
   }
 };
 
@@ -80,6 +98,7 @@ struct MeasurementCacheKeyHash {
     HashUtils::hash_one(h, key.md4cFlagsUnderline);
     HashUtils::hash_one(h, key.md4cFlagsSuperscript);
     HashUtils::hash_one(h, key.md4cFlagsSubscript);
+    HashUtils::hash_one(h, key.md4cFlagsStrikethrough);
     HashUtils::hash_one(h, key.md4cFlagsHighlight);
     HashUtils::hash_one(h, key.md4cFlagsLatexMath);
     HashUtils::hash_one(h, key.md4cFlagsHardSoftBreaks);
@@ -87,12 +106,16 @@ struct MeasurementCacheKeyHash {
     HashUtils::hash_one(h, key.md4cFlagsAdmonitions);
     HashUtils::hash_one(h, key.styleFingerprint);
     HashUtils::hash_one(h, key.linkPillContentFingerprint);
+    HashUtils::hash_one(h, key.imageSourcesFingerprint);
+    HashUtils::hash_one(h, key.wrappedCodeBlocksFingerprint);
     HashUtils::hash_one(h, key.fontScale);
     HashUtils::hash_one(h, static_cast<uint8_t>(key.flavor));
     HashUtils::hash_one(h, key.lineBreakStrategyIOS);
     HashUtils::hash_one(h, key.writingDirection);
     HashUtils::hash_one(h, key.numberOfLines);
     HashUtils::hash_one(h, key.ellipsizeMode);
+    HashUtils::hash_one(h, key.linkRegexKey);
+    HashUtils::hash_one(h, key.inlineCodeLinkRegexKey);
     return h;
   }
 };
@@ -177,12 +200,55 @@ template <typename ContentVector> inline size_t computeLinkPillContentFingerprin
   return h;
 }
 
+// Overridden image sources (the `imageSources` prop) decide which image loads, so its box height.
+template <typename SourceVector> inline size_t computeImageSourcesFingerprint(const SourceVector &sources)
+{
+  size_t h = 0;
+  for (const auto &source : sources) {
+    HashUtils::hash_one(h, source.id);
+    HashUtils::hash_one(h, source.uri);
+    for (const auto &header : source.headers) {
+      HashUtils::hash_one(h, header.name);
+      HashUtils::hash_one(h, header.value);
+    }
+  }
+  return h;
+}
+
+template <typename RegexProps> inline std::string buildLinkRecognitionCacheKey(const RegexProps &props)
+{
+  std::string key;
+  key += props.caseInsensitive ? '1' : '0';
+  key += props.dotAll ? '1' : '0';
+  key += props.isDisabled ? '1' : '0';
+  key += props.isDefault ? '1' : '0';
+  return key + props.pattern;
+}
+
+// Only EnrichedMarkdown (the segmented host) carries imageSources; the
+// EnrichedMarkdownText props hash 0 here. Consumed by ENRMStyleConfigFromProps too.
+template <typename PropsType, typename = void> struct ENRMHasImageSources : std::false_type {};
+template <typename PropsType>
+struct ENRMHasImageSources<PropsType, std::void_t<decltype(std::declval<PropsType>().imageSources)>> : std::true_type {
+};
+
+template <typename PropsType> inline size_t ENRMImageSourcesFingerprintForProps(const PropsType &props)
+{
+  if constexpr (ENRMHasImageSources<PropsType>::value) {
+    return computeImageSourcesFingerprint(props.imageSources);
+  } else {
+    return 0;
+  }
+}
+
+/// `withMarkdown` false leaves the markdown out (buildLayoutCacheKey).
 template <typename PropsType>
 inline MeasurementCacheKey buildMeasurementCacheKey(const PropsType &props, CGFloat maxWidth, CGFloat fontScale,
-                                                    MarkdownFlavor flavor)
+                                                    MarkdownFlavor flavor, size_t wrappedCodeBlocksFingerprint = 0,
+                                                    bool withMarkdown = true)
 {
   return MeasurementCacheKey{
-      .markdown = props.markdown,
+      .markdown = withMarkdown ? props.markdown : std::string(),
       .maxWidth = maxWidth,
       .allowTrailingMargin = props.allowTrailingMargin,
       .allowFontScaling = props.allowFontScaling,
@@ -190,6 +256,7 @@ inline MeasurementCacheKey buildMeasurementCacheKey(const PropsType &props, CGFl
       .md4cFlagsUnderline = props.md4cFlags.underline,
       .md4cFlagsSuperscript = props.md4cFlags.superscript,
       .md4cFlagsSubscript = props.md4cFlags.subscript,
+      .md4cFlagsStrikethrough = props.md4cFlags.strikethrough,
       .md4cFlagsHighlight = props.md4cFlags.highlight,
       .md4cFlagsLatexMath = props.md4cFlags.latexMath,
       .md4cFlagsHardSoftBreaks = props.md4cFlags.hardSoftBreaks,
@@ -197,13 +264,169 @@ inline MeasurementCacheKey buildMeasurementCacheKey(const PropsType &props, CGFl
       .md4cFlagsAdmonitions = props.md4cFlags.admonitions,
       .styleFingerprint = computeStyleFingerprint(props.markdownStyle),
       .linkPillContentFingerprint = computeLinkPillContentFingerprint(props.linkPillContent),
+      .imageSourcesFingerprint = ENRMImageSourcesFingerprintForProps(props),
+      .wrappedCodeBlocksFingerprint = wrappedCodeBlocksFingerprint,
       .fontScale = fontScale,
       .flavor = flavor,
       .lineBreakStrategyIOS = props.lineBreakStrategyIOS,
       .writingDirection = props.writingDirection,
       .numberOfLines = props.numberOfLines,
       .ellipsizeMode = props.ellipsizeMode,
+      .linkRegexKey = buildLinkRecognitionCacheKey(props.linkRecognition.text),
+      .inlineCodeLinkRegexKey = buildLinkRecognitionCacheKey(props.linkRecognition.inlineCode),
   };
+}
+
+/// The key without the markdown or the width, for telling a stream's next update from new content.
+template <typename PropsType>
+inline MeasurementCacheKey buildLayoutCacheKey(const PropsType &props, CGFloat fontScale, MarkdownFlavor flavor,
+                                               size_t wrappedCodeBlocksFingerprint)
+{
+  return buildMeasurementCacheKey(props, 0, fontScale, flavor, wrappedCodeBlocksFingerprint, false);
+}
+
+/// What a view's previous measurement saw, to tell a stream's update (only the markdown grew) from new content.
+template <typename PropsT> struct ENRMPreviousMeasurement {
+  std::shared_ptr<const PropsT> props;
+  /// Everything else that sizes the content (buildLayoutCacheKey).
+  std::optional<MeasurementCacheKey> layoutKey;
+  /// The writing direction a parent's `direction` resolved to, which the key leaves out.
+  NSWritingDirection layoutDirection{NSWritingDirectionNatural};
+  /// The state's height counter, which the view advances when it asks for a new height.
+  int heightCounter{-1};
+  /// What the measurement returned, and for which width.
+  CGFloat maxWidth{-1};
+  CGFloat width{0};
+  CGFloat height{0};
+};
+
+/// Whether `current` keeps all of `previous` and only adds to it, as every update
+/// of a stream does. Empty `previous` doesn't count: there is nothing laid out to keep.
+inline bool ENRMMarkdownExtends(const std::string &previous, const std::string &current)
+{
+  return !previous.empty() && current.size() >= previous.size() && current.compare(0, previous.size(), previous) == 0;
+}
+
+/// Where a measurement's size comes from (ENRMChooseMeasurement).
+enum class ENRMMeasurementSource {
+  Full,
+  Previous,
+  LaidOut,
+};
+
+/// What ENRMChooseMeasurement decides from.
+struct ENRMMeasurementInputs {
+  /// Nothing that sizes the content changed except the markdown, which kept all
+  /// of the previous and may have grown.
+  bool streamUpdate;
+  /// The markdown is longer than last time.
+  bool grew;
+  /// The view laid out a render and asked for a new layout since.
+  bool viewAskedForHeight;
+  /// The view is mounted, so it asks again once its height changes.
+  bool hasView;
+  /// The view laid its content out for this width.
+  bool hasLaidOutSize;
+  /// The previous measurement was for this width.
+  bool samePreviousWidth;
+};
+
+/**
+ * The view's size answers a stream's update (it trails by at most the render in flight) and a view
+ * that asked again. Otherwise the same document gets the previous answer: Yoga measures twice a
+ * pass, and a view sized to its content lays out narrower than offered, so it keeps that size until
+ * it asks. Without a view nothing would ask, so a grown document measures in full.
+ */
+inline ENRMMeasurementSource ENRMChooseMeasurement(const ENRMMeasurementInputs &inputs)
+{
+  if (!inputs.streamUpdate) {
+    return ENRMMeasurementSource::Full;
+  }
+  if (inputs.hasLaidOutSize && (inputs.grew || inputs.viewAskedForHeight)) {
+    return ENRMMeasurementSource::LaidOut;
+  }
+  if (!inputs.viewAskedForHeight && inputs.samePreviousWidth && (inputs.hasView || !inputs.grew)) {
+    return ENRMMeasurementSource::Previous;
+  }
+  return ENRMMeasurementSource::Full;
+}
+
+/// A block slot as the last full measurement placed it, with the height its child has now.
+struct ENRMMeasuredSlot {
+  std::string_view id;
+  double y;
+  double height;
+  bool placed;
+  double childHeight;
+};
+
+/// A block slot placeholder as the view laid it out (ENRMLaidOutSlot).
+struct ENRMShownSlot {
+  std::string_view id;
+  double y;
+  double height;
+};
+
+/**
+ * Whether a stream's update can take the height the view laid out and keep the slot frames of the
+ * last full measurement: the view shows exactly the measured slots, each where it was placed and at
+ * the height its child still has. With `smooth`, a slot not revealed yet may be missing if it lies
+ * below that height. Any other missing slot (nested in a quote, not applied yet) fails, and so does
+ * one that moved (an image loaded above it, a late reference definition).
+ */
+inline bool ENRMCanTakeLaidOutSlotLayout(bool smooth, double laidOutHeight,
+                                         const std::vector<ENRMMeasuredSlot> &measured,
+                                         const std::vector<ENRMShownSlot> &shown, double tolerance)
+{
+  if (laidOutHeight <= 0 || measured.empty()) {
+    return false;
+  }
+  size_t matched = 0;
+  for (const auto &slot : measured) {
+    if (!slot.placed) {
+      return false;
+    }
+    auto view = std::find_if(shown.begin(), shown.end(), [&](const ENRMShownSlot &s) { return s.id == slot.id; });
+    if (view == shown.end()) {
+      if (!smooth || slot.y < laidOutHeight - tolerance) {
+        return false;
+      }
+      continue;
+    }
+    if (std::abs(view->y - slot.y) > tolerance || std::abs(view->height - slot.height) > tolerance ||
+        std::abs(slot.childHeight - slot.height) > tolerance) {
+      return false;
+    }
+    matched++;
+  }
+  return matched == shown.size();
+}
+
+/**
+ * A code block still streaming into the last slot is the document's end, so its child's new height
+ * decides the document's. The view must show every slot as ENRMCanTakeLaidOutSlotLayout checks, the
+ * last at the height it had, and end there; 0 otherwise.
+ */
+inline double ENRMGrowingTailSlotHeight(bool endsInsideOpenFence, double measuredHeight, double laidOutHeight,
+                                        const std::vector<ENRMMeasuredSlot> &measured,
+                                        const std::vector<ENRMShownSlot> &shown, double tolerance)
+{
+  if (!endsInsideOpenFence || measured.empty() || shown.empty()) {
+    return 0;
+  }
+  ENRMMeasuredSlot last = measured.back();
+  const double trailing = measuredHeight - (last.y + last.height);
+  if (trailing < -tolerance ||
+      std::abs(laidOutHeight - (shown.back().y + shown.back().height) - trailing) > tolerance) {
+    return 0;
+  }
+  std::vector<ENRMMeasuredSlot> others = measured;
+  others.back().childHeight = last.height;
+  if (!ENRMCanTakeLaidOutSlotLayout(/*smooth*/ false, laidOutHeight, others, shown, tolerance) ||
+      shown.back().id != last.id) {
+    return 0;
+  }
+  return last.y + last.childHeight + trailing;
 }
 
 /**
@@ -240,6 +463,9 @@ public:
 
   void set(const MeasurementCacheKey &key, CachedSize size)
   {
+    const size_t keyBytes = keyStorageBytes(key);
+    if (keyBytes > kMaxKeyBytes)
+      return;
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto it = map_.find(key);
@@ -249,14 +475,16 @@ public:
       return;
     }
 
-    list_.push_front({key, size});
-    map_[key] = list_.begin();
-
-    if (map_.size() > kMaxEntries) {
+    while (map_.size() >= kMaxEntries || keyBytes_ + keyBytes > kMaxKeyBytes) {
       auto &lastEntry = list_.back();
+      keyBytes_ -= keyStorageBytes(lastEntry.key);
       map_.erase(lastEntry.key);
       list_.pop_back();
     }
+
+    list_.push_front({key, size});
+    map_.emplace(std::cref(list_.front().key), list_.begin());
+    keyBytes_ += keyBytes;
   }
 
   void removeMatchingMarkdown(const std::string &markdown)
@@ -265,6 +493,7 @@ public:
 
     for (auto it = list_.begin(); it != list_.end();) {
       if (it->key.markdown == markdown) {
+        keyBytes_ -= keyStorageBytes(it->key);
         map_.erase(it->key);
         it = list_.erase(it);
       } else {
@@ -277,10 +506,27 @@ private:
   MeasurementCache() = default;
 
   static constexpr size_t kMaxEntries = 512;
+  // Bytes held by keys; allocator/node overhead is additional.
+  static constexpr size_t kMaxKeyBytes = 8 * 1024 * 1024;
+  static size_t keyStorageBytes(const MeasurementCacheKey &key)
+  {
+    return sizeof(CacheEntry) + key.markdown.size() + key.lineBreakStrategyIOS.size() + key.writingDirection.size() +
+           key.ellipsizeMode.size() + key.linkRegexKey.size() + key.inlineCodeLinkRegexKey.size();
+  }
+
+  // The map refers to the key its list node owns, so each key is stored once.
+  using KeyRef = std::reference_wrapper<const MeasurementCacheKey>;
+  struct KeyRefEqual {
+    bool operator()(const MeasurementCacheKey &a, const MeasurementCacheKey &b) const
+    {
+      return a == b;
+    }
+  };
+  size_t keyBytes_ = 0;
   mutable std::mutex mutex_;
 
   std::list<CacheEntry> list_;
-  std::unordered_map<MeasurementCacheKey, std::list<CacheEntry>::iterator, MeasurementCacheKeyHash> map_;
+  std::unordered_map<KeyRef, std::list<CacheEntry>::iterator, MeasurementCacheKeyHash, KeyRefEqual> map_;
 };
 
 } // namespace facebook::react

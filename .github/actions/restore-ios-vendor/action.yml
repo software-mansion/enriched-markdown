@@ -1,0 +1,16 @@
+name: Restore iOS vendor files
+description: >-
+  Materializes the gitignored sources behind the iOS package's vendor symlinks
+  (RaTeX, tree-sitter and its grammars); run after Setup and before any cache
+  key or build that reads packages/enriched-markdown-ios.
+
+runs:
+  using: composite
+  steps:
+    - name: Restore RaTeX vendor files
+      run: node vendor/vendor-ratex.mjs
+      shell: bash
+
+    - name: Restore tree-sitter vendor files
+      run: node vendor/vendor-grammars.mjs
+      shell: bash

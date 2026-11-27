@@ -9,6 +9,7 @@ object SegmentSignature {
 
   internal const val TEXT_KIND_SALT = 0x7465787400000000L // "text"
   internal const val TABLE_KIND_SALT = 0x7461626C00000000L // "tabl"
+  internal const val CODE_BLOCK_KIND_SALT = 0x636F646500000000L // "code"
 
   private fun fnvMixByte(
     hash: Long,

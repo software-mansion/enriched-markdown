@@ -74,6 +74,12 @@ static void serializeNode(MarkdownASTNode *node, NSMutableString *buffer)
       [buffer appendString:@"=="];
       break;
 
+    case MarkdownNodeTypeLatexMathInline:
+      [buffer appendString:@"$"];
+      serializeChildren(node, buffer);
+      [buffer appendString:@"$"];
+      break;
+
     case MarkdownNodeTypeCode:
       [buffer appendString:@"`"];
       serializeChildren(node, buffer);
@@ -81,6 +87,10 @@ static void serializeNode(MarkdownASTNode *node, NSMutableString *buffer)
       break;
 
     case MarkdownNodeTypeLink: {
+      if ([node.attributes[@"recognizedLink"] isEqualToString:@"true"]) {
+        serializeChildren(node, buffer);
+        break;
+      }
       NSString *url = node.attributes[@"url"] ?: @"";
       [buffer appendString:@"["];
       serializeChildren(node, buffer);

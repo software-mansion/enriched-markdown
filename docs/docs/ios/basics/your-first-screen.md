@@ -22,7 +22,7 @@ struct ArticleView: View {
         .padding()
     }
     .environment(\.openURL, OpenURLAction { url in
-      analytics.linkTapped(url)
+      print("Opening \(url)")
       return .systemAction
     })
   }
@@ -31,10 +31,10 @@ struct ArticleView: View {
 
 That's the whole setup. The view sizes itself to its content, which is why it belongs inside a `ScrollView` for anything longer than a screen. Links open with the system out of the box, through SwiftUI's [`openURL`](/ios/api-reference/enriched-markdown-text#openurl) action; install your own `OpenURLAction` only when you want to route or observe them yourself, returning `.systemAction` for the ones you do not handle.
 
-Everything except the Markdown string itself is configured through **view modifiers** rather than initializer parameters, and each one reads from the SwiftUI environment. That means you can set a handler once on a container and have every `EnrichedMarkdownText` beneath it pick it up - which is why the link handler above sits on the `ScrollView` rather than on the text. The [`EnrichedMarkdownText` reference](/ios/api-reference/enriched-markdown-text) covers every modifier.
+The initializer takes the Markdown string and, optionally, [`options:`](/ios/api-reference/enriched-markdown-text#options) - the `MarkdownParsingOptions` that turn on syntax beyond CommonMark. Everything else is configured through **view modifiers**, and each one reads from the SwiftUI environment. That means you can set a handler once on a container and have every `EnrichedMarkdownText` beneath it pick it up - which is why the link handler above sits on the `ScrollView` rather than on the text. The [`EnrichedMarkdownText` reference](/ios/api-reference/enriched-markdown-text) covers every modifier.
 
 :::note
-Parsing happens **off the main thread**, on a private serial queue, and the finished text is applied back on the main thread. Every document takes that hop, so the view paints empty on its first frame and swaps the text in a moment later. You will not notice it on a paragraph; you will on a long article. And because the view sizes itself to its text, that empty frame has no height, so anything below it shifts down once the text arrives.
+Parsing happens **off the main thread**, on a private serial queue, and the finished text is applied back on the main thread. Every document takes that hop, so the view's first frame is empty and the text is swapped in a moment later. You will not notice it on a paragraph; you will on a long article. And because the view sizes itself to its text, it starts out short and grows to the document's full height when the text arrives, so anything below it shifts down.
 :::
 
 ## Styling it
@@ -72,13 +72,14 @@ Themes **layer**: each `.markdownTheme` stacks on top of the ones above it and o
 
 ## Editor on iOS
 
-This package **renders** Markdown; it does not edit it. There is no editable rich text field here yet - no live formatting as the reader types, no format bar, no imperative editing API. If you need one today, you'll have to build it over a `UITextView` or `TextEditor` yourself and render the result with `EnrichedMarkdownText`. An editor is on the [roadmap](/misc/roadmap).
+This package **renders** Markdown; it does not edit it. There is no editable rich text field yet - no live formatting as the reader types, no format bar, no imperative editing API. If you need one today, you'll have to build it over a `UITextView` or `TextEditor` yourself and render the result with `EnrichedMarkdownText`. An editor is on the [roadmap](/misc/roadmap).
 
 ## Next steps
 
 You have a working screen. From here:
 
 - [`EnrichedMarkdownText`](/ios/api-reference/enriched-markdown-text) - every modifier, callback, and parsing option.
+- [Style properties](/ios/api-reference/style-properties) - every element you can style and the properties each takes.
 - [Parser extensions](/ios/guides/parser-extensions) - turning on the syntax that is off by default, such as underline, super/subscript, and GitHub alerts.
-- [Core concepts](/introduction/core-concepts) - the ideas behind the library.
-- [Feature support](/introduction/supported-features) - the full matrix of what's supported.
+
+The **Guides** section covers the rest of the package task by task: [syntax highlighting](/ios/guides/syntax-highlighting) and [LaTeX math](/ios/guides/latex-math) (both optional products), [custom fonts](/ios/guides/custom-fonts), [image caching](/ios/guides/image-caching), and [rendering from UIKit](/ios/guides/uikit-interop).

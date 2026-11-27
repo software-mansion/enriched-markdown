@@ -14,7 +14,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)imageAttachmentDidResolveLayout;
 @end
 
-@interface RCTUIView (ENRMImageLayoutObserver)
+@interface RCTPlatformView (ENRMImageLayoutObserver)
 /**
  * Nearest ancestor (self included) adopting ENRMImageLayoutObserver, walking up
  * the superview chain. Returns nil when none is found.
@@ -27,13 +27,20 @@ NS_ASSUME_NONNULL_BEGIN
  * Images are loaded asynchronously and scaled dynamically based on text container width.
  * Supports inline and block images with custom height and border radius from config.
  */
+@class ENRMImageSourceOverride;
+
 @interface ENRMImageAttachment : NSTextAttachment
 
+/// The Markdown URL: what events, copy actions and exports report.
 @property (nonatomic, readonly) NSString *imageURL;
+/// What is requested: the Markdown URL, or the overridden source's uri (empty
+/// when the override says to show the placeholder only).
+@property (nonatomic, readonly) NSString *requestURL;
 @property (nonatomic, readonly) BOOL isInline;
+@property (nonatomic, strong, nullable) UIFont *textFont;
 
 /**
- * Invoked on the main thread whenever the image finishes loading/processing.
+ * Invoked on the main thread whenever the image finishes loading/processing, or fails to load.
  * Used by self-drawing hosts (e.g. a table grid) that rasterize the attributed
  * string via -drawWithRect: and therefore never get a live text view for the
  * attachment's normal -refreshDisplay invalidation to reach. Such hosts set this
@@ -42,10 +49,17 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy, nullable) void (^onImageLoaded)(void);
 
 + (instancetype)attachmentForURL:(NSString *)imageURL config:(StyleConfig *)config isInline:(BOOL)isInline;
++ (instancetype)attachmentForURL:(NSString *)imageURL
+                          source:(nullable ENRMImageSourceOverride *)source
+                         altText:(NSString *)altText
+                          config:(StyleConfig *)config
+                        isInline:(BOOL)isInline;
 
 + (NSCache<NSString *, RCTUIImage *> *)originalImageCache;
 + (NSCache<NSString *, RCTUIImage *> *)processedImageCache;
 
 @end
+
+FOUNDATION_EXPORT void ENRMImageAttachmentsAdoptTextFonts(NSAttributedString *text);
 
 NS_ASSUME_NONNULL_END

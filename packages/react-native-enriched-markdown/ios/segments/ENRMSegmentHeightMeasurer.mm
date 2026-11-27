@@ -1,6 +1,9 @@
 #import "ENRMSegmentHeightMeasurer.h"
+#import "ENRMBlockSlotMeasurer.h"
+#import "ENRMBlockSlotSegmentView.h"
 #import "ENRMBlockquoteContainerView.h"
 #import "ENRMCodeBlockContainerView.h"
+#import "ENRMCodeBlockWrapState.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMTextRenderer.h"
 #import "ENRMViewFreeMeasurement.h"
@@ -15,8 +18,10 @@
 CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segments, StyleConfig *config,
                                           CGFloat contentWidth, BOOL allowTrailingMargin, CGFloat pointScaleFactor,
                                           ENRMWritingDirectionMode writingDirectionMode,
-                                          NSWritingDirection resolvedLayoutDirection, BOOL allowFontScaling,
-                                          NSLineBreakStrategy lineBreakStrategy)
+                                          NSWritingDirection resolvedLayoutDirection, NSWritingDirection quoteDirection,
+                                          BOOL allowFontScaling, NSLineBreakStrategy lineBreakStrategy,
+                                          ENRMCodeBlockWrapCursor *wrapCursor, ENRMBlockSlotMeasurer *slotMeasurer,
+                                          CGPoint origin)
 {
   if (segments.count == 0) {
     return 0;
@@ -34,7 +39,7 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
       // GFM segments are never line-clamped (numberOfLines is a no-op for GFM).
       CGSize textSize = ENRMMeasureAttributedTextViewFree(
           segment.textResult.attributedText, contentWidth, config, shouldAddBottomMargin,
-          segment.textResult.lastElementMarginBottom, pointScaleFactor, 0, NSLineBreakByWordWrapping);
+          segment.textResult.lastElementMarginBottom, pointScaleFactor, 0, NSLineBreakByWordWrapping, YES);
       totalHeight += textSize.height;
     } else if (segment.kind == ENRMSegmentKindTable && segment.tableSegment) {
       totalHeight += config.tableMarginTop;
@@ -49,8 +54,12 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
       }
     } else if (segment.kind == ENRMSegmentKindCodeBlock && segment.codeBlockSegment) {
       totalHeight += config.codeBlockMarginTop;
-      totalHeight += [ENRMCodeBlockContainerView measureHeightForCodeBlockNode:segment.codeBlockSegment.codeBlockNode
-                                                                        config:config];
+      MarkdownASTNode *codeBlockNode = segment.codeBlockSegment.codeBlockNode;
+      totalHeight += [wrapCursor nextIsWrapped]
+                         ? [ENRMCodeBlockContainerView measureWrappedHeightForCodeBlockNode:codeBlockNode
+                                                                                     config:config
+                                                                                   maxWidth:contentWidth]
+                         : [ENRMCodeBlockContainerView measureHeightForCodeBlockNode:codeBlockNode config:config];
       if (shouldAddBottomMargin) {
         totalHeight += config.codeBlockMarginBottom;
       }
@@ -64,7 +73,22 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
                                                              maxWidth:contentWidth
                                                      pointScaleFactor:pointScaleFactor
                                                      allowFontScaling:allowFontScaling
-                                                    lineBreakStrategy:lineBreakStrategy];
+                                                    lineBreakStrategy:lineBreakStrategy
+                                                 writingDirectionMode:writingDirectionMode
+                                              resolvedLayoutDirection:resolvedLayoutDirection
+                                                       outerDirection:quoteDirection
+                                                           wrapCursor:wrapCursor
+                                                         slotMeasurer:slotMeasurer
+                                                               origin:CGPointMake(origin.x, origin.y + totalHeight)];
+    } else if (segment.kind == ENRMSegmentKindBlockSlot && segment.blockSlotSegment) {
+      ENRMBlockSlotSegment *slot = segment.blockSlotSegment;
+      totalHeight += ENRMBlockSlotMarginTop(slot.kind, config);
+      totalHeight += [slotMeasurer heightForSlot:slot.slotId
+                                           width:contentWidth
+                                          origin:CGPointMake(origin.x, origin.y + totalHeight)];
+      if (shouldAddBottomMargin) {
+        totalHeight += ENRMBlockSlotMarginBottom(slot.kind, config);
+      }
     }
 #if ENRICHED_MARKDOWN_MATH
     else if (segment.kind == ENRMSegmentKindMath && segment.mathSegment) {

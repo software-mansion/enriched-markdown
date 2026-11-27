@@ -1,4 +1,5 @@
 #import "UnderlineRenderer.h"
+#import "ENRMTextLinkAttributes.h"
 #import "MarkdownASTNode.h"
 #import "RenderContext.h"
 #import "RendererFactory.h"
@@ -20,6 +21,17 @@
     return;
 
   [output addAttribute:NSUnderlineStyleAttributeName value:@(NSUnderlineStyleSingle) range:range];
+  // Recognized links inside this span were styled before it closed; record the underline for them too.
+  [output enumerateAttribute:ENRMRecognizedLinkAttributeName
+                     inRange:range
+                     options:0
+                  usingBlock:^(id value, NSRange linkRange, BOOL *stop) {
+                    if ([value boolValue]) {
+                      [output addAttribute:ENRMRecognizedLinkOriginalUnderlineAttributeName
+                                     value:@(NSUnderlineStyleSingle)
+                                     range:linkRange];
+                    }
+                  }];
 
   RCTUIColor *underlineColor = [_config underlineColor];
 

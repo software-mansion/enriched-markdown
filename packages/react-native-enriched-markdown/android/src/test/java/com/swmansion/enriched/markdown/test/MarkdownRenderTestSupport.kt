@@ -1,0 +1,274 @@
+package com.swmansion.enriched.markdown.test
+
+import android.content.Context
+import android.graphics.Color
+import android.text.Spannable
+import com.facebook.react.bridge.JavaOnlyArray
+import com.facebook.react.bridge.JavaOnlyMap
+import com.facebook.react.uimanager.DisplayMetricsHolder
+import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.renderer.Renderer
+import com.swmansion.enriched.markdown.styles.StyleConfig
+import org.robolectric.RuntimeEnvironment
+
+object MarkdownRenderTestSupport {
+  // Resolved per call, not cached: a @Config qualifier applies to the current test's context.
+  private val context: Context
+    get() = RuntimeEnvironment.getApplication()
+
+  fun render(
+    style: StyleConfig,
+    vararg blocks: MarkdownASTNode,
+  ): Spannable {
+    val renderer = Renderer()
+    renderer.configure(style, context)
+    return renderer.renderContent(blocks.toList())
+  }
+
+  /** [styleMap] parsed into a [StyleConfig]. */
+  fun styleConfig(
+    list: Map<String, Any> = emptyMap(),
+    taskList: Map<String, Any> = emptyMap(),
+    blockquote: Map<String, Any> = emptyMap(),
+    codeBlock: Map<String, Any> = emptyMap(),
+    image: Map<String, Any> = emptyMap(),
+    highlight: Map<String, Any> = emptyMap(),
+    elements: Map<String, Map<String, Any>> = emptyMap(),
+  ): StyleConfig = StyleConfig(styleMap(list, taskList, blockquote, codeBlock, image, highlight, elements), context, false, 0f)
+
+  /**
+   * The style map the JS side sends, with [list], [taskList], [blockquote], [codeBlock], [image] and [highlight] entries replacing
+   * the defaults, and [elements] merging entries into any other element (e.g. `"code" to mapOf("backgroundColor" to RED)`).
+   * Sizes are Double, colors Int, as in a ReadableMap.
+   */
+  fun styleMap(
+    list: Map<String, Any> = emptyMap(),
+    taskList: Map<String, Any> = emptyMap(),
+    blockquote: Map<String, Any> = emptyMap(),
+    codeBlock: Map<String, Any> = emptyMap(),
+    image: Map<String, Any> = emptyMap(),
+    highlight: Map<String, Any> = emptyMap(),
+    elements: Map<String, Map<String, Any>> = emptyMap(),
+  ): JavaOnlyMap {
+    DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(context)
+    val style = JavaOnlyMap()
+    // Headings are read by StyleConfig.needsJustify, which every segment render consults.
+    (listOf("paragraph", "strong", "em", "strikethrough", "code", "superscript", "subscript", "highlight") + (1..6).map { "h$it" })
+      .forEach { style.putMap(it, textElement()) }
+    style.putMap("highlight", textElement().apply { putAll(highlight) })
+    style.putMap("link", textElement().apply { putString("fontFamily", "serif") })
+    style.putArray(
+      "linkVariants",
+      JavaOnlyArray.of(
+        textElement().apply {
+          putString("pattern", "^ref:")
+          putString("fontFamily", "monospace")
+          putInt("color", Color.BLUE)
+        },
+      ),
+    )
+    style.putMap(
+      "spoiler",
+      textElement().apply {
+        putMap("particles", JavaOnlyMap.of("density", 0.5, "speed", 1.0))
+        putMap("solid", JavaOnlyMap.of("borderRadius", 0.0))
+      },
+    )
+    style.putMap(
+      "blockquote",
+      textElement().apply {
+        putAll(mapOf("borderWidth" to 3.0, "gapWidth" to 8.0, "borderRadius" to 0.0, "padding" to 0.0) + blockquote)
+      },
+    )
+    style.putMap("taskList", JavaOnlyMap().apply { putAll(defaultTaskList + taskList) })
+    style.putMap("list", textElement().apply { putAll(defaultList + list) })
+    style.putMap("codeBlock", textElement().apply { putAll(defaultCodeBlock + codeBlock) })
+    style.putMap("thematicBreak", JavaOnlyMap.of("color", Color.BLACK, "height", 1.0, "marginTop", 0.0, "marginBottom", 0.0))
+    style.putMap("image", JavaOnlyMap().apply { putAll(defaultImage + image) })
+    style.putMap("inlineImage", JavaOnlyMap.of("size", 20.0))
+    for ((element, values) in elements) {
+      val map = style.getMap(element) as? JavaOnlyMap ?: JavaOnlyMap().also { style.putMap(element, it) }
+      map.putAll(values)
+    }
+    return style
+  }
+
+  /** Every section clipboard HTML export reads, with all sizes zero. */
+  fun exportStyleMap(): JavaOnlyMap {
+    DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(context)
+
+    fun element() =
+      JavaOnlyMap().apply {
+        listOf(
+          "aspectRatio",
+          "bulletSize",
+          "checkboxBorderRadius",
+          "checkboxSize",
+          "height",
+          "itemSpacing",
+          "markerMinWidth",
+          "maxHeight",
+          "cellPaddingHorizontal",
+          "cellPaddingVertical",
+          "horizontalOverflow",
+          "lineHeight",
+          "marginTop",
+          "marginBottom",
+          "padding",
+          "borderRadius",
+          "borderWidth",
+          "gapWidth",
+          "marginLeft",
+        ).forEach {
+          putDouble(it, 0.0)
+        }
+        listOf(
+          "bulletColor",
+          "checkedColor",
+          "checkedTextColor",
+          "checkmarkColor",
+          "headerBackgroundColor",
+          "headerTextColor",
+          "markerColor",
+          "rowEvenBackgroundColor",
+          "rowOddBackgroundColor",
+          "color",
+          "borderColor",
+        ).forEach {
+          putInt(it, Color.BLACK)
+        }
+        putString("resizeMode", "contain")
+        putString("fontFamily", "")
+        putString("fontWeight", "normal")
+        putDouble("fontSize", 16.0)
+        putDouble("fontScale", 0.8)
+        putDouble("baselineOffsetScale", 0.5)
+        putBoolean("underline", false)
+        putInt("backgroundColor", Color.TRANSPARENT)
+      }
+    val style = JavaOnlyMap()
+    listOf(
+      "table",
+      "paragraph",
+      "codeBlock",
+      "code",
+      "blockquote",
+      "list",
+      "link",
+      "strong",
+      "em",
+      "strikethrough",
+      "underline",
+      "highlight",
+      "image",
+      "superscript",
+      "subscript",
+    ).forEach { style.putMap(it, element()) }
+    style.putMap(
+      "spoiler",
+      element().apply {
+        putMap("particles", JavaOnlyMap.of("density", 0.5, "speed", 1.0))
+        putMap("solid", JavaOnlyMap.of("borderRadius", 0.0))
+      },
+    )
+    for (level in 1..6) style.putMap("h$level", element())
+    style.putMap(
+      "taskList",
+      JavaOnlyMap.of(
+        "checkedColor",
+        Color.BLACK,
+        "borderColor",
+        Color.BLACK,
+        "checkmarkColor",
+        Color.BLACK,
+        "checkedTextColor",
+        Color.BLACK,
+        "checkboxSize",
+        16.0,
+        "checkboxBorderRadius",
+        0.0,
+        "checkedStrikethrough",
+        false,
+      ),
+    )
+    return style
+  }
+
+  private val defaultImage: Map<String, Any> =
+    mapOf(
+      "height" to 100.0,
+      "maxHeight" to 0.0,
+      "aspectRatio" to 0.0,
+      "resizeMode" to "",
+      "borderRadius" to 0.0,
+      "marginTop" to 0.0,
+      "marginBottom" to 0.0,
+    )
+
+  private val defaultList: Map<String, Any> =
+    mapOf(
+      "fontFamily" to "",
+      "bulletColor" to Color.BLACK,
+      "markerColor" to Color.BLACK,
+      "bulletSize" to 6.0,
+      "markerMinWidth" to 0.0,
+      "gapWidth" to 8.0,
+      "marginLeft" to 24.0,
+      "itemSpacing" to 0.0,
+    )
+
+  private val defaultCodeBlock: Map<String, Any> =
+    mapOf("borderRadius" to 0.0, "borderWidth" to 0.0, "padding" to 0.0)
+
+  private val defaultTaskList: Map<String, Any> =
+    mapOf(
+      "checkedColor" to Color.BLACK,
+      "borderColor" to Color.BLACK,
+      "checkmarkColor" to Color.BLACK,
+      "checkedTextColor" to Color.BLACK,
+      "checkboxSize" to 16.0,
+      "checkboxBorderRadius" to 0.0,
+      "checkedStrikethrough" to false,
+    )
+
+  private fun textElement(): JavaOnlyMap =
+    JavaOnlyMap.of(
+      "fontFamily",
+      "",
+      "fontWeight",
+      "normal",
+      "fontSize",
+      16.0,
+      "lineHeight",
+      0.0,
+      "marginTop",
+      0.0,
+      "marginBottom",
+      0.0,
+      "color",
+      Color.BLACK,
+      "backgroundColor",
+      Color.TRANSPARENT,
+      "borderColor",
+      Color.TRANSPARENT,
+      "underline",
+      false,
+      "fontScale",
+      0.8,
+      "baselineOffsetScale",
+      0.5,
+    )
+
+  private fun JavaOnlyMap.putAll(values: Map<String, Any>) {
+    for ((key, value) in values) {
+      when (value) {
+        is String -> putString(key, value)
+        is Boolean -> putBoolean(key, value)
+        is Int -> putInt(key, value)
+        is Double -> putDouble(key, value)
+        is Float -> putDouble(key, value.toDouble())
+        else -> error("Unsupported style value for $key: $value")
+      }
+    }
+  }
+}

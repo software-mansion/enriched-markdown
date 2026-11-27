@@ -54,7 +54,7 @@ struct MathPanelStyle: Equatable {
 /// root-level display math (`panel != nil`) is hosted in a scrolling
 /// `MathBlockView`, or under TextKit 1, which installs no view, drawn as a
 /// panel image that clips the overflow.
-final class MathAttachment: NSTextAttachment, MarkdownPluginAttachment {
+final class MathAttachment: NSTextAttachment, MarkdownPluginAttachment, HorizontallyScrollingAttachment {
     /// Must be a resolvable UTI, or NSTextAttachment silently drops it.
     static let fileType: String = UTType(
         filenameExtension: "enriched-markdown-math"
@@ -75,8 +75,6 @@ final class MathAttachment: NSTextAttachment, MarkdownPluginAttachment {
     /// Set for root-level display math, which then spans the line.
     let panel: MathPanelStyle?
 
-    /// TextKit 2 recreates the provider view whenever the block re-enters
-    /// the viewport; the horizontal scroll position survives here.
     var preservedContentOffset: CGPoint = .zero
 
     private let result: MathTypesetResult

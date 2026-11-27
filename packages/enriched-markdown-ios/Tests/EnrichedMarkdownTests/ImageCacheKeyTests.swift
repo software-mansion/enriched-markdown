@@ -18,22 +18,29 @@ final class ImageCacheKeyTests: XCTestCase {
     }
 
     func testDigestFormatIsPinned() {
-        // SHA-256 of "Authorization:Bearer token" — pinned so the key format
-        // shared across platforms never drifts.
+        // SHA-256 of "authorization:Bearer token" — names lower-cased, pinned so
+        // the key format shared across platforms never drifts.
         XCTAssertEqual(
             ImageCacheKey.requestKey(url: url, headers: ["Authorization": "Bearer token"]),
-            url + "|06a97d81903f645b2b8286be8e5251b3ed323a07533a0609bbb87e66d7a40821"
+            url + "|51f4f6892958e3c3eadbf95767c862e9380e8e82742f2766664d3d76d7da919e"
         )
     }
 
     func testHeadersAreSortedByKeyBeforeHashing() {
-        // SHA-256 of "Accept:image/png\nAuthorization:Bearer token" — pairs
+        // SHA-256 of "accept:image/png\nauthorization:Bearer token" — pairs
         // joined with \n in key order regardless of dictionary order.
         let headers = ["Authorization": "Bearer token", "Accept": "image/png"]
 
         XCTAssertEqual(
             ImageCacheKey.requestKey(url: url, headers: headers),
-            url + "|c046ce6860d64c050dd077d13a03cb285900e2fad36c5959c05aab094f838a29"
+            url + "|555066158678ab807ab323bf0a3f1292741be05bdfddc2ed2f45288afdf95d84"
+        )
+    }
+
+    func testHeaderNamesAreCaseInsensitive() {
+        XCTAssertEqual(
+            ImageCacheKey.requestKey(url: url, headers: ["Authorization": "Bearer token"]),
+            ImageCacheKey.requestKey(url: url, headers: ["AUTHORIZATION": "Bearer token"])
         )
     }
 

@@ -13,7 +13,15 @@ typedef NS_ENUM(NSInteger, ENRMSegmentKind) {
   ENRMSegmentKindMath,
   ENRMSegmentKindCodeBlock,
   ENRMSegmentKindBlockquote,
-  ENRMSegmentKindVideo
+  ENRMSegmentKindVideo,
+  ENRMSegmentKindBlockSlot
+};
+
+typedef NS_ENUM(NSInteger, ENRMBlockSlotKind) {
+  ENRMBlockSlotKindImage,
+  ENRMBlockSlotKindVideo,
+  ENRMBlockSlotKindLink,
+  ENRMBlockSlotKindCode,
 };
 
 @interface ENRMTextSegment : NSObject
@@ -38,12 +46,23 @@ typedef NS_ENUM(NSInteger, ENRMSegmentKind) {
 
 @interface ENRMBlockquoteSegment : NSObject
 @property (nonatomic, strong) MarkdownASTNode *blockquoteNode;
+// Document-global index of the quote's first task-list item.
+@property (nonatomic, assign) NSInteger taskIndexOffset;
 + (instancetype)segmentWithBlockquoteNode:(MarkdownASTNode *)node;
 @end
 
 @interface ENRMVideoSegment : NSObject
 @property (nonatomic, strong) MarkdownASTNode *videoNode;
 + (instancetype)segmentWithVideoNode:(MarkdownASTNode *)node;
+@end
+
+// A block a React child stands in for (see BlockSlots.hpp): the image or link
+// paragraph, video or code block carrying the `blockSlotId` attribute. The host
+// reserves its height and Fabric places the child there.
+@interface ENRMBlockSlotSegment : NSObject
+@property (nonatomic, copy) NSString *slotId;
+@property (nonatomic, assign) ENRMBlockSlotKind kind;
++ (instancetype)segmentWithSlotId:(NSString *)slotId kind:(ENRMBlockSlotKind)kind;
 @end
 
 @interface ENRMRenderedSegment : NSObject
@@ -55,12 +74,14 @@ typedef NS_ENUM(NSInteger, ENRMSegmentKind) {
 @property (nonatomic, strong, nullable) ENRMCodeBlockSegment *codeBlockSegment;
 @property (nonatomic, strong, nullable) ENRMBlockquoteSegment *blockquoteSegment;
 @property (nonatomic, strong, nullable) ENRMVideoSegment *videoSegment;
+@property (nonatomic, strong, nullable) ENRMBlockSlotSegment *blockSlotSegment;
 + (instancetype)textSegmentWithResult:(ENRMRenderResult *)result signature:(uint64_t)signature;
 + (instancetype)tableSegmentWithSegment:(ENRMTableSegment *)segment signature:(uint64_t)signature;
 + (instancetype)mathSegmentWithSegment:(ENRMMathSegment *)segment signature:(uint64_t)signature;
 + (instancetype)codeBlockSegmentWithSegment:(ENRMCodeBlockSegment *)segment signature:(uint64_t)signature;
 + (instancetype)blockquoteSegmentWithSegment:(ENRMBlockquoteSegment *)segment signature:(uint64_t)signature;
 + (instancetype)videoSegmentWithSegment:(ENRMVideoSegment *)segment signature:(uint64_t)signature;
++ (instancetype)blockSlotSegmentWithSegment:(ENRMBlockSlotSegment *)segment signature:(uint64_t)signature;
 @end
 
 #ifdef __cplusplus
@@ -69,6 +90,8 @@ extern "C" {
 
 uint64_t ENRMSignatureForNode(MarkdownASTNode *_Nullable node);
 uint64_t ENRMSignatureForNodes(NSArray<MarkdownASTNode *> *nodes);
+// ENRMSignatureForNodes from each node's ENRMSignatureForNode.
+uint64_t ENRMSignatureForNodeSignatures(NSArray<NSNumber *> *nodeSignatures);
 
 #ifdef __cplusplus
 }

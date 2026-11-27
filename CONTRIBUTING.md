@@ -151,6 +151,22 @@ We use [TypeScript](https://www.typescriptlang.org/) for type checking and [ESLi
 
 Our pre-commit hooks verify that lint and typecheck pass when committing.
 
+### Argent Cloud PR testing
+
+Maintainers can hand a pull request to Argent Cloud, an experimental internal tool that runs an AI agent against a build of `apps/react-native-example` on a cloud simulator, screenshots every step and reports what it saw. Comment `/argent` on the pull request, or add the `argent: ios` label. Each of those is one run: pushing to the branch afterwards does not start another, whatever labels the pull request carries, because a session costs real money. To run it again, comment `/argent` again, or take the label off and put it back. A pull request from a fork runs only at a commit you have reviewed: `/argent <full head SHA>`. Both paths need write access to the repository.
+
+Each run posts a comment on the pull request with the agent's report and its screenshots inline under it, and the Slack notification links that comment. The comment is posted by `argent-cloud comment` as Argent's GitHub App, [argent-loop](https://github.com/apps/argent-loop), which has to be installed on this repository with read and write access to contents; the backend hosts the images. It comments only for a caller whose token can push to the repository, which the `report` job proves with `github.token` and `contents: write`. The report is rendered as markdown, as the agent wrote it.
+
+The screenshots (`<session-id>-screenshots.tar.gz`), that report (`output.log`) and the agent's turn-by-turn commentary (`stream.log`) are attached to the run as the `argent-cloud-pr-<number>` artifact for fourteen days - Argent's own copy expires twelve hours after the session.
+
+Each run spends Anthropic API credit, which is why it is on demand rather than on every pull request.
+
+The CLI is downloaded from [software-mansion-labs/argent-cloud-releases](https://github.com/software-mansion-labs/argent-cloud-releases) by [.github/argent-cloud/install-argent-cloud.sh](.github/argent-cloud/install-argent-cloud.sh). It always installs the `latest` release.
+
+The app is built in Release for the simulator (`yarn react-native-example build:ios:release`, which is also how to reproduce the bundle locally) so the JavaScript is embedded and the agent's simulator needs no Metro server.
+
+What the agent is told lives in [.github/argent-cloud/prompt.md](.github/argent-cloud/prompt.md). Edit that file to change what gets tested; the workflow around it should not need touching. The pull request's title and body are pasted into the prompt as fenced, clearly labelled untrusted data - keep them that way if you change the template.
+
 ### Publishing to npm
 
 We use [release-it](https://github.com/release-it/release-it) to make it easier to publish new versions. It handles common tasks like bumping version based on semver, creating tags and releases etc.
@@ -174,6 +190,7 @@ The `package.json` file contains various scripts for common tasks:
 - `yarn react-native-example start`: start the Metro server for the react-native-example app.
 - `yarn react-native-example android`: run the react-native-example app on Android.
 - `yarn react-native-example ios`: run the react-native-example app on iOS.
+- `yarn react-native-example build:ios:release`: build the react-native-example app in Release for the iOS simulator, with the JS bundle embedded. This is the bundle the Argent Cloud workflow ships.
 - `yarn test:e2e:ios`: run all E2E tests on iOS simulator.
 - `yarn test:e2e:android`: run all E2E tests on Android emulator.
 - `yarn test:e2e:mobile`: run all E2E tests on both platforms sequentially.

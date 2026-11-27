@@ -24,12 +24,16 @@ package struct BlockStyle {
 enum MarkdownAttribute {
     static let inlineCode = NSAttributedString.Key("EnrichedMarkdownInlineCode")
     static let codeBlock = NSAttributedString.Key("EnrichedMarkdownCodeBlock")
+    static let codeBlockLanguage = NSAttributedString.Key("EnrichedMarkdownCodeBlockLanguage")
     static let headingLevel = NSAttributedString.Key("EnrichedMarkdownHeadingLevel")
     static let strong = NSAttributedString.Key("EnrichedMarkdownStrong")
     static let emphasis = NSAttributedString.Key("EnrichedMarkdownEmphasis")
     static let superscript = NSAttributedString.Key("EnrichedMarkdownSuperscript")
     static let `subscript` = NSAttributedString.Key("EnrichedMarkdownSubscript")
     static let highlight = NSAttributedString.Key("EnrichedMarkdownHighlight")
+    static let inlineBackground = NSAttributedString.Key("EnrichedMarkdownInlineBackground")
+    static let drawnHighlight = NSAttributedString.Key("EnrichedMarkdownDrawnHighlight")
+    static let inlineBorderWidth = NSAttributedString.Key("EnrichedMarkdownInlineBorderWidth")
     /// `true` on concealed `||spoiler||` text, `false` once revealed.
     static let spoiler = NSAttributedString.Key("EnrichedMarkdownSpoiler")
     /// Colors a concealed run had, restored on reveal.
@@ -42,12 +46,17 @@ enum MarkdownAttribute {
     /// Leading inset of a quote's bars and fill, set on quote paragraphs
     /// that sit inside a list item (the item's text column).
     static let blockquoteBarOffset = NSAttributedString.Key("EnrichedMarkdownBlockquoteBarOffset")
+    /// Marker widening already applied to a quote paragraph by the list items
+    /// it sits in, so an enclosing item's bar offset keeps it.
+    static let blockquoteMarkerExtra = NSAttributedString.Key("EnrichedMarkdownBlockquoteMarkerExtra")
     /// Present on blockquote paragraphs inside a GitHub admonition: the bar
     /// color of each nesting level, outermost first.
     static let blockquoteBarColors = NSAttributedString.Key("EnrichedMarkdownBlockquoteBarColors")
     /// Present on an admonition's title paragraph; the value is the type's
     /// raw string. The title's head indent reserves the icon column.
     static let admonitionHeader = NSAttributedString.Key("EnrichedMarkdownAdmonitionHeader")
+    /// The whole title on the same paragraph, for exports of a partial selection.
+    static let admonitionTitle = NSAttributedString.Key("EnrichedMarkdownAdmonitionTitle")
     static let listDepth = NSAttributedString.Key("EnrichedMarkdownListDepth")
     static let listType = NSAttributedString.Key("EnrichedMarkdownListType")
     static let listItemNumber = NSAttributedString.Key("EnrichedMarkdownListItemNumber")
@@ -61,6 +70,7 @@ enum MarkdownAttribute {
     /// run (`NSValue`-wrapped `NSRange`; not a range into the rendered
     /// string). Absent when the run's text is not contiguous in the source.
     static let sourceRange = NSAttributedString.Key("EnrichedMarkdownSourceRange")
+    static let trailingSpacing = NSAttributedString.Key("EnrichedMarkdownTrailingSpacing")
 }
 
 package final class RenderContext {
@@ -74,6 +84,12 @@ package final class RenderContext {
     var listDepth = 0
     var listType: ListType = .unordered
     var listItemNumber = 0
+    /// Marker column of the current ordered list, sized to its widest number.
+    var listMarkerWidth: CGFloat = 0
+    /// Extra marker width of the enclosing list items, carried into nested lists.
+    var ancestorMarkerOffset: CGFloat = 0
+    /// Extra marker width of the list item whose children are rendering.
+    var listItemMarkerExtra: CGFloat = 0
     var taskItemIndex = 0
     var rendersBlockImage = false
     /// Set once a superscript or subscript run is rendered, so the post-pass

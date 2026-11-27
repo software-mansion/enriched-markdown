@@ -34,6 +34,7 @@
   ENRMInputFormatterStyle *copy = [[ENRMInputFormatterStyle allocWithZone:zone] init];
   copy.baseFont = _baseFont;
   copy.baseTextColor = _baseTextColor;
+  copy.baseLineHeight = _baseLineHeight;
   copy.boldColor = _boldColor;
   copy.italicColor = _italicColor;
   copy.linkColor = _linkColor;
@@ -114,6 +115,18 @@
   }
   _headingFontCache[level] = font;
   return font;
+}
+
+- (CGFloat)derivedLineHeightForHeadingLevel:(NSInteger)level
+{
+  if (_baseLineHeight <= 0 || ![self isValidHeadingLevel:level]) {
+    return 0;
+  }
+
+  // Use the font the heading is actually drawn with, so this can't drift from
+  // headingFontForLevel's own size fallback.
+  CGFloat headingFontSize = [self headingFontForLevel:level].pointSize;
+  return headingFontSize + (_baseLineHeight - _baseFont.pointSize);
 }
 
 - (void)clearHeadingFontCache

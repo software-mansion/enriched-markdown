@@ -24,9 +24,9 @@ fun latexSourceOf(node: MarkdownASTNode): String {
 }
 
 /**
- * Core's fallback for `$...$` and `$$...$$`: echoes the source, delimiters included, so a document
- * parsed with `Md4cFlags(latexMath = true)` still shows its equations - as text - when no math
- * plugin is installed. A plugin's registered renderer replaces it.
+ * Core's fallback for `$...$` and `$$...$$`: echoes the source, delimiters included, so equations a
+ * plugin enabled parsing for but does not render still show - as text. A plugin's registered
+ * renderer replaces it.
  */
 internal class LatexSourceRenderer(
   private val isDisplay: Boolean,

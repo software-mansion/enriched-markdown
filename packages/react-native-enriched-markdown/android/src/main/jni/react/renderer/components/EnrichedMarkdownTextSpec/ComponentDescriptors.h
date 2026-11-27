@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ENRMMarkdownStreams.h"
 #include "MarkdownContainerMeasurementManager.h"
 #include "MarkdownContainerShadowNode.h"
 #include "MarkdownTextInputMeasurementManager.h"
@@ -8,9 +9,14 @@
 #include "MarkdownTextShadowNode.h"
 
 #include <react/renderer/componentregistry/ComponentDescriptorProviderRegistry.h>
+#include <react/renderer/components/EnrichedMarkdownTextSpec/ShadowNodes.h>
 #include <react/renderer/core/ConcreteComponentDescriptor.h>
 
 namespace facebook::react {
+
+// This header shadows the generated ComponentDescriptors.h, so the slot
+// component's generated descriptor is declared here as codegen would.
+using EnrichedMarkdownBlockSlotComponentDescriptor = ConcreteComponentDescriptor<EnrichedMarkdownBlockSlotShadowNode>;
 
 class EnrichedMarkdownComponentDescriptor final : public ConcreteComponentDescriptor<MarkdownContainerShadowNode> {
 public:
@@ -22,6 +28,12 @@ public:
     ConcreteComponentDescriptor::adopt(shadowNode);
     auto &containerShadowNode = static_cast<MarkdownContainerShadowNode &>(shadowNode);
     containerShadowNode.setMeasurementsManager(measurementsManager_);
+  }
+
+  Props::Shared cloneProps(const PropsParserContext &context, const Props::Shared &props,
+                           RawProps rawProps) const override {
+    return ENRMResolveStreamedMarkdown<EnrichedMarkdownProps>(
+        props, ConcreteComponentDescriptor::cloneProps(context, props, std::move(rawProps)));
   }
 
 private:
@@ -38,6 +50,12 @@ public:
     ConcreteComponentDescriptor::adopt(shadowNode);
     auto &markdownTextShadowNode = static_cast<MarkdownTextShadowNode &>(shadowNode);
     markdownTextShadowNode.setMeasurementsManager(measurementsManager_);
+  }
+
+  Props::Shared cloneProps(const PropsParserContext &context, const Props::Shared &props,
+                           RawProps rawProps) const override {
+    return ENRMResolveStreamedMarkdown<EnrichedMarkdownTextProps>(
+        props, ConcreteComponentDescriptor::cloneProps(context, props, std::move(rawProps)));
   }
 
 private:
