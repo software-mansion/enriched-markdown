@@ -297,12 +297,12 @@ static RCTUIView *ENRMCreatePlayIconOverlay(void)
 
 // ===== macOS implementation =====
 
-// AVPlayerView seeks on any scroll-wheel motion; keep vertical gestures for the page.
+// AVPlayerView scrubs on horizontal scroll-wheel motion; keep vertical gestures for the page.
 @interface ENRMPlayerView : AVPlayerView
 @end
 
 @implementation ENRMPlayerView {
-  ENRMScrollWheelTarget _scrollWheelLatch;
+  ENRMScrollWheelLatch _scrollWheelLatch;
 }
 
 - (void)scrollWheel:(NSEvent *)event

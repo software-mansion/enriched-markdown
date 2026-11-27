@@ -3,7 +3,7 @@
 
 #if TARGET_OS_OSX
 @interface ENRMHorizontalScrollView () {
-  ENRMScrollWheelTarget _scrollWheelLatch;
+  ENRMScrollWheelLatch _scrollWheelLatch;
 }
 @end
 #endif
