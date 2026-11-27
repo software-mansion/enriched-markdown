@@ -7,8 +7,8 @@
 #import "PasteboardUtils.h"
 #import <AVKit/AVKit.h>
 #if TARGET_OS_OSX
-#import "ENRMHorizontalScrollView.h"
 #import "ENRMMenuAction.h"
+#import "ENRMScrollWheelRouting.h"
 #endif
 
 static const CGFloat kDefaultVideoAspectRatio = 16.0 / 9.0;
@@ -297,15 +297,18 @@ static RCTUIView *ENRMCreatePlayIconOverlay(void)
 
 // ===== macOS implementation =====
 
-// AVPlayerView seeks on any scroll-wheel motion; keep vertical motion for the page.
+// AVPlayerView seeks on any scroll-wheel motion; keep vertical gestures for the page.
 @interface ENRMPlayerView : AVPlayerView
 @end
 
-@implementation ENRMPlayerView
+@implementation ENRMPlayerView {
+  ENRMScrollWheelTarget _scrollWheelLatch;
+}
 
 - (void)scrollWheel:(NSEvent *)event
 {
-  if (ENRMIsPredominantlyVerticalScroll(event.scrollingDeltaX, event.scrollingDeltaY)) {
+  if (ENRMRouteScrollWheel(&_scrollWheelLatch, event.phase, event.momentumPhase, event.scrollingDeltaX,
+                           event.scrollingDeltaY, YES) == ENRMScrollWheelTargetNextResponder) {
     [self.nextResponder scrollWheel:event];
     return;
   }
