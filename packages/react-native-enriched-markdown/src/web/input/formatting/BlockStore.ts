@@ -281,9 +281,9 @@ export class BlockStore {
   }
 
   // Clamps list depths to valid ancestry (an item nests at most one level
-  // under the previous adjacent list item — CommonMark cannot represent
-  // orphan nesting) and renumbers ordered items among their adjacent
-  // same-depth, same-type run.
+  // under the previous adjacent list item; a list's opening item at most one
+  // level in, and only with no list item above it since the last heading) and
+  // renumbers ordered items among their adjacent same-depth, same-type run.
   private recomputeListMetadata(): void {
     let prevEnd = -2;
     let prevDepth = -1;
@@ -305,7 +305,12 @@ export class BlockStore {
       // Coerce into [0, MAX_LIST_DEPTH] before ancestry-clamping: this pass
       // indexes the counter arrays by depth, so an out-of-bounds level must
       // never survive it.
-      const maxDepth = Math.min(adjacent ? prevDepth + 1 : 0, MAX_LIST_DEPTH);
+      // An indented opening item below another list would read as part of it.
+      const openingDepth = prevDepth >= 0 ? 0 : 1;
+      const maxDepth = Math.min(
+        adjacent ? prevDepth + 1 : openingDepth,
+        MAX_LIST_DEPTH
+      );
       if (range.level > maxDepth) {
         range.level = maxDepth;
       } else if (range.level < 0) {

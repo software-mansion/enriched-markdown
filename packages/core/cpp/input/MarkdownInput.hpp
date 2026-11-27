@@ -64,7 +64,9 @@ std::u16string serialize(std::u16string_view plainText, const std::vector<Format
                          const std::vector<BlockRange> &blockRanges);
 
 // Nests each list item at most one level below the item above it and numbers
-// ordered items from 1 within each run. `parse` already applies it.
+// ordered items from 1 within each run. A list's opening item may sit one
+// level in when no list item comes before it since the last heading.
+// `parse` already applies it.
 void normalizeListMetadata(std::vector<BlockRange> &blockRanges);
 
 } // namespace Markdown::Input

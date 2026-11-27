@@ -331,6 +331,163 @@ size_t markerEnd(const std::u16string &text, size_t at, size_t lineEnd) {
   return isBlank(text[end]) ? end + 1 : std::u16string::npos;
 }
 
+bool isListItem(BlockType type) {
+  return type == BlockType::UnorderedListItem || type == BlockType::OrderedListItem;
+}
+
+// A source line md4c reads as a list item: its indent in columns and whether
+// it opens a list rather than continuing one.
+struct ListLine {
+  int indent = 0;
+  bool opensList = false;
+};
+
+// An indent of at least this many columns on a list's opening item is one level.
+constexpr int kOpeningIndentColumns = 2;
+
+bool isThematicBreak(const std::u16string &text, size_t at, size_t lineEnd) {
+  const char16_t c = text[at];
+  if (c != u'-' && c != u'*' && c != u'_') {
+    return false;
+  }
+  int count = 0;
+  for (size_t i = at; i < lineEnd; i++) {
+    if (text[i] == c) {
+      count++;
+    } else if (!isBlank(text[i])) {
+      return false;
+    }
+  }
+  return count >= 3;
+}
+
+// Length of a code fence opening at `at`, or 0.
+size_t fenceLength(const std::u16string &text, size_t at, size_t lineEnd) {
+  const char16_t c = text[at];
+  if (c != u'`' && c != u'~') {
+    return 0;
+  }
+  size_t end = at;
+  while (end < lineEnd && text[end] == c) {
+    end++;
+  }
+  return end - at >= 3 ? end - at : 0;
+}
+
+// The list item lines of `markdown`, in document order. Skips what md4c does
+// not read as an item: code fences, quotes, thematic breaks, and a marker that
+// cannot interrupt the paragraph above it (an empty one, or a number other
+// than 1). A caller must check the count against the items md4c reported.
+std::vector<ListLine> listLines(std::u16string_view markdown) {
+  const std::u16string text(markdown);
+  std::vector<ListLine> lines;
+  bool inList = false;
+  bool previousBlank = true;
+  bool previousText = false;
+  char16_t fenceChar = 0;
+  size_t fenceSize = 0;
+  for (size_t lineStart = 0; lineStart <= text.size();) {
+    size_t lineEnd = text.find(u'\n', lineStart);
+    if (lineEnd == std::u16string::npos) {
+      lineEnd = text.size();
+    }
+    const size_t next = lineEnd + 1;
+    int indent = 0;
+    size_t i = lineStart;
+    for (; i < lineEnd && isBlank(text[i]); i++) {
+      indent = text[i] == u'\t' ? indent + 4 - indent % 4 : indent + 1;
+    }
+    const bool blank = i == lineEnd;
+    // Anything this far left that is not a list line ends the list.
+    const bool closesList = indent < kOpeningIndentColumns;
+
+    if (fenceSize > 0) {
+      if (!blank && text[i] == fenceChar && fenceLength(text, i, lineEnd) >= fenceSize) {
+        fenceSize = 0;
+      }
+    } else if (blank) {
+      previousBlank = true;
+      previousText = false;
+    } else if (const size_t fence = fenceLength(text, i, lineEnd); fence > 0) {
+      fenceChar = text[i];
+      fenceSize = fence;
+      inList = inList && !closesList;
+    } else if (text[i] == u'>' || (text[i] == u'#' && markerEnd(text, i, lineEnd) != std::u16string::npos) ||
+               isThematicBreak(text, i, lineEnd)) {
+      // Quotes, headings and breaks. "#tag" is paragraph text and falls through.
+      inList = inList && !closesList;
+      previousBlank = false;
+      previousText = false;
+    } else if (indent >= 4 && !inList) {
+      // An indented code block, or text continuing a paragraph.
+      previousBlank = false;
+    } else if (const size_t end = markerEnd(text, i, lineEnd);
+               end != std::u16string::npos &&
+               !(previousText && (end == lineEnd || (isDigit(text[i]) && (text[i] != u'1' || isDigit(text[i + 1])))))) {
+      lines.push_back({indent, !inList});
+      // "1. - a" holds a second item, nested in the first, on the same line.
+      for (size_t at = end; at < lineEnd;) {
+        while (at < lineEnd && isBlank(text[at])) {
+          at++;
+        }
+        const size_t nested = at < lineEnd && text[at] != u'#' ? markerEnd(text, at, lineEnd) : std::u16string::npos;
+        if (nested == std::u16string::npos) {
+          break;
+        }
+        lines.push_back({static_cast<int>(at - lineStart), false});
+        at = nested;
+      }
+      inList = true;
+      previousBlank = false;
+      previousText = false;
+    } else {
+      inList = inList && !(closesList && previousBlank);
+      previousBlank = false;
+      previousText = true;
+    }
+    lineStart = next;
+  }
+  return lines;
+}
+
+// md4c reads a marker behind up to three spaces as a top-level item, so a list
+// written with its opening item indented one level comes back at depth 0. An
+// item md4c puts at depth 0 moves one level in when its line is indented and
+// it opens the list or follows an item that moved; the items nested under it
+// move with it. An empty item right below a line of text stays: the serializer
+// writes it as a blank line ("a\n-" would be a setext heading), and an item
+// nested under it would then be indented into a code block. Leaves the ranges
+// alone when the source lines and the items md4c reported do not pair up.
+void raiseIndentedOpeningItems(std::u16string_view markdown, std::u16string_view plainText,
+                               std::vector<BlockRange> &blockRanges) {
+  const std::vector<ListLine> lines = listLines(markdown);
+  const auto itemCount = std::count_if(blockRanges.begin(), blockRanges.end(),
+                                       [](const BlockRange &range) { return isListItem(range.type); });
+  if (static_cast<size_t>(itemCount) != lines.size()) {
+    return;
+  }
+  size_t next = 0;
+  bool raised = false;
+  // End of the last block, to tell a line of text above an item from a block.
+  int64_t previousBlockEnd = -2;
+  for (BlockRange &range : blockRanges) {
+    const int64_t blockEnd = previousBlockEnd;
+    previousBlockEnd = range.end;
+    if (!isListItem(range.type)) {
+      continue;
+    }
+    const ListLine &line = lines[next++];
+    if (range.level == 0) {
+      const bool belowText = range.start == range.end && range.start >= 2 && plainText[range.start - 2] != u'\n' &&
+                             blockEnd != static_cast<int64_t>(range.start) - 1;
+      raised = line.indent >= kOpeningIndentColumns && (line.opensList || raised) && !belowText;
+      range.level = raised ? 1 : 0;
+    } else if (raised) {
+      range.level = static_cast<uint8_t>(std::min<int>(range.level + 1, kMaxListDepth));
+    }
+  }
+}
+
 } // namespace
 
 bool parseResultFromAst(const MarkdownASTNode &ast, ParseResult &result) {
@@ -467,6 +624,7 @@ ParseResult parse(std::u16string_view markdown) {
                           range.url.end());
         }
       }
+      raiseIndentedOpeningItems(markdown, result.plainText, result.blockRanges);
       normalizeListMetadata(result.blockRanges);
       return result;
     }

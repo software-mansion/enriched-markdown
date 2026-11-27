@@ -314,6 +314,55 @@ TEST_CASE("parse: block ranges") {
   CHECK(describe(result.blockRanges) == "h6:0-3/6 h3:4-9/3 ");
 }
 
+TEST_CASE("parse: a list that opens indented keeps its opening item one level in") {
+  // md4c reads up to three spaces before a marker as a top-level item. The
+  // serializer writes a list's indented opening item that way, so the indent
+  // is read back from the line.
+  CHECK(describe(parseUtf8("   - a").blockRanges) == "ul:0-1/1 ");
+  CHECK(describe(parseUtf8("  - a\n  - b").blockRanges) == "ul:0-1/1 ul:2-3/1 ");
+  CHECK(describe(parseUtf8("   1. a\n   2. b").blockRanges) == "ol:0-1/1 ol:2-3/1 ");
+  // Its children move with it; a later item written flush left stays at 0.
+  CHECK(describe(parseUtf8("   - a\n     - b\n- c").blockRanges) == "ul:0-1/1 ul:2-3/2 ul:4-5/0 ");
+  CHECK(describe(parseUtf8("para\n\n  - a").blockRanges) == "ul:6-7/1 ");
+}
+
+TEST_CASE("parse: an item md4c already places is not moved by its indent") {
+  // One space is not an indent.
+  CHECK(describe(parseUtf8(" - a").blockRanges) == "ul:0-1/0 ");
+  // A sibling indented short of its list's content column follows a flush
+  // opening item.
+  CHECK(describe(parseUtf8("1. a\n  2. b").blockRanges) == "ol:0-1/0 ol:2-3/0 ");
+  // Marker-like lines in a code block are not list lines.
+  const ParseResult fenced = parseUtf8("```\n  - x\n```\n- a");
+  REQUIRE(fenced.blockRanges.size() == 1);
+  CHECK(fenced.blockRanges[0].level == 0);
+  const ParseResult indentedCode = parseUtf8("    - x\n1. 1. a");
+  REQUIRE(indentedCode.blockRanges.size() == 2);
+  CHECK(indentedCode.blockRanges[0].level == 0);
+  CHECK(indentedCode.blockRanges[1].level == 1);
+  // A second list below a first stays at depth 0: indented, it would read as
+  // part of the first.
+  const ParseResult second = parseUtf8("- a\n\npara\n\n   - b");
+  REQUIRE(second.blockRanges.size() == 2);
+  CHECK(second.blockRanges[1].level == 0);
+  // An empty opening item right below a line of text stays where md4c puts
+  // it: the serializer writes it as a blank line, and an item nested under it
+  // would then be indented into a code block.
+  CHECK(describe(parseUtf8("para\n   - 9. x").blockRanges) == "ul:5-5/0 ol:6-7/1 ");
+  CHECK(describe(parseUtf8("    - x\n   - 9. y").blockRanges) == "ul:4-4/0 ol:5-6/1 ");
+  // Elsewhere an empty opening item keeps its indent.
+  CHECK(describe(parseUtf8("   - \n   - b").blockRanges) == "ul:0-0/1 ul:1-2/1 ");
+}
+
+TEST_CASE("parse: a '#' line without a space is paragraph text when pairing list lines") {
+  // "2. x" continues the paragraph "#tag" rather than starting a list, so it
+  // must not be counted as a list line or the indented list below loses its
+  // indent.
+  const ParseResult result = parseUtf8("#tag\n2. x\n\n   - a");
+  REQUIRE(result.blockRanges.size() == 1);
+  CHECK(result.blockRanges[0].level == 1);
+}
+
 TEST_CASE("parse: ordered items are numbered from one, whatever the source says") {
   ParseResult result = parseUtf8("9. a\n   - b");
   CHECK(result.plainText == u"a\nb");
@@ -469,12 +518,15 @@ TEST_CASE("normalizeFormattingRanges: empty ranges are dropped") {
 
 TEST_CASE("normalizeListMetadata: depths clamp to one below the adjacent item, ordinals count the run") {
   std::vector<BlockRange> blocks = {
-      block(BlockType::OrderedListItem, 0, 1, 3), // starts a run: depth 0
-      block(BlockType::OrderedListItem, 2, 3, 0), block(BlockType::UnorderedListItem, 4, 5, 4),
-      block(BlockType::OrderedListItem, 7, 8, 1), // a gap: a new run, depth 0
+      block(BlockType::OrderedListItem, 0, 1, 3), // starts a run: at most one level in
+      block(BlockType::OrderedListItem, 2, 3, 1),
+      block(BlockType::UnorderedListItem, 4, 5, 4),
+      block(BlockType::OrderedListItem, 7, 8, 2), // a gap below a list: a new run, depth 0
+      block(BlockType::H1, 9, 10, 1),
+      block(BlockType::UnorderedListItem, 11, 12, 3), // under a heading: one level in
   };
   normalizeListMetadata(blocks);
-  CHECK(describe(blocks) == "ol:0-1/0 ol:2-3/0 ul:4-5/1 ol:7-8/0 ");
+  CHECK(describe(blocks) == "ol:0-1/1 ol:2-3/1 ul:4-5/2 ol:7-8/0 h1:9-10/1 ul:11-12/1 ");
   CHECK(blocks[0].ordinal == 1);
   CHECK(blocks[1].ordinal == 2);
   CHECK(blocks[3].ordinal == 1);

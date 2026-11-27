@@ -189,6 +189,20 @@ TEST_CASE("an indented marker the user typed stays text, at any depth") {
   CHECK(parsed.blockRanges.empty());
 }
 
+TEST_CASE("an item under an empty item left bare below text is not indented into a code block") {
+  // "ab", an empty item one level in, and an item under it. The empty item
+  // below text is written as a blank line, so its child has no parent marker
+  // and must stay within three spaces.
+  const std::vector<BlockRange> blocks = {block(BlockType::UnorderedListItem, 3, 3, 1),
+                                          block(BlockType::UnorderedListItem, 4, 5, 2)};
+  const std::u16string markdown = serialize(u"ab\n\nx", {}, blocks);
+  CHECK(show(markdown) == show(u"ab\n\n   - x"));
+  const ParseResult parsed = parse(markdown);
+  CHECK(show(parsed.plainText) == show(u"ab\n\nx"));
+  REQUIRE(parsed.blockRanges.size() == 1);
+  CHECK(parsed.blockRanges[0].level == 1);
+}
+
 TEST_CASE("the whitespace after a list or heading marker is kept as text") {
   const std::vector<BlockRange> blocks = {block(BlockType::UnorderedListItem, 0, 5), block(BlockType::H1, 6, 10, 1)};
   const std::u16string markdown = serialize(u"  foo\n\tbar", {}, blocks);

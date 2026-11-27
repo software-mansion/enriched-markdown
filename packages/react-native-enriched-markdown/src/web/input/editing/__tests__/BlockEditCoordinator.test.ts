@@ -32,15 +32,17 @@ describe('BlockEditCoordinator', () => {
     ]);
   });
 
-  // The first item has nothing to nest under, so this never leaves depth 0.
-  it('reports no change when indenting the first item of a list', () => {
+  // The first item has nothing to nest under, so it moves one level in and
+  // no further.
+  it('indents the first item of a list one level and no deeper', () => {
     const store = new BlockStore();
     store.setRanges([block('unordered-list-item', 0, 5)]);
     const coordinator = new BlockEditCoordinator(store);
 
+    expect(coordinator.changeListDepthBy(1, caret(2), text)).toBe(true);
     expect(coordinator.changeListDepthBy(1, caret(2), text)).toBe(false);
 
-    expect(depths(store)).toEqual([['unordered-list-item', 0]]);
+    expect(depths(store)).toEqual([['unordered-list-item', 1]]);
   });
 
   it('outdents at depth 0 out of the list, and indent starts a list only on a paragraph', () => {

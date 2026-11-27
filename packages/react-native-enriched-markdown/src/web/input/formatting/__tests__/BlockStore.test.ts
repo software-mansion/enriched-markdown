@@ -444,13 +444,29 @@ describe('BlockStore', () => {
 
   it('clamps depths to one level below the previous adjacent item', () => {
     store.setRanges([
-      block('ordered-list-item', 0, 5, 3),
-      block('ordered-list-item', 6, 11, 2),
+      block('ordered-list-item', 0, 5, 0),
+      block('ordered-list-item', 6, 11, 3),
       block('ordered-list-item', 12, 17, 1),
     ]);
 
     expect(store.allRanges.map((r) => r.level)).toEqual([0, 1, 1]);
     expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 1, 2]);
+  });
+
+  it('lets the opening item of a list sit one level in, and no deeper', () => {
+    store.setRanges([
+      block('unordered-list-item', 0, 5, 3),
+      block('unordered-list-item', 6, 11, 2),
+      block('unordered-list-item', 12, 17, 1),
+      // A gap below a list starts a new one at depth 0: indented, it would
+      // read as part of the list above.
+      block('ordered-list-item', 19, 24, 2),
+      // Below a heading a list may open one level in again.
+      block('h1', 25, 30, 1),
+      block('ordered-list-item', 31, 36, 2),
+    ]);
+
+    expect(store.allRanges.map((r) => r.level)).toEqual([1, 2, 1, 0, 1, 1]);
   });
 
   it('restarts numbering on list-type change and after a non-list block', () => {

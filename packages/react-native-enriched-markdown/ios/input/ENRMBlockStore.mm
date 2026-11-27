@@ -226,8 +226,9 @@ static NSRange paragraphBoundsForRange(NSRange range, NSString *text)
 }
 
 /// Clamps list depths to valid ancestry (an item nests at most one level under
-/// the previous adjacent list item — CommonMark cannot represent orphan nesting)
-/// and renumbers ordered items among their adjacent same-depth, same-type run.
+/// the previous adjacent list item; a list's opening item at most one level in,
+/// and only with no list item above it since the last heading) and renumbers
+/// ordered items among their adjacent same-depth, same-type run.
 - (void)recomputeListMetadata
 {
   NSInteger prevEnd = -2;
@@ -250,7 +251,9 @@ static NSRange paragraphBoundsForRange(NSRange range, NSString *text)
     // Coerce into [0, kENRMMaxListDepth] before ancestry-clamping: parser and
     // indent commands cap their depths, but this pass indexes the counter
     // arrays by depth, so an out-of-bounds level must never survive it.
-    NSInteger maxDepth = MIN(adjacent ? prevDepth + 1 : 0, kENRMMaxListDepth);
+    // An indented opening item below another list would read as part of it.
+    NSInteger openingDepth = prevDepth >= 0 ? 0 : 1;
+    NSInteger maxDepth = MIN(adjacent ? prevDepth + 1 : openingDepth, kENRMMaxListDepth);
     if (blockRange.level > maxDepth) {
       blockRange.level = maxDepth;
     } else if (blockRange.level < 0) {
