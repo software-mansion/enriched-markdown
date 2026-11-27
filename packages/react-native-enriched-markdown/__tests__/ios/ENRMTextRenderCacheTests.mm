@@ -159,6 +159,15 @@ static NSArray<ENRMRenderedSegment *> *ENRMTextSegmentsOf(NSArray<ENRMRenderedSe
   XCTAssertGreaterThan(patches, states / 2, @"patched %lu of %lu", patches, states);
 }
 
+// A patch keeps the font scale of a full render.
+- (void)testEveryPrefixRendersAsAFullRenderAtALargerFontScale
+{
+  [_config setParagraphFontSize:16];
+  [_config setCodeFontSize:14];
+  [_config setFontScaleMultiplier:1.5];
+  [self testEveryPrefixRendersAsAFullRenderAndPatchesTheShownText];
+}
+
 // The commonmark view's one text of the whole document, tables, quotes and code included.
 - (void)testOneTextOfEveryPrefixRendersAsAFullRenderAndPatches
 {

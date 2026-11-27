@@ -40,6 +40,10 @@ A `sync-md4c` that changes parsing shows up here as a golden diff to review, rat
 
 The `core-parser` job also runs `yarn lint-clang:core-parser`, the only thing that checks `packages/core/cpp` formatting: the `clang-format` pre-commit hook is local and skippable.
 
+## ios/test-rn-app.sh and ios/generate-rn-test-sources.sh
+
+Run the React Native library's iOS XCTest suites (`packages/react-native-enriched-markdown/__tests__/ios`) in an example app: `test:ios` in `apps/react-native-example` (CocoaPods) and `test:ios-spm` in `apps/react-native-spm-example` (Swift Package Manager). The generator runs as a build phase of each app's test target. See that directory's README.
+
 ## test-web-bundle.mjs
 
 Loads the committed `packages/react-native-enriched-markdown/src/web/wasm/md4c.js` and compares the AST it produces for the same fixtures against the same golden dump, for the two flag variants the WASM entry point can reach.

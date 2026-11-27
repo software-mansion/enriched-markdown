@@ -28,3 +28,10 @@ fun prepareWidthAwareSpans(
     .forEach { changed = it.prepareForMeasurement(spanned, widthPx) || changed }
   return changed
 }
+
+/** Whether [text] holds a span whose size depends on the width it is laid out at (pills, images). */
+fun hasWidthAwareSpans(text: CharSequence?): Boolean {
+  val spanned = text as? Spanned ?: return false
+  return spanned.getSpans(0, spanned.length, ImageSpan::class.java).isNotEmpty() ||
+    spanned.getSpans(0, spanned.length, LinkPillSpan::class.java).isNotEmpty()
+}

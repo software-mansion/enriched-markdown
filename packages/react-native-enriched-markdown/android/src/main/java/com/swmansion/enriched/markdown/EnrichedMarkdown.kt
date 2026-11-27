@@ -1334,7 +1334,7 @@ class EnrichedMarkdown(
       layoutSegments()
       requestLayout()
     }
-    MeasurementStore.invalidate(id)
+    MeasurementStore.invalidateForContentResize(id)
     val wrapper = stateWrapper ?: return
     val state = Arguments.createMap()
     state.putInt("forceHeightRecalculationCounter", ++forceHeightRecalculationCounter)

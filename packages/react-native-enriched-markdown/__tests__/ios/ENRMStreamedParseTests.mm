@@ -193,4 +193,39 @@ static NSString *ENRMDescription(MarkdownASTNode *node)
   XCTAssertEqual(ENRMSignatureForNode(again), signature);
 }
 
+// Several messages of a chat stream at once: each keeps its finished blocks' nodes while the others
+// convert in between.
+- (void)testInterleavedStreamsEachKeepTheNodesOfTheirFinishedBlocks
+{
+  const NSUInteger streams = 12;
+  NSMutableArray<MarkdownASTNode *> *previous = [NSMutableArray array];
+  NSMutableArray<NSString *> *sources = [NSMutableArray array];
+  for (NSUInteger i = 0; i < streams; i++) {
+    [previous addObject:(MarkdownASTNode *)[NSNull null]];
+    [sources addObject:[NSString stringWithFormat:@"# Message %lu\n\n%@", (unsigned long)i, kStreamed]];
+  }
+  NSUInteger reused = 0;
+  NSUInteger updates = 0;
+  for (NSUInteger length = 12; length <= kStreamed.length; length += 9) {
+    for (NSUInteger i = 0; i < streams; i++) {
+      NSString *snapshot = [self snapshotOf:[sources[i] substringToIndex:MIN(length + 12, sources[i].length)]];
+      MarkdownASTNode *root = [_parser parseMarkdown:snapshot flags:[ENRMMd4cFlags defaultFlags] isGFM:YES];
+      MarkdownASTNode *last = previous[i] == (MarkdownASTNode *)[NSNull null] ? nil : previous[i];
+      NSUInteger same = 0;
+      while (same < last.children.count && same < root.children.count && last.children[same] == root.children[same]) {
+        same++;
+      }
+      if (last) {
+        // Every block but the ones still arriving.
+        XCTAssertGreaterThanOrEqual(same + 3, last.children.count, @"stream %lu at %lu", (unsigned long)i,
+                                    (unsigned long)length);
+        reused += same;
+        updates++;
+      }
+      previous[i] = root;
+    }
+  }
+  XCTAssertGreaterThan(reused, updates * 2);
+}
+
 @end

@@ -1,12 +1,43 @@
 #!/usr/bin/env bash
-# Runs the app-hosted iOS unit tests (EnrichedMarkdownExampleTests) on a
-# simulator, resolving a concrete destination so it works without a pre-booted
-# device. Order: $IOS_SIMULATOR_UDID (CI sets this) -> a booted simulator ->
-# the first available iPhone simulator. xcodebuild boots a shut-down sim itself.
+# Runs an example app's app-hosted iOS unit tests (the library's XCTest suites)
+# on a simulator, resolving a concrete destination so it works without a
+# pre-booted device. Order: $IOS_SIMULATOR_UDID (CI sets this) -> a booted
+# simulator -> the first available iPhone simulator. xcodebuild boots a
+# shut-down sim itself.
+#
+# Run from the app directory:
+#   test-rn-app.sh --workspace ios/App.xcworkspace --scheme App   (CocoaPods)
+#   test-rn-app.sh --project ios/App.xcodeproj --scheme App       (SwiftPM)
+# Optional: --derived-data <dir> (default ios/build).
 set -euo pipefail
 
-SCHEME="EnrichedMarkdownExample"
-WORKSPACE="ios/EnrichedMarkdownExample.xcworkspace"
+container=()
+scheme=""
+derived_data="ios/build"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --workspace | --project)
+      container=("-${1#--}" "$2")
+      shift 2
+      ;;
+    --scheme)
+      scheme="$2"
+      shift 2
+      ;;
+    --derived-data)
+      derived_data="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+if [ ${#container[@]} -eq 0 ] || [ -z "$scheme" ]; then
+  echo "Usage: $0 (--workspace <path> | --project <path>) --scheme <name> [--derived-data <dir>]" >&2
+  exit 1
+fi
 
 udid="${IOS_SIMULATOR_UDID:-}"
 if [ -z "$udid" ]; then
@@ -29,7 +60,7 @@ fi
 # "- (void)test" prototypes under-approximates (helper superclasses can add
 # more), so this catches a suite dropping out without going stale on its own.
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-tests_dir="$script_dir/../../../packages/react-native-enriched-markdown/__tests__/ios"
+tests_dir="$script_dir/../../packages/react-native-enriched-markdown/__tests__/ios"
 expected=0
 if [ -d "$tests_dir" ]; then
   while IFS= read -r file; do
@@ -41,22 +72,22 @@ fi
 echo "Running iOS unit tests on simulator $udid"
 echo "Expecting at least $expected library test(s) from $tests_dir"
 
-# -quiet keeps the log readable: the app and every pod compile first, and their
-# output buries everything else. It costs us the per-test lines - build errors
-# and the names of failing tests still print, but the assertion text does not,
-# so a red lane says which test failed and nothing about why. The result bundle
-# below carries both that text and the count, which is why it is worth asking
-# for rather than dropping -quiet and logging thousands of compile lines.
+# -quiet keeps the log readable: the app and its dependencies compile first, and
+# their output buries everything else. It costs us the per-test lines - build
+# errors and the names of failing tests still print, but the assertion text does
+# not, so a red lane says which test failed and nothing about why. The result
+# bundle below carries both that text and the count, which is why it is worth
+# asking for rather than dropping -quiet and logging thousands of compile lines.
 work=$(mktemp -d "${TMPDIR:-/tmp}/test-ios.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 result_bundle="$work/result.xcresult"
 
 set +e
 xcodebuild test \
-  -workspace "$WORKSPACE" \
-  -scheme "$SCHEME" \
+  "${container[@]}" \
+  -scheme "$scheme" \
   -destination "platform=iOS Simulator,id=$udid" \
-  -derivedDataPath ios/build \
+  -derivedDataPath "$derived_data" \
   -resultBundlePath "$result_bundle" \
   -quiet \
   CODE_SIGNING_ALLOWED=NO
