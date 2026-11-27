@@ -42,7 +42,7 @@ NSMenu *_Nullable buildEditMenuForSelection(NSAttributedString *attributedText, 
 
   if (selectionMenuConfig.copyAsMarkdown && markdown.length > 0) {
     [menu addItem:ENRMCreateMenuItem(selectionMenuConfig.copyAsMarkdownLabel, ^{
-            ENRMCopySelectionString(markdown, ENRMSelectionCopyFormatMarkdown, range, onSelectionCopy);
+            ENRMCopySelectionString(markdown, ENRMSelectionCopyFormatMarkdown, range, markdown, onSelectionCopy);
           })];
   }
 
@@ -50,7 +50,7 @@ NSMenu *_Nullable buildEditMenuForSelection(NSAttributedString *attributedText, 
     NSString *title = ENRMResolveImageURLsTitle(selectionMenuConfig, imageURLs.count);
     [menu addItem:ENRMCreateMenuItem(title, ^{
             NSString *urlsToCopy = [imageURLs componentsJoinedByString:@"\n"];
-            ENRMCopySelectionString(urlsToCopy, ENRMSelectionCopyFormatImageURLs, range, onSelectionCopy);
+            ENRMCopySelectionString(urlsToCopy, ENRMSelectionCopyFormatImageURLs, range, markdown, onSelectionCopy);
           })];
   }
 

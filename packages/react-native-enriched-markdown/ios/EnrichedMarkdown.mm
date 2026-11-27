@@ -1945,6 +1945,10 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     [self pushAccessibilityLabelsToSegments];
   }
 
+  if (newViewProps.copyLinksAs != oldViewProps.copyLinksAs) {
+    [_config setCopyLinksAsMarkdown:newViewProps.copyLinksAs == "markdown"];
+  }
+
   if (newViewProps.spoilerOverlay != oldViewProps.spoilerOverlay) {
     NSString *modeStr = [[NSString alloc] initWithUTF8String:newViewProps.spoilerOverlay.c_str()];
     _spoilerOverlay = ENRMSpoilerOverlayFromString(modeStr);
@@ -2466,7 +2470,7 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
 - (ENRMSelectionCopyHandler)selectionCopyHandler
 {
   __weak EnrichedMarkdown *weakSelf = self;
-  return ^(NSString *text, NSString *format, NSRange range) {
+  return ^(NSString *text, NSString *format, NSRange range, NSString *markdown) {
     EnrichedMarkdown *strongSelf = weakSelf;
     if (!strongSelf)
       return;
@@ -2477,6 +2481,7 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
           .format = std::string(format.UTF8String),
           .selectionStart = (int)range.location,
           .selectionEnd = (int)NSMaxRange(range),
+          .markdown = std::string(markdown.UTF8String ?: ""),
       });
   };
 }

@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit PR review config. Reference: https://docs.coderabbit.ai/reference/configuration
+
+language: en-US
+
+reviews:
+  # `chill` keeps comments focused on real problems rather than style nits.
+  profile: chill
+  # The PR template already asks for a summary of the change.
+  high_level_summary: false
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    # Lockfiles
+    - '!**/yarn.lock'
+    - '!**/Podfile.lock'
+    - '!**/Gemfile.lock'
+    # Screenshot baselines for the Maestro E2E tests
+    - '!.maestro/**/screenshots/**'
+    # Generated WASM build of the core (CI checks it against packages/core/cpp)
+    - '!packages/react-native-enriched-markdown/src/web/wasm/*.js'
+    # Generated or committed tooling files
+    - '!compile_commands.json'
+    - '!.yarn/releases/**'
+    - '!**/*.pbxproj'
+  path_instructions:
+    - path: 'packages/core/cpp/**'
+      instructions: >-
+        The shared C++ core (Markdown parser and AST). Every package compiles these same
+        sources: the React Native package (iOS, Android, and web through WASM), the
+        standalone iOS package and the standalone Android package (through the JNI `parser`
+        module). A change here affects all of them, so check that none of them breaks.
+    - path: 'packages/react-native-enriched-markdown/{ios,android,src/web}/**'
+      instructions: >-
+        The React Native package ships one API on three implementations: iOS (`ios/`),
+        Android (`android/`) and web (`src/web/`). Flag a feature or a change to public
+        behavior made on one platform without a matching change on the others, unless the
+        PR says why. Do not ask for this on bug fixes that only affect one platform.
+        The standalone packages (`packages/enriched-markdown-ios/`,
+        `packages/enriched-markdown-android/`) implement the same features separately,
+        often in files with the same name. For a bug fix in `ios/` or `android/`, check
+        whether the same bug exists in the counterpart files of the matching standalone
+        package. If it does and the PR does not fix it there, leave one non-blocking
+        comment naming those files; do not ask for the fix in the same PR.
+    - path: 'packages/react-native-enriched-markdown/src/**/*.{ts,tsx}'
+      instructions: >-
+        Public API changes must be reflected in the native component specs, all three
+        platform implementations and the React Native docs (`docs/docs/react-native/` and
+        `docs-md/`).
+    - path: 'packages/enriched-markdown-ios/**'
+      instructions: >-
+        The standalone iOS package: a SwiftPM package with the `EnrichedMarkdown` target
+        (SwiftUI and UIKit APIs) and the optional `EnrichedMarkdownLaTeX` and
+        `EnrichedMarkdownSyntaxHighlighting` targets. Its counterpart is the standalone
+        Android package (`packages/enriched-markdown-android/`): flag a feature or a change
+        to public behavior made here without a matching Android change, unless the PR says
+        why. Public API changes need `docs/docs/ios/`, the package README and tests in
+        `Tests/` updated. It is a separate implementation from the React Native package's
+        `ios/` code, often with files of the same name: for a bug fix, check whether the
+        same bug exists there, and if the PR does not fix it, leave one non-blocking
+        comment naming those files; do not ask for the fix in the same PR.
+    - path: 'packages/enriched-markdown-android/**'
+      instructions: >-
+        The standalone Android package: Gradle modules `ui` (span-based renderer),
+        `compose` (Jetpack Compose wrapper), `parser` (JNI binding to the C++ core), and
+        the optional `math` and `code-highlight` modules. Its counterpart is the standalone
+        iOS package (`packages/enriched-markdown-ios/`): flag a feature or a change to
+        public behavior made here without a matching iOS change, unless the PR says why.
+        Public API changes need `docs/docs/android/`, the package README and tests in the
+        module's `src/test/` updated. Changes to `ui` must keep `compose` working, since it
+        wraps `ui`. It is a separate implementation from the React Native package's
+        `android/` code, often with files of the same name: for a bug fix, check whether
+        the same bug exists there, and if the PR does not fix it, leave one non-blocking
+        comment naming those files; do not ask for the fix in the same PR.
+    - path: 'apps/**'
+      instructions: >-
+        Example apps, not shipped to users. Hold them to a lower bar than the libraries,
+        but they must use only the public API of the package they demo (no imports of
+        internal files). The Maestro E2E flows in `.maestro/` find elements by `testID`
+        (`react-native-example`), `accessibilityIdentifier` (`ios-example`) and `testTag`
+        (`android-example`), and compare against screenshot baselines. CI does not run
+        Maestro, so flag renamed or removed IDs, and changes to sample content or layout
+        on screens the flows visit, that come without matching updates in `.maestro/`.
+    - path: 'apps/react-native-macos-example/**'
+      instructions: >-
+        No CI check builds or typechecks this app, so check that the change still matches
+        the current API of `react-native-enriched-markdown`.
+    - path: 'docs/**'
+      instructions: >-
+        Docusaurus site. Interactive examples in `docs/src/examples/` must mirror the pages
+        that own them (checked by `yarn check-examples`), and broken links or anchors fail
+        the build. Check that documented APIs match the code.
+    - path: '.github/workflows/**'
+      instructions: >-
+        Flag workflows that run untrusted pull request code with secrets or write
+        permissions, and permissions broader than needed.
+
+knowledge_base:
+  code_guidelines:
+    enabled: true

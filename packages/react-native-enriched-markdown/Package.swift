@@ -174,6 +174,7 @@ let headerSearchPaths: [String] = [
     "cpp/enrmrkd",
     "cpp/parser",
     "cpp/repair",
+    "cpp/input",
     "cpp/highlight",
     "cpp/latex",
 ]
@@ -217,7 +218,8 @@ if enableMath {
     ]
 }
 
-let notSources = ["node_modules", "android", "lib", "src", "__tests__", "ios/vendor", "ios/generated", "ios/build"]
+let notSources = ["node_modules", "android", "lib", "src", "__tests__", "ios/vendor", "ios/generated", "ios/build",
+    "cpp/repair/LICENSE.remend"]
     .filter { exists($0) }
 
 let package = Package(
@@ -238,7 +240,7 @@ let package = Package(
             exclude: notSources + ["ios/math/ENRMRaTeXBridge.swift"],
             sources: [
                 "ios", "common",
-                "cpp/enrmrkd", "cpp/parser", "cpp/repair", "cpp/latex",
+                "cpp/enrmrkd", "cpp/parser", "cpp/repair", "cpp/input", "cpp/latex",
                 "cpp/highlight/CodeBlockHighlighter.cpp", "cpp/highlight/CodeBlockLanguages.cpp",
             ] + highlightSources,
             publicHeadersPath: "ios/include",

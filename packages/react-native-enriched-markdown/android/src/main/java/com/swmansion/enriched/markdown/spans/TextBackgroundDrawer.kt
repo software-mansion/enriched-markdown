@@ -7,10 +7,11 @@ import android.text.Spanned
 import android.widget.TextView
 
 /**
- * The text's background pass, under its glyphs: blockquote fills first, then highlight and inline
- * code backgrounds on top. Positions come from the layout ([Layout.getPrimaryHorizontal]) and are
- * cached per line until its text changes ([invalidateFrom]), the layout is replaced or resized, or
- * an inline image or link pill changes width ([noteReflow]). One per text view; main thread only.
+ * The text's background pass, under its glyphs: blockquote fills first, then code block boxes, then
+ * highlight and inline code backgrounds on top. Positions come from the layout
+ * ([Layout.getPrimaryHorizontal]) and are cached per line until its text changes ([invalidateFrom]),
+ * the layout is replaced or resized, or an inline image or link pill changes width ([noteReflow]).
+ * One per text view; main thread only.
  */
 internal class TextBackgroundDrawer {
   companion object {
@@ -84,9 +85,10 @@ internal class TextBackgroundDrawer {
     val start = layout.getLineStart(first)
     val end = layout.getLineEnd(last)
     val quotes = text.getSpans(start, end, BlockquoteSpan::class.java)
+    val codeBlocks = text.getSpans(start, end, CodeBlockSpan::class.java)
     val highlights = text.getSpans(start, end, HighlightSpan::class.java)
     val code = text.getSpans(start, end, CodeBackgroundSpan::class.java)
-    if (quotes.isEmpty() && highlights.isEmpty() && code.isEmpty()) return
+    if (quotes.isEmpty() && codeBlocks.isEmpty() && highlights.isEmpty() && code.isEmpty()) return
 
     canvas.save()
     canvas.translate(left, top)
@@ -94,6 +96,28 @@ internal class TextBackgroundDrawer {
     for (span in quotes) {
       forEachLine(layout, text, span, first, last) { line, lineStart, lineEnd, _, _ ->
         span.drawBackground(canvas, 0, layout.width, layout.getLineTop(line), layout.getLineTop(line + 1), text, lineStart, lineEnd)
+      }
+    }
+    // A code block's box sits inside a quote's. It takes one side for all its lines, its first line's:
+    // where the layout puts that line's indent. A line in the other direction, or a neutral one like a
+    // lone brace, keeps the box a rectangle; the side can't follow the list item instead, as text in
+    // the code's direction would then run past the box by the indent.
+    for (span in codeBlocks) {
+      val anchor = text.getSpanStart(span)
+      if (anchor < 0) continue
+      val rightToLeft = layout.getParagraphDirection(layout.getLineForOffset(anchor)) == Layout.DIR_RIGHT_TO_LEFT
+      forEachLine(layout, text, span, first, last) { line, lineStart, lineEnd, _, _ ->
+        span.drawBackground(
+          canvas,
+          0,
+          layout.width,
+          layout.getLineTop(line),
+          layout.getLineTop(line + 1),
+          text,
+          lineStart,
+          lineEnd,
+          rightToLeft,
+        )
       }
     }
     for (span in highlights) {

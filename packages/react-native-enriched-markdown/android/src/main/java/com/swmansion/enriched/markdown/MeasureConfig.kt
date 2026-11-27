@@ -28,7 +28,6 @@ internal class MeasureConfig(
   val linkPillContent = parseLinkPillContent(map.getArrayOrNull("linkPillContent"))
   val allowTrailingMargin = map.getBooleanOrDefault("allowTrailingMargin", false)
   val enableCodeBlockWrapToggle = map.getBooleanOrDefault("enableCodeBlockWrapToggle", true)
-  val streaming = map.getBooleanOrDefault("streaming", false)
 
   val isGFM = map.getBooleanOrDefault("isGFM", false)
 
@@ -47,8 +46,9 @@ internal class MeasureConfig(
   val smooth = streamingConfig.getBooleanOrDefault("smooth", false)
 }
 
-/** One measurement's inputs: the markdown and its layout config. */
+/** One measurement's inputs: the markdown, its layout config and whether it streams (kept out of the config). */
 internal class MeasureInput(
   val markdown: String,
   val config: MeasureConfig,
+  val streaming: Boolean,
 )

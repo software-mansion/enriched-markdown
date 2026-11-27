@@ -17,7 +17,8 @@ Most `EnrichedMarkdownText` features are supported on web (see [Not supported on
 
 - Full GFM: tables (with horizontal scroll), task lists (with checkbox interaction), strikethrough, links, images (block and inline), code blocks, LaTeX math (block and inline), admonitions (`> [!NOTE]` and the other GitHub alerts)
 - Videos: `<video src>` renders as a `<video>` element with the browser's controls
-- All `markdownStyle` customisation options except `spoiler`
+- Most `markdownStyle` customisation options. Accepted but ignored on web: `codeBlock.syntaxColors`, `spoiler.particles`, `list.bulletColor`, `list.bulletSize`, `list.markerMinWidth`, `list.markerColor`, `list.markerFontWeight`, `list.gapWidth`, `table.horizontalOverflow`, `linkVariants[pattern].pill`, `taskList.borderColor` and `taskList.checkmarkColor`
+- Spoilers (`||text||`), concealed by a solid cover and revealed by a click or Enter/Space. Links and images inside stay inert until then. A revealed spoiler stays revealed while more Markdown streams in after it, but conceals again when its own text, or the structure of the Markdown before it, changes
 - `onLinkPress`, `onLinkLongPress` (mapped to `contextmenu` event), `onImagePress`, `onTaskListItemPress`, `onCodeBlockPress` callbacks
 - `onImagePress` — makes rendered images focusable and keyboard-activatable (Enter/Space) with a button role; the browser's right-click menu is preserved
 - `onCodeBlockPress` — makes fenced code blocks clickable and keyboard-activatable (Enter/Space) with a button role, receiving the block's `code` and `language`; clicking while code text is selected does not fire
@@ -34,6 +35,7 @@ Most `EnrichedMarkdownText` features are supported on web (see [Not supported on
 - Code blocks: `aria-label` with language when available (e.g. `"Code block: python"`)
 - Math (KaTeX fallback): `role="math"` and `aria-label` with the expression content
 - Task list checkboxes: `aria-label` with the task text (e.g. `"Task: Buy groceries"`)
+- Spoilers: a concealed spoiler is a `role="button"` named by its own text (or an image's alt text), so screen readers still read it (as on native) and announce that it can be revealed. It is reachable with Tab and keeps focus after Enter/Space reveals it. Inside a link, focus moves to the link instead, so the next Enter follows it. A click does not reveal it while text on the page is selected, so ending a drag-selection on it does not either
 - Videos: `aria-label` from the alt text, then `title`, then `"Video"`
 
 ### Web props
@@ -61,7 +63,7 @@ warnings.
 | `streaming`, `streamingAnimation` | Native-only streaming handling and fade-in. Not yet implemented on web. |
 | `streamingConfig` | Native-only streaming configuration. Not yet implemented on web. |
 | `numberOfLines` / `ellipsizeMode` | Native text truncation. Not yet implemented on web. |
-| `spoilerOverlay` | Native-only spoiler reveal animation. Not yet implemented on web. |
+| `spoilerOverlay` | Web always draws the solid cover. The particle preset is native-only. |
 | `contextMenuItems` | Not supported - browsers don't allow extending the native context menu. |
 | `selectionMenuConfig` | Not supported - native-only built-in selection menu actions. |
 | `selectionHandleColor` | Android-only - desktop browsers don't render selection handles. |
@@ -83,6 +85,6 @@ exception: it is mapped to `data-testid`.
 ## Not supported on web
 
 - Editor features — see [Web Editor](WEB_INPUT.md#not-supported-on-web) for what `EnrichedMarkdownTextInput` does not support on web.
-- Spoilers (`||text||`) — `EnrichedMarkdownText` does not render them on web yet, and the text inside a spoiler is currently left out.
+- Particle spoilers — every spoiler uses the solid cover.
 - Configurable link `target` — all links open in a new tab (`target="_blank"`). Use `onLinkPress` for custom navigation.
 - Link pills — `linkVariants[pattern].pill` is ignored; such links render as ordinary links with the variant's colors and font.

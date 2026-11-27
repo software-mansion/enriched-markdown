@@ -125,18 +125,15 @@ separate spoiler overlay.
 | Superscript (`^text^`)    |      Yes       | Yes |   Yes   | Yes |
 | Subscript (`~text~`)      |      Yes       | Yes |   Yes   | Yes |
 | Highlight (`==text==`)    |      Yes       | Yes |   Yes   | Yes |
-| Spoilers (`\|\|text\|\|`) |      Yes       | Yes |   Yes   | No  |
+| Spoilers (`\|\|text\|\|`) |      Yes       | Yes |   Yes   | Yes |
 
 In the React Native package on Android a strikethrough always uses the text
 color; `markdownStyle.strikethrough.color` is honored on iOS and on web. The
 standalone Android SDK does honor `strikethrough { color }`.
 
-:::danger
-Spoilers are not just unstyled on web - the node **and the text inside it** are
-dropped, so `a ||secret|| b` renders as `a  b`. Do not put content behind a
-spoiler if the same Markdown is rendered on web. See
-[Web support](/react-native/guides/web-support#not-supported-on-web).
-:::
+On web, spoilers are always concealed by the solid cover: the particle preset
+is native-only. See
+[Web support](/react-native/guides/web-support#supported-features).
 
 ### Advanced features
 

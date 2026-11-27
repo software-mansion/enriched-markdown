@@ -23,10 +23,30 @@
 @interface TableCellData : NSObject
 @property (nonatomic, strong) NSMutableAttributedString *attributedText;
 @property (nonatomic, copy) NSString *plainText;
+// plainText with links as `[label](url)`, for `copyLinksAs: 'markdown'`; nil when that changes nothing.
+@property (nonatomic, copy, nullable) NSString *linkedPlainText;
 @property (nonatomic, copy) NSString *markdownText;
 @property (nonatomic, assign) BOOL isHeader;
 @property (nonatomic, assign) NSTextAlignment alignment;
 @end
+
+// The grids draw cell text with string drawing, which paints NSLinkAttributeName in the system link
+// color over the configured one. Taps read linkURL, and Copy as HTML reads the cells, which keep it.
+static NSAttributedString *ENRMWithoutLinkAttribute(NSAttributedString *text)
+{
+  if (text.length == 0) {
+    return text;
+  }
+  NSRange whole = NSMakeRange(0, text.length);
+  NSRange unlinked;
+  if (![text attribute:NSLinkAttributeName atIndex:0 longestEffectiveRange:&unlinked inRange:whole] &&
+      NSEqualRanges(unlinked, whole)) {
+    return text;
+  }
+  NSMutableAttributedString *drawn = [text mutableCopy];
+  [drawn removeAttribute:NSLinkAttributeName range:whole];
+  return drawn;
+}
 
 @implementation TableCellData
 @end
@@ -45,14 +65,16 @@ static NSTextAlignment ENRMTableTextAlignmentFromString(NSString *align)
   return NSTextAlignmentLeft;
 }
 
-static NSString *ENRMTablePlainTextFromNode(MarkdownASTNode *node)
+static NSString *ENRMTablePlainTextFromNode(MarkdownASTNode *node, BOOL linksAsMarkdown)
 {
   if (!node)
     return @"";
   NSMutableString *buffer = [node.content mutableCopy] ?: [NSMutableString string];
   for (MarkdownASTNode *child in node.children) {
-    [buffer appendString:ENRMTablePlainTextFromNode(child)];
+    [buffer appendString:ENRMTablePlainTextFromNode(child, linksAsMarkdown)];
   }
+  if (linksAsMarkdown && node.type == MarkdownNodeTypeLink)
+    return ENRMMarkdownLink(buffer, node.attributes[@"url"] ?: @"");
   return [buffer copy];
 }
 
@@ -84,6 +106,7 @@ static NSMutableAttributedString *ENRMTableRenderCellNode(MarkdownASTNode *cellN
   RenderContext *context = [RenderContext new];
   context.allowFontScaling = allowFontScaling;
   context.maxFontSizeMultiplier = maxFontSizeMultiplier;
+  context.fontScale = cellConfig.fontScaleMultiplier;
 
   NSMutableAttributedString *attributedText = [renderer renderNodes:cellNode.children context:context block:nil];
 
@@ -162,8 +185,10 @@ static NSArray<NSArray<TableCellData *> *> *ENRMTableBuildRows(MarkdownASTNode *
         TableCellData *cell = [[TableCellData alloc] init];
         cell.isHeader = isSectionHead || (cellNode.type == MarkdownNodeTypeTableHeaderCell);
         cell.alignment = ENRMTableTextAlignmentFromString(cellNode.attributes[@"align"]);
-        cell.plainText = ENRMTablePlainTextFromNode(cellNode);
-        cell.markdownText = markdownFromASTNodeChildren(cellNode);
+        cell.plainText = ENRMTablePlainTextFromNode(cellNode, NO);
+        NSString *linkedPlainText = ENRMTablePlainTextFromNode(cellNode, YES);
+        cell.linkedPlainText = [linkedPlainText isEqualToString:cell.plainText] ? nil : linkedPlainText;
+        cell.markdownText = markdownFromTableCellNode(cellNode);
 
         StyleConfig *cellConfig = cell.isHeader ? headerCellConfig : bodyCellConfig;
         cell.attributedText =
@@ -539,7 +564,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   NSMutableArray<NSAttributedString *> *cellTexts = [NSMutableArray arrayWithCapacity:_colCount];
   for (NSUInteger columnIndex = 0; columnIndex < _colCount; columnIndex++) {
     NSAttributedString *text = (columnIndex < rowCells.count) ? rowCells[columnIndex].attributedText : nil;
-    [cellTexts addObject:text ?: [[NSAttributedString alloc] init]];
+    [cellTexts addObject:text ? ENRMWithoutLinkAttribute(text) : [[NSAttributedString alloc] init]];
   }
   return [cellTexts copy];
 }
@@ -846,7 +871,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     NSMutableArray<NSString *> *rowContent = [NSMutableArray arrayWithCapacity:row.count];
 
     for (TableCellData *cell in row) {
-      [rowContent addObject:cell.plainText ?: @""];
+      NSString *text = (self.config.copyLinksAsMarkdown ? cell.linkedPlainText : nil) ?: cell.plainText;
+      [rowContent addObject:text ?: @""];
     }
 
     [result appendFormat:@"%@\n", [rowContent componentsJoinedByString:@"\t"]];

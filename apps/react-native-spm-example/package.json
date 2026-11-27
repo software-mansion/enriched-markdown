@@ -1,0 +1,32 @@
+{
+  "name": "react-native-enriched-markdown-spm-example",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "ios": "react-native run-ios",
+    "start": "react-native start",
+    "build:ios-spm": "react-native spm && xcodebuild build -project ios/EnrichedMarkdownSpmExample.xcodeproj -scheme EnrichedMarkdownSpmExample -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build/DerivedData -quiet CODE_SIGNING_ALLOWED=NO ARCHS=arm64",
+    "test:ios-spm": "react-native spm && bash ../../scripts/ios/test-rn-app.sh --project ios/EnrichedMarkdownSpmExample.xcodeproj --scheme EnrichedMarkdownSpmExample --derived-data ios/build/DerivedData"
+  },
+  "dependencies": {
+    "react": "19.3.0",
+    "react-native": "0.88.0",
+    "react-native-enriched-markdown": "*"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "20.2.0",
+    "@react-native-community/cli-platform-ios": "20.2.0",
+    "@react-native/babel-preset": "0.88.0",
+    "@react-native/metro-config": "0.88.0",
+    "@react-native/typescript-config": "0.88.0",
+    "@types/react": "^19.2.0",
+    "react-native-builder-bob": "^0.41.0",
+    "react-native-monorepo-config": "^0.3.3"
+  },
+  "engines": {
+    "node": ">= 22.11.0"
+  }
+}

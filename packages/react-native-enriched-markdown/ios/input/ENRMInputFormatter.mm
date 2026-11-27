@@ -277,20 +277,30 @@ static void ENRMRemoveAttributeIfPresent(NSMutableAttributedString *storage, NSA
     [textStorage removeAttribute:NSBaselineOffsetAttributeName range:range];
   }
 
+  NSString *string = textStorage.string;
   for (ENRMBlockRange *blockRange in blockRanges) {
+    NSUInteger location = blockRange.range.location;
     BOOL isHeadingAnchor = blockRange.range.length == 0 && ENRMHeadingLevelForBlockType(blockRange.type) > 0;
+    // An empty list item on a line of its own, away from the end: stamped on the
+    // line terminator like a heading anchor, so its marker and indent show
+    // wherever the caret is. An empty item on the last line has no terminator;
+    // updateEmptyBulletMarker draws that one while the caret is on it.
+    BOOL isListAnchor = blockRange.range.length == 0 && ENRMBlockTypeIsListItem(blockRange.type) &&
+                        location < textLength && [string characterAtIndex:location] == '\n' &&
+                        (location == 0 || [string characterAtIndex:location - 1] == '\n');
+    BOOL isAnchor = isHeadingAnchor || isListAnchor;
 
-    if (!isHeadingAnchor && (blockRange.range.length == 0 || NSMaxRange(blockRange.range) > textLength)) {
+    if (!isAnchor && (blockRange.range.length == 0 || NSMaxRange(blockRange.range) > textLength)) {
       continue;
     }
-    if (isHeadingAnchor && blockRange.range.location > textLength) {
+    if (isAnchor && location > textLength) {
       continue;
     }
 
     // Scope check: normal blocks are line-scoped and either fully inside or
-    // outside; a zero-length heading anchor is in-scope when its point falls
-    // within [scopeStart, scopeEnd] inclusive.
-    if (isHeadingAnchor) {
+    // outside; a zero-length anchor is in-scope when its point falls within
+    // [scopeStart, scopeEnd] inclusive.
+    if (isAnchor) {
       if (blockRange.range.location < scopeRange.location || blockRange.range.location > NSMaxRange(scopeRange)) {
         continue;
       }
@@ -322,10 +332,10 @@ static void ENRMRemoveAttributeIfPresent(NSMutableAttributedString *storage, NSA
     attributes[ENRMBlockLevelAttributeName] = @(blockRange.level);
     attributes[ENRMBlockOrdinalAttributeName] = @(blockRange.ordinal);
 
-    // For a zero-length heading anchor on an empty line, stamp onto the line
-    // terminator so the paragraph style (heading font size) takes effect.
+    // For a zero-length anchor on an empty line, stamp onto the line terminator
+    // so the paragraph style (heading font size, list indent) takes effect.
     NSRange applyRange = blockRange.range;
-    if (isHeadingAnchor && applyRange.location < textLength) {
+    if (isAnchor && applyRange.location < textLength) {
       applyRange = NSMakeRange(applyRange.location, 1);
     }
 

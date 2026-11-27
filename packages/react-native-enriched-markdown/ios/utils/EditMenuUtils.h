@@ -11,8 +11,9 @@ static NSString *const ENRMSelectionCopyFormatPlain = @"plain";
 static NSString *const ENRMSelectionCopyFormatMarkdown = @"markdown";
 static NSString *const ENRMSelectionCopyFormatImageURLs = @"imageUrls";
 
-/// Reports a selection copy: the plain text written to the pasteboard, its format, and the copied range.
-typedef void (^ENRMSelectionCopyHandler)(NSString *text, NSString *format, NSRange range);
+/// Reports a selection copy: the plain text written to the pasteboard, its format, the copied range, and the
+/// selection's Markdown whatever the format.
+typedef void (^ENRMSelectionCopyHandler)(NSString *text, NSString *format, NSRange range, NSString *markdown);
 
 typedef struct {
   BOOL copyAsMarkdown;
@@ -113,8 +114,8 @@ NSMenu *_Nullable buildEditMenuForSelection(NSAttributedString *attributedText, 
 void ENRMCopySelection(NSAttributedString *selectedText, NSRange range, NSString *_Nullable markdown,
                        StyleConfig *_Nullable styleConfig, ENRMSelectionCopyHandler _Nullable onSelectionCopy);
 
-/// Copies `text` as plain text only and reports it to `onSelectionCopy` as `format`.
-void ENRMCopySelectionString(NSString *text, NSString *format, NSRange range,
+/// Copies `text` as plain text only and reports it to `onSelectionCopy` as `format`, with the selection's `markdown`.
+void ENRMCopySelectionString(NSString *text, NSString *format, NSRange range, NSString *_Nullable markdown,
                              ENRMSelectionCopyHandler _Nullable onSelectionCopy);
 
 #ifdef __cplusplus

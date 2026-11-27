@@ -25,7 +25,7 @@ class EmptyListAnchorFormattingTest {
       view.text.toString(),
       view.allFormattingRangesForSerialization(),
       view.blockStore.allRanges,
-    ) { block -> view.formatter.handlerForBlock(block.type)?.markdownLinePrefix(block) ?: "" }
+    )
 
   @Test
   fun keepsAnInlineStyleOnTheTextTypedIntoANewBulletItem() {

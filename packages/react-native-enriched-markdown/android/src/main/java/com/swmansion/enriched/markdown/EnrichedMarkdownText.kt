@@ -171,6 +171,8 @@ class EnrichedMarkdownText
     override var spoilerOverlayDrawer: SpoilerOverlayDrawer? = null
       private set
 
+    override var copiesLinksAsMarkdown = false
+
     /** How unrevealed `||spoiler||` text is concealed. */
     override var spoilerOverlay: SpoilerOverlayMode = SpoilerOverlayMode.PARTICLES
       set(value) {
@@ -219,8 +221,8 @@ class EnrichedMarkdownText
           onCustomItemPress = { itemText, selectedText, start, end ->
             onContextMenuItemPressCallback?.invoke(itemText, selectedText, start, end)
           },
-          onSelectionCopy = { text, format, start, end ->
-            onSelectionCopyCallback?.invoke(text, format, start, end)
+          onSelectionCopy = { text, format, start, end, markdown ->
+            onSelectionCopyCallback?.invoke(text, format, start, end, markdown)
           },
         )
     }

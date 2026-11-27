@@ -1,5 +1,6 @@
 package com.swmansion.enriched.markdown.input.layout
 
+import androidx.annotation.VisibleForTesting
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.uimanager.events.Event
@@ -33,6 +34,10 @@ class InputEventEmitter(
   private var prevUnorderedList: Pair<Boolean, Int> = false to 0
   private var prevOrderedList: Pair<Boolean, Int> = false to 0
   private var prevCaretRect: CaretRect? = null
+
+  @VisibleForTesting
+  internal val lastEmittedStyleState: Map<StyleType, Boolean>
+    get() = prevState
 
   fun emitChangeText() {
     // The empty-list-line ZWSP anchor is an internal editing detail — never leak
@@ -228,16 +233,11 @@ class InputEventEmitter(
 
   private fun serializeToMarkdown(): String {
     val plainText = view.text?.toString() ?: ""
-    // Each block resolves its markdown line prefix through its registered handler.
-    // With no block handlers registered the provider returns "" for every block
-    // and output equals the inline-only serialization.
     return MarkdownSerializer.serialize(
       plainText,
       view.allFormattingRangesForSerialization(),
       view.blockStore.allRanges,
-    ) { blockRange ->
-      view.formatter.handlerForBlock(blockRange.type)?.markdownLinePrefix(blockRange) ?: ""
-    }
+    )
   }
 
   private fun surfaceId(): Int {

@@ -281,12 +281,37 @@ struct Conversion {
   jobject root; // global reference
   // The root's children, counted when stored: a block that failed to convert is missing.
   size_t children;
+  // The Markdown's size, what the entries are budgeted by.
+  size_t bytes;
 };
 std::mutex recentConversionsMutex;
-// Holds up to kRecentConversions Kotlin trees for the life of the process, outside the
-// DocumentStore's budget: the last streamed documents a view converted.
+// Holds Kotlin trees for the life of the process, outside the DocumentStore's budget: the last
+// documents a view converted, within the store's limits. Several messages of a chat stream at once,
+// and past the store's count they would evict each other, converting their whole tree on every update.
 std::vector<Conversion> recentConversions; // most recent first
-constexpr size_t kRecentConversions = 4;
+constexpr size_t kRecentConversions = Markdown::kDocumentStoreMaxEntries;
+constexpr size_t kRecentConversionBytes =
+    Markdown::kDocumentStoreBudgetBytes / Markdown::kDocumentStoreTreeBytesPerByte;
+
+// Drops the oldest conversions past the count or byte budget, keeping the newest; the caller
+// holds the mutex. Their global refs are released here, the rest when the caller lets go of the
+// returned entries, after the lock.
+std::vector<Conversion> trimRecentConversions(JNIEnv *env) {
+  std::vector<Conversion> evicted;
+  size_t bytes = 0;
+  for (const Conversion &recent : recentConversions)
+    bytes += recent.bytes;
+  while (recentConversions.size() > 1 &&
+         (recentConversions.size() > kRecentConversions || bytes > kRecentConversionBytes)) {
+    Conversion oldest = std::move(recentConversions.back());
+    recentConversions.pop_back();
+    bytes -= oldest.bytes;
+    env->DeleteGlobalRef(oldest.root);
+    oldest.root = nullptr;
+    evicted.push_back(std::move(oldest));
+  }
+  return evicted;
+}
 
 } // namespace
 
@@ -458,7 +483,8 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
 
   try {
     Md4cFlags md4cFlags = md4cFlagsFromJava(env, flags);
-    auto document = DocumentStore::shared().parse(utf8String(env, markdown), md4cFlags, isGFM == JNI_TRUE);
+    const std::string source = utf8String(env, markdown);
+    auto document = DocumentStore::shared().parse(source, md4cFlags, isGFM == JNI_TRUE);
     if (!document->ast) {
       return nullptr;
     }
@@ -526,18 +552,17 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
     }
 
     size_t children = factory.childCount(javaNode);
+    std::vector<Conversion> evicted;
     std::lock_guard<std::mutex> lock(recentConversionsMutex);
     for (const Conversion &recent : recentConversions) {
       // Another thread converted it meanwhile: one entry, so other streams keep theirs.
       if (recent.document == document && recent.imageIds == withImageIds && recent.slotIds == ids)
         return javaNode;
     }
-    recentConversions.insert(recentConversions.begin(),
-                             Conversion{document, std::move(ids), withImageIds, env->NewGlobalRef(javaNode), children});
-    while (recentConversions.size() > kRecentConversions) {
-      env->DeleteGlobalRef(recentConversions.back().root);
-      recentConversions.pop_back();
-    }
+    recentConversions.insert(
+        recentConversions.begin(),
+        Conversion{document, std::move(ids), withImageIds, env->NewGlobalRef(javaNode), children, source.size()});
+    evicted = trimRecentConversions(env);
     return javaNode;
   } catch (const std::exception &e) {
     LOGE("Exception during parsing: %s", e.what());

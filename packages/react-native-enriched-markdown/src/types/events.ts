@@ -53,6 +53,11 @@ export interface SelectionCopyEvent {
    * as one run of text.
    */
   selection: { start: number; end: number };
+  /**
+   * The copied selection as Markdown, whatever the format: links keep their
+   * URLs here even when `text` has only their labels.
+   */
+  markdown: string;
 }
 
 /**
