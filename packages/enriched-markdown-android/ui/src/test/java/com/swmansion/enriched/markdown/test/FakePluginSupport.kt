@@ -22,6 +22,8 @@ import com.swmansion.enriched.markdown.renderer.RendererConfig
 import com.swmansion.enriched.markdown.renderer.RendererFactory
 import com.swmansion.enriched.markdown.segments.SegmentViewConfig
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfigurable
 
 /**
  * A plugin built only from core's own seam - no math engine, no `:math` module. It claims the latex
@@ -121,19 +123,23 @@ class FakeBlockSegment(
 
 class FakeSegmentView(
   context: Context,
-) : TextView(context)
+) : TextView(context),
+  SelectionMenuConfigurable {
+  override var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig()
+}
 
 /** A plugin replacement span that round-trips through core's export without core knowing its syntax. */
 class FakeInlineSpan(
   private val source: String,
   private val htmlText: String? = source,
+  private val plainText: String = "plain:$source",
 ) : ReplacementSpan(),
   PluginInlineSpan {
   override fun toMarkdownSource(): String = "@@$source@@"
 
   override fun toHtmlText(): String? = htmlText
 
-  override fun toPlainText(): String = "plain:$source"
+  override fun toPlainText(): String = plainText
 
   override fun getSize(
     paint: Paint,

@@ -1,5 +1,7 @@
 package com.swmansion.enriched.markdown.plugin
 
+import android.text.Spanned
+
 /**
  * Implemented by replacement spans a plugin puts in the spannable, so core's markdown/HTML
  * export round-trips them without knowing what they are.
@@ -17,3 +19,49 @@ interface PluginInlineSpan {
 
   fun toAccessibilityLabel(): String? = null
 }
+
+/**
+ * The text of [start]..[end] as it reads, rather than as it is stored: each plugin span inside the
+ * range has its object-replacement character swapped for [PluginInlineSpan.toPlainText].
+ */
+@OptIn(InternalPluginApi::class)
+internal fun Spanned.readableText(
+  start: Int = 0,
+  end: Int = length,
+): String = replacePluginSpans(start, end) { it.toPlainText() }
+
+/** [readableText] for a screen reader: a span's [PluginInlineSpan.toAccessibilityLabel] wins over its plain text. */
+@OptIn(InternalPluginApi::class)
+internal fun Spanned.spokenText(
+  start: Int = 0,
+  end: Int = length,
+): String = replacePluginSpans(start, end) { it.toAccessibilityLabel() ?: it.toPlainText() }
+
+@OptIn(InternalPluginApi::class)
+private inline fun Spanned.replacePluginSpans(
+  start: Int,
+  end: Int,
+  replacement: (PluginInlineSpan) -> String?,
+): String {
+  val pluginSpans =
+    getSpans(start, end, PluginInlineSpan::class.java)
+      .filter { getSpanStart(it) >= start && getSpanEnd(it) <= end }
+  if (pluginSpans.isEmpty()) return substring(start, end)
+
+  val result = StringBuilder(subSequence(start, end))
+  // Back to front, so replacing one span doesn't shift the offsets of those still to come.
+  pluginSpans.sortedByDescending { getSpanStart(it) }.forEach { span ->
+    result.replace(getSpanStart(span) - start, getSpanEnd(span) - start, replacement(span).orEmpty())
+  }
+  return result.toString()
+}
+
+/** Whether [start]..[end] holds a plugin span with plain text to read, symbols alone included (`$+$` reads `+`). */
+@OptIn(InternalPluginApi::class)
+internal fun Spanned.hasReadablePluginSpan(
+  start: Int,
+  end: Int,
+): Boolean =
+  getSpans(start, end, PluginInlineSpan::class.java).any {
+    getSpanStart(it) >= start && getSpanEnd(it) <= end && !it.toPlainText().isNullOrBlank()
+  }
