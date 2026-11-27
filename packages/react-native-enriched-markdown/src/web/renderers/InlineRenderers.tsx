@@ -1,7 +1,7 @@
 import { useContext, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react';
 import type { ASTNode, RendererProps, RendererMap } from '../types';
-import { extractNodeText, hasBlockImage, hasNonImageContent } from '../utils';
+import { extractNodeText, hasNonImageContent } from '../utils';
 import { KaTeXRenderer } from './KaTeXRenderer';
 import {
   ConcealedSpoilerContext,
@@ -93,15 +93,11 @@ function SpoilerRenderer({ node, styles, renderChildren }: RendererProps) {
 
   const isActive = !isRevealed && !isAncestorConcealed;
   const isImageOnly = !hasNonImageContent(node);
-  const baseCoverStyle = isRevealed
+  const coverStyle = isRevealed
     ? styles.spoilerRevealed
     : isImageOnly
       ? { ...styles.spoilerRevealed, cursor: 'pointer' }
       : styles.spoiler;
-  const coverStyle =
-    !isImageOnly && hasBlockImage(node)
-      ? { ...baseCoverStyle, display: 'block' }
-      : baseCoverStyle;
 
   return (
     <span
