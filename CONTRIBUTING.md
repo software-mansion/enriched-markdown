@@ -222,4 +222,4 @@ When you're sending a pull request:
 - Follow the pull request template when opening a pull request.
 - For pull requests that change the API or implementation, discuss with maintainers first by opening an issue.
 
-Pull requests that are not drafts are reviewed automatically by [CodeRabbit](https://www.coderabbit.ai), configured in [`.coderabbit.yaml`](./.coderabbit.yaml). Comment `@coderabbitai review` to ask for a review again.
+Pull requests that are not drafts are reviewed automatically by [CodeRabbit](https://www.coderabbit.ai), configured in [`.coderabbit.yaml`](./.coderabbit.yaml). Its comments are suggestions, not a merge requirement - reply to them or resolve them as you would a human review. Comment `@coderabbitai review` to ask for a review again.
