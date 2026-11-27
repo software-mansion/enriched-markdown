@@ -28,6 +28,24 @@
 @property (nonatomic, assign) NSTextAlignment alignment;
 @end
 
+// The grids draw cell text with string drawing, which paints NSLinkAttributeName in the system link
+// color over the configured one. Taps read linkURL, and Copy as HTML reads the cells, which keep it.
+static NSAttributedString *ENRMWithoutLinkAttribute(NSAttributedString *text)
+{
+  if (text.length == 0) {
+    return text;
+  }
+  NSRange whole = NSMakeRange(0, text.length);
+  NSRange unlinked;
+  if (![text attribute:NSLinkAttributeName atIndex:0 longestEffectiveRange:&unlinked inRange:whole] &&
+      NSEqualRanges(unlinked, whole)) {
+    return text;
+  }
+  NSMutableAttributedString *drawn = [text mutableCopy];
+  [drawn removeAttribute:NSLinkAttributeName range:whole];
+  return drawn;
+}
+
 @implementation TableCellData
 @end
 
@@ -540,7 +558,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   NSMutableArray<NSAttributedString *> *cellTexts = [NSMutableArray arrayWithCapacity:_colCount];
   for (NSUInteger columnIndex = 0; columnIndex < _colCount; columnIndex++) {
     NSAttributedString *text = (columnIndex < rowCells.count) ? rowCells[columnIndex].attributedText : nil;
-    [cellTexts addObject:text ?: [[NSAttributedString alloc] init]];
+    [cellTexts addObject:text ? ENRMWithoutLinkAttribute(text) : [[NSAttributedString alloc] init]];
   }
   return [cellTexts copy];
 }
