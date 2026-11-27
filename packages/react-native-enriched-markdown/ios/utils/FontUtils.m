@@ -1,5 +1,6 @@
 #import "FontUtils.h"
 #import "RenderContext.h"
+#import <React/RCTFont.h>
 
 UIFont *cachedFontFromBlockStyle(BlockStyle *blockStyle, RenderContext *context)
 {
@@ -55,4 +56,49 @@ UIFontWeight ENRMFontWeightFromString(NSString *weightString)
     return UIFontWeightBlack;
   }
   return UIFontWeightRegular;
+}
+
+#if !TARGET_OS_OSX
+// The same table as Fabric's RCTFontUtils, matched case-insensitively like it.
+static UIFontDescriptorSystemDesign _Nullable ENRMSystemDesignForFamily(NSString *_Nullable family)
+{
+  static NSDictionary<NSString *, UIFontDescriptorSystemDesign> *designs;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    designs = @{
+      @"system-ui" : UIFontDescriptorSystemDesignDefault,
+      @"ui-sans-serif" : UIFontDescriptorSystemDesignDefault,
+      @"ui-serif" : UIFontDescriptorSystemDesignSerif,
+      @"ui-rounded" : UIFontDescriptorSystemDesignRounded,
+      @"ui-monospace" : UIFontDescriptorSystemDesignMonospaced,
+    };
+  });
+  return family.length > 0 ? designs[family.lowercaseString] : nil;
+}
+#endif
+
+UIFont *ENRMUpdateFont(UIFont *font, NSString *family, NSNumber *size, NSString *weight, NSString *style,
+                       CGFloat scaleMultiplier)
+{
+#if !TARGET_OS_OSX
+  UIFontDescriptorSystemDesign design = ENRMSystemDesignForFamily(family);
+  if (design) {
+    UIFont *base = [RCTFont updateFont:font
+                            withFamily:@"System"
+                                  size:size
+                                weight:weight
+                                 style:style
+                               variant:nil
+                       scaleMultiplier:scaleMultiplier];
+    UIFontDescriptor *descriptor = [base.fontDescriptor fontDescriptorWithDesign:design];
+    return descriptor ? [UIFont fontWithDescriptor:descriptor size:base.pointSize] : base;
+  }
+#endif
+  return [RCTFont updateFont:font
+                  withFamily:family
+                        size:size
+                      weight:weight
+                       style:style
+                     variant:nil
+             scaleMultiplier:scaleMultiplier];
 }
