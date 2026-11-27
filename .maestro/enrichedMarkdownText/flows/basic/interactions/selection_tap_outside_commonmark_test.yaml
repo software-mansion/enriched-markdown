@@ -1,0 +1,42 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - text
+  - text-press
+  - selection
+---
+# CommonMark flavor renders through the single text view.
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+# Reference links: Off -> CommonMark.
+- tapOn:
+    id: recognize-links-button
+- assertVisible: 'Reference links: CommonMark'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        banana
+
+# Select a word; the edit menu shows that the text is selected.
+- longPressOn:
+    id: preview-text
+    point: '10%,50%'
+- assertVisible: 'Copy'
+
+# Tap the empty part of the preview box, outside the text.
+- tapOn:
+    id: preview-container
+    point: '50%,90%'
+
+# With no selection left, a tap on the text is a press again. While text is
+# still selected the tap only ends the selection and reports nothing.
+- tapOn:
+    id: preview-text
+
+- assertVisible:
+    id: text-press-result
+    text: 'Tapped: banana'

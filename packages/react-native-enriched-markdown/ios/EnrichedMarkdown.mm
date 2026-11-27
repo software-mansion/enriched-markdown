@@ -40,6 +40,7 @@
 #import "ENRMDroppableContent.h"
 #import "ENRMDynamicBlockProps.h"
 #import "ENRMMarkdownTextView.h"
+#import "ENRMOutsideTapDeselection.h"
 #import "ENRMSpoilerCapable.h"
 #import "ENRMSpoilerOverlayView.h"
 #import "ENRMSpoilerTapUtils.h"
@@ -129,6 +130,9 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
 
 @implementation EnrichedMarkdown {
   ENRMMarkdownParser *_parser;
+#if !TARGET_OS_OSX
+  ENRMOutsideTapDeselection *_outsideTapDeselection;
+#endif
   StyleConfig *_config;
   ENRMMd4cFlags *_md4cFlags;
   BOOL _isGFM;
@@ -2229,6 +2233,9 @@ static void ENRMAfterCommit(dispatch_block_t block)
   [self updateDrawnSegments];
 
   if (!self.window) {
+#if !TARGET_OS_OSX
+    [_outsideTapDeselection reset];
+#endif
     _needsWindowAttachRefresh = YES;
     return;
   }
@@ -2304,6 +2311,9 @@ static void ENRMAfterCommit(dispatch_block_t block)
   _spoilerOverlay =
       ENRMSpoilerOverlayFromString([[NSString alloc] initWithUTF8String:resetProps->spoilerOverlay.c_str()]);
   _dirtyFlags = ENRMDirtyNone;
+#if !TARGET_OS_OSX
+  [_outsideTapDeselection reset];
+#endif
 
   [super prepareForRecycle];
 }
@@ -2538,6 +2548,18 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
       [self emitTextPress:index text:ENRMGetAttributedText(textView).string];
   }
 }
+
+#if !TARGET_OS_OSX
+// Every text segment reports here; a tap outside the segment that holds the
+// selection ends it, including a tap on another segment.
+- (void)textViewDidChangeSelection:(UITextView *)textView
+{
+  if (_outsideTapDeselection == nil) {
+    _outsideTapDeselection = [ENRMOutsideTapDeselection new];
+  }
+  [_outsideTapDeselection textViewDidChangeSelection:textView];
+}
+#endif
 
 // TODO: Remove API_AVAILABLE(ios(16.0)) guard when the minimum iOS deployment target in RN is bumped to 16.
 #if !TARGET_OS_OSX

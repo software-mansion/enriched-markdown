@@ -11,6 +11,7 @@
 #import "ENRMLinkRegexProps.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMMarkdownTextView.h"
+#import "ENRMOutsideTapDeselection.h"
 #import "ENRMPreparedRenderStore.h"
 #import "ENRMSpoilerOverlayManager.h"
 #import "ENRMSpoilerTapUtils.h"
@@ -149,6 +150,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   ENRMAccessibilityLabels *_accessibilityLabels;
 #if !TARGET_OS_OSX
   NSMutableArray<UIAccessibilityElement *> *_accessibilityElements;
+  ENRMOutsideTapDeselection *_outsideTapDeselection;
 #else
   NSMutableArray *_accessibilityElements;
 #endif
@@ -1095,6 +1097,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   [super didMoveToWindow];
 
   if (!self.window) {
+#if !TARGET_OS_OSX
+    [_outsideTapDeselection reset];
+#endif
     _needsWindowAttachRefresh = YES;
     [_viewport update];
     return;
@@ -1176,6 +1181,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     ENRMSetAttributedText(_textView, [[NSAttributedString alloc] initWithString:@""]);
     _textView.hidden = YES;
   }
+#if !TARGET_OS_OSX
+  [_outsideTapDeselection reset];
+#endif
   _renderedRevision = 0;
   _textRenderCacheEpoch++;
 
@@ -1384,6 +1392,16 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
 
   [self emitLinkLongPress:urlString];
   return NO;
+}
+
+#pragma mark - UITextViewDelegate (Selection)
+
+- (void)textViewDidChangeSelection:(UITextView *)textView
+{
+  if (_outsideTapDeselection == nil) {
+    _outsideTapDeselection = [ENRMOutsideTapDeselection new];
+  }
+  [_outsideTapDeselection textViewDidChangeSelection:textView];
 }
 
 #pragma mark - UITextViewDelegate (Edit Menu)

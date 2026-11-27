@@ -296,6 +296,8 @@ Controls the native link preview on long press. It is on by default, and supplyi
 
 Whether text can be selected. On web, `false` applies `user-select: none`. On iOS it also suppresses the long-press link preview (see [`enableLinkPreview`](#enablelinkpreview)).
 
+On iOS a tap outside the view ends the selection, including a tap on a control, which still receives its tap.
+
 <PropInfo type="boolean" default="true" />
 
 <LivePreview src={SelectableSrc} />
