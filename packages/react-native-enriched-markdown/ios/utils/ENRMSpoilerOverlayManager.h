@@ -25,6 +25,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)setNeedsUpdate;
 - (void)updateIfNeeded;
+- (void)rebuildOverlays;
 - (void)removeOverlaysForCharRange:(NSRange)charRange;
 - (void)removeAllOverlays;
 

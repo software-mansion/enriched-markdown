@@ -132,6 +132,14 @@ NSArray<NSNumber *> *ENRMTableOffsets(NSArray<NSNumber *> *sizes)
   [_manager setNeedsUpdate];
 }
 
+- (void)setSpoilerBackgroundColor:(RCTUIColor *)spoilerBackgroundColor
+{
+  if (spoilerBackgroundColor == _spoilerBackgroundColor || [spoilerBackgroundColor isEqual:_spoilerBackgroundColor])
+    return;
+  _spoilerBackgroundColor = spoilerBackgroundColor;
+  [_manager rebuildOverlays];
+}
+
 - (RCTUIView *)spoilerOverlayHost
 {
   return _clipView;
@@ -254,11 +262,11 @@ NSArray<NSNumber *> *ENRMTableOffsets(NSArray<NSNumber *> *sizes)
         [cell adoptText:(NSMutableAttributedString *)text host:host];
       } else if (ENRMTextHasSpoiler(text)) {
         cell = [[ENRMTableSpoilerCell alloc] initWithText:(NSMutableAttributedString *)text host:host config:_config];
-        cell.spoilerBackgroundColor = r < backgrounds.count ? backgrounds[r] : nil;
         cell.manager.spoilerOverlay = _spoilerOverlay;
       } else {
         continue;
       }
+      cell.spoilerBackgroundColor = r < backgrounds.count ? backgrounds[r] : nil;
       cells[key] = cell;
     }
   }
