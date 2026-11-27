@@ -1,6 +1,7 @@
 package com.swmansion.enriched.markdown.parser
 
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
 import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 
@@ -9,6 +10,7 @@ data class Md4cFlags(
   val latexMath: Boolean = FeatureFlags.IS_MATH_ENABLED,
   val superscript: Boolean = false,
   val subscript: Boolean = false,
+  val strikethrough: Boolean = false,
   val highlight: Boolean = false,
   val permissiveAutolinks: Boolean = true,
   val hardSoftBreaks: Boolean = false,
@@ -100,6 +102,18 @@ class Parser {
       }
     }
     return ast
+  }
+
+  /** Parses [markdown] as [ast] from now on, for unit tests: the JVM has no native parser. */
+  @VisibleForTesting
+  internal fun remember(
+    markdown: String,
+    ast: MarkdownASTNode,
+    flags: Md4cFlags = Md4cFlags.DEFAULT,
+    isGFM: Boolean = false,
+  ) {
+    val key = ParseKey(markdown, flags, isGFM, null, null, emptySet(), false)
+    synchronized(recentParsesLock) { recentParses.addFirst(key to ast) }
   }
 
   private fun parseUncached(

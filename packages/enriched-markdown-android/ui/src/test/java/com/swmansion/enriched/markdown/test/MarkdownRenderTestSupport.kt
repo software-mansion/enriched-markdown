@@ -15,6 +15,7 @@ import com.swmansion.enriched.markdown.styles.CodeBlockStyle
 import com.swmansion.enriched.markdown.styles.CodeStyle
 import com.swmansion.enriched.markdown.styles.HeadingStyle
 import com.swmansion.enriched.markdown.styles.HighlightStyle
+import com.swmansion.enriched.markdown.styles.InlineImageStyle
 import com.swmansion.enriched.markdown.styles.LinkStyle
 import com.swmansion.enriched.markdown.styles.ListStyle
 import com.swmansion.enriched.markdown.styles.ParagraphStyle
@@ -90,6 +91,9 @@ object MarkdownRenderTestSupport {
   /** [defaultStyle] with only its [SpoilerStyle] replaced. */
   fun styleWithSpoiler(spoilerStyle: SpoilerStyle): StyleConfig = copyOfDefault(spoilerStyle = spoilerStyle)
 
+  /** [defaultStyle] with only its [InlineImageStyle] replaced. */
+  fun styleWithInlineImage(inlineImageStyle: InlineImageStyle): StyleConfig = copyOfDefault(inlineImageStyle = inlineImageStyle)
+
   /** [defaultStyle] with only its [LinkStyle] replaced. */
   fun styleWithLink(linkStyle: LinkStyle): StyleConfig = copyOfDefault(linkStyle = linkStyle)
 
@@ -108,6 +112,20 @@ object MarkdownRenderTestSupport {
     taskListStyle: TaskListStyle? = null,
   ): StyleConfig = copyOfDefault(listStyle = listStyle, taskListStyle = taskListStyle)
 
+  /** [defaultStyle] with its [ListStyle] and [CodeBlockStyle] and, when given, its [TaskListStyle] and [BlockquoteStyle] replaced. */
+  fun styleWithListAndCodeBlock(
+    listStyle: ListStyle,
+    codeBlockStyle: CodeBlockStyle,
+    taskListStyle: TaskListStyle? = null,
+    blockquoteStyle: BlockquoteStyle? = null,
+  ): StyleConfig =
+    copyOfDefault(
+      listStyle = listStyle,
+      codeBlockStyle = codeBlockStyle,
+      taskListStyle = taskListStyle,
+      blockquoteStyle = blockquoteStyle,
+    )
+
   /** [defaultStyle] with only its [TaskListStyle] replaced. */
   fun styleWithTaskList(taskListStyle: TaskListStyle): StyleConfig = copyOfDefault(taskListStyle = taskListStyle)
 
@@ -125,6 +143,7 @@ object MarkdownRenderTestSupport {
     codeBlockStyle: CodeBlockStyle? = null,
     spoilerStyle: SpoilerStyle? = null,
     linkStyle: LinkStyle? = null,
+    inlineImageStyle: InlineImageStyle? = null,
     paragraphStyle: ParagraphStyle? = null,
     headingStyles: Array<HeadingStyle?>? = null,
   ): StyleConfig {
@@ -143,7 +162,7 @@ object MarkdownRenderTestSupport {
       subscriptStyle = base.subscriptStyle,
       codeStyle = codeStyle ?: base.codeStyle,
       imageStyle = base.imageStyle,
-      inlineImageStyle = base.inlineImageStyle,
+      inlineImageStyle = inlineImageStyle ?: base.inlineImageStyle,
       blockquoteStyle = blockquoteStyle ?: base.blockquoteStyle,
       listStyle = listStyle ?: base.listStyle,
       taskListStyle = taskListStyle ?: base.taskListStyle,

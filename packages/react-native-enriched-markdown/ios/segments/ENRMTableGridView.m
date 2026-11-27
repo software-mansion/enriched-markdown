@@ -54,8 +54,10 @@
 
   [[NSGraphicsContext currentContext] saveGraphicsState];
 
+  NSBezierPath *outline = nil;
   if (_cornerRadius > 0) {
-    [[NSBezierPath bezierPathWithRoundedRect:self.bounds xRadius:_cornerRadius yRadius:_cornerRadius] setClip];
+    outline = [NSBezierPath bezierPathWithRoundedRect:self.bounds xRadius:_cornerRadius yRadius:_cornerRadius];
+    [outline setClip];
   }
 
   CGFloat yOffset = 0;
@@ -88,6 +90,13 @@
       xOffset += columnWidth;
     }
     yOffset += rowHeight;
+  }
+
+  // The rounded clip cuts the square cell strokes; draw the arcs.
+  if (outline && _borderWidth > 0) {
+    [_borderColor setStroke];
+    outline.lineWidth = _borderWidth;
+    [outline stroke];
   }
 
   [[NSGraphicsContext currentContext] restoreGraphicsState];

@@ -93,7 +93,8 @@ public static func render(
   imageRequestHeaders: [String: String] = [:],
   writingDirection: MarkdownWritingDirection = .firstStrong,
   layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight,
-  codeBlockLayout: MarkdownCodeBlockLayout = .wrapping
+  codeBlockLayout: MarkdownCodeBlockLayout = .wrapping,
+  admonitionTitles: MarkdownAdmonitionTitles = .default
 ) -> NSAttributedString
 ```
 

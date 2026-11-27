@@ -182,7 +182,7 @@ final class WritingDirectionTests: XCTestCase {
         _ markdown: String,
         layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
     ) -> NSWritingDirection {
-        direction(of: AdmonitionType.note.title, in: render(markdown, layoutDirection: layoutDirection))
+        direction(of: MarkdownAdmonitionTitles.default.note, in: render(markdown, layoutDirection: layoutDirection))
     }
 
     private func tableAttachment(in rendered: NSAttributedString) -> TableAttachment? {

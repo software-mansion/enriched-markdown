@@ -38,8 +38,8 @@ and exits successfully. What the native build does when an asset is missing depe
 **explicitly enabled** the feature in your app `package.json`:
 
 - **On by default** (no `enriched-markdown` entry for it): the build treats the feature as disabled —
-  code highlighting compiles a no-op stub, iOS math is skipped with a CocoaPods warning — so the build
-  stays green.
+  code highlighting compiles a no-op stub, iOS math is skipped with a warning from `pod install` (or
+  `npx react-native spm`) — so the build stays green.
 - **Explicitly enabled** (`"enableMath": true` on iOS / `"enableCodeHighlight": true` on either platform; Android math is a Maven dependency with no asset to miss): the build **fails with
   an actionable error** telling you to re-run postinstall, because you asked for a feature whose assets
   are not present.
@@ -62,7 +62,8 @@ directly from your project root as a fallback:
 node node_modules/react-native-enriched-markdown/postinstall.mjs
 ```
 
-Then re-run `pod install` (iOS) or rebuild (Android).
+Then re-run `pod install` (iOS; `npx react-native spm` if your app uses Swift Package Manager) or
+rebuild (Android).
 
 To see what the postinstall decided without downloading anything, run it with `--resolve-config` from
 the same directory the install ran from. It prints the workspace members it found and the merged
@@ -123,6 +124,7 @@ rebuild; re-enabling also needs a reinstall so the assets download again.
 > (`Product > Clean Build Folder`, or delete the app's DerivedData): Xcode's incremental build does not
 > reliably rebuild the pod's static library when only its source list changes, so it can otherwise link a
 > stale copy that still contains the old code. Android reconfigures on every build and needs neither step.
+> With Swift Package Manager, run `npx react-native spm` instead of `pod install`.
 
 **Which `package.json`?** The *download* opt-out is read from wherever the install runs (via `INIT_CWD`).
 In a monorepo that is the workspace root, and there is one shared `node_modules`, so the download

@@ -9,6 +9,7 @@ import type {
   CodeBlockPressEvent,
 } from '../types/events';
 import type { KaTeXInstance } from './katex';
+import type { ResolvedAdmonitionTitles } from '../admonitionDefaults';
 
 export type NodeType =
   | 'Document'
@@ -68,7 +69,7 @@ export interface NodeAttributes {
   align?: 'left' | 'center' | 'right' | 'default';
   /** Present on BlankLine nodes — count of blank lines in the source run. */
   count?: string;
-  /** Stamped by collectBlocks() on the paragraph or video a `renderers` entry may replace. */
+  /** Stamped by collectBlocks() on the paragraph, video or code block a `renderers` entry may replace. */
   blockSlotId?: string;
   /** Stamped by collectBlocks() on every Image; the key for `resolveImageSource`. */
   imageOccurrenceId?: string;
@@ -108,6 +109,7 @@ export interface RenderCapabilities {
    * first strong character, like native; `undefined` inherits a forced root `dir`.
    */
   blockDir: 'auto' | undefined;
+  admonitionTitles?: ResolvedAdmonitionTitles;
 }
 
 export interface RendererProps {

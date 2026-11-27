@@ -4,12 +4,14 @@ import type {
   MarkdownImageOccurrence,
   MarkdownImagePlacement,
   MarkdownBlockPlacement,
+  MarkdownLinkOccurrence,
 } from '../types/markdownBlocks';
 import { extractNodeText } from './utils';
 
 export interface CollectedBlocks {
   blocks: MarkdownBlock[];
   images: MarkdownImageOccurrence[];
+  links: MarkdownLinkOccurrence[];
 }
 
 // Ids count earlier entries with the same base, in document order.
@@ -37,7 +39,8 @@ export function blockIdentity(url: string, text = '', title = ''): string {
 /**
  * The web twin of `packages/core/cpp/parser/BlockSlots.cpp`: the same walk, the
  * same eligibility rule and the same ids (`<kind>:<hash>:<n>` for a block,
- * `img:<hash>:<n>` for an image occurrence, the hash over URL, text and title),
+ * `img:<hash>:<n>` for an image occurrence, the hash over URL, text and title,
+ * or over a code block's language alone),
  * so an app's renderer and resolver see identical ids on every platform. The
  * walk also stamps `blockSlotId` on every eligible block (the C++ core marks
  * only the active ones; on web the renderer result map decides) and
@@ -46,7 +49,7 @@ export function blockIdentity(url: string, text = '', title = ''): string {
 export function collectBlocks(root: ASTNode): CollectedBlocks {
   const slotIds = new IdCounter();
   const imageIds = new IdCounter();
-  const result: CollectedBlocks = { blocks: [], images: [] };
+  const result: CollectedBlocks = { blocks: [], images: [], links: [] };
 
   const recordImage = (
     image: ASTNode,
@@ -77,6 +80,24 @@ export function collectBlocks(root: ASTNode): CollectedBlocks {
           kind: 'video',
           id,
           url,
+          placement: slotPlacement(parentType),
+        });
+        node.attributes = { ...node.attributes, blockSlotId: id };
+      }
+      return;
+    }
+
+    if (node.type === 'CodeBlock') {
+      if (inSlotContainer) {
+        const language = node.attributes?.language ?? '';
+        const id = slotIds.next('code', language);
+        result.blocks.push({
+          kind: 'code',
+          id,
+          language,
+          code: extractNodeText(node).replace(/\n+$/, ''),
+          // Web has no streaming filter, so every fence counts as complete.
+          isComplete: true,
           placement: slotPlacement(parentType),
         });
         node.attributes = { ...node.attributes, blockSlotId: id };
@@ -135,6 +156,14 @@ export function collectBlocks(root: ASTNode): CollectedBlocks {
       });
       node.attributes = { ...node.attributes, blockSlotId: id };
       return;
+    }
+
+    if (node.type === 'Link') {
+      result.links.push({
+        url: node.attributes?.url ?? '',
+        label: trimAscii(extractNodeText(node)),
+        title: node.attributes?.title ?? '',
+      });
     }
 
     const childAncestors = {

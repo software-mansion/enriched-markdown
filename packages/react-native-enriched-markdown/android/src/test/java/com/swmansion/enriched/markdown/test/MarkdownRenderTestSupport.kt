@@ -25,18 +25,37 @@ object MarkdownRenderTestSupport {
     return renderer.renderContent(blocks.toList())
   }
 
-  /**
-   * The style map the JS side sends, with [list] and [taskList] entries replacing the defaults.
-   * Sizes are Double, colors Int, as in a ReadableMap.
-   */
+  /** [styleMap] parsed into a [StyleConfig]. */
   fun styleConfig(
     list: Map<String, Any> = emptyMap(),
     taskList: Map<String, Any> = emptyMap(),
-  ): StyleConfig {
+    blockquote: Map<String, Any> = emptyMap(),
+    codeBlock: Map<String, Any> = emptyMap(),
+    image: Map<String, Any> = emptyMap(),
+    highlight: Map<String, Any> = emptyMap(),
+    elements: Map<String, Map<String, Any>> = emptyMap(),
+  ): StyleConfig = StyleConfig(styleMap(list, taskList, blockquote, codeBlock, image, highlight, elements), context, false, 0f)
+
+  /**
+   * The style map the JS side sends, with [list], [taskList], [blockquote], [codeBlock], [image] and [highlight] entries replacing
+   * the defaults, and [elements] merging entries into any other element (e.g. `"code" to mapOf("backgroundColor" to RED)`).
+   * Sizes are Double, colors Int, as in a ReadableMap.
+   */
+  fun styleMap(
+    list: Map<String, Any> = emptyMap(),
+    taskList: Map<String, Any> = emptyMap(),
+    blockquote: Map<String, Any> = emptyMap(),
+    codeBlock: Map<String, Any> = emptyMap(),
+    image: Map<String, Any> = emptyMap(),
+    highlight: Map<String, Any> = emptyMap(),
+    elements: Map<String, Map<String, Any>> = emptyMap(),
+  ): JavaOnlyMap {
     DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(context)
     val style = JavaOnlyMap()
-    listOf("paragraph", "strong", "em", "strikethrough", "code", "superscript", "subscript", "highlight")
+    // Headings are read by StyleConfig.needsJustify, which every segment render consults.
+    (listOf("paragraph", "strong", "em", "strikethrough", "code", "superscript", "subscript", "highlight") + (1..6).map { "h$it" })
       .forEach { style.putMap(it, textElement()) }
+    style.putMap("highlight", textElement().apply { putAll(highlight) })
     style.putMap("link", textElement().apply { putString("fontFamily", "serif") })
     style.putArray(
       "linkVariants",
@@ -58,13 +77,133 @@ object MarkdownRenderTestSupport {
     style.putMap(
       "blockquote",
       textElement().apply {
-        putAll(mapOf("borderWidth" to 3.0, "gapWidth" to 8.0, "borderRadius" to 0.0, "padding" to 0.0))
+        putAll(mapOf("borderWidth" to 3.0, "gapWidth" to 8.0, "borderRadius" to 0.0, "padding" to 0.0) + blockquote)
       },
     )
     style.putMap("taskList", JavaOnlyMap().apply { putAll(defaultTaskList + taskList) })
     style.putMap("list", textElement().apply { putAll(defaultList + list) })
-    return StyleConfig(style, context, false, 0f)
+    style.putMap("codeBlock", textElement().apply { putAll(defaultCodeBlock + codeBlock) })
+    style.putMap("thematicBreak", JavaOnlyMap.of("color", Color.BLACK, "height", 1.0, "marginTop", 0.0, "marginBottom", 0.0))
+    style.putMap("image", JavaOnlyMap().apply { putAll(defaultImage + image) })
+    style.putMap("inlineImage", JavaOnlyMap.of("size", 20.0))
+    for ((element, values) in elements) {
+      val map = style.getMap(element) as? JavaOnlyMap ?: JavaOnlyMap().also { style.putMap(element, it) }
+      map.putAll(values)
+    }
+    return style
   }
+
+  /** Every section clipboard HTML export reads, with all sizes zero. */
+  fun exportStyleMap(): JavaOnlyMap {
+    DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(context)
+
+    fun element() =
+      JavaOnlyMap().apply {
+        listOf(
+          "aspectRatio",
+          "bulletSize",
+          "checkboxBorderRadius",
+          "checkboxSize",
+          "height",
+          "itemSpacing",
+          "markerMinWidth",
+          "maxHeight",
+          "cellPaddingHorizontal",
+          "cellPaddingVertical",
+          "horizontalOverflow",
+          "lineHeight",
+          "marginTop",
+          "marginBottom",
+          "padding",
+          "borderRadius",
+          "borderWidth",
+          "gapWidth",
+          "marginLeft",
+        ).forEach {
+          putDouble(it, 0.0)
+        }
+        listOf(
+          "bulletColor",
+          "checkedColor",
+          "checkedTextColor",
+          "checkmarkColor",
+          "headerBackgroundColor",
+          "headerTextColor",
+          "markerColor",
+          "rowEvenBackgroundColor",
+          "rowOddBackgroundColor",
+          "color",
+          "borderColor",
+        ).forEach {
+          putInt(it, Color.BLACK)
+        }
+        putString("resizeMode", "contain")
+        putString("fontFamily", "")
+        putString("fontWeight", "normal")
+        putDouble("fontSize", 16.0)
+        putDouble("fontScale", 0.8)
+        putDouble("baselineOffsetScale", 0.5)
+        putBoolean("underline", false)
+        putInt("backgroundColor", Color.TRANSPARENT)
+      }
+    val style = JavaOnlyMap()
+    listOf(
+      "table",
+      "paragraph",
+      "codeBlock",
+      "code",
+      "blockquote",
+      "list",
+      "link",
+      "strong",
+      "em",
+      "strikethrough",
+      "underline",
+      "highlight",
+      "image",
+      "superscript",
+      "subscript",
+    ).forEach { style.putMap(it, element()) }
+    style.putMap(
+      "spoiler",
+      element().apply {
+        putMap("particles", JavaOnlyMap.of("density", 0.5, "speed", 1.0))
+        putMap("solid", JavaOnlyMap.of("borderRadius", 0.0))
+      },
+    )
+    for (level in 1..6) style.putMap("h$level", element())
+    style.putMap(
+      "taskList",
+      JavaOnlyMap.of(
+        "checkedColor",
+        Color.BLACK,
+        "borderColor",
+        Color.BLACK,
+        "checkmarkColor",
+        Color.BLACK,
+        "checkedTextColor",
+        Color.BLACK,
+        "checkboxSize",
+        16.0,
+        "checkboxBorderRadius",
+        0.0,
+        "checkedStrikethrough",
+        false,
+      ),
+    )
+    return style
+  }
+
+  private val defaultImage: Map<String, Any> =
+    mapOf(
+      "height" to 100.0,
+      "maxHeight" to 0.0,
+      "aspectRatio" to 0.0,
+      "resizeMode" to "",
+      "borderRadius" to 0.0,
+      "marginTop" to 0.0,
+      "marginBottom" to 0.0,
+    )
 
   private val defaultList: Map<String, Any> =
     mapOf(
@@ -77,6 +216,9 @@ object MarkdownRenderTestSupport {
       "marginLeft" to 24.0,
       "itemSpacing" to 0.0,
     )
+
+  private val defaultCodeBlock: Map<String, Any> =
+    mapOf("borderRadius" to 0.0, "borderWidth" to 0.0, "padding" to 0.0)
 
   private val defaultTaskList: Map<String, Any> =
     mapOf(

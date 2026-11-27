@@ -19,10 +19,20 @@ final class HighlightRenderer: NodeRenderer {
         output.addAttribute(MarkdownAttribute.highlight, value: true, range: range)
 
         if let backgroundColor = config.highlight.backgroundColor {
-            // Inline code keeps its own background box; links still sit on the highlight.
-            output.enumerateAttribute(MarkdownAttribute.inlineCode, in: range, options: []) { value, subrange, _ in
-                guard value == nil else { return }
-                output.addAttribute(.backgroundColor, value: backgroundColor, range: subrange)
+            var holdsBorder = false
+            output.enumerateAttribute(MarkdownAttribute.inlineBackground, in: range, options: []) { value, _, stop in
+                holdsBorder = (value as? InlineBackground)?.style.border != nil
+                stop.pointee = ObjCBool(holdsBorder)
+            }
+            let fillKey = holdsBorder ? MarkdownAttribute.drawnHighlight : .backgroundColor
+            output.enumerateAttributes(in: range, options: []) { attributes, subrange, _ in
+                if let drawn = attributes[MarkdownAttribute.inlineBackground] as? InlineBackground {
+                    output.addAttribute(
+                        MarkdownAttribute.inlineBackground, value: drawn.beneath(highlight: backgroundColor), range: subrange
+                    )
+                } else if attributes[MarkdownAttribute.inlineCode] == nil, attributes[.backgroundColor] == nil {
+                    output.addAttribute(fillKey, value: backgroundColor, range: subrange)
+                }
             }
         }
 

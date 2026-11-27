@@ -32,7 +32,8 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 // The margins a slot takes from the block it stands in for: the image style's for
-// an image paragraph, the video style's for a video, the paragraph's for a link.
+// an image paragraph, the video style's for a video, the paragraph's for a link,
+// the code block style's for a code block.
 static inline CGFloat ENRMBlockSlotMarginTop(ENRMBlockSlotKind kind, StyleConfig *config)
 {
   switch (kind) {
@@ -40,6 +41,8 @@ static inline CGFloat ENRMBlockSlotMarginTop(ENRMBlockSlotKind kind, StyleConfig
       return config.videoMarginTop;
     case ENRMBlockSlotKindLink:
       return config.paragraphMarginTop;
+    case ENRMBlockSlotKindCode:
+      return config.codeBlockMarginTop;
     default:
       return config.imageMarginTop;
   }
@@ -52,6 +55,8 @@ static inline CGFloat ENRMBlockSlotMarginBottom(ENRMBlockSlotKind kind, StyleCon
       return config.videoMarginBottom;
     case ENRMBlockSlotKindLink:
       return config.paragraphMarginBottom;
+    case ENRMBlockSlotKindCode:
+      return config.codeBlockMarginBottom;
     default:
       return config.imageMarginBottom;
   }

@@ -304,25 +304,38 @@ function vendorGrammar(id, spec, pkgRootOverride) {
   log(`${id} -> ${path.relative(repoRoot, outDir)}`);
 }
 
-function regenerateDefaultRegistry(manifest) {
-  const defaults = Object.entries(manifest.grammars)
-    .filter(([, spec]) => spec.default)
-    .map(([id]) => id);
-  const outDir = path.join(vendorOut, 'generated');
-  const result = spawnSync(
+function runGenRegistry(ids, outDir, extraArgs = []) {
+  return spawnSync(
     process.execPath,
     [
       path.join(here, 'gen-registry.mjs'),
       '--vendor-dir',
       vendorOut,
+      '--manifest',
+      manifestPath,
       '--languages',
-      defaults.join(','),
+      ids.join(','),
       '--out',
       outDir,
+      ...extraArgs,
     ],
     { stdio: 'inherit' }
   );
-  if (result.status !== 0) fail('gen-registry.mjs failed while refreshing the committed default set');
+}
+
+function regenerateRegistries(manifest) {
+  const defaults = Object.entries(manifest.grammars)
+    .filter(([, spec]) => spec.default)
+    .map(([id]) => id);
+  if (runGenRegistry(defaults, path.join(vendorOut, 'generated')).status !== 0) {
+    fail('gen-registry.mjs failed while refreshing the default registry');
+  }
+  const vendored = Object.keys(manifest.grammars).filter((id) =>
+    fs.existsSync(path.join(vendorOut, 'grammars', id, 'highlights.scm'))
+  );
+  if (runGenRegistry(vendored, path.join(vendorOut, 'guarded'), ['--guarded']).status !== 0) {
+    fail('gen-registry.mjs failed while generating the guarded (SwiftPM) registry');
+  }
 }
 
 function requireSpec(manifest, id) {
@@ -375,7 +388,9 @@ function vendorableIds(manifest, ids) {
 }
 
 function registryPresent() {
-  return fs.existsSync(path.join(vendorOut, 'generated/generated_registry.cpp'));
+  return ['generated', 'guarded'].every((dir) =>
+    fs.existsSync(path.join(vendorOut, dir, 'generated_registry.cpp'))
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -501,7 +516,7 @@ async function main() {
     // run must not touch it (the default set may not all be vendored). Otherwise
     // refresh it whenever the grammars changed or it is missing.
     if (!args.only && (args.force || grammarsRebuilt || !registryPresent())) {
-      regenerateDefaultRegistry(manifest);
+      regenerateRegistries(manifest);
     }
   }
 

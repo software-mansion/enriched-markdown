@@ -1,5 +1,6 @@
 #pragma once
-#import <Foundation/Foundation.h>
+#import "ENRMUIKit.h"
+#import "ParagraphStyleUtils.h"
 
 @class AccessibilityInfo;
 @class MarkdownASTNode;
@@ -9,19 +10,43 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface ENRMRenderResult : NSObject
-@property (nonatomic, strong) NSMutableAttributedString *attributedText;
+// Nil when the result is only a patch (patchStart, patchTail): a view that shows its base gets
+// there by the patch, and any other one needs a full render.
+@property (nonatomic, strong, nullable) NSMutableAttributedString *attributedText;
+@property (nonatomic, assign) NSUInteger textLength;
 @property (nonatomic, strong) RenderContext *context;
 @property (nonatomic, strong) AccessibilityInfo *accessibilityInfo;
 @property (nonatomic, assign) CGFloat lastElementMarginBottom;
+// Where each top-level node starts in attributedText, and the task and math reporter counts
+// before it: rendering can resume at any of them (ENRMRenderASTNodesResuming).
+@property (nonatomic, copy, nullable) NSArray<NSNumber *> *blockStarts;
+@property (nonatomic, copy, nullable) NSArray<NSNumber *> *blockTaskStarts;
+@property (nonatomic, copy, nullable) NSArray<NSNumber *> *blockMathStarts;
+// For the text a stream grows (ENRMTextRenderCache): the two characters before each block start
+// as they stand in the finished text, NSNull where there are none to resume after.
+@property (nonatomic, copy, nullable) NSArray *blockSeeds;
+// Identifies this text; a later result can be a patch to it (ENRMTextRenderCache).
+@property (nonatomic, assign) uint64_t revision;
+// When non-zero, this text is that revision's up to patchStart, then patchTail.
+@property (nonatomic, assign) uint64_t patchBaseRevision;
+@property (nonatomic, assign) NSUInteger patchStart;
+@property (nonatomic, strong, nullable) NSAttributedString *patchTail;
+
+// Whether the patch applies to the text a view shows: revision `revision`, `length` long. A patch
+// starting past the end of that text was made from a render the view missed too.
+- (BOOL)patchFitsRevision:(uint64_t)revision length:(NSUInteger)length;
 @end
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+// Task-list items are numbered from startingTaskIndex, so a document rendered in several segments
+// keeps their indices document-global; result.context.taskItemCount is the index after the last one.
+// A caller rendering a whole document passes 0.
 ENRMRenderResult *ENRMRenderASTNodes(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config, BOOL allowTrailingMargin,
                                      BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
-                                     NSLineBreakStrategy lineBreakStrategy);
+                                     NSLineBreakStrategy lineBreakStrategy, NSInteger startingTaskIndex);
 
 // Renders a blockquote's own text content: like ENRMRenderASTNodes but with a blockquote baseline
 // (tight paragraphs, quote font/color) and the quote's line height applied over the result. Draws
@@ -29,7 +54,21 @@ ENRMRenderResult *ENRMRenderASTNodes(NSArray<MarkdownASTNode *> *nodes, StyleCon
 // BlockquoteTextRenderer.
 ENRMRenderResult *ENRMRenderBlockquoteContentNodes(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config,
                                                    BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
-                                                   NSLineBreakStrategy lineBreakStrategy);
+                                                   NSLineBreakStrategy lineBreakStrategy, NSInteger startingTaskIndex);
+
+// Renders nodes[from...] after `previous`, whose first `from` nodes are the same. The result is
+// only a patch to `previous` (patchStart, patchTail), with no attributedText. Nil when it could
+// differ from rendering all the nodes: the caller renders them in full.
+ENRMRenderResult *_Nullable ENRMRenderASTNodesResuming(NSArray<MarkdownASTNode *> *nodes, NSUInteger from,
+                                                       ENRMRenderResult *previous, StyleConfig *config,
+                                                       BOOL allowTrailingMargin, BOOL allowFontScaling,
+                                                       CGFloat maxFontSizeMultiplier,
+                                                       NSLineBreakStrategy lineBreakStrategy,
+                                                       ENRMWritingDirectionMode writingDirectionMode,
+                                                       NSWritingDirection layoutDirection);
+
+// blockSeeds for `text`, whose blocks start at `blockStarts`.
+NSArray *ENRMBlockSeeds(NSAttributedString *text, NSArray<NSNumber *> *blockStarts);
 
 #ifdef __cplusplus
 }

@@ -4,6 +4,8 @@
 
 #include <algorithm>
 
+#include "UnicodeTables.hpp"
+
 namespace Markdown::RepairInternal {
 
 // --- UTF-8 -----------------------------------------------------------------
@@ -175,39 +177,57 @@ bool isTripleAt(std::string_view text, size_t i) {
 }
 
 namespace {
-bool isTildeFenceAt(std::string_view text, size_t i) {
-  if (i + 3 > text.size() || text[i] != '~' || text[i + 1] != '~' || text[i + 2] != '~') {
-    return false;
+size_t fenceRunAt(std::string_view text, size_t i) {
+  const char c = text[i];
+  if (c != '`' && c != '~') {
+    return 0;
   }
-  while (i > 0 && (text[i - 1] == ' ' || text[i - 1] == '\t' || text[i - 1] == '>')) {
-    --i; // indentation and blockquote markers
+  size_t end = i + 1;
+  while (end < text.size() && text[end] == c) {
+    ++end;
   }
-  return i == 0 || text[i - 1] == '\n';
+  if (end - i < 3) {
+    return 0;
+  }
+  if (c == '~') {
+    size_t lineStart = i;
+    while (lineStart > 0 && (text[lineStart - 1] == ' ' || text[lineStart - 1] == '\t' || text[lineStart - 1] == '>')) {
+      --lineStart; // indentation and blockquote markers
+    }
+    if (lineStart > 0 && text[lineStart - 1] != '\n') {
+      return 0;
+    }
+  }
+  return end - i;
 }
 } // namespace
 
-bool consumeFence(std::string_view text, size_t &i, char &fence) {
-  if (!isTripleAt(text, i) && !isTildeFenceAt(text, i)) {
+bool consumeFence(std::string_view text, size_t &i, Fence &fence) {
+  const size_t run = fenceRunAt(text, i);
+  if (run == 0) {
     return false;
   }
-  const char c = text[i];
-  if (fence == 0) {
-    fence = c;
-  } else if (fence == c) {
-    fence = 0;
+  if (fence.c == 0) {
+    fence = {text[i], run};
+  } else if (fence.c == text[i] && run >= fence.length) {
+    fence = {};
   } else {
     return false;
   }
-  i += 2;
+  i += run - 1;
   return true;
 }
 
-bool endsInsideFence(std::string_view text) {
-  char fence = 0;
+Fence unclosedFence(std::string_view text) {
+  Fence fence;
   for (size_t i = 0; i < text.size(); ++i) {
     consumeFence(text, i, fence);
   }
-  return fence != 0;
+  return fence;
+}
+
+bool endsInsideFence(std::string_view text) {
+  return unclosedFence(text).c != 0;
 }
 
 size_t countDoubleMarkers(std::string_view text, char c, const MathLookup &math) {
@@ -306,11 +326,11 @@ bool matchHalfCompleteMarker(std::string_view text, std::string_view marker, cha
 CodeLookup::CodeLookup(std::string_view text) : insideAt_(text.size() + 1, 0) {
   const size_t n = text.size();
   bool inInline = false;
-  char fence = 0;
+  Fence fence;
   size_t i = 0;
   while (i < n) {
     if (text[i] == '\\' && i + 1 < n && text[i + 1] == '`') {
-      const uint8_t state = (inInline || fence != 0) ? 1 : 0;
+      const uint8_t state = (inInline || fence.c != 0) ? 1 : 0;
       insideAt_[i + 1] = state;
       insideAt_[i + 2] = state;
       i += 2;
@@ -318,17 +338,17 @@ CodeLookup::CodeLookup(std::string_view text) : insideAt_(text.size() + 1, 0) {
     }
     size_t marker = i;
     if (consumeFence(text, marker, fence)) {
-      const uint8_t state = (inInline || fence != 0) ? 1 : 0;
-      for (size_t p = i + 1; p <= i + 3; ++p) {
+      const uint8_t state = (inInline || fence.c != 0) ? 1 : 0;
+      for (size_t p = i + 1; p <= marker + 1; ++p) {
         insideAt_[p] = state;
       }
-      i += 3;
+      i = marker + 1;
       continue;
     }
-    if (fence == 0 && text[i] == '`') {
+    if (fence.c == 0 && text[i] == '`') {
       inInline = !inInline;
     }
-    insideAt_[i + 1] = (inInline || fence != 0) ? 1 : 0;
+    insideAt_[i + 1] = (inInline || fence.c != 0) ? 1 : 0;
     ++i;
   }
 }
@@ -337,8 +357,48 @@ bool CodeLookup::inside(size_t position) const {
   return insideAt_[std::min(position, insideAt_.size() - 1)] != 0;
 }
 
+namespace {
+
+bool isAsciiPunctuation(uint32_t codePoint) {
+  return (codePoint >= 0x21 && codePoint <= 0x2F) || (codePoint >= 0x3A && codePoint <= 0x40) ||
+         (codePoint >= 0x5B && codePoint <= 0x60) || (codePoint >= 0x7B && codePoint <= 0x7E);
+}
+
+bool startsNewBlock(std::string_view text, size_t newline, size_t &depth);
+
+} // namespace
+
+bool inRanges(uint32_t codePoint, const UnicodeTables::Range *ranges, size_t count) {
+  const auto *end = ranges + count;
+  const auto *it = std::upper_bound(ranges, end, codePoint,
+                                    [](uint32_t value, const UnicodeTables::Range &r) { return value < r.first; });
+  return it != ranges && codePoint <= (it - 1)->last;
+}
+
+bool isUnicodePunctuation(uint32_t codePoint) {
+  if (codePoint < 0x80) {
+    return isAsciiPunctuation(codePoint);
+  }
+  return inRanges(codePoint, UnicodeTables::kPunctuationRanges, UnicodeTables::kPunctuationRangeCount);
+}
+
+DollarRun dollarRunAt(std::string_view text, size_t i) {
+  size_t end = i + 1;
+  while (end < text.size() && text[end] == '$') {
+    ++end;
+  }
+  const uint32_t before = codePointBefore(text, i);
+  const uint32_t after = codePointAt(text, end);
+  const bool flanksBefore = before == kNoCodePoint || isJsWhitespace(before) || isUnicodePunctuation(before);
+  const bool flanksAfter = after == kNoCodePoint || isJsWhitespace(after) || isUnicodePunctuation(after);
+  const size_t length = end - i;
+  const bool currency =
+      length == 1 && (after == kNoCodePoint || isJsWhitespace(after) || (after >= '0' && after <= '9'));
+  return {length, flanksBefore && !currency, flanksAfter};
+}
+
 // isWithinMathBlock(), evaluated once for every position.
-MathLookup::MathLookup(std::string_view text, bool inlineDollar)
+MathLookup::MathLookup(std::string_view text, bool inlineDollar, const CodeLookup *code)
     : hasDelimiters_(text.find('$') != npos || text.find("\\(") != npos || text.find("\\[") != npos) {
   if (!hasDelimiters_) {
     return;
@@ -353,6 +413,15 @@ MathLookup::MathLookup(std::string_view text, bool inlineDollar)
       insideAt_[p] = state;
     }
   };
+  struct Opener {
+    size_t index;
+    size_t length;
+  };
+  std::vector<Opener> openers;
+  size_t depth = 0;
+  if (code != nullptr) {
+    stripBlockquotes(lineAt(text, 0), depth);
+  }
   size_t i = 0;
   while (i < n) {
     const char c = text[i];
@@ -382,6 +451,24 @@ MathLookup::MathLookup(std::string_view text, bool inlineDollar)
         continue;
       }
     }
+    if (code != nullptr && ctx != Context::InlineLatex && ctx != Context::BlockLatex) {
+      if (c == '\n') {
+        if (startsNewBlock(text, i, depth)) {
+          openers.clear();
+        }
+      } else if (c == '$') {
+        const DollarRun run = code->inside(i) ? DollarRun{1, false, false} : dollarRunAt(text, i);
+        if (run.length <= 2 && run.canClose && !openers.empty() && openers.back().length == run.length) {
+          std::fill(insideAt_.begin() + static_cast<std::ptrdiff_t>(openers.back().index + 1),
+                    insideAt_.begin() + static_cast<std::ptrdiff_t>(i + 1), 1);
+          openers.clear();
+        } else if (run.length <= 2 && run.canOpen && (run.length == 2 || inlineDollar)) {
+          openers.push_back({i, run.length});
+        }
+        i += run.length;
+        continue;
+      }
+    }
     if (c == '$' && ctx != Context::InlineLatex && ctx != Context::BlockLatex) {
       if (next == '$') {
         ctx = ctx == Context::BlockDollar ? Context::None : Context::BlockDollar;
@@ -404,14 +491,14 @@ bool MathLookup::inside(size_t position) const {
 
 CompleteInlineCodeLookup::CompleteInlineCodeLookup(std::string_view text) : insideAt_(text.size() + 1, 0) {
   const size_t n = text.size();
-  char fence = 0;
+  Fence fence;
   size_t spanStart = npos;
   for (size_t i = 0; i < n; ++i) {
     if (text[i] == '\\' && i + 1 < n && text[i + 1] == '`') {
       ++i;
       continue;
     }
-    if (consumeFence(text, i, fence) || fence != 0 || text[i] != '`') {
+    if (consumeFence(text, i, fence) || fence.c != 0 || text[i] != '`') {
       continue;
     }
     if (spanStart == npos) {
@@ -563,7 +650,7 @@ const CodeLookup &RepairContext::code() {
 
 const MathLookup &RepairContext::math() {
   if (!math_) {
-    math_.emplace(text_, inlineMath_);
+    math_.emplace(text_, inlineMath_, parserMath_ ? &code() : nullptr);
   }
   return *math_;
 }
@@ -612,47 +699,6 @@ void RepairContext::assign(std::string &&replacement) {
   invalidate();
 }
 
-namespace {
-
-// Start of the text after the last blank line (a line holding only spaces
-// or tabs), or 0. Trailing whitespace is not a blank line: closers go in
-// front of it, so it never separates an opener from its closer.
-size_t trailingParagraphStart(std::string_view text) {
-  while (!text.empty() && (text.back() == '\n' || text.back() == '\r' || text.back() == ' ' || text.back() == '\t')) {
-    text.remove_suffix(1);
-  }
-  size_t start = 0;
-  for (size_t nl = text.find('\n'); nl != npos; nl = text.find('\n', nl + 1)) {
-    size_t i = nl + 1;
-    while (i < text.size() && (text[i] == ' ' || text[i] == '\t')) {
-      ++i;
-    }
-    if (i < text.size() && text[i] == '\r') { // CRLF blank line
-      ++i;
-    }
-    if (i < text.size() && text[i] == '\n') {
-      start = i + 1;
-    }
-  }
-  return start;
-}
-
-// /^ {0,3}#{1,6}[ \t]/ : the line is an ATX heading
-bool isAtxHeadingLine(std::string_view line) {
-  size_t i = 0;
-  while (i < line.size() && i < 3 && line[i] == ' ') {
-    ++i;
-  }
-  size_t hashes = 0;
-  while (i < line.size() && line[i] == '#' && hashes < 7) {
-    ++i;
-    ++hashes;
-  }
-  return hashes >= 1 && hashes <= 6 && i < line.size() && (line[i] == ' ' || line[i] == '\t');
-}
-
-// Strips the blockquote markers that open `line`, each allowed up to three
-// spaces of indentation before it and one space after, and counts them.
 std::string_view stripBlockquotes(std::string_view line, size_t &depth) {
   depth = 0;
   for (;;) {
@@ -672,6 +718,26 @@ std::string_view stripBlockquotes(std::string_view line, size_t &depth) {
   }
 }
 
+namespace {
+
+bool isTrailingWhitespace(char c) {
+  return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+// /^ {0,3}#{1,6}[ \t]/ : the line is an ATX heading
+bool isAtxHeadingLine(std::string_view line) {
+  size_t i = 0;
+  while (i < line.size() && i < 3 && line[i] == ' ') {
+    ++i;
+  }
+  size_t hashes = 0;
+  while (i < line.size() && line[i] == '#' && hashes < 7) {
+    ++i;
+    ++hashes;
+  }
+  return hashes >= 1 && hashes <= 6 && i < line.size() && (line[i] == ' ' || line[i] == '\t');
+}
+
 // A thematic break, or a setext underline when it follows a paragraph;
 // either way the paragraph ends there. A lone `-` or `--` is not one here:
 // the setext handler has already broken it with a zero-width space.
@@ -683,36 +749,78 @@ bool endsParagraphLine(std::string_view line) {
   return firstEq != npos && line.find_first_not_of(" \t\r=") == npos; // `=` underline of any length
 }
 
+// An HTML block opener that may interrupt a paragraph: comments, processing instructions,
+// declarations and the common block tags (a subset of CommonMark's types 1-6).
+bool startsHtmlBlockLine(std::string_view line) {
+  static constexpr std::string_view kOpeners[] = {"<!--",      "<?",   "<!",       "<pre",     "<script", "<style",
+                                                  "<textarea", "<div", "<details", "<summary", "<table",  "<figure",
+                                                  "<section",  "<p>",  "<p ",      "<center"};
+  for (const std::string_view opener : kOpeners) {
+    if (startsWith(line, opener)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // True when `line`, with its blockquote markers already stripped, begins a
 // block that interrupts a paragraph: a fence, an ATX heading, a thematic
-// break, or a list item. Any list number counts: CommonMark lets only `1.`
-// interrupt a paragraph, but streamed text is usually already in a list,
-// where every sibling marker starts a new item.
+// break, an HTML block that may interrupt one, or a list item. Any list
+// number counts: CommonMark lets only `1.` interrupt a paragraph, but streamed
+// text is usually already in a list, where every sibling marker starts a new
+// item.
 bool interruptsParagraph(std::string_view line) {
-  if (startsWith(line, "```") || startsWith(line, "~~~") || isAtxHeadingLine(line) || endsParagraphLine(line)) {
+  if (startsWith(line, "```") || startsWith(line, "~~~") || isAtxHeadingLine(line) || endsParagraphLine(line) ||
+      startsHtmlBlockLine(line)) {
     return true;
   }
   const size_t marker = skipListMarker(line);
   return marker != npos && marker < line.size() && (line[marker] == ' ' || line[marker] == '\t');
 }
 
-// Start of the last block in `text`: the text after the last blank line, or
-// after the last later line that starts a new block, whichever is later. A
-// line quoted deeper than the block opens a blockquote, a blank quoted line
-// ends the paragraph inside its quote, and a line quoted shallower is a lazy
-// continuation that leaves the block's depth as it is.
+bool isBlankLine(std::string_view content) {
+  return content.find_first_not_of(" \t\r") == npos;
+}
+
+// The newline separates two blocks: the line it ends is blank or a heading,
+// or the line it starts is blank, quoted deeper than the block (opening a
+// blockquote) or one that interrupts a paragraph. A line quoted shallower is
+// a lazy continuation that leaves the block's depth as it is.
+bool startsNewBlock(std::string_view text, size_t newline, size_t &depth) {
+  size_t endedDepth = 0;
+  const std::string_view ended = stripBlockquotes(lineAt(text, newline), endedDepth);
+  size_t startedDepth = 0;
+  const std::string_view started = stripBlockquotes(lineAt(text, newline + 1), startedDepth);
+  if (!isBlankLine(ended) && !isAtxHeadingLine(ended) && !isBlankLine(started) && startedDepth <= depth &&
+      !interruptsParagraph(started)) {
+    return false;
+  }
+  depth = startedDepth;
+  return true;
+}
+
+// Start of the last block in `text`. Trailing whitespace is not a blank
+// line: closers go in front of it, so it never separates an opener from its
+// closer. A heading ends with its line, though, so once the newline after it
+// has streamed nothing is left open.
 size_t findLastBlockStart(std::string_view text) {
-  size_t start = trailingParagraphStart(text);
+  size_t end = text.size();
+  while (end > 0 && isTrailingWhitespace(text[end - 1])) {
+    --end;
+  }
+  const std::string_view body = text.substr(0, end);
+  size_t start = 0;
   size_t depth = 0;
-  stripBlockquotes(lineAt(text, start), depth);
-  for (size_t nl = text.find('\n', start); nl != npos; nl = text.find('\n', nl + 1)) {
-    size_t lineDepth = 0;
-    const std::string_view content = stripBlockquotes(lineAt(text, nl + 1), lineDepth);
-    const bool blankQuoted = lineDepth > 0 && content.find_first_not_of(" \t\r") == npos;
-    if (lineDepth > depth || blankQuoted || interruptsParagraph(content)) {
+  stripBlockquotes(lineAt(body, 0), depth);
+  for (size_t nl = body.find('\n'); nl != npos; nl = body.find('\n', nl + 1)) {
+    if (startsNewBlock(body, nl, depth)) {
       start = nl + 1;
-      depth = lineDepth;
     }
+  }
+  const size_t newline = text.find('\n', end);
+  size_t lastDepth = 0;
+  if (newline != npos && isAtxHeadingLine(stripBlockquotes(lineBefore(body, end), lastDepth))) {
+    return newline + 1;
   }
   return start;
 }
@@ -727,13 +835,7 @@ size_t RepairContext::lastBlockStart() {
 }
 
 bool RepairContext::openerCanStillClose(size_t openerIndex) {
-  if (openerIndex < lastBlockStart()) {
-    return false;
-  }
-  const std::string_view text = textBeforeClosers();
-  // An opener on a heading line can only close on that line.
-  const bool lineHasEnded = text.find('\n', openerIndex) != npos;
-  return !(lineHasEnded && isAtxHeadingLine(lineAt(text, openerIndex)));
+  return openerIndex >= lastBlockStart();
 }
 
 void RepairContext::closeAt(size_t openerIndex, std::string_view closer) {
@@ -742,11 +844,8 @@ void RepairContext::closeAt(size_t openerIndex, std::string_view closer) {
   }
   if (closers_.empty()) {
     closersStart_ = text_.size();
-    while (closersStart_ > 0 && text_[closersStart_ - 1] == '\n') { // trailing LF or CRLF
+    while (closersStart_ > 0 && isTrailingWhitespace(text_[closersStart_ - 1])) {
       --closersStart_;
-      if (closersStart_ > 0 && text_[closersStart_ - 1] == '\r') {
-        --closersStart_;
-      }
     }
   }
   // Skip the closers of constructs opened later than ours; ours goes after them.
@@ -832,6 +931,15 @@ size_t countSingleBackticks(std::string_view text) {
     return false;
   });
   return count;
+}
+
+bool isImageBang(std::string_view text, size_t bracket) {
+  return bracket > 0 && text[bracket - 1] == '!' && !isEscaped(text, bracket - 1);
+}
+
+size_t openLabelWindowStart(std::string_view text) {
+  constexpr size_t kMaxOpenLabel = 512;
+  return text.size() > kMaxOpenLabel ? text.size() - kMaxOpenLabel : 0;
 }
 
 size_t findMatchingOpeningBracket(std::string_view text, size_t closeIndex) {

@@ -10,6 +10,17 @@ import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 
+/**
+ * Replaces the text from [start] on with [tail]: the text of [baseRevision] up to [start] is
+ * unchanged. [tailImageSpans] are the image spans in [tail].
+ */
+class TextPatch(
+  val baseRevision: Long,
+  val start: Int,
+  val tail: Spannable,
+  val tailImageSpans: List<ImageSpan>,
+)
+
 sealed interface RenderedSegment {
   val signature: Long
 
@@ -25,12 +36,19 @@ sealed interface RenderedSegment {
      * here must read them before the segment is applied, or filter the view's spans
      * out; reading afterwards yields the view's bookkeeping mixed in with the markdown
      * spans, and a result that changes as the user merely selects text.
+     *
+     * Null when the segment is only a [patch]: a view that shows its base gets there by the
+     * patch, and any other one needs a full render.
      */
-    val styledText: Spannable,
+    val styledText: Spannable?,
     val imageSpans: List<ImageSpan>,
     val needsJustify: Boolean,
     val lastElementMarginBottom: Float,
     override val signature: Long,
+    /** Identifies this text, for a later [patch] to build on. */
+    val revision: Long = 0,
+    /** How to get from the text of [TextPatch.baseRevision] to this one, if a view shows it. */
+    val patch: TextPatch? = null,
   ) : RenderedSegment
 
   data class Table(
@@ -51,6 +69,8 @@ sealed interface RenderedSegment {
   data class Blockquote(
     val node: MarkdownASTNode,
     override val signature: Long,
+    /** Document-global index of the quote's first task-list item. */
+    val taskIndexOffset: Int = 0,
   ) : RenderedSegment
 
   data class Video(
@@ -74,11 +94,26 @@ object MarkdownSegmentRenderer {
     onLinkLongPress: ((String) -> Unit)?,
     blockquoteStyle: BlockquoteStyle? = null,
     onLatexError: LatexErrorReporter? = null,
-  ): List<RenderedSegment> =
-    segments.map { segment ->
+    startingTaskIndex: Int = 0,
+    cache: TextRenderCache? = null,
+  ): List<RenderedSegment> {
+    var taskIndexOffset = startingTaskIndex
+    val lastText = segments.indexOfLast { it is MarkdownSegment.Text }
+
+    return segments.mapIndexed { index, segment ->
       when (segment) {
         is MarkdownSegment.Text -> {
-          renderTextSegment(segment.nodes, style, context, onLinkPress, onLinkLongPress, blockquoteStyle, onLatexError)
+          val renderNodes = { nodes: List<MarkdownASTNode>, taskIndex: Int ->
+            renderText(nodes, style, context, onLinkPress, onLinkLongPress, blockquoteStyle, onLatexError, taskIndex)
+          }
+          val (rendered, taskItemCount) =
+            if (cache != null) {
+              cache.render(segment.nodes, taskIndexOffset, index == lastText, renderNodes)
+            } else {
+              renderTextSegment(segment.nodes, renderNodes(segment.nodes, taskIndexOffset), taskIndexOffset)
+            }
+          taskIndexOffset = taskItemCount
+          rendered
         }
 
         is MarkdownSegment.Table -> {
@@ -98,8 +133,16 @@ object MarkdownSegmentRenderer {
         }
 
         is MarkdownSegment.Blockquote -> {
-          val signature = SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.BLOCKQUOTE_KIND_SALT
-          RenderedSegment.Blockquote(segment.node, signature)
+          val taskItemCount = countTaskItems(segment.node)
+          val signature =
+            SegmentSignature.withTaskIndexOffset(
+              SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.BLOCKQUOTE_KIND_SALT,
+              taskIndexOffset,
+              hasTasks = taskItemCount > 0,
+            )
+          RenderedSegment.Blockquote(segment.node, signature, taskIndexOffset).also {
+            taskIndexOffset += taskItemCount
+          }
         }
 
         is MarkdownSegment.Video -> {
@@ -115,8 +158,18 @@ object MarkdownSegmentRenderer {
         }
       }
     }
+  }
 
-  private fun renderTextSegment(
+  /**
+   * Task-list items in [node]'s subtree, counted as ListItemRenderer numbers them. Used for a
+   * blockquote, whose children render only when its container view applies the node.
+   */
+  private fun countTaskItems(node: MarkdownASTNode): Int {
+    val own = if (node.type == MarkdownASTNode.NodeType.ListItem && node.getAttribute("isTask") == "true") 1 else 0
+    return own + node.children.sumOf { countTaskItems(it) }
+  }
+
+  private fun renderText(
     nodes: List<MarkdownASTNode>,
     style: StyleConfig,
     context: Context,
@@ -124,23 +177,23 @@ object MarkdownSegmentRenderer {
     onLinkLongPress: ((String) -> Unit)?,
     blockquoteStyle: BlockquoteStyle?,
     onLatexError: LatexErrorReporter?,
-  ): RenderedSegment.Text {
+    startingTaskIndex: Int,
+  ): TextRenderResult {
     val renderer = Renderer().apply { configure(style, context, onLatexError) }
-    val signature = SegmentSignature.signatureForNodes(nodes) xor SegmentSignature.TEXT_KIND_SALT
 
     val styledText =
       if (blockquoteStyle != null) {
-        BlockquoteTextRenderer(blockquoteStyle).render(renderer, nodes, onLinkPress, onLinkLongPress)
+        BlockquoteTextRenderer(blockquoteStyle).render(renderer, nodes, onLinkPress, onLinkLongPress, startingTaskIndex)
       } else {
-        renderer.renderContent(nodes, onLinkPress, onLinkLongPress)
+        renderer.renderContent(nodes, onLinkPress, onLinkLongPress, startingTaskIndex = startingTaskIndex)
       }
 
-    return RenderedSegment.Text(
-      styledText = styledText,
-      imageSpans = renderer.getCollectedImageSpans().toList(),
-      needsJustify = style.needsJustify,
-      lastElementMarginBottom = renderer.getLastElementMarginBottom(),
-      signature = signature,
-    )
+    return renderer.textRenderResult(styledText, style.needsJustify)
   }
+
+  private fun renderTextSegment(
+    nodes: List<MarkdownASTNode>,
+    text: TextRenderResult,
+    startingTaskIndex: Int,
+  ): Pair<RenderedSegment.Text, Int> = TextRenderCache.segmentOf(nodes, text, startingTaskIndex) to text.taskItemCount
 }

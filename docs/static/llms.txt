@@ -55,14 +55,14 @@
 - [Native assets](https://docs.swmansion.com/enriched-markdown/react-native/guides/native-assets): Bundling custom fonts and images, the assets downloaded at install time, and how to opt out to shrink your binary.
 - [Testing](https://docs.swmansion.com/enriched-markdown/react-native/guides/testing): The Jest mock the package ships, what it replaces, and what it cannot cover.
 - [macOS support](https://docs.swmansion.com/enriched-markdown/react-native/guides/macos): Requirements and the known differences from iOS, including silently dropped block math.
-- [Custom block renderers](https://docs.swmansion.com/enriched-markdown/react-native/guides/custom-block-renderers): Replacing standalone images, standalone links and videos with your own React components through `renderers`, how the native host sizes them, block ids, and swapping an image's request with `resolveImageSource`.
+- [Custom block renderers](https://docs.swmansion.com/enriched-markdown/react-native/guides/custom-block-renderers): Replacing standalone images, standalone links, videos and code blocks with your own React components through `renderers`, how the native host sizes them, block ids, streaming, and swapping an image's request with `resolveImageSource`.
 
 ## Rich text formatting
 
 - [Mentions](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/mentions): Mentions as ordinary links with custom URL schemes - styling with `linkVariants`, and the editor's mention-authoring flow.
 - [LaTeX math](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/latex-math): Inline and block equations, styling, handling render errors, and excluding the math engine.
 - [Code-block highlighting](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/code-highlighting): tree-sitter syntax highlighting, the token palette, the supported grammars, and trimming the language set.
-- [Markdown streaming](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/markdown-streaming): Rendering LLM output as it arrives, the tail fade-in, and how incomplete tables, code blocks and math are withheld.
+- [Markdown streaming](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/markdown-streaming): Rendering LLM output as it arrives, the fade and gradient animations, streaming through `createMarkdownStream()` without re-rendering, how incomplete tables, code blocks and math are withheld, and migrating from `react-native-streamdown`.
 - [Editor-style text](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/editor-style-text): Reproducing editor content line for line with `hardSoftBreaks` and `preserveBlankLines`.
 
 ## User experience

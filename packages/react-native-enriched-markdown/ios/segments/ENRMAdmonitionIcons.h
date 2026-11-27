@@ -21,9 +21,6 @@ extern const CGFloat ENRMAdmonitionIconViewBox;
 // types. The returned path is cached and owned by the module; do not release.
 CGPathRef _Nullable ENRMAdmonitionIconPath(NSString *type);
 
-// Capitalized header title for the type (e.g. "note" -> "Note").
-NSString *ENRMAdmonitionTitle(NSString *type);
-
 #ifdef __cplusplus
 }
 #endif

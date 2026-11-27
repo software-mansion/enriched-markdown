@@ -16,6 +16,8 @@ class Renderer {
 
   private val collectedImageSpans = mutableListOf<ImageSpan>()
   private var lastElementMarginBottom: Float = 0f
+  private var blockStarts = IntArray(0)
+  private var blockTaskStarts = IntArray(0)
 
   fun configure(
     style: StyleConfig,
@@ -52,6 +54,9 @@ class Renderer {
    * content as e.g. blockquote text without this class knowing anything
    * block-specific. See [BlockquoteTextRenderer].
    *
+   * Task-list items are numbered from [startingTaskIndex], so a caller rendering a
+   * document in several passes keeps their indices document-global.
+   *
    * The builder is returned as-is rather than frozen into a `SpannableString`:
    * the markdown text view adopts it verbatim (see `NoCopySpannableFactory`),
    * and converting it would cost a quadratic span copy for no benefit. Each call
@@ -62,6 +67,7 @@ class Renderer {
     onLinkPress: ((String) -> Unit)? = null,
     onLinkLongPress: ((String) -> Unit)? = null,
     block: BlockquoteTextRenderer? = null,
+    startingTaskIndex: Int = 0,
   ): SpannableStringBuilder {
     val factory =
       requireNotNull(cachedFactory) {
@@ -69,14 +75,22 @@ class Renderer {
       }
 
     factory.resetForNewRender()
+    // Must run after resetForNewRender, which zeroes taskItemCount.
+    factory.blockStyleContext.taskItemCount = startingTaskIndex
     collectedImageSpans.clear()
     lastElementMarginBottom = 0f
 
     val builder = SpannableStringBuilder()
 
+    blockStarts = IntArray(nodes.size)
+    blockTaskStarts = IntArray(nodes.size)
     block?.push(factory.blockStyleContext)
     try {
-      factory.renderNodes(nodes, builder, onLinkPress, onLinkLongPress)
+      for ((index, node) in nodes.withIndex()) {
+        blockStarts[index] = builder.length
+        blockTaskStarts[index] = factory.blockStyleContext.taskItemCount
+        factory.renderNode(node, builder, onLinkPress, onLinkLongPress)
+      }
     } finally {
       block?.pop(factory.blockStyleContext)
     }
@@ -87,6 +101,24 @@ class Renderer {
 
     return builder
   }
+
+  /** Task-list items rendered by the last [renderContent], continuing from its `startingTaskIndex`. */
+  fun getTaskItemCount(): Int = cachedFactory?.blockStyleContext?.taskItemCount ?: 0
+
+  /**
+   * Where each top-level node of the last [renderContent] starts in its buffer, and the task
+   * count before it. Rendering resumes at any of them: there the context is back at its baseline
+   * and the buffer is empty or ends in "\n", which renderers treat alike. Holds as long as every
+   * top-level node renders nothing or ends in "\n" (TextRenderCacheTest covers each kind).
+   */
+  fun getBlockStarts(): IntArray = blockStarts
+
+  fun getBlockTaskStarts(): IntArray = blockTaskStarts
+
+  /** Where each item of the last top-level list of the last [renderContent] starts, and the task count before it. */
+  fun getTopLevelListItemStarts(): IntArray = cachedFactory?.blockStyleContext?.topLevelListItemStarts?.toIntArray() ?: IntArray(0)
+
+  fun getTopLevelListItemTaskStarts(): IntArray = cachedFactory?.blockStyleContext?.topLevelListItemTaskStarts?.toIntArray() ?: IntArray(0)
 
   /** Removes trailing newlines and captures the margin of the final element. */
   private fun removeTrailingMargin(builder: SpannableStringBuilder) {
