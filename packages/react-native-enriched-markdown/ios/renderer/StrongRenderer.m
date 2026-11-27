@@ -4,7 +4,6 @@
 #import "RenderContext.h"
 #import "RendererFactory.h"
 #import "StyleConfig.h"
-#import <React/RCTFont.h>
 
 @implementation StrongRenderer
 
@@ -40,13 +39,7 @@
 
                             if (strongFontFamily.length > 0) {
                               NSString *weight = useNormalWeight ? nil : @"bold";
-                              resolvedFont = [RCTFont updateFont:currentFont
-                                                      withFamily:strongFontFamily
-                                                            size:nil
-                                                          weight:weight
-                                                           style:nil
-                                                         variant:nil
-                                                 scaleMultiplier:1.0];
+                              resolvedFont = ENRMUpdateFont(currentFont, strongFontFamily, nil, weight, nil, 1.0);
                             } else if (!([currentFont.fontDescriptor symbolicTraits] & UIFontDescriptorTraitBold)) {
                               resolvedFont = [self ensureFontIsBold:currentFont];
                             }
