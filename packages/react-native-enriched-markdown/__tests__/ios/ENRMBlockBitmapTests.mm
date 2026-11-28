@@ -9,6 +9,8 @@ static const CGFloat kENRMBlockTestWindowHeight = 844;
 // What layoutSubviews runs once Fabric gave the view its content frame.
 @interface EnrichedMarkdown (ENRMBlockBitmapTesting)
 - (CGSize)computeSegmentLayoutForWidth:(CGFloat)width applyFrames:(BOOL)applyFrames;
+- (NSArray<UIView *> *)drawSegmentsForCaptureInRect:(CGRect)rect;
+- (void)dropSegmentsAfterCapture:(NSArray<UIView *> *)segments;
 @end
 
 static NSString *ENRMBlockTestMarkdown(void)
@@ -183,6 +185,8 @@ static CGRect ENRMBlockTestDrawnTextRect(UIView *view, UIView *textView)
       list = child;
   }
   XCTAssertNotNil(list);
+  if (!list)
+    return;
   NSArray<UIView *> *views = ENRMBitmapViews(@[ list ]);
   XCTAssertEqual(views.count, 2u);
   ENRMDrawBitmaps(views);
@@ -192,9 +196,56 @@ static CGRect ENRMBlockTestDrawnTextRect(UIView *view, UIView *textView)
   for (UIView *view in views)
     XCTAssertNil(view.layer.contents);
   _scrollView.contentOffset = CGPointZero;
-  ENRMDrawBitmaps(views);
-  for (UIView *view in views)
+  for (UIView *view in views) {
+    XCTAssertTrue(view.layer.needsDisplay);
+    [view.layer displayIfNeeded];
     XCTAssertNotNil(view.layer.contents);
+  }
+}
+
+- (void)testAnOffscreenItemDropsItsBitmapsWhileItsListRemainsVisible
+{
+  NSMutableString *markdown = [@"- First\n\n  | a |\n  |---|\n  | 1 |\n" mutableCopy];
+  for (NSUInteger i = 0; i < 200; i++)
+    [markdown
+        appendFormat:@"\n- Item %lu has enough text to run over several lines in the native list.\n", (unsigned long)i];
+  EnrichedMarkdown *document = [[EnrichedMarkdown alloc] initWithFrame:CGRectMake(0, 0, kENRMBlockTestWidth, 0)];
+  document.config = [StyleConfig new];
+  [_scrollView addSubview:document];
+  [document renderMarkdownSynchronously:markdown];
+  CGSize size = [document computeSegmentLayoutForWidth:kENRMBlockTestWidth applyFrames:YES];
+  document.frame = CGRectMake(0, 0, kENRMBlockTestWidth, size.height);
+  _scrollView.contentSize = size;
+  [document layoutIfNeeded];
+  UIView *list = nil;
+  for (UIView *view in document.subviews)
+    if ([NSStringFromClass(view.class) isEqualToString:@"ENRMListContainerView"])
+      list = view;
+  XCTAssertNotNil(list);
+  if (!list)
+    return;
+  NSArray<UIView *> *bitmaps = ENRMBitmapViews(@[ list.subviews.firstObject ]);
+  XCTAssertEqual(bitmaps.count, 2u);
+  ENRMDrawBitmaps(bitmaps);
+  _scrollView.contentOffset = CGPointMake(0, size.height - kENRMBlockTestWindowHeight);
+  XCTAssertTrue(CGRectIntersectsRect(list.frame, _scrollView.bounds));
+  for (UIView *view in bitmaps)
+    XCTAssertNil(view.layer.contents);
+  UIView *firstItem = list.subviews.firstObject;
+  CGRect captureRect = [firstItem convertRect:firstItem.bounds toView:document];
+  NSArray<UIView *> *captured = [document drawSegmentsForCaptureInRect:captureRect];
+  XCTAssertEqual(captured.count, 2u);
+  for (UIView *view in bitmaps)
+    XCTAssertNotNil(view.layer.contents);
+  [document dropSegmentsAfterCapture:captured];
+  for (UIView *view in bitmaps)
+    XCTAssertNil(view.layer.contents);
+  _scrollView.contentOffset = CGPointZero;
+  for (UIView *view in bitmaps) {
+    XCTAssertTrue(view.layer.needsDisplay);
+    [view.layer displayIfNeeded];
+    XCTAssertNotNil(view.layer.contents);
+  }
 }
 
 - (void)testABlockWithinTheMarginKeepsItsBitmap

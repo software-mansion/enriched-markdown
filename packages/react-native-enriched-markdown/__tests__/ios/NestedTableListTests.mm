@@ -1,5 +1,7 @@
+#import "../../ios/EnrichedMarkdown.h"
 #import "../../ios/segments/ENRMCodeBlockContainerView.h"
 #import "../../ios/utils/ENRMAccessibilityLabels.h"
+#import "../../ios/utils/ENRMAsyncRenderCoordinator.h"
 #import "../../ios/utils/ENRMFeatureFlags.h"
 #if ENRICHED_MARKDOWN_MATH
 #import "../../ios/segments/ENRMMathContainerView.h"
@@ -52,6 +54,21 @@ static void ENRMCollectViews(UIView *view, Class type, NSMutableArray *result)
 - (void)copyPlainTextToPasteboard;
 @end
 
+@interface EnrichedMarkdown (ENRMTaskActivationTesting)
+- (void)renderMarkdownContent:(NSString *)markdown;
+- (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text;
+@end
+
+@interface ENRMTaskEventsDocument : EnrichedMarkdown
+@property (nonatomic, strong) NSMutableArray<NSNumber *> *taskStates;
+@end
+@implementation ENRMTaskEventsDocument
+- (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text
+{
+  [self.taskStates addObject:@(checked)];
+}
+@end
+
 @interface ENRMNestedTableListTests : XCTestCase
 @end
 
@@ -59,7 +76,86 @@ static void ENRMCollectViews(UIView *view, Class type, NSMutableArray *result)
 - (CGFloat)markerBaseline;
 @end
 
-@implementation ENRMNestedTableListTests
+@implementation ENRMNestedTableListTests {
+  ENRMTaskEventsDocument *_taskDocument;
+  ENRMAsyncRenderCoordinator *_taskCoordinator;
+  dispatch_semaphore_t _releaseTaskRender;
+}
+
+- (void)tearDown
+{
+  if (_taskCoordinator) {
+    [_taskCoordinator invalidate];
+    dispatch_semaphore_signal(_releaseTaskRender);
+    XCTestExpectation *drained = [self expectationWithDescription:@"task renders drained"];
+    [_taskCoordinator scheduleRender:^BOOL { return YES; } apply:^{ [drained fulfill]; }];
+    [self waitForExpectations:@[ drained ] timeout:5];
+  }
+  [super tearDown];
+}
+
+- (UIView *)taskTargetWithMarkdown:(NSString *)markdown
+{
+  _taskDocument = [[ENRMTaskEventsDocument alloc] initWithFrame:CGRectMake(0, 0, 320, 0)];
+  _taskDocument.config = [StyleConfig new];
+  _taskDocument.taskStates = [NSMutableArray array];
+  [_taskDocument setValue:@YES forKey:@"enableTaskListItemToggle"];
+  [_taskDocument renderMarkdownSynchronously:markdown];
+  NSMutableArray<ENRMListContainerView *> *lists = [NSMutableArray array];
+  ENRMCollectViews(_taskDocument, [ENRMListContainerView class], lists);
+  lists.firstObject.dynamicProps.enableTaskListItemToggle = YES;
+  NSMutableArray<UIView *> *targets = [NSMutableArray array];
+  ENRMCollectViews(_taskDocument, NSClassFromString(@"ENRMListTaskTarget"), targets);
+  XCTAssertEqual(targets.count, 1u);
+  _taskCoordinator = [_taskDocument valueForKey:@"renderCoordinator"];
+  _taskCoordinator.blockAsyncRender = NO;
+  _releaseTaskRender = dispatch_semaphore_create(0);
+  dispatch_semaphore_t started = dispatch_semaphore_create(0);
+  dispatch_semaphore_t release = _releaseTaskRender;
+  [_taskCoordinator
+      scheduleRender:^BOOL {
+        dispatch_semaphore_signal(started);
+        dispatch_semaphore_wait(release, DISPATCH_TIME_FOREVER);
+        return YES;
+      }
+               apply:^{}];
+  XCTAssertEqual(dispatch_semaphore_wait(started, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)), 0L);
+  return targets.firstObject;
+}
+
+- (void)testPendingTaskInsertionDoesNotToggleAnEarlierTask
+{
+  NSString *markdown = @"- [ ] A\n\n  | value |\n  |---|\n  | 1 |\n";
+  UIView *target = [self taskTargetWithMarkdown:markdown];
+  NSString *pending = [@"- [ ] B\n\n" stringByAppendingString:markdown];
+  [_taskDocument renderMarkdownContent:pending];
+  [target accessibilityActivate];
+  XCTAssertEqualObjects([_taskDocument valueForKey:@"cachedMarkdown"], pending);
+  XCTAssertEqual(_taskDocument.taskStates.count, 0u);
+}
+
+- (void)testTwoTaskActivationsBeforeRenderingRestoreTheUncheckedState
+{
+  NSString *markdown = @"- [ ] A\n\n  | value |\n  |---|\n  | 1 |\n";
+  UIView *target = [self taskTargetWithMarkdown:markdown];
+  [target accessibilityActivate];
+  [target accessibilityActivate];
+  XCTAssertEqualObjects(_taskDocument.taskStates, (@[ @YES, @NO ]));
+  XCTAssertEqualObjects([_taskDocument valueForKey:@"cachedMarkdown"], markdown);
+  XCTAssertFalse((target.accessibilityTraits & UIAccessibilityTraitSelected) != 0);
+}
+
+- (void)testTaskActivationDuringAnAppendOnlyUpdateKeepsTheAppendedContent
+{
+  NSString *markdown = @"- [ ] A\n\n  | value |\n  |---|\n  | 1 |\n";
+  UIView *target = [self taskTargetWithMarkdown:markdown];
+  NSString *pending = [markdown stringByAppendingString:@"\nTail"];
+  [_taskDocument renderMarkdownContent:pending];
+  [target accessibilityActivate];
+  XCTAssertEqualObjects(_taskDocument.taskStates, (@[ @YES ]));
+  XCTAssertEqualObjects([_taskDocument valueForKey:@"cachedMarkdown"],
+                        [pending stringByReplacingOccurrencesOfString:@"[ ] A" withString:@"[x] A"]);
+}
 
 - (void)testListForwardsChangedAccessibilityLabelsToCodeAndMath
 {

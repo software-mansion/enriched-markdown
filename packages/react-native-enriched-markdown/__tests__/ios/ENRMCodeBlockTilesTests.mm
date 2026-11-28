@@ -90,6 +90,39 @@ static CGRect ENRMCodeTilesCovered(UIView *canvas)
   return covered;
 }
 
+static BOOL ENRMCodeTilesCoverRect(NSArray<UIView *> *tiles, CGRect rect)
+{
+  if (CGRectIsEmpty(rect) || CGRectIsNull(rect))
+    return YES;
+  NSMutableArray<NSValue *> *uncovered = [NSMutableArray arrayWithObject:[NSValue valueWithCGRect:rect]];
+  for (UIView *tile in tiles) {
+    NSMutableArray<NSValue *> *next = [NSMutableArray array];
+    for (NSValue *value in uncovered) {
+      CGRect piece = value.CGRectValue;
+      CGRect hit = CGRectIntersection(piece, tile.frame);
+      if (CGRectIsEmpty(hit) || CGRectIsNull(hit)) {
+        [next addObject:value];
+        continue;
+      }
+      CGRect parts[] = {CGRectMake(CGRectGetMinX(piece), CGRectGetMinY(piece), piece.size.width,
+                                   CGRectGetMinY(hit) - CGRectGetMinY(piece)),
+                        CGRectMake(CGRectGetMinX(piece), CGRectGetMaxY(hit), piece.size.width,
+                                   CGRectGetMaxY(piece) - CGRectGetMaxY(hit)),
+                        CGRectMake(CGRectGetMinX(piece), CGRectGetMinY(hit), CGRectGetMinX(hit) - CGRectGetMinX(piece),
+                                   hit.size.height),
+                        CGRectMake(CGRectGetMaxX(hit), CGRectGetMinY(hit), CGRectGetMaxX(piece) - CGRectGetMaxX(hit),
+                                   hit.size.height)};
+      for (CGRect part : parts)
+        if (!CGRectIsEmpty(part))
+          [next addObject:[NSValue valueWithCGRect:part]];
+    }
+    uncovered = next;
+    if (uncovered.count == 0)
+      return YES;
+  }
+  return NO;
+}
+
 static void ENRMCodeTilesDisplay(UIView *canvas)
 {
   for (UIView *tile in ENRMCodeTilesTiles(canvas)) {
@@ -206,8 +239,9 @@ static UIWindow *ENRMCodeTilesKeyWindow(void)
   CGRect covered = ENRMCodeTilesCovered(_canvas);
   CGRect shown = [_content convertRect:_scrollView.bounds fromView:_scrollView];
   shown = CGRectIntersection(shown, [_content convertRect:[self pane].bounds fromView:[self pane]]);
-  XCTAssertTrue(CGRectContainsRect(covered, CGRectIntersection(shown, _content.bounds)), @"%@ does not cover %@",
-                NSStringFromCGRect(covered), NSStringFromCGRect(shown));
+  CGRect required = [_canvas convertRect:CGRectIntersection(shown, _content.bounds) fromView:_content];
+  XCTAssertTrue(ENRMCodeTilesCoverRect(ENRMCodeTilesTiles(_canvas), required), @"%@ does not cover %@",
+                NSStringFromCGRect(covered), NSStringFromCGRect(required));
 }
 
 static BOOL ENRMCodeTilesSameColor(UIColor *a, UIColor *b)
@@ -365,6 +399,30 @@ static BOOL ENRMCodeTilesSameColor(UIColor *a, UIColor *b)
   [self assertTheTilesCoverWhatShows];
   XCTAssertGreaterThan(ENRMCodeTilesCovered(_canvas).origin.y, 0);
   XCTAssertLessThanOrEqual(ENRMCodeTilesCovered(_canvas).size.height, [self maxCoveredHeight]);
+}
+
+- (void)testCoverageRejectsAMissingVisibleTileEvenWhenTheBoundsMatch
+{
+  [self render:ENRMCodeTilesMarkdown(800, 4)];
+  CGRect shown = [_content convertRect:_scrollView.bounds fromView:_scrollView];
+  shown = CGRectIntersection(shown, [_content convertRect:[self pane].bounds fromView:[self pane]]);
+  CGRect required = [_canvas convertRect:CGRectIntersection(shown, _content.bounds) fromView:_content];
+  NSMutableArray<UIView *> *tiles = [ENRMCodeTilesTiles(_canvas) mutableCopy];
+  CGRect covered = ENRMCodeTilesCovered(_canvas);
+  XCTAssertTrue(ENRMCodeTilesCoverRect(tiles, required));
+  NSUInteger middle = [tiles indexOfObjectPassingTest:^BOOL(UIView *tile, NSUInteger index, BOOL *stop) {
+    return CGRectIntersectsRect(tile.frame, required) && CGRectGetMinY(tile.frame) > CGRectGetMinY(covered) &&
+           CGRectGetMaxY(tile.frame) < CGRectGetMaxY(covered);
+  }];
+  XCTAssertNotEqual(middle, NSNotFound);
+  if (middle == NSNotFound)
+    return;
+  [tiles removeObjectAtIndex:middle];
+  CGRect remainingBounds = CGRectNull;
+  for (UIView *tile in tiles)
+    remainingBounds = CGRectUnion(remainingBounds, tile.frame);
+  XCTAssertTrue(CGRectContainsRect(remainingBounds, required));
+  XCTAssertFalse(ENRMCodeTilesCoverRect(tiles, required));
 }
 
 - (void)testLeavingTheWindowDropsTheTiles

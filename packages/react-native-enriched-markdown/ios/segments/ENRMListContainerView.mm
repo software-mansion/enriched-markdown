@@ -317,10 +317,14 @@ static CGFloat ENRMFirstContentBaseline(RCTUIView *view, StyleConfig *config)
     NSString *text = plainTextFromASTNode(node);
     item.taskTarget.checked = marker.isChecked;
     item.taskTarget.canActivate = ^BOOL { return weakSelf.dynamicProps.enableTaskListItemToggle; };
+    __weak ENRMListTaskTarget *weakTarget = item.taskTarget;
     item.taskTarget.activate = ^{
       ENRMListContainerView *strongSelf = weakSelf;
-      if (strongSelf.dynamicProps.enableTaskListItemToggle && strongSelf.onTaskListItemPress)
-        strongSelf.onTaskListItemPress(marker.taskIndex, !marker.isChecked, text);
+      ENRMListTaskTarget *target = weakTarget;
+      if (target && strongSelf.dynamicProps.enableTaskListItemToggle && strongSelf.onTaskListItemPress) {
+        target.checked = !target.checked;
+        strongSelf.onTaskListItemPress(marker.taskIndex, target.checked, text);
+      }
     };
 #if !TARGET_OS_OSX
     item.taskTarget.isAccessibilityElement = marker.isTask;

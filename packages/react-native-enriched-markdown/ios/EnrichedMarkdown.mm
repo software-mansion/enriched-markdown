@@ -137,6 +137,8 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   ENRMLinkRegexConfig *_inlineCodeLinkRegex;
   NSString *_cachedMarkdown;
   NSString *_renderedMarkdown;
+  // Source represented by native task targets, advanced optimistically for local toggles.
+  NSString *_taskListMarkdown;
   ENRMLatexErrorCoordinator *_latexErrorCoordinator;
   NSMutableArray<RCTUIView *> *_segmentViews;
   NSMutableArray<NSNumber *> *_segmentSignatures;
@@ -144,6 +146,7 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   CGRect _drawnVisibleRect;
   // Block segments off screen, their bitmaps dropped (see updateDrawnSegments).
   NSHashTable<RCTUIView *> *_undrawnSegments;
+  NSArray<RCTUIView *> *_bitmapViews;
   // The ones drawn again for the hooked captures in progress (ENRMCapture).
   NSMutableArray<RCTUIView *> *_capturedSegments;
   NSInteger _captures;
@@ -653,9 +656,11 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
 
   view.onTaskListItemPress = ^(NSInteger index, BOOL checked, NSString *text) {
     EnrichedMarkdown *host = weakSelf;
-    if (!host || !host->_enableTaskListItemToggle)
+    if (!host || !host->_enableTaskListItemToggle || host->_taskListMarkdown == nil ||
+        ![host->_cachedMarkdown hasPrefix:host->_taskListMarkdown])
       return;
     host->_cachedMarkdown = toggleTaskListItemAtIndex(host->_cachedMarkdown, index, checked);
+    host->_taskListMarkdown = host->_cachedMarkdown;
     [host renderMarkdownContent:host->_cachedMarkdown];
     [host emitTaskListItemPress:index checked:checked text:text];
   };
@@ -1357,6 +1362,8 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
                                                _mediaStreamingMode, _isGFM, &endsInsideOpenCodeFence, NULL)
           : markdownString;
   _renderedMarkdown = [renderableMarkdown copy];
+  _taskListMarkdown = _renderedMarkdown;
+  _bitmapViews = nil;
   _renderedStyleFingerprint = _pendingStyleFingerprint;
 
   if (renderableMarkdown.length == 0) {
@@ -1404,6 +1411,8 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 {
   const ENRMDirtyFlags dirtyFlags = scheduledFlags;
   _renderedMarkdown = [renderedMarkdown copy];
+  _taskListMarkdown = _renderedMarkdown;
+  _bitmapViews = nil;
   [self updatePendingCodeBlockSegment:endsInsideOpenCodeFence segments:renderedSegments];
   BOOL segmentTopologyChanged = _streaming && [self renderedSegmentsChangeTopology:renderedSegments];
 
@@ -2111,34 +2120,23 @@ static void ENRMUpdateNestedViewports(UIView *view, ENRMVisibleArea *area)
   }
 }
 
-// Draws now what Core Animation's commit would draw of the views in `view` that draw their own.
-static void ENRMDisplayDroppableContent(UIView *view)
+// Cache bitmap owners after reconciliation; scrolling only checks their frames.
+static void ENRMCollectDroppableContent(UIView *view, NSMutableArray<UIView *> *views)
 {
-  if ([view conformsToProtocol:@protocol(ENRMDroppableContent)]) {
-    [view.layer displayIfNeeded];
-  }
-  for (UIView *subview in view.subviews) {
-    ENRMDisplayDroppableContent(subview);
-  }
+  if ([view isKindOfClass:[UITextView class]] || [view isKindOfClass:[ENRMBlockSlotSegmentView class]])
+    return;
+  if ([view conformsToProtocol:@protocol(ENRMDroppableContent)])
+    [views addObject:view];
+  for (UIView *child in view.subviews)
+    ENRMCollectDroppableContent(child, views);
 }
 
-// Drops (`draws` NO) or redraws the bitmaps of the views in `view` that draw their own
-// (ENRMDroppableContent). Text views draw only their drawn rect already.
 static void ENRMSetViewDrawsContent(UIView *view, BOOL draws)
 {
-  if ([view isKindOfClass:[UITextView class]]) {
-    return;
-  }
-  if ([view conformsToProtocol:@protocol(ENRMDroppableContent)]) {
-    if (draws) {
-      [view setNeedsDisplay];
-    } else {
-      view.layer.contents = nil;
-    }
-  }
-  for (UIView *subview in view.subviews) {
-    ENRMSetViewDrawsContent(subview, draws);
-  }
+  if (draws)
+    [view setNeedsDisplay];
+  else
+    view.layer.contents = nil;
 }
 
 // Core Animation commits (and draws the layers that need it) from a before-waiting observer of order
@@ -2199,15 +2197,18 @@ static void ENRMAfterCommit(dispatch_block_t block)
   CGRect drawn = CGRectIsNull(visible) || CGRectIsEmpty(visible) ? CGRectNull
                  : CGRectIsInfinite(visible)                     ? CGRectInfinite
                                                                  : CGRectInset(visible, 0, -ENRMVisibleAreaMargin);
+  BOOL reconciled = _bitmapViews == nil;
+  if (reconciled) {
+    NSMutableArray<UIView *> *views = [NSMutableArray array];
+    for (UIView *segment in _segmentViews)
+      ENRMCollectDroppableContent(segment, views);
+    _bitmapViews = views;
+  }
   NSMutableArray<RCTUIView *> *dropped = nil;
-  for (RCTUIView *segment in _segmentViews) {
-    // React Native draws the views it renders into a slot.
-    if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]] ||
-        [segment isKindOfClass:[ENRMBlockSlotSegmentView class]]) {
-      continue;
-    }
-    BOOL draws = !CGRectIsNull(drawn) && CGRectIntersectsRect(drawn, segment.frame);
-    if (draws == ![_undrawnSegments containsObject:segment]) {
+  for (RCTUIView *segment in _bitmapViews) {
+    CGRect frame = [segment convertRect:segment.bounds toView:self];
+    BOOL draws = !CGRectIsNull(drawn) && CGRectIntersectsRect(drawn, frame);
+    if (!reconciled && draws == ![_undrawnSegments containsObject:segment]) {
       continue;
     }
     if (draws) {
@@ -2246,15 +2247,18 @@ static void ENRMAfterCommit(dispatch_block_t block)
 // The dropped block segments in `rect` (this view's space), drawn again for a capture.
 - (nullable NSArray<RCTUIView *> *)drawSegmentsForCaptureInRect:(CGRect)rect
 {
+  if (_bitmapViews == nil)
+    [self updateBlockBitmaps];
   NSMutableArray<RCTUIView *> *drawn = nil;
-  for (RCTUIView *segment in _segmentViews) {
-    if ([_undrawnSegments containsObject:segment] && CGRectIntersectsRect(segment.frame, rect) &&
+  for (RCTUIView *segment in _bitmapViews) {
+    CGRect frame = [segment convertRect:segment.bounds toView:self];
+    if ([_undrawnSegments containsObject:segment] && CGRectIntersectsRect(frame, rect) &&
         ![_capturedSegments containsObject:segment]) {
       drawn = drawn ?: [NSMutableArray array];
       [drawn addObject:segment];
       // Now, not at the commit: a capture may not commit, and the drop after it must find it drawn.
       ENRMSetViewDrawsContent(segment, YES);
-      ENRMDisplayDroppableContent(segment);
+      [segment.layer displayIfNeeded];
     }
   }
   return drawn;
@@ -2346,6 +2350,8 @@ static void ENRMAfterCommit(dispatch_block_t block)
 
   _cachedMarkdown = nil;
   _renderedMarkdown = nil;
+  _taskListMarkdown = nil;
+  _bitmapViews = nil;
   _config = nil;
   _activeBlockSlotIds = nil;
   _blockSlotHeights = nil;
