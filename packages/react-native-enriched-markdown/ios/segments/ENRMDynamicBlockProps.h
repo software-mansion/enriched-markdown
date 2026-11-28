@@ -23,13 +23,30 @@ NS_ASSUME_NONNULL_BEGIN
  * ENRMCodeBlockContainerView; property names are unchanged so call sites read
  * dynamic.copyLabel.
  */
+#if !TARGET_OS_OSX
+@class ENRMTableCellTextView, ENRMTableIOSGridView;
+@protocol ENRMTableSelectionHost <NSObject>
+@property (nonatomic, readonly) BOOL tableSelectionEnabled;
+- (void)configureTableSelectionView:(ENRMTableCellTextView *)textView;
+@end
+#endif
+
 @interface ENRMDynamicBlockProps : NSObject
+#if !TARGET_OS_OSX
+@property (nonatomic, weak, nullable) id<ENRMTableSelectionHost> tableSelectionHost;
+@property (nonatomic, weak, nullable) ENRMTableIOSGridView *activeSelectionGrid;
+#endif
 @property (nonatomic, strong, nullable) ENRMLinkContextMenus *linkContextMenus;
 @property (nonatomic, assign) BOOL enableLinkPreview;
 @property (nonatomic, assign) BOOL enableBlockContextMenu;
 @property (nonatomic, assign) BOOL enableCodeBlockPress;
 @property (nonatomic, copy, nullable, getter=menuCopyLabel) NSString *copyLabel;
 @property (nonatomic, copy, nullable, getter=menuCopyAsMarkdownLabel) NSString *copyAsMarkdownLabel;
+#if !TARGET_OS_OSX
+/// Labels of the whole-table actions added to a text selection in a table cell.
+@property (nonatomic, copy, getter=menuCopyTableLabel) NSString *copyTableLabel;
+@property (nonatomic, copy, getter=menuCopyTableAsMarkdownLabel) NSString *copyTableAsMarkdownLabel;
+#endif
 @end
 
 NS_ASSUME_NONNULL_END

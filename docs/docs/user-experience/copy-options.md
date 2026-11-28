@@ -116,6 +116,8 @@ In the React Native package, the built-in copy actions are English by default (*
         other: t('copyImageUrls'),
       },
     },
+    copyTable: { label: t('copyTable') },
+    copyTableAsMarkdown: { label: t('copyTableAsMarkdown') },
   }}
 />
 ```
@@ -131,6 +133,7 @@ Notes:
   - **`Intl.PluralRules` is constructed with no locale**, so it follows the JS runtime's default. On an English device only `one` and `other` ever fire, even if you supply `few` and `many`.
   - Templates are precomputed for counts **0 to 100**; above that, `other` is used.
   - If `Intl.PluralRules` is missing or throws, `pluralLabels` is ignored entirely and the singular `label` is used.
+- `copyTable` and `copyTableAsMarkdown` (iOS) relabel the **Copy Table** / **Copy Table as Markdown** actions that join the selection menu when text inside a table cell is selected. They copy the whole table and are shown while `enableBlockContextMenu` is on.
 - Labels apply to the main selection menu and the table, math, and code-block copy menus on both iOS and Android. With `flavor="github"`, the code-block header's copy button reuses the copy label for assistive technologies.
 - OS-provided actions (Look Up, Translate) and the system Cut / Paste / Select All items are localized by the platform and are not affected.
 

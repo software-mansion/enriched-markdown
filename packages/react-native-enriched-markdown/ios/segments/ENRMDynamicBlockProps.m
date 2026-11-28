@@ -9,6 +9,10 @@
     _enableLinkPreview = YES;
     _enableBlockContextMenu = YES;
     _enableCodeBlockPress = NO;
+#if !TARGET_OS_OSX
+    _copyTableLabel = @"Copy Table";
+    _copyTableAsMarkdownLabel = @"Copy Table as Markdown";
+#endif
   }
   return self;
 }

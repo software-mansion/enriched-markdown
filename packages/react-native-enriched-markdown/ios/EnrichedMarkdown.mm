@@ -43,6 +43,7 @@
 #import "ENRMSpoilerCapable.h"
 #import "ENRMSpoilerOverlayView.h"
 #import "ENRMSpoilerTapUtils.h"
+#import "ENRMTableIOSGridView.h"
 #import "ENRMUTF8.h"
 #import "ENRMViewFreeMeasurement.h"
 #import "ENRMVisibleArea.h"
@@ -116,7 +117,7 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
 @end
 
 #if !TARGET_OS_OSX
-@interface EnrichedMarkdown () <ENRMLinkContextMenuSource, ENRMCaptureParticipant>
+@interface EnrichedMarkdown () <ENRMLinkContextMenuSource, ENRMCaptureParticipant, ENRMTableSelectionHost>
 - (nullable NSArray<RCTUIView *> *)drawSegmentsForCaptureInRect:(CGRect)rect;
 - (void)dropSegmentsAfterCapture:(nullable NSArray<RCTUIView *> *)segments;
 @end
@@ -355,6 +356,7 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
     _drawnVisibleRect = CGRectNull;
     _undrawnSegments = [NSHashTable weakObjectsHashTable];
 #if !TARGET_OS_OSX
+    _dynamicBlockProps.tableSelectionHost = self;
     ENRMCaptureAddParticipant(self);
 #endif
     _fontScaleObserver.onChange = ^{
@@ -1773,6 +1775,11 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     _dirtyFlags |= ENRMDirtyRender | ENRMDirtyRecreateSegments;
   }
 
+#if !TARGET_OS_OSX
+  if (_selectable && !newViewProps.selectable) {
+    [_dynamicBlockProps.activeSelectionGrid clearSelectionView];
+  }
+#endif
   _selectable = newViewProps.selectable;
 
   for (RCTUIView *segment in _segmentViews) {
@@ -1913,6 +1920,12 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   // menu-open. (_selectionMenuLabels also feeds the text selection menu above.)
   _dynamicBlockProps.copyLabel = _selectionMenuLabels.copyLabel;
   _dynamicBlockProps.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
+#if !TARGET_OS_OSX
+  _dynamicBlockProps.copyTableLabel =
+      [[NSString alloc] initWithUTF8String:newViewProps.selectionMenuConfig.copyTableLabel.c_str()];
+  _dynamicBlockProps.copyTableAsMarkdownLabel =
+      [[NSString alloc] initWithUTF8String:newViewProps.selectionMenuConfig.copyTableAsMarkdownLabel.c_str()];
+#endif
 
   if (ENRMAccessibilityLabelsChanged(oldViewProps.accessibilityLabels, newViewProps.accessibilityLabels)) {
     _accessibilityLabels = [[ENRMAccessibilityLabels alloc] init];
@@ -1960,6 +1973,9 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   }
 
   if (newViewProps.selectionColor != oldViewProps.selectionColor) {
+#if !TARGET_OS_OSX
+    ENRMApplySelectionColor(_dynamicBlockProps.activeSelectionGrid.selectionView, newViewProps.selectionColor);
+#endif
     for (RCTUIView *segment in _segmentViews) {
       if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
         ENRMPlatformTextView *tv = ((EnrichedMarkdownInternalText *)segment).textView;
@@ -2541,6 +2557,28 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
 
 // TODO: Remove API_AVAILABLE(ios(16.0)) guard when the minimum iOS deployment target in RN is bumped to 16.
 #if !TARGET_OS_OSX
+- (BOOL)tableSelectionEnabled
+{
+  return _selectable;
+}
+
+- (void)configureTableSelectionView:(ENRMTableCellTextView *)textView
+{
+  textView.delegate = self;
+  const auto &props = *std::static_pointer_cast<EnrichedMarkdownProps const>(_props);
+  ENRMApplySelectionColor(textView, props.selectionColor);
+  __weak ENRMMarkdownTextView *weakView = textView;
+  __weak EnrichedMarkdown *weakSelf = self;
+  textView.copySelectionHandler = ^(NSRange range) {
+    EnrichedMarkdown *host = weakSelf;
+    NSAttributedString *text = weakView.attributedText;
+    if (host && NSMaxRange(range) <= text.length) {
+      ENRMCopySelection([text attributedSubstringFromRange:range], range,
+                        extractMarkdownFromAttributedString(text, range), host.config, [host selectionCopyHandler]);
+    }
+  };
+}
+
 - (UIMenu *)textView:(UITextView *)textView
     editMenuForTextInRange:(NSRange)range
           suggestedActions:(NSArray<UIMenuElement *> *)suggestedActions API_AVAILABLE(ios(16.0))
@@ -2558,6 +2596,10 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
   NSMutableArray<UIAction *> *customActions =
       ENRMBuildContextMenuActions(_contextMenuItemTexts, _contextMenuItemIcons, textView, range, handler);
 
+  if ([textView isKindOfClass:ENRMTableCellTextView.class]) {
+    TableContainerView *table = ((ENRMTableCellTextView *)textView).table;
+    suggestedActions = [suggestedActions arrayByAddingObjectsFromArray:[table tableCopyActions]];
+  }
   NSString *segmentMarkdown = extractMarkdownFromAttributedString(textView.attributedText, range);
   return buildEditMenuForSelection(textView.attributedText, range, segmentMarkdown, _config, suggestedActions,
                                    customActions, _selectionMenuConfig, [self selectionCopyHandler]);

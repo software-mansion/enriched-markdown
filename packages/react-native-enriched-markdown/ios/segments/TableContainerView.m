@@ -18,6 +18,7 @@
 #import "ENRMTableGridView.h"
 #else
 #import "ENRMTableIOSGridView.h"
+#import "RenderedMarkdownSegment.h"
 #endif
 
 @interface TableCellData : NSObject
@@ -28,6 +29,9 @@
 @property (nonatomic, copy) NSString *markdownText;
 @property (nonatomic, assign) BOOL isHeader;
 @property (nonatomic, assign) NSTextAlignment alignment;
+#if !TARGET_OS_OSX
+@property (nonatomic, assign) uint64_t signature;
+#endif
 @end
 
 // The grids draw cell text with string drawing, which paints NSLinkAttributeName in the system link
@@ -183,6 +187,9 @@ static NSArray<NSArray<TableCellData *> *> *ENRMTableBuildRows(MarkdownASTNode *
       NSMutableArray<TableCellData *> *rowCells = [NSMutableArray array];
       for (MarkdownASTNode *cellNode in rowNode.children) {
         TableCellData *cell = [[TableCellData alloc] init];
+#if !TARGET_OS_OSX
+        cell.signature = ENRMSignatureForNode(cellNode);
+#endif
         cell.isHeader = isSectionHead || (cellNode.type == MarkdownNodeTypeTableHeaderCell);
         cell.alignment = ENRMTableTextAlignmentFromString(cellNode.attributes[@"align"]);
         cell.plainText = ENRMTablePlainTextFromNode(cellNode, NO);
@@ -260,7 +267,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 }
 
 #if !TARGET_OS_OSX
-@interface TableContainerView () <UIContextMenuInteractionDelegate>
+@interface TableContainerView () <UIContextMenuInteractionDelegate, UIEditMenuInteractionDelegate>
 @end
 #else
 @interface TableContainerView ()
@@ -313,10 +320,13 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   NSArray *_cachedAccessibilityElements;
 
   BOOL _imageRemeasurePending;
-  // Frame, in grid coordinates, of the link whose menu is being presented. Null for the table's own menu.
-  CGRect _linkMenuFrame;
 #if !TARGET_OS_OSX
+  uint64_t _tableSignature;
+  // Frame, in grid coordinates, of the link whose menu is being presented.
+  CGRect _linkMenuFrame;
   ENRMLinkMenuLift *_linkMenuLift;
+  UIEditMenuInteraction *_tableEditMenu API_AVAILABLE(ios(16.0));
+  UIEditMenuConfiguration *_tableMenuConfiguration API_AVAILABLE(ios(16.0));
 #endif
 }
 
@@ -331,6 +341,9 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     _dynamicProps = [[ENRMDynamicBlockProps alloc] init];
     _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
     _resolvedLayoutDirection = NSWritingDirectionLeftToRight;
+#if !TARGET_OS_OSX
+    _linkMenuFrame = CGRectNull;
+#endif
     [self setupScrollView];
   }
   return self;
@@ -370,6 +383,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 #else
   ENRMTableIOSGridView *iosGridView = [[ENRMTableIOSGridView alloc] initWithFrame:CGRectZero];
   __weak TableContainerView *weakSelf = self;
+  iosGridView.table = self;
   iosGridView.onLinkTap = ^(NSString *url) {
     TableContainerView *strongSelf = weakSelf;
     if (strongSelf && strongSelf.onLinkPress)
@@ -391,6 +405,10 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   [_scrollView addSubview:_gridContainer];
   UIContextMenuInteraction *contextMenu = [[UIContextMenuInteraction alloc] initWithDelegate:self];
   [_gridContainer addInteraction:contextMenu];
+  if (@available(iOS 16.0, *)) {
+    _tableEditMenu = [[UIEditMenuInteraction alloc] initWithDelegate:self];
+    [_gridContainer addInteraction:_tableEditMenu];
+  }
 #endif
 }
 
@@ -488,8 +506,14 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 
 - (void)applyTableNode:(MarkdownASTNode *)tableNode
 {
+#if TARGET_OS_OSX
   [[_gridContainer subviews] makeObjectsPerformSelector:@selector(removeFromSuperview)];
-
+#else
+  uint64_t previousSignature = _tableSignature;
+  _tableSignature = ENRMSignatureForNode(tableNode);
+  NSArray<NSNumber *> *previousWidths = _colWidths;
+  NSArray<NSNumber *> *previousHeights = _rowHeights;
+#endif
   NSUInteger colCount = 0;
   _rows = ENRMTableBuildRows(tableNode, self.config, self.allowFontScaling, self.maxFontSizeMultiplier,
                              _writingDirectionMode, _resolvedLayoutDirection, &colCount);
@@ -498,6 +522,11 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   _cachedAccessibilityElements = nil;
   [self computeLayout];
 #if !TARGET_OS_OSX
+  if (!CGRectIsNull(_linkMenuFrame) &&
+      (_tableSignature != previousSignature || ![_colWidths isEqualToArray:previousWidths] ||
+       ![_rowHeights isEqualToArray:previousHeights])) {
+    [self clearLinkMenuPreview];
+  }
   if (_shownColWidths.count != _colWidths.count) {
     [_widthsLink invalidate];
     _widthsLink = nil;
@@ -621,6 +650,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     ENRMTableIOSRowData *rowData = [[ENRMTableIOSRowData alloc] init];
     rowData.backgroundColor = [self backgroundColorForRowIsHeader:isHeaderRow bodyRowIndex:bodyRowIndex];
     rowData.cellTexts = [self attributedTextsForRow:rowCells];
+    rowData.cellSignatures = [rowCells valueForKey:@"signature"];
+    rowData.sourceCellTexts = [rowCells valueForKey:@"attributedText"];
     [rowDataArray addObject:rowData];
 
     if (!isHeaderRow) {
@@ -674,7 +705,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   }
 #if !TARGET_OS_OSX
   // The grid is about to change under the lifted link's image.
-  [_linkMenuLift end];
+  [self clearLinkMenuPreview];
+  [((ENRMTableIOSGridView *)_gridContainer).selectionView setNeedsDisplayFromCharacterIndex:0];
 #endif
   NSArray<NSNumber *> *oldColWidths = _colWidths;
   NSArray<NSNumber *> *oldRowHeights = _rowHeights;
@@ -704,7 +736,13 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 }
 
 #if !TARGET_OS_OSX
-/// A link's menu lifts only the link, see `ENRMLinkMenuLift`; the table's own menu (no link
+- (void)clearLinkMenuPreview
+{
+  _linkMenuFrame = CGRectNull;
+  [_linkMenuLift end];
+}
+
+/// A link's menu lifts only the link, see `ENRMLinkMenuLift`; the table's own menu on iOS 15 (no link
 /// frame) lifts the whole grid.
 - (UITargetedPreview *)linkPreviewForInteraction:(UIContextMenuInteraction *)interaction
 {
@@ -750,7 +788,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
-  ENRMTableIOSItemHit *link = [(ENRMTableIOSGridView *)_gridContainer linkAtPoint:location];
+  ENRMTableIOSGridView *grid = (ENRMTableIOSGridView *)_gridContainer;
+  ENRMTableIOSItemHit *link = [grid linkAtPoint:location];
   UIMenu *linkMenu = [self.dynamicProps.linkContextMenus menuForURL:link.url title:link.title];
   [_linkMenuLift end];
   // UIKit replaces a nil identifier with one of its own, so the frame tells the menus apart.
@@ -761,27 +800,95 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
                     previewProvider:nil
                      actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) { return linkMenu; }];
   }
-  if (!self.dynamicProps.enableBlockContextMenu) {
+  // From iOS 16 the table's own menu is an edit menu, see -showTableMenuAtPoint:.
+  if (@available(iOS 16.0, *)) {
     return nil;
   }
-  return [UIContextMenuConfiguration
-      configurationWithIdentifier:nil
-                  previewProvider:nil
-                   actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
-                     UIAction *copyMarkdown =
-                         [UIAction actionWithTitle:self.dynamicProps.menuCopyAsMarkdownLabel
-                                             image:[RCTUIImage systemImageNamed:@"doc.text"]
-                                        identifier:nil
-                                           handler:^(__kindof UIAction *action) { [self copyMarkdownToPasteboard]; }];
+  if (!self.dynamicProps.enableBlockContextMenu || [grid ownsCellInteractionAtPoint:location])
+    return nil;
+  [self.dynamicProps.activeSelectionGrid clearSelectionView];
+  NSArray<UIAction *> *actions = [self tableActionsWithTitle:self.dynamicProps.menuCopyLabel
+                                               markdownTitle:self.dynamicProps.menuCopyAsMarkdownLabel];
+  return [UIContextMenuConfiguration configurationWithIdentifier:nil
+                                                 previewProvider:nil
+                                                  actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
+                                                    return [UIMenu menuWithChildren:actions];
+                                                  }];
+}
 
-                     UIAction *copyPlainText =
-                         [UIAction actionWithTitle:self.dynamicProps.menuCopyLabel
-                                             image:[RCTUIImage systemImageNamed:@"doc.on.doc"]
-                                        identifier:nil
-                                           handler:^(__kindof UIAction *action) { [self copyTableToPasteboard]; }];
+- (void)showTableMenuAtPoint:(CGPoint)point
+{
+  if (@available(iOS 16.0, *)) {
+    if (self.dynamicProps.enableBlockContextMenu)
+      [_tableEditMenu presentEditMenuWithConfiguration:[UIEditMenuConfiguration configurationWithIdentifier:@"table"
+                                                                                                sourcePoint:point]];
+  }
+}
 
-                     return [UIMenu menuWithTitle:@"" children:@[ copyPlainText, copyMarkdown ]];
-                   }];
+- (UIMenu *)editMenuInteraction:(UIEditMenuInteraction *)interaction
+           menuForConfiguration:(UIEditMenuConfiguration *)configuration
+               suggestedActions:(NSArray<UIMenuElement *> *)suggestedActions API_AVAILABLE(ios(16.0))
+{
+  if (!self.dynamicProps.enableBlockContextMenu ||
+      (![@"table" isEqual:configuration.identifier] &&
+       [(ENRMTableIOSGridView *)_gridContainer ownsCellInteractionAtPoint:configuration.sourcePoint]))
+    return nil;
+  [self.dynamicProps.activeSelectionGrid clearSelectionView];
+  _tableMenuConfiguration = configuration;
+  [self becomeFirstResponder];
+  return [UIMenu menuWithChildren:[self tableActionsWithTitle:self.dynamicProps.menuCopyLabel
+                                                markdownTitle:self.dynamicProps.menuCopyAsMarkdownLabel]];
+}
+
+- (void)editMenuInteraction:(UIEditMenuInteraction *)interaction
+    willDismissMenuForConfiguration:(UIEditMenuConfiguration *)configuration
+                           animator:(id<UIEditMenuInteractionAnimating>)animator API_AVAILABLE(ios(16.0))
+{
+  if (_tableMenuConfiguration == configuration) {
+    _tableMenuConfiguration = nil;
+    [self resignFirstResponder];
+  }
+}
+
+- (BOOL)canBecomeFirstResponder
+{
+  return YES;
+}
+
+- (BOOL)canPerformAction:(SEL)action withSender:(id)sender
+{
+  if (@available(iOS 16.0, *)) {
+    return action == @selector(copy:) && _tableMenuConfiguration && self.isFirstResponder &&
+           self.dynamicProps.enableBlockContextMenu;
+  }
+  return NO;
+}
+
+- (void)copy:(id)sender
+{
+  [self copyTableToPasteboard];
+}
+
+- (NSArray<UIAction *> *)tableCopyActions
+{
+  if (!self.dynamicProps.enableBlockContextMenu)
+    return @[];
+  return [self tableActionsWithTitle:self.dynamicProps.menuCopyTableLabel
+                       markdownTitle:self.dynamicProps.menuCopyTableAsMarkdownLabel];
+}
+
+- (NSArray<UIAction *> *)tableActionsWithTitle:(NSString *)title markdownTitle:(NSString *)markdownTitle
+{
+  UIAction *copy = [UIAction actionWithTitle:title
+                                       image:[UIImage systemImageNamed:@"doc.on.doc"]
+                                  identifier:nil
+                                     handler:^(__kindof UIAction *action) { [self copyTableToPasteboard]; }];
+  return @[
+    copy, [UIAction actionWithTitle:markdownTitle
+                              image:[UIImage systemImageNamed:@"doc.text"]
+                         identifier:nil
+                            handler:^(__kindof UIAction *action) { [self copyMarkdownToPasteboard]; }]
+  ];
 }
 #endif // !TARGET_OS_OSX
 

@@ -636,6 +636,10 @@ interface TextSelectionMenuConfig {
     label?: string; // single image
     pluralLabels?: TextSelectionMenuPluralLabels; // 2 or more images
   };
+  // iOS: whole-table actions added to a text selection inside a table cell,
+  // shown when enableBlockContextMenu is on. Relabel only.
+  copyTable?: { label?: string };
+  copyTableAsMarkdown?: { label?: string };
 }
 
 interface TextSelectionMenuPluralLabels {

@@ -3,6 +3,7 @@
 #include <TargetConditionals.h>
 #if !TARGET_OS_OSX
 
+#import "ENRMMarkdownTextView.h"
 #import <UIKit/UIKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -12,12 +13,13 @@ typedef void (^ENRMTableIOSLinkBlock)(NSString *url);
 typedef NS_ENUM(NSInteger, ENRMTableIOSItemKind) {
   ENRMTableIOSItemKindLink,
   ENRMTableIOSItemKindImage,
+  ENRMTableIOSItemKindText,
 };
 
 /// An interactive item found under a point of the grid.
 @interface ENRMTableIOSItemHit : NSObject
 @property (nonatomic, assign) ENRMTableIOSItemKind kind;
-@property (nonatomic, copy) NSString *url;
+@property (nonatomic, copy, nullable) NSString *url;
 /// The link's visible label, or an image's alt text.
 @property (nonatomic, copy, nullable) NSString *title;
 /// The item's frame in grid coordinates.
@@ -26,13 +28,27 @@ typedef NS_ENUM(NSInteger, ENRMTableIOSItemKind) {
 
 @interface ENRMTableIOSRowData : NSObject
 @property (nonatomic, strong) NSArray<NSAttributedString *> *cellTexts;
+/// The cell texts with their links, for the selection editor. `cellTexts` is what the grid draws.
+@property (nonatomic, strong, nullable) NSArray<NSAttributedString *> *sourceCellTexts;
+@property (nonatomic, strong, nullable) NSArray<NSNumber *> *cellSignatures;
 @property (nonatomic, strong) UIColor *backgroundColor;
+@end
+
+@class TableContainerView;
+
+/// The native text view placed over the touched cell, so that UIKit owns its selection and edit menu.
+@interface ENRMTableCellTextView : ENRMMarkdownTextView
+@property (nonatomic, weak) TableContainerView *table;
 @end
 
 /// Draws the entire table grid in a single drawRect: pass, avoiding
 /// per-cell UITextView allocation and the TextKit layout storms that
 /// cause multi-second main-thread hangs on large tables.
 @interface ENRMTableIOSGridView : UIView
+@property (nonatomic, weak) TableContainerView *table;
+@property (nonatomic, readonly, nullable) ENRMTableCellTextView *selectionView;
+- (void)clearSelectionView;
+- (BOOL)ownsCellInteractionAtPoint:(CGPoint)point;
 
 @property (nonatomic, copy, nullable) ENRMTableIOSLinkBlock onLinkTap;
 @property (nonatomic, copy, nullable) ENRMTableIOSLinkBlock onLinkLongTap;

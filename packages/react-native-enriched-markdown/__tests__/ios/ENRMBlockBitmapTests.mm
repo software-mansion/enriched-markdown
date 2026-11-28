@@ -1,4 +1,5 @@
 #import "../../ios/EnrichedMarkdown.h"
+#import "../../ios/segments/ENRMDroppableContent.h"
 #import "../../ios/styles/StyleConfig.h"
 #import "../../ios/views/EnrichedMarkdownInternalText.h"
 #import <XCTest/XCTest.h>
@@ -24,16 +25,10 @@ static NSString *ENRMBlockTestMarkdown(void)
   return [parts componentsJoinedByString:@"\n\n"];
 }
 
-// By name: the views that draw their own bitmap (ENRMDroppableContent).
+// The views that draw their own bitmap.
 static void ENRMCollectBitmapViews(UIView *view, NSMutableArray<UIView *> *views)
 {
-  static NSSet<NSString *> *names;
-  static dispatch_once_t once;
-  dispatch_once(&once, ^{
-    names =
-        [NSSet setWithArray:@[ @"ENRMCodeBlockContainerView", @"ENRMCodeBlockContentView", @"ENRMTableIOSGridView" ]];
-  });
-  if ([names containsObject:NSStringFromClass([view class])]) {
+  if ([view conformsToProtocol:@protocol(ENRMDroppableContent)]) {
     [views addObject:view];
   }
   for (UIView *subview in view.subviews) {

@@ -757,7 +757,7 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
     if ([hit isKindOfClass:[UITextView class]])
       url = linkURLAtPoint((UITextView *)hit, point);
     else if ([hit isKindOfClass:[ENRMTableIOSGridView class]])
-      url = [(ENRMTableIOSGridView *)hit linkAtPoint:point].url;
+      return nil; // The nested table owns both cell selection and its blank-space menu.
     if ([self.dynamicProps.linkContextMenus hasMenuForURL:url])
       return nil;
     hit = hit.superview;

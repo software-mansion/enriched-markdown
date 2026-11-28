@@ -129,6 +129,8 @@ const DEFAULT_COPY_LABEL = 'Copy';
 const DEFAULT_COPY_AS_MARKDOWN_LABEL = 'Copy as Markdown';
 const DEFAULT_COPY_IMAGE_URL_LABEL = 'Copy Image URL';
 const DEFAULT_COPY_IMAGE_URLS_LABEL = 'Copy {count} Image URLs';
+const DEFAULT_COPY_TABLE_LABEL = 'Copy Table';
+const DEFAULT_COPY_TABLE_AS_MARKDOWN_LABEL = 'Copy Table as Markdown';
 
 /**
  * Resolves `pluralLabels` into a per-count template table (index = image count,
@@ -549,6 +551,8 @@ export const EnrichedMarkdownText = ({
           copy?: unknown;
           copyAsMarkdown?: unknown;
           copyImageUrl?: unknown;
+          copyTable?: unknown;
+          copyTableAsMarkdown?: unknown;
         }
       | undefined;
 
@@ -568,6 +572,17 @@ export const EnrichedMarkdownText = ({
       DEFAULT_COPY_IMAGE_URL_LABEL
     );
 
+    const copyTable = normalizeMenuItem(
+      config?.copyTable,
+      true,
+      DEFAULT_COPY_TABLE_LABEL
+    );
+    const copyTableAsMarkdown = normalizeMenuItem(
+      config?.copyTableAsMarkdown,
+      true,
+      DEFAULT_COPY_TABLE_AS_MARKDOWN_LABEL
+    );
+
     const pluralLabels = (
       config?.copyImageUrl as
         | { pluralLabels?: SelectionMenuPluralLabels }
@@ -585,6 +600,8 @@ export const EnrichedMarkdownText = ({
         pluralLabels,
         copyImageUrl.label
       ),
+      copyTableLabel: copyTable.label,
+      copyTableAsMarkdownLabel: copyTableAsMarkdown.label,
     };
   }, [selectionMenuConfig]);
 

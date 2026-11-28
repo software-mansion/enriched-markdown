@@ -346,6 +346,8 @@ export interface SelectionMenuConfig {
   // Precomputed plural templates indexed by image count (0..100). Empty when no
   // pluralLabels are set; native then uses copyImageUrlLabel/copyImageUrlsLabel.
   copyImageUrlPluralTemplates: ReadonlyArray<string>;
+  copyTableLabel: string;
+  copyTableAsMarkdownLabel: string;
 }
 
 export interface OnContextMenuItemPressEvent {
