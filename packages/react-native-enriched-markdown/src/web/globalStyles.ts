@@ -15,6 +15,13 @@ const REVEALED_IMAGE_LAYERS =
   `${REVEALED_SPOILER} .${ENRM_SPOILER_IMAGE_COVER_CLASS}, ` +
   `${REVEALED_SPOILER} .${ENRM_SPOILER_IMAGE_CLASS}`;
 
+export const ENRM_BULLET_COLOR_VAR = '--enrm-bullet-color';
+export const ENRM_MARKER_COLOR_VAR = '--enrm-marker-color';
+export const ENRM_MARKER_WEIGHT_VAR = '--enrm-marker-weight';
+export const ENRM_TASK_CHECKBOX_CLASS = 'enrm-task-checkbox';
+export const ENRM_CHECKMARK_COLOR_VAR = '--enrm-checkmark-color';
+export const ENRM_CHECKMARK_SHAPE_VAR = '--enrm-checkmark-shape';
+
 const RULES: ReadonlyArray<readonly [id: string, css: string]> = [
   [
     'enrm-selection-style',
@@ -35,6 +42,24 @@ const RULES: ReadonlyArray<readonly [id: string, css: string]> = [
       `${REVEALED_CONTENT}, ${REVEALED_IMAGE_LAYERS} { transition: opacity ${SPOILER_REVEAL}; } ` +
       `@media (prefers-reduced-motion: reduce) { ` +
       `${REVEALED_SPOILER}, ${REVEALED_CONTENT}, ${REVEALED_IMAGE_LAYERS} { transition: none; } }`,
+  ],
+  [
+    'enrm-list-markers',
+    `.${ENRM_TEXT_CLASS} ul > li::marker { color: var(${ENRM_BULLET_COLOR_VAR}); } ` +
+      `.${ENRM_TEXT_CLASS} ol > li::marker { color: var(${ENRM_MARKER_COLOR_VAR}); font-weight: var(${ENRM_MARKER_WEIGHT_VAR}); }`,
+  ],
+  [
+    'enrm-task-checkmark',
+    `.${ENRM_TEXT_CLASS} .${ENRM_TASK_CHECKBOX_CLASS}:checked::before { ` +
+      'content: ""; position: absolute; inset: 0; ' +
+      `background-color: var(${ENRM_CHECKMARK_COLOR_VAR}); ` +
+      `clip-path: var(${ENRM_CHECKMARK_SHAPE_VAR}); }`,
+  ],
+  [
+    'enrm-task-checkbox-forced-colors',
+    '@media (forced-colors: active) { ' +
+      `.${ENRM_TEXT_CLASS} .${ENRM_TASK_CHECKBOX_CLASS}:checked { background-color: CanvasText !important; } ` +
+      `.${ENRM_TEXT_CLASS} .${ENRM_TASK_CHECKBOX_CLASS}:checked::before { background-color: Canvas; } }`,
   ],
 ];
 

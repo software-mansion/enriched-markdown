@@ -3,6 +3,13 @@ import type {
   BlockTextAlign,
   MarkdownStyleInternal,
 } from '../types/MarkdownStyleInternal';
+import {
+  ENRM_BULLET_COLOR_VAR,
+  ENRM_CHECKMARK_COLOR_VAR,
+  ENRM_CHECKMARK_SHAPE_VAR,
+  ENRM_MARKER_COLOR_VAR,
+  ENRM_MARKER_WEIGHT_VAR,
+} from './globalStyles';
 
 const normalizeFontFamily = (value: string): string | undefined =>
   value || undefined;
@@ -157,7 +164,10 @@ function listStyle(
     marginTop: list.marginTop,
     marginBottom: list.marginBottom,
     paddingInlineStart: isTaskList ? 0 : list.marginLeft,
-  };
+    [ENRM_BULLET_COLOR_VAR]: list.bulletColor,
+    [ENRM_MARKER_COLOR_VAR]: list.markerColor,
+    [ENRM_MARKER_WEIGHT_VAR]: normalizeFontWeight(list.markerFontWeight),
+  } as CSSProperties;
 }
 
 function codeBlockStyle(style: MarkdownStyleInternal): CSSProperties {
@@ -486,31 +496,83 @@ export function checkedTaskTextStyle(
   };
 }
 
-/**
- * Checkbox style used when `enableTaskListItemToggle` is `false`. Pointer-inert
- * so the browser paints no hover/active state on a checkbox that cannot be
- * toggled; appearance is otherwise identical to the enabled checkbox.
- */
-function taskCheckboxDisabledStyle(
-  style: MarkdownStyleInternal
-): CSSProperties {
-  return {
-    ...taskCheckboxStyle(style),
-    pointerEvents: 'none',
-    cursor: 'default',
-  };
-}
+// Checkbox used when `enableTaskListItemToggle` is `false`. Pointer-inert so the
+// browser paints no hover/active state on a checkbox that cannot be toggled.
+export const TASK_CHECKBOX_INERT_STYLE: CSSProperties = {
+  pointerEvents: 'none',
+  cursor: 'default',
+};
+
+const checkboxBorderWidth = (size: number): number => Math.max(1, size * 0.09);
 
 function taskCheckboxStyle(style: MarkdownStyleInternal): CSSProperties {
   const taskList = style.taskList;
   return {
+    appearance: 'none',
+    boxSizing: 'border-box',
+    position: 'relative',
     width: taskList.checkboxSize,
     height: taskList.checkboxSize,
     borderRadius: taskList.checkboxBorderRadius,
+    borderStyle: 'solid',
+    borderWidth: checkboxBorderWidth(taskList.checkboxSize),
+    borderColor: taskList.borderColor,
+    backgroundColor: 'transparent',
+    backgroundImage: 'none',
+    printColorAdjust: 'exact',
+    WebkitPrintColorAdjust: 'exact',
     marginInlineEnd: 6,
-    accentColor: taskList.checkedColor,
     verticalAlign: 'middle',
   };
+}
+
+type Point = readonly [x: number, y: number];
+
+const checkmarkPolygons = new Map<number, string>();
+
+function checkmarkPolygon(size: number): string {
+  const cached = checkmarkPolygons.get(size);
+  if (cached !== undefined) return cached;
+
+  const border = checkboxBorderWidth(size);
+  const inner = size - border * 2;
+  const half = Math.max(1.5, size * 0.12) / 2;
+  const start: Point = [size * 0.22, size * 0.5];
+  const corner: Point = [size * 0.45, size * 0.78];
+  const end: Point = [size * 0.78, size * 0.22];
+  const down = Math.atan2(corner[1] - start[1], corner[0] - start[0]);
+  const up = Math.atan2(end[1] - corner[1], end[0] - corner[0]);
+  const points: Point[] = [];
+  const arc = ([x, y]: Point, from: number, sweep: number) => {
+    const steps = Math.ceil(Math.abs(sweep) / (Math.PI / 8));
+    for (let i = 0; i <= steps; i++) {
+      const angle = from + (sweep * i) / steps;
+      points.push([x + half * Math.cos(angle), y + half * Math.sin(angle)]);
+    }
+  };
+  arc(start, down - Math.PI / 2, -Math.PI);
+  arc(corner, down + Math.PI / 2, up - down);
+  arc(end, up + Math.PI / 2, -Math.PI);
+  const miter = half / (1 + Math.cos(up - down));
+  points.push([
+    corner[0] + miter * (Math.sin(down) + Math.sin(up)),
+    corner[1] - miter * (Math.cos(down) + Math.cos(up)),
+  ]);
+  const percent = (value: number) =>
+    `${+(((value - border) / inner) * 100).toFixed(2)}%`;
+  const polygon = `polygon(${points.map(([x, y]) => `${percent(x)} ${percent(y)}`).join(', ')})`;
+  checkmarkPolygons.set(size, polygon);
+  return polygon;
+}
+
+function taskCheckboxCheckedStyle(style: MarkdownStyleInternal): CSSProperties {
+  const { checkboxSize, checkedColor, checkmarkColor } = style.taskList;
+  return {
+    borderColor: 'transparent',
+    backgroundColor: checkedColor,
+    [ENRM_CHECKMARK_COLOR_VAR]: checkmarkColor,
+    [ENRM_CHECKMARK_SHAPE_VAR]: checkmarkPolygon(checkboxSize),
+  } as CSSProperties;
 }
 
 export function tableBodyRowStyle(
@@ -528,14 +590,7 @@ export function tableBodyRowStyle(
 
 function tableWrapperStyle(style: MarkdownStyleInternal): CSSProperties {
   const table = style.table;
-  const alignment: CSSProperties = table.align
-    ? {
-        width: 'fit-content',
-        maxWidth: '100%',
-        marginLeft: table.align === 'left' ? 0 : 'auto',
-        marginRight: table.align === 'right' ? 0 : 'auto',
-      }
-    : {};
+  const overhang = Math.max(table.horizontalOverflow, 0);
   return {
     overflowX: 'auto',
     overflowY: 'hidden',
@@ -545,8 +600,26 @@ function tableWrapperStyle(style: MarkdownStyleInternal): CSSProperties {
     overflowWrap: 'normal',
     marginTop: table.marginTop,
     marginBottom: table.marginBottom,
+    ...(overhang > 0 && {
+      marginInline: -overhang,
+      paddingInline: overhang,
+    }),
+  };
+}
+
+function tableFrameStyle(style: MarkdownStyleInternal): CSSProperties {
+  const table = style.table;
+  const alignment: CSSProperties = table.align
+    ? {
+        marginLeft: table.align === 'left' ? 0 : 'auto',
+        marginRight: table.align === 'right' ? 0 : 'auto',
+      }
+    : { minWidth: '100%' };
+  return {
+    width: 'fit-content',
+    overflow: 'hidden',
     ...alignment,
-    // borderRadius must live on the wrapper, not the <table> — border-collapse:
+    // borderRadius must live on the frame, not the <table> — border-collapse:
     // collapse causes browsers to ignore border-radius on the table element itself.
     borderRadius: table.borderRadius,
   };
@@ -620,10 +693,11 @@ export interface Styles {
   mathDisplay: CSSProperties;
   table: CSSProperties;
   tableWrapper: CSSProperties;
+  tableFrame: CSSProperties;
   tableHeaderCell: Record<ColumnAlign, CSSProperties>;
   tableCell: Record<ColumnAlign, CSSProperties>;
   taskCheckbox: CSSProperties;
-  taskCheckboxDisabled: CSSProperties;
+  taskCheckboxChecked: CSSProperties;
   video: CSSProperties;
 }
 
@@ -675,6 +749,7 @@ export function buildStyles(style: MarkdownStyleInternal): Styles {
     mathDisplay: mathDisplayStyle(style),
     table: tableStyle(style),
     tableWrapper: tableWrapperStyle(style),
+    tableFrame: tableFrameStyle(style),
     tableHeaderCell: {
       left: tableHeaderCellStyle(style, 'left'),
       center: tableHeaderCellStyle(style, 'center'),
@@ -688,7 +763,7 @@ export function buildStyles(style: MarkdownStyleInternal): Styles {
       default: tableCellStyle(style, 'default'),
     },
     taskCheckbox: taskCheckboxStyle(style),
-    taskCheckboxDisabled: taskCheckboxDisabledStyle(style),
+    taskCheckboxChecked: taskCheckboxCheckedStyle(style),
     video: videoStyle(style),
   };
 

@@ -4,7 +4,9 @@ import { tableBodyRowStyle } from '../styles';
 function TableRenderer({ node, styles, renderChildren }: RendererProps) {
   return (
     <div style={styles.tableWrapper}>
-      <table style={styles.table}>{renderChildren(node)}</table>
+      <div style={styles.tableFrame}>
+        <table style={styles.table}>{renderChildren(node)}</table>
+      </div>
     </div>
   );
 }

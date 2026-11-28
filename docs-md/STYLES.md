@@ -482,7 +482,7 @@ Table styles only apply when `flavor="github"` is set. Tables inherit the base b
 | `borderRadius` | `number` | Corner radius of the table container |
 | `cellPaddingHorizontal` | `number` | Horizontal padding inside cells |
 | `cellPaddingVertical` | `number` | Vertical padding inside cells |
-| `horizontalOverflow` | `number` | When set, scrollable tables extend beyond the markdown container by this amount on each side (edge-to-edge / "bleed" layout). Set to the parent's horizontal padding to make wide tables reach the screen edges. Has no effect on tables that fit within the container width. iOS, Android, and macOS only. Default: `0` |
+| `horizontalOverflow` | `number` | When set, scrollable tables extend beyond the markdown container by this amount on each side (edge-to-edge / "bleed" layout). Set to the parent's horizontal padding to make wide tables reach the screen edges. Has no effect on tables that fit within the container width. On web, keep it at or below the space around the text, or the page scrolls sideways. Default: `0` |
 | `align` | `'left' \| 'center' \| 'right'` | Horizontal alignment of the whole table when it is narrower than the container. Tables that overflow and scroll ignore it — scrolling always starts at the table's beginning. On web, setting any value (including `'left'`) also makes the table shrink to fit its content instead of filling the container width. Default: unset — legacy start-aligned placement (full-width table on web) |
 
 ### Task List-specific

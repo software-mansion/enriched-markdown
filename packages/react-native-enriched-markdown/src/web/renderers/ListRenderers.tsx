@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { extractNodeText } from '../utils';
 import type { RendererProps, RendererMap, ASTNode, NodeType } from '../types';
-import { listItemStyle, checkedTaskTextStyle } from '../styles';
+import { ENRM_TASK_CHECKBOX_CLASS } from '../globalStyles';
+import {
+  listItemStyle,
+  checkedTaskTextStyle,
+  TASK_CHECKBOX_INERT_STYLE,
+} from '../styles';
 
 const NESTED_LIST_TYPES: Set<NodeType> = new Set([
   'UnorderedList',
@@ -101,17 +106,19 @@ function ListItemRenderer({
         {isTask && (
           <input
             type="checkbox"
+            className={ENRM_TASK_CHECKBOX_CLASS}
             checked={isChecked}
             onChange={handleChange}
             readOnly={!capabilities.enableTaskListItemToggle}
             aria-disabled={
               capabilities.enableTaskListItemToggle ? undefined : true
             }
-            style={
-              capabilities.enableTaskListItemToggle
-                ? styles.taskCheckbox
-                : styles.taskCheckboxDisabled
-            }
+            style={{
+              ...styles.taskCheckbox,
+              ...(isChecked && styles.taskCheckboxChecked),
+              ...(!capabilities.enableTaskListItemToggle &&
+                TASK_CHECKBOX_INERT_STYLE),
+            }}
             aria-label={`Task: ${taskText}`}
           />
         )}

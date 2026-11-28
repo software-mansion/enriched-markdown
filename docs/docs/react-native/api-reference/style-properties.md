@@ -262,7 +262,7 @@ Requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#
 | `itemSpacing`      | `number` | `0`       | Vertical spacing added between consecutive list items (including nested ones). Adds no space above the first item or below the last |
 
 :::note
-On web, lists render with the browser's native bullets and numbers, so the marker styling props - `bulletColor`, `bulletSize`, `markerColor`, `markerFontWeight`, `markerMinWidth`, and `gapWidth` - have no effect there. `marginLeft` and `itemSpacing` still apply on all platforms.
+On web, lists render with the browser's native bullets and numbers. `bulletColor`, `markerColor` and `markerFontWeight` style them, but `bulletSize`, `markerMinWidth` and `gapWidth` have no effect there. `marginLeft` and `itemSpacing` still apply on all platforms.
 :::
 
 <LivePreview src={ListSrc} />
@@ -485,8 +485,12 @@ Table styles only apply when [`flavor="github"`](/react-native/api-reference/enr
 | `borderRadius`           | `number`                        | `6`                   | Corner radius of the table container                                                                                                                                         |
 | `cellPaddingHorizontal`  | `number`                        | `12`                  | Horizontal padding inside cells                                                                                                                                              |
 | `cellPaddingVertical`    | `number`                        | `8`                   | Vertical padding inside cells                                                                                                                                                |
-| `horizontalOverflow`     | `number`                        | `0`                   | Extra width (points) a table may extend beyond the container edges, letting a wide table bleed into the surrounding padding as it scrolls. No effect on web                  |
+| `horizontalOverflow`     | `number`                        | `0`                   | Extra width (points) a table may extend beyond the container edges, letting a wide table bleed into the surrounding padding as it scrolls.                                   |
 | `align`                  | `'left' \| 'center' \| 'right'` | unset                 | Horizontal alignment of the whole table within the container. Only applies when the table is narrower than the container; overflowing tables always start at their beginning |
+
+:::note
+On web, keep `horizontalOverflow` at or below the space around the text, such as the parent's horizontal padding. A larger value makes the table's scroll area stick out past the page edge, so the page scrolls sideways, even when the table fits.
+:::
 
 <LivePreview src={TableSrc} />
 
@@ -497,16 +501,12 @@ Task list styles only apply when [`flavor="github"`](/react-native/api-reference
 | Property               | Type      | Default                           | Description                                                      |
 | ---------------------- | --------- | --------------------------------- | ---------------------------------------------------------------- |
 | `checkedColor`         | `string`  | `#007AFF` iOS / `#2196F3` Android | Background color of checked checkbox                             |
-| `borderColor`          | `string`  | `#9E9E9E`                         | Border color of unchecked checkbox. No effect on web             |
-| `checkmarkColor`       | `string`  | `#FFFFFF`                         | Color of the checkmark inside checked checkbox. No effect on web |
+| `borderColor`          | `string`  | `#9E9E9E`                         | Border color of unchecked checkbox                               |
+| `checkmarkColor`       | `string`  | `#FFFFFF`                         | Color of the checkmark inside checked checkbox                   |
 | `checkboxSize`         | `number`  | 90% of list font size             | Size of the checkbox                                             |
 | `checkboxBorderRadius` | `number`  | `3`                               | Corner radius of the checkbox                                    |
 | `checkedTextColor`     | `string`  | `#000000`                         | Text color for checked items                                     |
 | `checkedStrikethrough` | `boolean` | `false`                           | Whether to apply strikethrough to checked items                  |
-
-:::note
-On web, the checkbox is the browser's native `<input type="checkbox">` tinted via `accentColor` (`checkedColor`). Its `borderColor` and `checkmarkColor` are drawn by the browser and cannot be overridden.
-:::
 
 <LivePreview src={TaskListSrc} />
 
