@@ -6,6 +6,7 @@
 #import "ENRMLaidOutSize.h"
 #import "ENRMLatexErrorCoordinator.h"
 #import "ENRMLinkContextMenus.h"
+#import "ENRMLinkPillText.h"
 #import "ENRMLinkRegexProps.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMPreparedRenderStore.h"
@@ -2534,8 +2535,10 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
   // Skip while text is selected so the tap only clears the selection.
   if (_enableTextPress && !hadSelection) {
     NSUInteger index = textPressIndexAtTapLocation(textView, recognizer);
-    if (index != NSNotFound)
-      [self emitTextPress:index text:ENRMGetAttributedText(textView).string];
+    if (index != NSNotFound) {
+      NSString *text = ENRMStringByExpandingLinkPillsAtIndex(ENRMGetAttributedText(textView), &index);
+      [self emitTextPress:index text:text];
+    }
   }
 }
 

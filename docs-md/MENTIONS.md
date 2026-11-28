@@ -169,6 +169,23 @@ Local files show on the first layout. Remote icons load in the background throug
 
 Pill presentation is native only. Web and macOS render ordinary links and ignore `pill` and `linkPillContent`.
 
+### Inline icons: `linkVariants[pattern].inlineIcon`
+
+A pill is one unit, so a long label is cut off at the end of the line. For links that show their own text and need to wrap, such as titles, give the variant an `inlineIcon` instead:
+
+```tsx
+linkVariants: {
+  '^app://thread/': { color: '#4F46E5', inlineIcon: { iconUri: 'thread_icon', iconTintColor: '#4F46E5' } },
+}
+```
+
+- The icon is drawn before the link text, on the line of its first word; the text wraps like any other link and takes the variant's `color`, `underline`, `backgroundColor` and `fontFamily`.
+- The icon is not part of the text: copy, export, the accessible name and link menus see only the link text.
+- `iconUri` takes the same [icon sources](#icon-sources) as pills. `linkPillContent` does not apply, and a variant that also sets `pill` draws the pill.
+- iOS and Android only. Web and macOS render the link without the icon.
+- On Android, the icon stays on one line with the link's first word (up to about eight font sizes wide, and only up to the first style change). A paragraph with right-to-left text draws the link without its icon, and so does, in a right-to-left layout (the device language or `I18nManager.forceRTL`), a paragraph with no left-to-right text outside icons, pills and images, such as `- [Docs](app://docs)`. An ancestor's `direction: 'rtl'` style is not taken into account.
+- In superscript and subscript, the icon keeps the surrounding text's font size on Android and takes the superscript size on iOS.
+
 ## Positioning the Suggestion List
 
 Use `onCaretRectChange` to get the caret's `{ x, y, width, height }` relative to the input. Combine with the input's position (via `onLayout`) to place a floating popup:

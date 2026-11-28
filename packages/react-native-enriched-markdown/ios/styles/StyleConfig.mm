@@ -19,6 +19,9 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 @implementation LinkPillConfig
 @end
 
+@implementation LinkInlineIconConfig
+@end
+
 @implementation ENRMImageSourceOverride
 @end
 

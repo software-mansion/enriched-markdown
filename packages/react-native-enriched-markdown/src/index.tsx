@@ -5,7 +5,11 @@ import { setNativeMarkdownStreams } from './markdownStream';
 // so a stream created before any view has rendered has it too; the web entry never sets it.
 setNativeMarkdownStreams(NativeEnrichedMarkdownParser);
 
-export type { LinkVariantStyle, LinkPillStyle } from './types/MarkdownStyle';
+export type {
+  LinkVariantStyle,
+  LinkPillStyle,
+  LinkInlineIconStyle,
+} from './types/MarkdownStyle';
 export type { LinkPillContent } from './types/MarkdownTextProps';
 export type {
   LinkContextMenuItem,

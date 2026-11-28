@@ -1,5 +1,6 @@
 #import "LinkTapUtils.h"
 #import "ENRMLinkPillAttachment.h"
+#import "ENRMLinkPillText.h"
 #import "ENRMSpoilerTapUtils.h"
 #import "ENRMTextHitTest.h"
 
@@ -41,7 +42,7 @@ NSString *_Nullable linkTitleAtIndex(NSAttributedString *text, NSUInteger index)
 #endif
   NSRange range;
   id url = [text attribute:@"linkURL" atIndex:index longestEffectiveRange:&range inRange:NSMakeRange(0, text.length)];
-  return url ? [text.string substringWithRange:range] : nil;
+  return url ? ENRMStringByExpandingLinkPills([text attributedSubstringFromRange:range]) : nil;
 }
 
 NSDictionary<NSString *, NSString *> *_Nullable imageAtTapLocation(ENRMPlatformTextView *textView,

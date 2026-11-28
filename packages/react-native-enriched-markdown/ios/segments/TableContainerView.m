@@ -3,6 +3,7 @@
 #import "ENRMAccessibilityLabels.h"
 #import "ENRMHorizontalScrollView.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLinkIconAttachment.h"
 #import "ENRMLinkPillAttachment.h"
 #import "HTMLGenerator.h"
 #import "LinkTapUtils.h"
@@ -154,6 +155,9 @@ static void ENRMTableWireImageRedraw(NSArray<NSArray<TableCellData *> *> *rows, 
 #if !TARGET_OS_OSX
                       if ([value isKindOfClass:[ENRMLinkPillAttachment class]]) {
                         ((ENRMLinkPillAttachment *)value).onIconLoaded = redraw;
+                      }
+                      if ([value isKindOfClass:[ENRMLinkIconAttachment class]]) {
+                        ((ENRMLinkIconAttachment *)value).onIconLoaded = redraw;
                       }
 #endif
                     }];

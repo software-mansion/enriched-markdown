@@ -26,6 +26,7 @@ Today, the macOS build differs from iOS in these ways. See [the roadmap](/misc/r
 
 - **LaTeX math is unvalidated on macOS.** The math engine ([RaTeX](https://ratex.lites.dev/)) ships as a vendored XCFramework that does include a macOS slice, and there is no macOS gate in the podspec, so `enableMath` defaults to on and math compiles into a macOS app. Inline math has a working macOS render path; block math has the bug above. To opt out of the engine entirely, set `"enriched-markdown": { "enableMath": false }` in your app's `package.json` - see [Native assets](/react-native/guides/native-assets#optional-features).
 - **Link pills** (`linkVariants[pattern].pill`, [`linkPillContent`](/react-native/api-reference/enriched-markdown-text#linkpillcontent)) are not rendered; such links appear as ordinary links with the variant's colors and font. See [Link pills](/react-native/guides/link-pills).
+- **Inline link icons** (`linkVariants[pattern].inlineIcon`) are not drawn; such links render without the icon.
 - **Streaming animations** (`'fade'` and `'gradient'`) fall back to an instant reveal (there is no `CADisplayLink` on macOS). The content still appears; it just does not animate. `smooth` pacing works.
 - **VoiceOver** accessibility is stubbed, pending an `NSAccessibility` implementation - see [Accessibility](/user-experience/accessibility).
 - **Font-scale observation** does not respond to system font-size changes.

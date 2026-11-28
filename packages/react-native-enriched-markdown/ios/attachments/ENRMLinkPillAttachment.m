@@ -60,7 +60,7 @@ static NSCache<ENRMLinkPillAppearance *, UIImage *> *ENRMRenderedLinkPills(void)
   return rendered;
 }
 
-static UIImage *ENRMClearLinkPillImage(void)
+UIImage *ENRMClearLinkPillImage(void)
 {
   static UIImage *clear;
   static dispatch_once_t once;

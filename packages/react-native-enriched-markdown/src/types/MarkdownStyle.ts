@@ -125,7 +125,20 @@ export interface LinkStyle {
 export type LinkVariantStyle = LinkStyle & {
   /** Native atomic presentation. True uses defaults; an object enables overrides. */
   pill?: boolean | LinkPillStyle;
+  /**
+   * An icon drawn before the link's own text, which stays ordinary link text and
+   * wraps across lines. Ignored when `pill` is set.
+   * @platform ios, android
+   */
+  inlineIcon?: LinkInlineIconStyle;
 };
+
+export interface LinkInlineIconStyle {
+  /** Local file, bundled asset or `http(s)` URL. A source that fails shows no icon. */
+  iconUri: string;
+  /** Tints the icon, keeping its alpha. Omit to keep the image's own colors. */
+  iconTintColor?: string;
+}
 
 export interface LinkPillStyle {
   /** Visible text, also included in the accessible name alongside original link text. */
@@ -388,6 +401,7 @@ export interface MarkdownStyle {
    * `backgroundColor` defaults to `transparent`.
    * `fontFamily` inherits the base `link` family and can be overridden per variant.
    * `pill: true` enables atomic native presentation with optional label, icon, and geometry.
+   * `inlineIcon` puts an icon before the link text and lets that text wrap.
    *
    * @example
    * linkVariants: {

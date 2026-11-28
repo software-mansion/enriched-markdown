@@ -19,6 +19,13 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) CGFloat maxWidth;
 @end
 
+/// An icon drawn before a link's own text, which stays text and wraps.
+@interface LinkInlineIconConfig : NSObject
+@property (nonatomic, copy) NSString *iconUri;
+/// Nil keeps the icon's own colors.
+@property (nonatomic, strong, nullable) RCTUIColor *iconTintColor;
+@end
+
 /// The request made for one image instead of its Markdown URL (the `imageSources`
 /// prop), keyed by image occurrence id. An empty uri keeps the placeholder and
 /// requests nothing; headers are lowercased and merge over the document headers.
@@ -44,6 +51,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy) NSString *fontFamily;
 /// Pill presentation for links matching this variant; nil when disabled.
 @property (nonatomic, strong, nullable) LinkPillConfig *pill;
+/// Inline icon for links matching this variant; nil when unset or when the variant is a pill.
+@property (nonatomic, strong, nullable) LinkInlineIconConfig *inlineIcon;
 @property (nonatomic, copy) NSString *pattern;
 @property (nonatomic, strong) RCTUIColor *color;
 @property (nonatomic, assign) BOOL underline;

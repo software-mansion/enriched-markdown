@@ -5,6 +5,7 @@
 #import "ENRMDroppableContent.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMLinkContextMenus.h"
+#import "ENRMLinkPillText.h"
 #import "ENRMSegmentHeightMeasurer.h"
 #import "ENRMTableIOSGridView.h"
 #import "ENRMTextInteractionUtils.h"
@@ -555,8 +556,10 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
   // Skip while text is selected so the tap only clears the selection.
   if (self.onTextPress && !hadSelection) {
     NSUInteger index = textPressIndexAtTapLocation(textView, recognizer);
-    if (index != NSNotFound)
-      self.onTextPress(index, ENRMGetAttributedText(textView).string);
+    if (index != NSNotFound) {
+      NSString *text = ENRMStringByExpandingLinkPillsAtIndex(ENRMGetAttributedText(textView), &index);
+      self.onTextPress(index, text);
+    }
   }
 }
 

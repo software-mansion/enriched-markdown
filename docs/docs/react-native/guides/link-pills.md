@@ -56,6 +56,24 @@ For text that [streams in](/rich-text-formatting/markdown-streaming), set the bl
 - A pill inside an unrevealed spoiler is hidden with the rest of the spoiler.
 - A long-pressed pill can open a [link menu](/react-native/guides/link-menus) on iOS 17+; the menu is titled with the pill's label.
 
+## Inline icons {#inline-icons}
+
+A pill is one unit, so a long label is cut off at the end of the line. For links that show their own text and need to wrap, such as titles, give the variant an `inlineIcon` instead of `pill`:
+
+```tsx
+linkVariants: {
+  '^app://thread/': { color: '#4F46E5', inlineIcon: { iconUri: 'thread_icon', iconTintColor: '#4F46E5' } },
+}
+```
+
+The icon is drawn before the link text, on the same line as its first word, and the text wraps like any other link. The variant's `color`, `underline`, `backgroundColor` and `fontFamily` apply to the text. The icon is not part of the text: copy, export, the accessible name and link menus see only the link text. `inlineIcon` takes the same [icon sources](#icon-sources) as pills.
+
+- A variant that sets both `pill` and `inlineIcon` draws the pill; in development a warning says the icon is ignored.
+- [`linkPillContent`](/react-native/api-reference/enriched-markdown-text#linkpillcontent) does not apply: the icon and its tint come from the variant.
+- On Android, the icon and the start of the link text stay together on one line: the first word, up to about eight font sizes wide, and only up to the first style change (in `[**Thr**ead](…)` the icon stays with "Thr"). The rest of a longer word wraps as usual.
+- On Android, a paragraph that contains right-to-left text draws the link without its icon. So does, in a right-to-left layout (the device language or `I18nManager.forceRTL`), a paragraph with no left-to-right text outside icons, pills and images, such as `- [Docs](app://docs)`, which would otherwise take the layout's direction. An ancestor's `direction: 'rtl'` style is not taken into account. Table cells follow the device language's direction, so on a right-to-left device an icon link at the start of a left-to-right cell can draw its first word out of order.
+- In superscript and subscript, the icon keeps the surrounding text's font size on Android and takes the smaller superscript size on iOS.
+
 ## Icon sources {#icon-sources}
 
 Both `pill.iconUri` and a `linkPillContent` entry's `iconUri` take the same sources. Icons are drawn at the label's font size.

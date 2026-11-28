@@ -88,3 +88,4 @@ exception: it is mapped to `data-testid`.
 - Particle spoilers — every spoiler uses the solid cover.
 - Configurable link `target` — all links open in a new tab (`target="_blank"`). Use `onLinkPress` for custom navigation.
 - Link pills — `linkVariants[pattern].pill` is ignored; such links render as ordinary links with the variant's colors and font.
+- Inline link icons — `linkVariants[pattern].inlineIcon` is ignored; such links render without the icon.

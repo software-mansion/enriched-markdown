@@ -105,6 +105,11 @@ interface LinkPillInternal {
   maxWidth: CodegenTypes.Float;
 }
 
+interface LinkInlineIconInternal {
+  iconUri: string;
+  iconTintColor?: ColorValue;
+}
+
 // Mirrors EnrichedMarkdownTextNativeComponent.ts — kept in sync manually (codegen spec files must be self-contained).
 interface LinkVariantEntryInternal {
   pattern: string;
@@ -113,6 +118,7 @@ interface LinkVariantEntryInternal {
   backgroundColor: ColorValue;
   fontFamily: string;
   pill: LinkPillInternal;
+  inlineIcon: LinkInlineIconInternal;
 }
 
 interface StrongStyleInternal {
