@@ -49,6 +49,8 @@ const INLINE_ICON_MARKDOWN =
   'Continue in [Migrating the renderer to the new architecture without breaking existing layouts](app://thread/42), ' +
   'or see [Docs](app://thread/7) and [React Native](https://reactnative.dev).\n\n' +
   '- [A list item that is only an icon link and wraps onto a second line](app://thread/9)\n' +
+  // Its only text is the covered word: on a right-to-left layout (Android), it shows without the icon.
+  '- [Docs](app://thread/7)\n' +
   '- Superscript: x^[icon](app://thread/1)^';
 
 type LinkInlineIconControls = {
@@ -301,7 +303,7 @@ export const InlineIcons: TextStory<LinkInlineIconControls> = {
     return (
       <EnrichedMarkdownTextStory
         title="Link Inline Icons"
-        description="linkVariants[pattern].inlineIcon draws an icon before the link's first word and lets the rest wrap as ordinary link text (iOS and Android). Unlike a pill, a long title is never cut off. The reactnative.dev link matches no variant."
+        description="linkVariants[pattern].inlineIcon draws an icon before the link's first word and lets the rest wrap as ordinary link text (iOS and Android). Unlike a pill, a long title is never cut off. The reactnative.dev link matches no variant. On Android in a right-to-left layout, the one-word Docs item shows without its icon, which would otherwise flip the line."
         {...rest}
         md4cFlags={{ superscript: true }}
         style={{
