@@ -101,6 +101,21 @@ static BOOL ENRMListItemIsRTL(MarkdownASTNode *item, ENRMListSegment *segment)
 #endif
 @end
 
+#if !TARGET_OS_OSX
+@interface ENRMListMarkerLayer : CALayer
+@property (nonatomic, assign) BOOL bitmapDrawingDisabled;
+@end
+@implementation ENRMListMarkerLayer
+- (void)display
+{
+  if (self.bitmapDrawingDisabled)
+    self.contents = nil;
+  else
+    [super display];
+}
+@end
+#endif
+
 @class ENRMListItemView;
 
 @interface ENRMListMarkerView : RCTUIView
@@ -120,6 +135,16 @@ static BOOL ENRMListItemIsRTL(MarkdownASTNode *item, ENRMListSegment *segment)
 @end
 
 @implementation ENRMListMarkerView
+#if !TARGET_OS_OSX
++ (Class)layerClass
+{
+  return [ENRMListMarkerLayer class];
+}
+- (void)setBitmapDrawingEnabled:(BOOL)enabled
+{
+  ((ENRMListMarkerLayer *)self.layer).bitmapDrawingDisabled = !enabled;
+}
+#endif
 #if TARGET_OS_OSX
 - (BOOL)isFlipped
 {

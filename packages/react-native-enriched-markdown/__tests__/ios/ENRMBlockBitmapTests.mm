@@ -11,6 +11,7 @@ static const CGFloat kENRMBlockTestWindowHeight = 844;
 - (CGSize)computeSegmentLayoutForWidth:(CGFloat)width applyFrames:(BOOL)applyFrames;
 - (NSArray<UIView *> *)drawSegmentsForCaptureInRect:(CGRect)rect;
 - (void)dropSegmentsAfterCapture:(NSArray<UIView *> *)segments;
+- (void)updateBlockBitmaps;
 @end
 
 static NSString *ENRMBlockTestMarkdown(void)
@@ -234,7 +235,21 @@ static CGRect ENRMBlockTestDrawnTextRect(UIView *view, UIView *textView)
   XCTAssertTrue(CGRectIntersectsRect(list.frame, _scrollView.bounds));
   for (UIView *view in bitmaps)
     XCTAssertNil(view.layer.contents);
+  XCTestExpectation *dropped = [self expectationWithDescription:@"offscreen bitmap drop committed"];
+  CFRunLoopObserverRef observer = CFRunLoopObserverCreateWithHandler(
+      kCFAllocatorDefault, kCFRunLoopBeforeWaiting, false, LONG_MAX,
+      ^(CFRunLoopObserverRef observer, CFRunLoopActivity activity) { [dropped fulfill]; });
+  CFRunLoopAddObserver(CFRunLoopGetMain(), observer, kCFRunLoopCommonModes);
+  CFRelease(observer);
+  [self waitForExpectations:@[ dropped ] timeout:5];
   UIView *firstItem = list.subviews.firstObject;
+  [firstItem setNeedsLayout];
+  [firstItem layoutIfNeeded];
+  [document updateBlockBitmaps];
+  for (UIView *view in bitmaps) {
+    [view.layer displayIfNeeded];
+    XCTAssertNil(view.layer.contents);
+  }
   CGRect captureRect = [firstItem convertRect:firstItem.bounds toView:document];
   NSArray<UIView *> *captured = [document drawSegmentsForCaptureInRect:captureRect];
   XCTAssertEqual(captured.count, 2u);

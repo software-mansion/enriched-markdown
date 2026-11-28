@@ -2134,6 +2134,8 @@ static void ENRMCollectDroppableContent(UIView *view, NSMutableArray<UIView *> *
 
 static void ENRMSetViewDrawsContent(UIView *view, BOOL draws)
 {
+  if ([view respondsToSelector:@selector(setBitmapDrawingEnabled:)])
+    [(id<ENRMDroppableContent>)view setBitmapDrawingEnabled:draws];
   if (draws)
     [view setNeedsDisplay];
   else
