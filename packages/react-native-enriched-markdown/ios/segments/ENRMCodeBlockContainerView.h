@@ -6,6 +6,7 @@
 @class MarkdownASTNode;
 @class ENRMAccessibilityLabels;
 @class ENRMCodeBlockContainerView;
+@class ENRMVisibleArea;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -64,6 +65,11 @@ typedef void (^ENRMCodeBlockWrapToggleBlock)(ENRMCodeBlockContainerView *view);
 
 // Bridges a whole-block tap (not the copy button) up to the JS onCodeBlockPress event.
 @property (nonatomic, copy, nullable) ENRMCodeBlockPressBlock onCodeBlockPress;
+
+#if !TARGET_OS_OSX
+// Hands the document's visible area to the code pane, which draws only the tiles near it.
+- (void)updateViewportInVisibleArea:(nullable ENRMVisibleArea *)area;
+#endif
 
 @end
 

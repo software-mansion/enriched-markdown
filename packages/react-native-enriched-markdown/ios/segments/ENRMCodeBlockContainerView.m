@@ -4,6 +4,8 @@
 #import "ENRMCodeBlockHighlighter.h"
 #import "ENRMDroppableContent.h"
 #import "ENRMHorizontalScrollView.h"
+#import "ENRMTileCanvas.h"
+#import "ENRMVisibleArea.h"
 #import "MarkdownASTNode.h"
 #import "PasteboardUtils.h"
 #if TARGET_OS_OSX
@@ -12,9 +14,11 @@
 
 // Block segment view for fenced code blocks (see SegmentRenderer.m):
 // a fixed header bar (language name, copy button) above a horizontally
-// scrolling, non-wrapping code pane. The container's drawRect: draws
-// background, border, label, and divider; only the copy button and the
-// scroll view are subviews. Syntax coloring comes from the
+// scrolling, non-wrapping code pane. On iOS the container's layer draws the
+// background and border, and small subviews the label and divider, so a tall
+// block holds no bitmap of its own size; the code pane draws in tiles near the
+// screen (ENRMCodeBlockContentView). On macOS the container's drawRect: draws
+// background, border, label, and divider. Syntax coloring comes from the
 // ENRMCodeBlockHighlighter seam and falls back to plain text. The box
 // visuals must stay in sync with the commonmark flavor's CodeBlockBackground.
 //
@@ -167,14 +171,20 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 // fixed origin; the hosting ENRMCodeBlockContainerView draws everything else.
 //
 // The TextKit stack (storage/layout manager/container) is built and laid out
-// once, when attributedCode is set, then cached: drawRect: only paints the
+// once, when attributedCode is set, then cached: drawing only paints the
 // already-computed glyphs, so scrolling and redraws never re-lay-out. This is
 // the same rendering path drawAtPoint used internally, so output is identical,
 // but the layout is no longer thrown away on every draw. The container is
 // unbounded (lines never wrap) with zero line-fragment padding and font leading
 // disabled, matching the NSStringDrawing origin the block used before. A
 // positive wrapWidth bounds it instead, so lines wrap at that width.
-@interface ENRMCodeBlockContentView : RCTUIView <ENRMDroppableContent>
+//
+// On iOS the view does not draw itself: one bitmap for its bounds would be as
+// wide as the longest line and as tall as the whole block. An ENRMTileCanvas
+// draws only the part near the screen: vertically near the document's visible
+// area (ENRMVisibleAreaFollower), horizontally near what the pane's scroll view
+// shows. macOS draws in the view itself.
+@interface ENRMCodeBlockContentView : RCTUIView
 @property (nonatomic, strong, nullable) NSAttributedString *attributedCode;
 @property (nonatomic, assign) CGPoint textOrigin;
 @property (nonatomic, assign) CGFloat wrapWidth;
@@ -186,10 +196,28 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 #endif
 @end
 
+#if !TARGET_OS_OSX
+@interface ENRMCodeBlockContentView () <ENRMVisibleAreaFollower, ENRMTileCanvasDrawing>
+@end
+
+// A horizontal fling reaches tiles beyond the pane; drawn ahead of it, they draw over several frames.
+static const CGFloat kENRMCodePaneHorizontalMargin = 128;
+#endif
+
+// Glyphs can reach past their line (a tight codeBlockLineHeight, an emoji): a
+// tile looks this far beyond its rect for the lines to draw, and an edit
+// redraws from this far above it, as ENRMTextTiles does.
+static const CGFloat kENRMCodeOverdraw = 64;
+
 @implementation ENRMCodeBlockContentView {
   NSTextStorage *_textStorage;
   NSLayoutManager *_layoutManager;
   NSTextContainer *_textContainer;
+#if !TARGET_OS_OSX
+  ENRMTileCanvas *_canvas;
+  // Followed without a document's area.
+  ENRMVisibleArea *_ownArea;
+#endif
 }
 
 #if TARGET_OS_OSX
@@ -202,27 +230,140 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 {
   return self.menuProvider ? self.menuProvider() : [super menuForEvent:event];
 }
+#else
+@synthesize visibleArea = _visibleArea;
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+  if (self = [super initWithFrame:frame]) {
+    _canvas = [[ENRMTileCanvas alloc] initWithFrame:self.bounds];
+    _canvas.drawer = self;
+    [self addSubview:_canvas];
+  }
+  return self;
+}
+
+- (void)layoutSubviews
+{
+  [super layoutSubviews];
+  _canvas.frame = self.bounds;
+  [self updateViewport];
+}
+
+- (void)didMoveToWindow
+{
+  [super didMoveToWindow];
+  // Off a window nothing is drawn; back on one, the part on screen is drawn again.
+  [self updateViewport];
+}
+
+// The part of this view the scroll views above it show, vertically (ENRMVisibleArea).
+- (CGRect)visibleRectInSelf
+{
+  ENRMVisibleArea *area = _visibleArea;
+  if (area != nil) {
+    _ownArea = nil;
+    return [area visibleRectInView:self];
+  }
+  if (_ownArea == nil) {
+    // Its scroll views include the pane's own, which shows the pane's whole
+    // height and moves with a horizontal scroll: both are what this follows.
+    __weak ENRMCodeBlockContentView *weakSelf = self;
+    _ownArea = [[ENRMVisibleArea alloc] initWithView:self onChange:^{ [weakSelf updateViewport]; }];
+  }
+  return [_ownArea visibleRect];
+}
+
+- (void)updateViewport
+{
+  // Read first: it stops observing the scroll views once this view left the window.
+  CGRect visible = [self visibleRectInSelf];
+  CGRect bounds = self.bounds;
+  UIWindow *window = self.window;
+  if (window == nil || CGRectIsNull(visible) || CGRectIsEmpty(visible) || CGRectIsEmpty(bounds)) {
+    _canvas.drawnRect = CGRectNull;
+    return;
+  }
+  // No scroll view above (infinite): nothing says when another part comes
+  // into view, so all of it is drawn, as a text's viewport does.
+  CGFloat top = CGRectIsInfinite(visible) ? 0 : CGRectGetMinY(visible) - ENRMVisibleAreaMargin;
+  CGFloat bottom = CGRectIsInfinite(visible) ? bounds.size.height : CGRectGetMaxY(visible) + ENRMVisibleAreaMargin;
+  // Horizontally, what the pane's own scroll view shows.
+  UIView *scrollView = self.superview;
+  CGRect shown = scrollView != nil ? [self convertRect:scrollView.bounds fromView:scrollView] : bounds;
+  CGFloat left = CGRectGetMinX(shown) - kENRMCodePaneHorizontalMargin;
+  CGFloat right = CGRectGetMaxX(shown) + kENRMCodePaneHorizontalMargin;
+  _canvas.drawnRect = CGRectIntersection(CGRectMake(left, top, right - left, bottom - top), bounds);
+}
 #endif
 
 - (void)setAttributedCode:(nullable NSAttributedString *)attributedCode
 {
+#if !TARGET_OS_OSX
+  NSAttributedString *previous = _attributedCode;
+  CGFloat previousLastLineY = [self lastLineY];
+#endif
   _attributedCode = attributedCode;
   if (attributedCode.length == 0) {
     _textStorage = nil;
     _layoutManager = nil;
     _textContainer = nil;
+  } else {
+    _textStorage = [[NSTextStorage alloc] initWithAttributedString:attributedCode];
+    _layoutManager = [[NSLayoutManager alloc] init];
+    _layoutManager.usesFontLeading = ENRMLayoutManagerUsesFontLeading;
+    _textContainer = [[NSTextContainer alloc] initWithSize:[self containerSize]];
+    _textContainer.lineFragmentPadding = 0;
+    _textContainer.maximumNumberOfLines = 0;
+    [_layoutManager addTextContainer:_textContainer];
+    [_textStorage addLayoutManager:_layoutManager];
+    [_layoutManager ensureLayoutForTextContainer:_textContainer];
+  }
+#if !TARGET_OS_OSX
+  [self setCodeNeedsDisplayAfterChangeFrom:previous lastLineY:previousLastLineY];
+#endif
+}
+
+#if !TARGET_OS_OSX
+// Where the last line starts, in the container's space; -1 with no code.
+- (CGFloat)lastLineY
+{
+  NSUInteger length = _textStorage.length;
+  if (_layoutManager == nil || length == 0) {
+    return -1;
+  }
+  NSUInteger glyph = [_layoutManager glyphIndexForCharacterAtIndex:length - 1];
+  return CGRectGetMinY([_layoutManager lineFragmentRectForGlyphAtIndex:glyph effectiveRange:NULL]);
+}
+
+// A streaming block grows at its end: only the tiles from the previous last
+// line down change. That line is found in the previous layout: wrapped, the
+// appended text can move its unfinished last word to a new line. Anything else
+// (highlighting once the block closes, a different block) redraws every tile.
+- (void)setCodeNeedsDisplayAfterChangeFrom:(nullable NSAttributedString *)previous lastLineY:(CGFloat)lastLineY
+{
+  NSAttributedString *code = _attributedCode;
+  NSUInteger kept = previous.length;
+  BOOL appended = kept > 0 && lastLineY >= 0 && code.length >= kept &&
+                  [[code attributedSubstringFromRange:NSMakeRange(0, kept)] isEqualToAttributedString:previous];
+  if (!appended) {
+    [_canvas setTilesNeedDisplay];
     return;
   }
-  _textStorage = [[NSTextStorage alloc] initWithAttributedString:attributedCode];
-  _layoutManager = [[NSLayoutManager alloc] init];
-  _layoutManager.usesFontLeading = ENRMLayoutManagerUsesFontLeading;
-  _textContainer = [[NSTextContainer alloc] initWithSize:[self containerSize]];
-  _textContainer.lineFragmentPadding = 0;
-  _textContainer.maximumNumberOfLines = 0;
-  [_layoutManager addTextContainer:_textContainer];
-  [_textStorage addLayoutManager:_layoutManager];
-  [_layoutManager ensureLayoutForTextContainer:_textContainer];
+  if (code.length > kept) {
+    [_canvas setTilesNeedDisplayFromY:lastLineY + _textOrigin.y - kENRMCodeOverdraw];
+  }
 }
+
+- (void)setTextOrigin:(CGPoint)textOrigin
+{
+  if (CGPointEqualToPoint(_textOrigin, textOrigin)) {
+    return;
+  }
+  _textOrigin = textOrigin;
+  [_canvas setTilesNeedDisplay];
+}
+#endif
 
 - (CGSize)containerSize
 {
@@ -240,7 +381,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     [_layoutManager ensureLayoutForTextContainer:_textContainer];
   }
 #if !TARGET_OS_OSX
-  [self setNeedsDisplay];
+  [_canvas setTilesNeedDisplay];
 #else
   [self setNeedsDisplay:YES];
 #endif
@@ -254,23 +395,80 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   return ceil([_layoutManager usedRectForTextContainer:_textContainer].size.width);
 }
 
-- (void)drawRect:(CGRect)rect
+// Paints only the glyphs intersecting `rect`; tall blocks skip their
+// off-screen lines. The rect is in view space, the layout in container space.
+- (void)drawCodeInRect:(CGRect)rect
 {
   if (!_layoutManager) {
     return;
   }
-  // Only paint the glyphs intersecting the dirty rect; tall blocks skip their
-  // off-screen lines. The rect is in view space, the layout in container space.
-  CGRect boundingRect = CGRectOffset(rect, -self.textOrigin.x, -self.textOrigin.y);
+  CGRect boundingRect = CGRectOffset(CGRectInset(rect, 0, -kENRMCodeOverdraw), -self.textOrigin.x, -self.textOrigin.y);
   NSRange glyphRange = [_layoutManager glyphRangeForBoundingRect:boundingRect inTextContainer:_textContainer];
   [_layoutManager drawGlyphsForGlyphRange:glyphRange atPoint:self.textOrigin];
 }
 
+#if TARGET_OS_OSX
+- (void)drawRect:(CGRect)rect
+{
+  [self drawCodeInRect:rect];
+}
+#else
+- (void)drawTileCanvasContentInRect:(CGRect)rect
+{
+  [self drawCodeInRect:rect];
+}
+#endif
+
 @end
 
 #if !TARGET_OS_OSX
+// The language name in the header. Its own small view, so the container needs
+// no bitmap: the box is drawn by the container's layer.
+@interface ENRMCodeBlockHeaderLabelView : UIView <ENRMDroppableContent>
+@property (nonatomic, strong, nullable) NSAttributedString *label;
+@end
+
+@implementation ENRMCodeBlockHeaderLabelView
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+  if (self = [super initWithFrame:frame]) {
+    self.opaque = NO;
+    self.backgroundColor = [UIColor clearColor];
+    self.userInteractionEnabled = NO;
+    self.contentMode = UIViewContentModeRedraw;
+  }
+  return self;
+}
+
+- (void)setLabel:(nullable NSAttributedString *)label
+{
+  _label = label;
+  [self setNeedsDisplay];
+}
+
+- (void)drawRect:(CGRect)rect
+{
+  // A long name is cut short with an ellipsis.
+  [_label drawWithRect:self.bounds
+               options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingTruncatesLastVisibleLine
+               context:nil];
+}
+
+- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection
+{
+  [super traitCollectionDidChange:previousTraitCollection];
+  if ([self.traitCollection hasDifferentColorAppearanceComparedToTraitCollection:previousTraitCollection]) {
+    [self setNeedsDisplay];
+  }
+}
+
+@end
+#endif
+
+#if !TARGET_OS_OSX
 @interface ENRMCodeBlockContainerView () <UIContextMenuInteractionDelegate, UIGestureRecognizerDelegate,
-                                          ENRMDroppableContent>
+                                          UIScrollViewDelegate>
 @end
 #endif
 
@@ -294,6 +492,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   UIButton *_copyButton;
   UIButton *_wrapButton;
   UITapGestureRecognizer *_tapRecognizer;
+  UIView *_fillView;
+  ENRMCodeBlockHeaderLabelView *_labelView;
+  UIView *_dividerView;
 #else
   NSFont *_headerFont;
   NSButton *_copyButton;
@@ -312,9 +513,8 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   // re-derive here to pick up highlighting once the block closes.
   [self rebuildAttributedCode];
 #if !TARGET_OS_OSX
+  // The code pane redraws what the new code changed itself.
   [self setNeedsLayout];
-  [self setNeedsDisplay];
-  [_codeContentView setNeedsDisplay];
 #else
   self.needsLayout = YES;
   [self setNeedsDisplay:YES];
@@ -337,8 +537,8 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     [self setupScrollView];
 
 #if !TARGET_OS_OSX
-    self.contentMode = UIViewContentModeRedraw;
     self.isAccessibilityElement = YES;
+    [self setupBox];
 
     UIContextMenuInteraction *contextMenu = [[UIContextMenuInteraction alloc] initWithDelegate:self];
     [self addInteraction:contextMenu];
@@ -383,7 +583,8 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   _scrollView.accessibilityElementsHidden = YES;
   _scrollView.indicatorStyle = darkBackground ? UIScrollViewIndicatorStyleWhite : UIScrollViewIndicatorStyleDefault;
   _codeContentView.backgroundColor = [UIColor clearColor];
-  _codeContentView.contentMode = UIViewContentModeRedraw;
+  // A horizontal scroll moves the drawn part of the code.
+  _scrollView.delegate = self;
   [_scrollView addSubview:_codeContentView];
   [_codeContentView addInteraction:[[UIContextMenuInteraction alloc] initWithDelegate:self]];
 #else
@@ -396,6 +597,99 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   [(NSScrollView *)_scrollView setDocumentView:_codeContentView];
 #endif
   [self addSubview:_scrollView];
+}
+
+#if !TARGET_OS_OSX
+// The box as the macOS drawRect: draws it, with no bitmap. drawRect: fills a
+// rounded rect inset by half the border width, then strokes its outline with
+// the border width: the fill is a view of that rect, and the stroke a layer
+// border inside the bounds whose outer corner radius is half the border width
+// larger.
+- (void)setupBox
+{
+  _fillView = [[UIView alloc] init];
+  _fillView.userInteractionEnabled = NO;
+  [self insertSubview:_fillView atIndex:0];
+
+  _dividerView = [[UIView alloc] init];
+  _dividerView.userInteractionEnabled = NO;
+  // Under the code, as drawRect: draws them.
+  [self insertSubview:_dividerView belowSubview:_scrollView];
+
+  _labelView = [[ENRMCodeBlockHeaderLabelView alloc] init];
+  [self insertSubview:_labelView belowSubview:_scrollView];
+  [self applyBoxAppearance];
+}
+
+// From _config at every layout, as drawRect: drew it: the document reuses this block when new
+// markdown comes with a markdownStyle change, which updates the config it shares in place.
+// UIBezierPath's rounded rect, which drawRect: used, has continuous corners.
+- (void)applyBoxAppearance
+{
+  CGFloat borderWidth = [_config codeBlockBorderWidth];
+  CGFloat radius = [_config codeBlockBorderRadius];
+  self.layer.cornerRadius = radius > 0 ? radius + borderWidth / 2 : 0;
+  self.layer.cornerCurve = kCACornerCurveContinuous;
+  self.layer.borderWidth = [_config codeBlockBorderColor] ? borderWidth : 0;
+  [self applyBorderColor];
+  _fillView.backgroundColor = [_config codeBlockBackgroundColor];
+  _fillView.layer.cornerRadius = radius;
+  _fillView.layer.cornerCurve = kCACornerCurveContinuous;
+  _dividerView.backgroundColor = [[_config codeBlockColor] colorWithAlphaComponent:kENRMHeaderDividerAlpha];
+}
+
+// A layer takes a resolved color: resolved again when the appearance changes.
+- (void)applyBorderColor
+{
+  self.layer.borderColor =
+      [[_config codeBlockBorderColor] resolvedColorWithTraitCollection:self.traitCollection].CGColor;
+}
+
+- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection
+{
+  [super traitCollectionDidChange:previousTraitCollection];
+  if ([self.traitCollection hasDifferentColorAppearanceComparedToTraitCollection:previousTraitCollection]) {
+    [self applyBorderColor];
+  }
+}
+
+- (void)layoutBox
+{
+  [self applyBoxAppearance];
+  CGFloat borderWidth = [_config codeBlockBorderWidth];
+  CGFloat inset = [self contentInset];
+  CGFloat headerH = [self headerHeight];
+  _fillView.frame = CGRectInset(self.bounds, borderWidth / 2, borderWidth / 2);
+  // Divider between the header and the code, centered in the gap the code
+  // text's top inset creates, so it adds no height of its own.
+  _dividerView.frame =
+      CGRectMake(borderWidth, headerH + inset / 2, MAX(self.bounds.size.width - borderWidth * 2, 0), 1);
+  _labelView.hidden = _languageLabel.length == 0;
+  _labelView.frame = [self languageLabelRect];
+}
+
+- (void)scrollViewDidScroll:(UIScrollView *)scrollView
+{
+  [_codeContentView updateViewport];
+}
+
+- (void)updateViewportInVisibleArea:(ENRMVisibleArea *)area
+{
+  _codeContentView.visibleArea = area;
+  [_codeContentView updateViewport];
+}
+#endif
+
+// Where the language label draws. Keeps clear of the header buttons, as
+// Android caps its label view; a long name is cut short with an ellipsis.
+- (CGRect)languageLabelRect
+{
+  CGFloat inset = [self contentInset];
+  CGFloat headerH = [self headerHeight];
+  CGFloat headerButtonsWidth = _showsWrapButton ? headerH * 2 : headerH;
+  CGFloat labelMaxWidth = MAX(self.bounds.size.width - inset * 2 - headerButtonsWidth, 0);
+  return CGRectMake(inset, [self headerCenterY] - _languageLabelSize.height / 2,
+                    MIN(_languageLabelSize.width, labelMaxWidth), _languageLabelSize.height);
 }
 
 - (void)layoutScrollArea
@@ -419,6 +713,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   if (_wrapped) {
     _scrollView.contentOffset = CGPointZero;
   }
+  // The pane may have changed width alone (a rotation), which lays out
+  // nothing in it.
+  [_codeContentView updateViewport];
 #endif
 }
 
@@ -467,9 +764,8 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     [self updateWrapButtonAppearance];
   }
   _wrapButton.hidden = !showsWrapButton;
-  [self setNeedsLayout];
   // The language label's room shrinks by one button.
-  [self setNeedsDisplay];
+  [self setNeedsLayout];
 }
 
 - (void)updateWrapButtonAppearance
@@ -510,9 +806,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     _codeSize.width = _codeContentView.usedWidth;
   }
 #if !TARGET_OS_OSX
+  // Laying out sets the pane's wrap width, which redraws it.
   [self updateWrapButtonAppearance];
   [self setNeedsLayout];
-  [_codeContentView setNeedsDisplay];
 #else
   self.needsLayout = YES;
   [_codeContentView setNeedsDisplay:YES];
@@ -531,6 +827,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 {
   [super layoutSubviews];
   [self layoutHeaderButton];
+  [self layoutBox];
   [self layoutScrollArea];
 }
 #else
@@ -592,9 +889,8 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 #endif
 
 #if !TARGET_OS_OSX
+  // The code pane redraws what the new code changed itself.
   [self setNeedsLayout];
-  [self setNeedsDisplay];
-  [_codeContentView setNeedsDisplay];
 #else
   self.needsLayout = YES;
   [self setNeedsDisplay:YES];
@@ -604,9 +900,16 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 
 - (void)rebuildLanguageLabel
 {
+#if !TARGET_OS_OSX
+  // Laid out with the header.
+  [self setNeedsLayout];
+#endif
   if (_displayLanguage.length == 0) {
     _languageLabel = nil;
     _languageLabelSize = CGSizeZero;
+#if !TARGET_OS_OSX
+    _labelView.label = nil;
+#endif
     return;
   }
   NSMutableDictionary *labelAttributes = [NSMutableDictionary dictionary];
@@ -617,6 +920,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   }
   _languageLabel = [[NSAttributedString alloc] initWithString:_displayLanguage attributes:labelAttributes];
   _languageLabelSize = _languageLabel.size;
+#if !TARGET_OS_OSX
+  _labelView.label = _languageLabel;
+#endif
 }
 
 - (NSAttributedString *)plainAttributedCode
@@ -663,17 +969,13 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   return codeHeight + inset * 2 + headerH;
 }
 
+#if TARGET_OS_OSX
 - (void)drawRect:(CGRect)rect
 {
   CGFloat borderWidth = [_config codeBlockBorderWidth];
   CGFloat radius = [_config codeBlockBorderRadius];
   CGRect borderRect = CGRectInset(self.bounds, borderWidth / 2, borderWidth / 2);
-
-#if !TARGET_OS_OSX
-  UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:borderRect cornerRadius:radius];
-#else
   NSBezierPath *path = [NSBezierPath bezierPathWithRoundedRect:borderRect xRadius:radius yRadius:radius];
-#endif
 
   RCTUIColor *backgroundColor = [_config codeBlockBackgroundColor];
   if (backgroundColor) {
@@ -698,25 +1000,16 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   if (dividerColor) {
     CGRect dividerRect = CGRectMake(borderWidth, headerH + inset / 2, self.bounds.size.width - borderWidth * 2, 1);
     [dividerColor setFill];
-#if !TARGET_OS_OSX
-    [[UIBezierPath bezierPathWithRect:dividerRect] fill];
-#else
     [[NSBezierPath bezierPathWithRect:dividerRect] fill];
-#endif
   }
 
   if (_languageLabel.length > 0) {
-    // Keep clear of the header buttons, as Android caps its label view; a long
-    // name is cut short with an ellipsis.
-    CGFloat headerButtonsWidth = _showsWrapButton ? headerH * 2 : headerH;
-    CGFloat labelMaxWidth = MAX(self.bounds.size.width - inset * 2 - headerButtonsWidth, 0);
-    CGRect labelRect = CGRectMake(inset, [self headerCenterY] - _languageLabelSize.height / 2,
-                                  MIN(_languageLabelSize.width, labelMaxWidth), _languageLabelSize.height);
-    [_languageLabel drawWithRect:labelRect
+    [_languageLabel drawWithRect:[self languageLabelRect]
                          options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingTruncatesLastVisibleLine
                          context:nil];
   }
 }
+#endif
 
 - (NSString *)fencedMarkdown
 {
