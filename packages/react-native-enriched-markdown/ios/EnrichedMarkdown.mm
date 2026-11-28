@@ -2024,6 +2024,12 @@ static void ENRMUpdateViewport(EnrichedMarkdownInternalText *text, ENRMVisibleAr
 
 static void ENRMUpdateNestedViewports(UIView *view, ENRMVisibleArea *area)
 {
+  // A code block hands the area to its pane, which draws only near it. A class check, not
+  // conformsToProtocol:, which is slow on a walk that runs at every scroll event.
+  if ([view isKindOfClass:[ENRMCodeBlockContainerView class]]) {
+    [(ENRMCodeBlockContainerView *)view updateViewportInVisibleArea:area];
+    return;
+  }
   for (UIView *subview in view.subviews) {
     if ([subview isKindOfClass:[EnrichedMarkdownInternalText class]]) {
       ENRMUpdateViewport((EnrichedMarkdownInternalText *)subview, area);
@@ -2097,8 +2103,9 @@ static void ENRMAfterCommit(dispatch_block_t block)
 }
 
 /// Draws only the segments near the visible part of the document. A text segment draws the part of
-/// its text there (ENRMTextViewport); a block segment off screen (a code block, a table, a quote)
-/// drops the bitmaps it drew, and draws again when it comes back.
+/// its text there (ENRMTextViewport), and so does a code block's pane (ENRMCodeBlockContainerView); a
+/// block segment off screen (a table, a quote) drops the bitmaps it drew, and draws again when it
+/// comes back.
 - (void)updateDrawnSegments
 {
 #if !TARGET_OS_OSX

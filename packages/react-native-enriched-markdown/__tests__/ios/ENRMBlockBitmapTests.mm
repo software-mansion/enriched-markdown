@@ -13,7 +13,7 @@ static const CGFloat kENRMBlockTestWindowHeight = 844;
 
 static NSString *ENRMBlockTestMarkdown(void)
 {
-  NSString *block = @"```\nlet answer = 42\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |";
+  NSString *block = @"```swift\nlet answer = 42\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |";
   NSMutableArray<NSString *> *parts = [NSMutableArray arrayWithObject:block];
   for (NSUInteger i = 0; i < 200; i++) {
     [parts addObject:[NSString stringWithFormat:@"Paragraph %lu runs over a few lines of the view so that the "
@@ -24,15 +24,14 @@ static NSString *ENRMBlockTestMarkdown(void)
   return [parts componentsJoinedByString:@"\n\n"];
 }
 
-// By name: the views that draw their own bitmap (ENRMDroppableContent).
+// By name: the views that draw their own bitmap (ENRMDroppableContent). A code block draws its code
+// in tiles of its own near the screen (ENRMCodeBlockTilesTests), and only its header label here.
 static void ENRMCollectBitmapViews(UIView *view, NSMutableArray<UIView *> *views)
 {
   static NSSet<NSString *> *names;
   static dispatch_once_t once;
-  dispatch_once(&once, ^{
-    names =
-        [NSSet setWithArray:@[ @"ENRMCodeBlockContainerView", @"ENRMCodeBlockContentView", @"ENRMTableIOSGridView" ]];
-  });
+  dispatch_once(&once,
+                ^{ names = [NSSet setWithArray:@[ @"ENRMCodeBlockHeaderLabelView", @"ENRMTableIOSGridView" ]]; });
   if ([names containsObject:NSStringFromClass([view class])]) {
     [views addObject:view];
   }
@@ -138,7 +137,7 @@ static CGRect ENRMBlockTestDrawnTextRect(UIView *view, UIView *textView)
 {
   XCTAssertGreaterThan(_document.bounds.size.height, kENRMBlockTestWindowHeight * 4);
   NSArray<UIView *> *views = ENRMBitmapViews(_topBlocks);
-  XCTAssertEqual(views.count, 3u);
+  XCTAssertEqual(views.count, 2u);
   ENRMDrawBitmaps(views);
   for (UIView *view in views) {
     XCTAssertNotNil(view.layer.contents, @"%@", view);
@@ -184,7 +183,7 @@ static CGRect ENRMBlockTestDrawnTextRect(UIView *view, UIView *textView)
   // Made here, so that no run loop turn ran since.
   [self showDocument:[self documentInScrollView:_scrollView]];
   NSArray<UIView *> *views = ENRMBitmapViews(_bottomBlocks);
-  XCTAssertEqual(views.count, 3u);
+  XCTAssertEqual(views.count, 2u);
   // Drawn by hand: a test's run loop turn commits without drawing, so this checks that the drop
   // runs in that turn, not that it follows Core Animation's commit.
   ENRMDrawBitmaps(views);

@@ -29,4 +29,12 @@ FOUNDATION_EXTERN const CGFloat ENRMVisibleAreaMargin;
 
 @end
 
+/// A view in a document's block that draws only near the document's visible area (a code block's
+/// pane). The document hands it its area and calls `updateViewport` whenever the area may have moved.
+/// Without an area the view follows the scroll views itself.
+@protocol ENRMVisibleAreaFollower <NSObject>
+@property (nonatomic, weak, nullable) ENRMVisibleArea *visibleArea;
+- (void)updateViewport;
+@end
+
 NS_ASSUME_NONNULL_END
