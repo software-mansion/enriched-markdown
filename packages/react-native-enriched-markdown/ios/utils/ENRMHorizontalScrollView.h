@@ -9,6 +9,9 @@
 /// scroll as usual. Cost: no bounce on a fresh rightward pan at the leading
 /// edge. Left edge only; RTL is not handled. macOS keeps RCTUIScrollView.
 ///
+/// Once its pan begins it also cancels React Native's touch, which this pan
+/// doesn't prevent, so a drag doesn't end in a parent Pressable's onPress.
+///
 /// TODO: move this decision to react-native-screens. RNSScreenStack already
 /// inspects competing scroll-view pans (`shouldRequireFailureOfGestureRecognizer:`
 /// on iOS 26, `shouldRecognizeSimultaneouslyWithGestureRecognizer:` before);
