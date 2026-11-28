@@ -15,14 +15,18 @@ const REVEALED_IMAGE_LAYERS =
   `${REVEALED_SPOILER} .${ENRM_SPOILER_IMAGE_COVER_CLASS}, ` +
   `${REVEALED_SPOILER} .${ENRM_SPOILER_IMAGE_CLASS}`;
 
-export const ENRM_BULLET_COLOR_VAR = '--enrm-bullet-color';
-export const ENRM_MARKER_COLOR_VAR = '--enrm-marker-color';
-export const ENRM_MARKER_WEIGHT_VAR = '--enrm-marker-weight';
+export const ENRM_LIST_ATTR = 'data-enrm-list';
+export const ENRM_LIST_MARKER_ATTR = 'data-enrm-marker';
 export const ENRM_TASK_CHECKBOX_CLASS = 'enrm-task-checkbox';
 export const ENRM_CHECKMARK_COLOR_VAR = '--enrm-checkmark-color';
 export const ENRM_CHECKMARK_SHAPE_VAR = '--enrm-checkmark-shape';
 
 const RULES: ReadonlyArray<readonly [id: string, css: string]> = [
+  [
+    'enrm-list-markers',
+    `.${ENRM_TEXT_CLASS} [${ENRM_LIST_ATTR}] > li::marker { color: transparent; } ` +
+      `@media (forced-colors: active) { .${ENRM_TEXT_CLASS} [${ENRM_LIST_MARKER_ATTR}] { visibility: hidden; } }`,
+  ],
   [
     'enrm-selection-style',
     `.${ENRM_TEXT_CLASS} ::selection { background-color: var(${ENRM_SELECTION_BG_VAR}); }`,
@@ -44,11 +48,6 @@ const RULES: ReadonlyArray<readonly [id: string, css: string]> = [
       `${REVEALED_SPOILER}, ${REVEALED_CONTENT}, ${REVEALED_IMAGE_LAYERS} { transition: none; } }`,
   ],
   [
-    'enrm-list-markers',
-    `.${ENRM_TEXT_CLASS} ul > li::marker { color: var(${ENRM_BULLET_COLOR_VAR}); } ` +
-      `.${ENRM_TEXT_CLASS} ol > li::marker { color: var(${ENRM_MARKER_COLOR_VAR}); font-weight: var(${ENRM_MARKER_WEIGHT_VAR}); }`,
-  ],
-  [
     'enrm-task-checkmark',
     `.${ENRM_TEXT_CLASS} .${ENRM_TASK_CHECKBOX_CLASS}:checked::before { ` +
       'content: ""; position: absolute; inset: 0; ' +
@@ -63,6 +62,10 @@ const RULES: ReadonlyArray<readonly [id: string, css: string]> = [
   ],
 ];
 
-for (const [id, css] of RULES) {
-  injectStyleOnce(id, css);
+export function injectGlobalStyles(doc?: Document): void {
+  for (const [id, css] of RULES) {
+    injectStyleOnce(id, css, doc);
+  }
 }
+
+injectGlobalStyles();

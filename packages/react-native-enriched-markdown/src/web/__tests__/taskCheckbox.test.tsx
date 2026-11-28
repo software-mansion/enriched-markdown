@@ -9,6 +9,7 @@ import {
   ENRM_CHECKMARK_COLOR_VAR,
   ENRM_CHECKMARK_SHAPE_VAR,
   ENRM_TASK_CHECKBOX_CLASS,
+  ENRM_TEXT_CLASS,
 } from '../globalStyles';
 import { loadParser } from '../parseMarkdown';
 
@@ -95,4 +96,16 @@ it('keeps a read-only checkbox inert', async () => {
 
   expect(done!.props.readOnly).toBe(true);
   expect(done!.props.style.pointerEvents).toBe('none');
+});
+
+it('keeps the class the checkmark rule needs next to a custom className', async () => {
+  const root = createRoot();
+  await act(async () => {
+    await root.render(
+      <EnrichedMarkdownText markdown="- [x] done" className="article" />
+    );
+  });
+
+  const [wrapper] = root.container.queryAll((i) => i.type === 'div');
+  expect(wrapper!.props.className).toBe(`${ENRM_TEXT_CLASS} article`);
 });

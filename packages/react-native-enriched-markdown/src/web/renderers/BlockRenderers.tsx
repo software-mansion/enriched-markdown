@@ -28,10 +28,13 @@ import {
   InsideLinkContext,
 } from './ConcealedSpoilerContext';
 
+const LIST_ITEM_PARAGRAPH_STYLE: CSSProperties = { display: 'block' };
+
 function ParagraphRenderer({
   node,
   styles,
   parentType,
+  index,
   capabilities,
   renderChildren,
 }: RendererProps) {
@@ -56,7 +59,11 @@ function ParagraphRenderer({
   }
 
   if (parentType === 'ListItem') {
-    return <span>{renderChildren(node)}</span>;
+    return (
+      <span style={index ? LIST_ITEM_PARAGRAPH_STYLE : undefined}>
+        {renderChildren(node)}
+      </span>
+    );
   }
 
   return (
