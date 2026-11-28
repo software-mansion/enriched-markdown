@@ -25,6 +25,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import kotlin.math.ceil
+import kotlin.math.floor
 
 // The inline icon covers the link's first word, which it draws itself; the rest of the link wraps as text.
 @RunWith(RobolectricTestRunner::class)
@@ -63,13 +65,6 @@ class LinkIconSpanTest {
   }
 
   // Bidi treats a replacement span as neutral, so the covered word could move in a right-to-left paragraph.
-  @Test
-  fun aRightToLeftParagraphKeepsTheLinkWithoutTheIcon() {
-    val rendered = render(style(), paragraph(text("שלום "), link(URL, text("Thread"))))
-
-    assertNull(iconSpan(rendered))
-  }
-
   // Each paragraph is checked for itself, so one with right-to-left text doesn't take the icon from another.
   @Test
   fun onlyTheRightToLeftParagraphLosesItsIcon() {
@@ -87,6 +82,35 @@ class LinkIconSpanTest {
     assertEquals(listOf("First", "Second"), covered.sorted())
   }
 
+  // With no other strong letter, the covered word alone would set the paragraph's direction, and a
+  // neutral replacement leaves it to the device.
+  @Test
+  fun aLoneWordKeepsItsIconOnALeftToRightDevice() {
+    assertEquals("Docs", covered(render(style(), paragraph(link(URL, text("Docs"))))))
+  }
+
+  @Test
+  @Config(qualifiers = "ar")
+  fun aLoneWordLosesItsIconOnARightToLeftDevice() {
+    assertNull(iconSpan(render(style(), paragraph(link(URL, text("Docs"))))))
+    assertEquals("Docs", covered(render(style(), paragraph(link(URL, text("Docs")), text(" here")))))
+  }
+
+  @Test
+  fun theIconTakesItsSlotBeforeTheWord() {
+    val rendered = renderLink(text("Thread title"))
+    val icon = iconSpan(rendered)!!
+    val paint = TextPaint().apply { textSize = FONT_SIZE }
+    val width = icon.getSize(paint, rendered, rendered.getSpanStart(icon), rendered.getSpanEnd(icon), null)
+
+    assertEquals(ceil(FONT_SIZE * LinkIconSpan.ICON_SLOT_RATIO + paint.measureText("Thread")).toInt(), width)
+    val bitmap = Bitmap.createBitmap(200, 40, Bitmap.Config.ARGB_8888)
+    icon.draw(Canvas(bitmap), rendered, rendered.getSpanStart(icon), rendered.getSpanEnd(icon), 0f, 0, 30, 40, paint)
+    val metrics = paint.fontMetrics
+    val iconCentre = 30 + (metrics.ascent + metrics.descent) / 2
+    assertEquals(Color.RED, bitmap.getPixel((FONT_SIZE / 2).toInt(), iconCentre.toInt()))
+  }
+
   // A replacement span gets no background from its line, so the icon's word draws the variant's own,
   // and none when the variant has none, whatever an earlier run left on the line's paint.
   @Test
@@ -95,9 +119,10 @@ class LinkIconSpanTest {
     assertEquals(Color.TRANSPARENT, cornerAfterDrawing(renderLink(text("Thread title"))))
   }
 
-  // A replacement span gets the line's baseline, so in a superscript it applies the run's shift itself.
+  // A replacement span gets the line's baseline, so in a superscript it applies the run's shift itself
+  // when drawing. When measuring it must not: the layout adds the shift to the measured line.
   @Test
-  fun theCoveredWordFollowsASuperscriptShift() {
+  fun aSuperscriptIconIsDrawnShiftedAndMeasuredUnshifted() {
     val rendered = renderLink(text("Thread"))
     val icon = iconSpan(rendered)!!
     var baseline = Float.NaN
@@ -116,18 +141,19 @@ class LinkIconSpanTest {
       }
     val superscript =
       TextPaint().apply {
-        textSize = FONT_SIZE
+        textSize = SUPERSCRIPT_SIZE
         baselineShift = -6
       }
     icon.draw(canvas, rendered, rendered.getSpanStart(icon), rendered.getSpanEnd(icon), 0f, 0, 30, 40, superscript)
-
     assertEquals(24f, baseline)
-    // The layout adds the shift to the measured line itself, so the span must not add it again.
-    val plain = Paint.FontMetricsInt()
-    val raised = Paint.FontMetricsInt()
-    icon.getSize(TextPaint().apply { textSize = FONT_SIZE }, rendered, rendered.getSpanStart(icon), rendered.getSpanEnd(icon), plain)
-    icon.getSize(superscript, rendered, rendered.getSpanStart(icon), rendered.getSpanEnd(icon), raised)
-    assertEquals(plain.top, raised.top)
+
+    // The font-size icon is taller than the superscript text, so it sets the run's height.
+    val fm = Paint.FontMetricsInt()
+    icon.getSize(superscript, rendered, rendered.getSpanStart(icon), rendered.getSpanEnd(icon), fm)
+    val text = superscript.fontMetricsInt
+    val iconTop = floor((text.ascent + text.descent - FONT_SIZE) / 2).toInt()
+    assertTrue(iconTop < text.ascent)
+    assertEquals(iconTop, fm.ascent)
   }
 
   private fun cornerAfterDrawing(rendered: Spannable): Int {
@@ -172,7 +198,7 @@ class LinkIconSpanTest {
           "fontFamily",
           "",
           "inlineIcon",
-          JavaOnlyMap.of("iconUri", "thread_icon"),
+          JavaOnlyMap.of("iconUri", ICON_URI),
         ),
       ),
     )
@@ -182,5 +208,10 @@ class LinkIconSpanTest {
   private companion object {
     const val URL = "app://thread/1"
     const val FONT_SIZE = 16f
+    const val SUPERSCRIPT_SIZE = 10f
+
+    // A 4×4 opaque red PNG, so the icon loads synchronously and reserves its slot.
+    const val ICON_URI =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAEklEQVR4nGP4z8DwHxkzkC4AADxAH+HggXe0AAAAAElFTkSuQmCC"
   }
 }

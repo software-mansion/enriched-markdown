@@ -30,33 +30,33 @@ Markdown arriving in pieces, from `createMarkdownStream()`: an alternative to `m
 
 Style configuration for Markdown elements. See the [Style Properties Reference](STYLES.md) for a detailed overview of all available style properties.
 
-| Type             | Default Value | Platform |
-| ---------------- | ------------- | -------- |
-| `MarkdownStyle`  | `{}`          | Both     |
+| Type            | Default Value | Platform |
+| --------------- | ------------- | -------- |
+| `MarkdownStyle` | `{}`          | Both     |
 
 ### `containerStyle`
 
 Style for the container view.
 
-| Type                    | Default Value | Platform |
-| ----------------------- | ------------- | -------- |
+| Type                     | Default Value | Platform |
+| ------------------------ | ------------- | -------- |
 | `ViewStyle \| TextStyle` | -             | Both     |
 
 ### `dir`
 
 Text direction on web. Unset or `'auto'`, each block resolves its own direction from its content; `'ltr'` / `'rtl'` force the whole document. See [RTL Support](RTL.md). On iOS and Android use `writingDirection`.
 
-| Type                         | Default Value | Platform |
-| ---------------------------- | ------------- | -------- |
+| Type                       | Default Value | Platform |
+| -------------------------- | ------------- | -------- |
 | `'ltr' \| 'rtl' \| 'auto'` | -             | Web      |
 
 ### `onLinkPress`
 
 Callback when a link is pressed. Access URL via `event.url`.
 
-| Type                                    | Default Value | Platform |
-| --------------------------------------- | ------------- | -------- |
-| `(event: LinkPressEvent) => void`       | -             | Both     |
+| Type                              | Default Value | Platform |
+| --------------------------------- | ------------- | -------- |
+| `(event: LinkPressEvent) => void` | -             | Both     |
 
 > **Note:** For handling long-press gestures on links, see [`onLinkLongPress`](#onlinklongpress). On iOS, providing `onLinkLongPress` automatically disables the system link preview.
 
@@ -76,9 +76,9 @@ Callback when a link is pressed. Access URL via `event.url`.
 
 Callback when a link is long pressed. Access URL via `event.url`. On iOS, automatically disables the system link preview.
 
-| Type                                         | Default Value | Platform |
-| -------------------------------------------- | ------------- | -------- |
-| `(event: LinkLongPressEvent) => void`       | -             | Both     |
+| Type                                  | Default Value | Platform |
+| ------------------------------------- | ------------- | -------- |
+| `(event: LinkLongPressEvent) => void` | -             | Both     |
 
 **Example:**
 
@@ -142,9 +142,9 @@ Fires for block and inline images, including images inside headings, lists, bloc
 
 Setting this callback makes images interactive on the native side; leaving it unset keeps the existing tap, text-selection, and long-press menu behavior unchanged. On web the image becomes focusable, exposes a button role for screen readers, and can be activated with Enter/Space, while the browser's right-click menu is preserved.
 
-| Type                                  | Default Value | Platform         |
-| ------------------------------------- | ------------- | ---------------- |
-| `(event: ImagePressEvent) => void`    | -             | Both, macOS, Web |
+| Type                               | Default Value | Platform         |
+| ---------------------------------- | ------------- | ---------------- |
+| `(event: ImagePressEvent) => void` | -             | Both, macOS, Web |
 
 **Example:**
 
@@ -163,17 +163,17 @@ A tap in the empty space beside a line reports that line's nearest character. Ta
 
 Setting this callback makes plain text interactive on the native side; leaving it unset keeps the existing tap and text-selection behavior unchanged.
 
-| Type                                  | Default Value | Platform |
-| ------------------------------------- | ------------- | -------- |
-| `(event: TextPressEvent) => void`     | -             | Both     |
+| Type                              | Default Value | Platform |
+| --------------------------------- | ------------- | -------- |
+| `(event: TextPressEvent) => void` | -             | Both     |
 
 ### `onTaskListItemPress`
 
 Callback when a task list checkbox is tapped. Receives `index` (0-based), `checked` (new state after toggling), and `text` (item text).
 
-| Type                                            | Default Value | Platform |
-| ----------------------------------------------- | ------------- | -------- |
-| `(event: TaskListItemPressEvent) => void`      | -             | Both     |
+| Type                                      | Default Value | Platform |
+| ----------------------------------------- | ------------- | -------- |
+| `(event: TaskListItemPressEvent) => void` | -             | Both     |
 
 ### `enableTaskListItemToggle`
 
@@ -181,9 +181,9 @@ Controls whether tapping a task list checkbox toggles its checked state.
 
 When `false`, the checkbox renders its markdown state read-only and the tap is **fully inert** — there is no visual toggle and `onTaskListItemPress` does not fire. Text selection and links in the same row are unaffected.
 
-| Type      | Default Value | Platform          |
-| --------- | ------------- | ----------------- |
-| `boolean` | `true`        | Both, Web         |
+| Type      | Default Value | Platform  |
+| --------- | ------------- | --------- |
+| `boolean` | `true`        | Both, Web |
 
 **Example:**
 
@@ -204,37 +204,37 @@ Callback when code is copied from a fenced code block, via the header copy butto
 
 Only fires when `flavor="github"` — the copy button is part of the GitHub flavor's code block renderer.
 
-| Type                                  | Default Value | Platform         |
-| ------------------------------------- | ------------- | ---------------- |
-| `(event: CopyPressEvent) => void`     | -             | Both, macOS      |
+| Type                              | Default Value | Platform    |
+| --------------------------------- | ------------- | ----------- |
+| `(event: CopyPressEvent) => void` | -             | Both, macOS |
 
 **Example:**
 
-```tsx
+````tsx
 <EnrichedMarkdownText
   flavor="github"
-  markdown={"```ts\nconst x = 1;\n```"}
+  markdown={'```ts\nconst x = 1;\n```'}
   onCopyPress={({ code, language }) => {
     console.log(`Copied ${language} code:`, code);
   }}
 />
-```
+````
 
 ### `copyLinksAs`
 
 How links appear in copied plain text: a copied selection, and a table's or quote's long-press **Copy**. `'label'` copies the link's text; `'markdown'` copies `[label](url)`, escaping only what would break the link, so the URL survives a paste. Other clipboard formats and **Copy as Markdown** are unchanged. Recognized links (`linkRecognition`) and autolinks, whose text is the URL, copy as their text either way.
 
-| Type                      | Default Value | Platform    |
-| ------------------------- | ------------- | ----------- |
-| `'label' \| 'markdown'`   | `'label'`     | Both, macOS |
+| Type                    | Default Value | Platform    |
+| ----------------------- | ------------- | ----------- |
+| `'label' \| 'markdown'` | `'label'`     | Both, macOS |
 
 ### `onSelectionCopy`
 
 Callback after a text selection is copied, from the selection menu's **Copy**, **Copy as Markdown**, or **Copy Image URL** item, the keyboard shortcut (⌘C / Ctrl+C), or TalkBack's copy action. Receives `text` (the copied plain text), `markdown` (the copied selection as Markdown, whatever the format), `format` (`'plain'`, also used by keyboard and TalkBack copies, `'markdown'`, or `'imageUrls'`), and `selection` (`{ start, end }` in the rendered text; with `flavor="github"`, they restart at each block that renders as its own view, such as a table, code block or quote, so consecutive paragraphs count as one run of text). Code block copies are reported by `onCopyPress` instead.
 
-| Type                                    | Default Value | Platform    |
-| --------------------------------------- | ------------- | ----------- |
-| `(event: SelectionCopyEvent) => void`   | -             | Both, macOS |
+| Type                                  | Default Value | Platform    |
+| ------------------------------------- | ------------- | ----------- |
+| `(event: SelectionCopyEvent) => void` | -             | Both, macOS |
 
 **Example:**
 
@@ -258,17 +258,21 @@ Fires **at most once per distinct failing expression** per component instance - 
 > [!CAUTION]
 > De-duplication is per component **instance**. If the component unmounts and remounts (new instance - navigation, a changed React `key`, or list recycling), it reports the same failures again. De-duplicate on your side (e.g. by `source`) if you aggregate these app-wide. See [LaTeX Math - De-duplication and re-mounts](LATEX_MATH.md#de-duplication-and-re-mounts).
 
-| Type                                  | Default Value | Platform     |
-| ------------------------------------- | ------------- | ------------ |
-| `(event: LatexErrorEvent) => void`    | -             | iOS, Android |
+| Type                               | Default Value | Platform     |
+| ---------------------------------- | ------------- | ------------ |
+| `(event: LatexErrorEvent) => void` | -             | iOS, Android |
 
 **Example:**
 
 ```tsx
 <EnrichedMarkdownText
-  markdown={"Inline $\\foo$ and block:\n\n$$\\bar$$"}
+  markdown={'Inline $\\foo$ and block:\n\n$$\\bar$$'}
   onLatexError={({ source, message, displayMode }) => {
-    reportToErrorTracker('latex-render-failed', { source, message, displayMode });
+    reportToErrorTracker('latex-render-failed', {
+      source,
+      message,
+      displayMode,
+    });
   }}
 />
 ```
@@ -295,16 +299,16 @@ Works in both flavors: `flavor="github"` fires on the container-based code block
 
 **Example:**
 
-```tsx
+````tsx
 <EnrichedMarkdownText
   flavor="github"
-  markdown={"```ts\nconst x = 1;\n```"}
+  markdown={'```ts\nconst x = 1;\n```'}
   onCodeBlockPress={({ code, language }) => {
     Clipboard.setString(code);
     console.log(`Copied ${language} code`);
   }}
 />
-```
+````
 
 ### `enableCodeBlockWrapToggle`
 
@@ -338,7 +342,7 @@ Controls the native link preview on long press (iOS only). Automatically set to 
 
 | Type      | Default Value | Platform |
 | --------- | ------------- | -------- |
-| `boolean` | `true`         | iOS      |
+| `boolean` | `true`        | iOS      |
 
 By default, long-pressing a link on iOS shows the native system link preview. When you provide `onLinkLongPress`, the system preview is automatically disabled so your handler can fire instead.
 
@@ -346,10 +350,7 @@ You can also control this behavior explicitly without providing a handler:
 
 ```tsx
 // Disable system link preview without providing a handler
-<EnrichedMarkdownText
-  markdown={content}
-  enableLinkPreview={false}
-/>
+<EnrichedMarkdownText markdown={content} enableLinkPreview={false} />
 ```
 
 ### `selectable`
@@ -358,15 +359,15 @@ Whether text can be selected.
 
 | Type      | Default Value | Platform |
 | --------- | ------------- | -------- |
-| `boolean` | `true`         | Both     |
+| `boolean` | `true`        | Both     |
 
 ### `selectionColor`
 
 Color of the text selection highlight. On iOS, this also affects the caret and selection handle colors (they share a single tint). On macOS, only the selection background is affected. On Android, use `selectionHandleColor` to override the handle color independently.
 
-| Type         | Default Value | Platform           |
-| ------------ | ------------- | ------------------ |
-| `ColorValue` | -             | Both, macOS, Web   |
+| Type         | Default Value | Platform         |
+| ------------ | ------------- | ---------------- |
+| `ColorValue` | -             | Both, macOS, Web |
 
 ### `selectionHandleColor`
 
@@ -380,9 +381,9 @@ Color of the selection handles (drag anchors). No-op on Android API levels below
 
 Configuration for md4c parser extension flags.
 
-| Type          | Default Value            | Platform |
-| ------------- | ------------------------ | -------- |
-| `Md4cFlags`   | `{ underline: false, superscript: false, subscript: false, strikethrough: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false, admonitions: true }` | Both |
+| Type        | Default Value                                                                                                                                                                              | Platform |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| `Md4cFlags` | `{ underline: false, superscript: false, subscript: false, strikethrough: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false, admonitions: true }` | Both     |
 
 **Properties:**
 
@@ -423,7 +424,7 @@ Whether fonts should scale to respect Text Size accessibility settings.
 
 | Type      | Default Value | Platform |
 | --------- | ------------- | -------- |
-| `boolean` | `true`         | Both     |
+| `boolean` | `true`        | Both     |
 
 ### `maxFontSizeMultiplier`
 
@@ -439,7 +440,7 @@ Whether to preserve the bottom margin of the last block element.
 
 | Type      | Default Value | Platform |
 | --------- | ------------- | -------- |
-| `boolean` | `false`        | Both     |
+| `boolean` | `false`       | Both     |
 
 ### `numberOfLines`
 
@@ -457,9 +458,9 @@ Only applies to CommonMark (the default flavor). When [`flavor`](#flavor) is `'g
 
 Controls where the ellipsis is placed when the text is truncated by [`numberOfLines`](#numberoflines). Only takes effect when `numberOfLines` is set. Mirrors the prop of the same name on React Native's core `Text`.
 
-| Type                                        | Default Value | Platform |
-| ------------------------------------------- | ------------- | -------- |
-| `'head' \| 'middle' \| 'tail' \| 'clip'`    | `'tail'`      | Both     |
+| Type                                     | Default Value | Platform |
+| ---------------------------------------- | ------------- | -------- |
+| `'head' \| 'middle' \| 'tail' \| 'clip'` | `'tail'`      | Both     |
 
 - **`'head'`**: ellipsis at the start (`...d of the text`).
 - **`'middle'`**: ellipsis in the middle (`start...end`).
@@ -474,9 +475,9 @@ Ignored when [`flavor`](#flavor) is `'github'` (see [`numberOfLines`](#numberofl
 
 Controls how Android breaks lines within paragraphs. Mirrors the prop of the same name on React Native's core `Text`. The same value is used for both the measurement pass (`StaticLayout.Builder`) and the rendered `TextView`, so measured and rendered line counts stay in sync. Requires API 23+; ignored on older Android versions.
 
-| Type                                          | Default Value   | Platform |
-| --------------------------------------------- | --------------- | -------- |
-| `'simple' \| 'highQuality' \| 'balanced'`     | `'highQuality'` | Android  |
+| Type                                      | Default Value   | Platform |
+| ----------------------------------------- | --------------- | -------- |
+| `'simple' \| 'highQuality' \| 'balanced'` | `'highQuality'` | Android  |
 
 - **`'simple'`**: greedy, no hyphenation; cheapest.
 - **`'highQuality'`** (default): full paragraph optimization with hyphenation.
@@ -486,9 +487,9 @@ Controls how Android breaks lines within paragraphs. Mirrors the prop of the sam
 
 Controls iOS line-breaking refinements. Mirrors the prop of the same name on React Native's core `Text`. Maps to `NSParagraphStyle.lineBreakStrategy`. Requires iOS 14+; on earlier versions the prop is ignored.
 
-| Type                                                       | Default Value | Platform |
-| ---------------------------------------------------------- | ------------- | -------- |
-| `'none' \| 'standard' \| 'hangul-word' \| 'push-out'`      | `'none'`      | iOS      |
+| Type                                                  | Default Value | Platform |
+| ----------------------------------------------------- | ------------- | -------- |
+| `'none' \| 'standard' \| 'hangul-word' \| 'push-out'` | `'none'`      | iOS      |
 
 - **`'none'`** (default): no additional line-break strategy.
 - **`'standard'`**: enables the system's standard line-break refinements.
@@ -499,9 +500,9 @@ Controls iOS line-breaking refinements. Mirrors the prop of the same name on Rea
 
 Paragraph writing direction. iOS only — Android already resolves direction per paragraph via the platform Bidi heuristic and is unaffected by this prop.
 
-| Type                                            | Default Value    | Platform |
-| ----------------------------------------------- | ---------------- | -------- |
-| `'auto' \| 'ltr' \| 'rtl' \| 'first-strong'`    | `'first-strong'` | iOS      |
+| Type                                         | Default Value    | Platform |
+| -------------------------------------------- | ---------------- | -------- |
+| `'auto' \| 'ltr' \| 'rtl' \| 'first-strong'` | `'first-strong'` | iOS      |
 
 - **`'first-strong'`** (default): library extension. Each paragraph resolves its base direction from its first strong directional character — mixed Arabic/Hebrew/English documents render correctly out of the box. Paragraphs with no strong character (numbers, punctuation, block spacers) fall back to the view's Yoga-resolved layout direction, which inherits from any ancestor `<View style={{ direction: 'rtl' }}>` (defaults to `I18nManager.isRTL`). Mirrors Android's `TEXT_DIRECTION_FIRST_STRONG`.
 - **`'auto'`**: React Native parity (matches `<Text writingDirection="auto">`). TextKit follows the app's `userInterfaceLayoutDirection`; mixed-direction paragraphs do not auto-resolve.
@@ -529,11 +530,12 @@ Code blocks are always rendered left-to-right regardless of this prop. Per-parag
 
 Markdown flavor. Set to `'github'` to enable GitHub Flavored Markdown features: tables, block-style code blocks, and block-style blockquotes.
 
-| Type                              | Default Value   | Platform |
-| --------------------------------- | --------------- | -------- |
-| `'commonmark' \| 'github'`        | `'commonmark'`  | Both     |
+| Type                       | Default Value  | Platform |
+| -------------------------- | -------------- | -------- |
+| `'commonmark' \| 'github'` | `'commonmark'` | Both     |
 
-> **Note:** 
+> **Note:**
+>
 > - **`'commonmark'`**: All Markdown content is rendered as a single TextView. Selecting text will select all content in the view.
 > - **`'github'`**: The Markdown AST is split into segments. Consecutive text blocks (paragraphs, headings, lists, etc.) are grouped into separate TextView segments, while tables, fenced code blocks, math blocks, and blockquotes are rendered as separate block views. This allows for granular text selection within each segment and enables interactive block features (horizontal table scrolling, context menus, the code block header). Text selection cannot span across segments.
 >
@@ -553,8 +555,8 @@ Set to `true` while `markdown` is still arriving (an LLM answer streaming in). I
 
 Configuration for streaming behavior. Controls how incomplete tables, fenced code blocks and media are handled during streaming, in both flavors (tables exist only in `github`). The settings only take effect when `streaming` is `true`.
 
-| Type                                        | Default Value                                          | Platform |
-| ------------------------------------------- | ------------------------------------------------------ | -------- |
+| Type                                                                                                                                                                                                | Default Value                                                                                                            | Platform |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------- |
 | `StreamingConfig` (`{ tableMode?: 'hidden' \| 'progressive'; codeBlockMode?: 'hidden' \| 'progressive'; mediaMode?: 'hidden' \| 'progressive'; animation?: StreamingAnimation; smooth?: boolean }`) | `{ tableMode: 'progressive', codeBlockMode: 'progressive', mediaMode: 'progressive', animation: 'fade', smooth: false }` | Both     |
 
 #### `tableMode`
@@ -605,9 +607,9 @@ Reveals new text word by word at a steady pace instead of in the bursts it arriv
 
 Controls how spoiler text (`||hidden text||`) is displayed before being revealed.
 
-| Type                          | Default Value | Platform |
-| ----------------------------- | ------------- | -------- |
-| `'particles' \| 'solid'`     | `'particles'` | Both     |
+| Type                     | Default Value | Platform |
+| ------------------------ | ------------- | -------- |
+| `'particles' \| 'solid'` | `'particles'` | Both     |
 
 - **`'particles'`**: Animated particle overlay (CAEmitterLayer on iOS, Choreographer-driven Canvas particles on Android).
 - **`'solid'`**: Opaque rectangle covering the text (Discord-style).
@@ -639,7 +641,7 @@ Headers participate in image cache identity, so the same URL requested with diff
 
 ### `linkPillContent`
 
-Per-link content for [link pills](./MENTIONS.md#native-link-pills): a label, icon and icon tint for one exact link URL. It only affects links whose `markdownStyle.linkVariants` entry enables `pill`, and wins over that variant's `pill.label`, `pill.iconUri` and `pill.iconTintColor`.
+Per-link content for [link pills](./MENTIONS.md#native-link-pills): a label, icon and icon tint for one exact link URL. It only affects links whose `markdownStyle.linkVariants` entry enables `pill`, and wins over that variant's `pill.label`, `pill.iconUri` and `pill.iconTintColor`. It does not apply to a variant's [`inlineIcon`](./MENTIONS.md#inline-icons-linkvariantspatterninlineicon).
 
 | Type                                                                           | Default Value | Platform     |
 | ------------------------------------------------------------------------------ | ------------- | ------------ |
@@ -665,9 +667,9 @@ This is content, not style: keep `markdownStyle` stable and change this map as l
 
 Opt-in link recognition for text that is not written as a Markdown link, such as `#1234`, `@name`, `$skill` or a file path. Off by default. Works in both flavors on every platform.
 
-| Key | Type | Matches |
-| --- | ---- | ------- |
-| `text` | `RegExp` | Every nonempty, non-overlapping match inside a plain-text run |
+| Key          | Type     | Matches                                                          |
+| ------------ | -------- | ---------------------------------------------------------------- |
+| `text`       | `RegExp` | Every nonempty, non-overlapping match inside a plain-text run    |
 | `inlineCode` | `RegExp` | An inline-code span whose whole content matches becomes one link |
 
 A recognized link's URL is the matched text itself, so `linkVariants`, `linkPillContent`, `linkContextMenuItems`, `onLinkPress` and `onLinkLongPress` apply to it like to any other link. Existing links, autolinks, code blocks, images, video and math are never touched. The Markdown source is unchanged: copying, including Copy as Markdown, returns the original text without link syntax.
@@ -691,9 +693,9 @@ Custom items to add to the text selection context menu. Items appear before the 
 
 > **iOS**: Requires iOS 16+. On earlier versions the prop is ignored.
 
-| Type                 | Default Value | Platform |
-| -------------------- | ------------- | -------- |
-| `ContextMenuItem[]`  | -             | Both     |
+| Type                | Default Value | Platform |
+| ------------------- | ------------- | -------- |
+| `ContextMenuItem[]` | -             | Both     |
 
 **`ContextMenuItem` shape:**
 
@@ -745,8 +747,8 @@ interface ContextMenuItem {
 
 Controls built-in actions added to the native text selection menu. Custom app-provided actions are controlled separately with `contextMenuItems`.
 
-| Type                 | Default Value                                  | Platform |
-| -------------------- | ---------------------------------------------- | -------- |
+| Type                  | Default Value                                 | Platform            |
+| --------------------- | --------------------------------------------- | ------------------- |
 | `SelectionMenuConfig` | `{}` (see shape below for per-field defaults) | iOS, Android, macOS |
 
 Each item takes an object: `{ enabled }` toggles visibility (the system `copy` item can't be hidden — only relabeled) and `label` overrides the English default. The labels apply to the main text selection menu as well as the table and math block copy menus.
@@ -811,8 +813,8 @@ See [COPY_OPTIONS.md](./COPY_OPTIONS.md#localizing-menu-labels) for details.
 
 Header titles for GitHub admonitions/alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`), keyed by type, to localize or rename them. A type left out keeps its English title (`DEFAULT_ADMONITION_TITLES`); an empty string shows the icon alone. The header is one line high, so a title wider than the callout ends in an ellipsis. The title is laid out in its own direction, so a right-to-left title reads correctly in a left-to-right callout.
 
-| Type               | Default Value                                    | Platform           |
-| ------------------ | ------------------------------------------------ | ------------------ |
+| Type               | Default Value                                    | Platform                 |
+| ------------------ | ------------------------------------------------ | ------------------------ |
 | `AdmonitionTitles` | `Note`, `Tip`, `Important`, `Warning`, `Caution` | iOS, Android, macOS, Web |
 
 ```ts
@@ -836,38 +838,40 @@ type AdmonitionTitles = Partial<Record<AdmonitionType, string>>;
 
 Translates every string spoken by VoiceOver (iOS) and TalkBack (Android) when navigating the rendered markdown. All fields are optional; omitted fields fall back to the English defaults defined in `accessibilityLabelDefaults.ts`. See the [Accessibility guide](ACCESSIBILITY.md#translating-announcements--accessibilitylabels) for the full defaults table and placeholder syntax.
 
-| Type                  | Default Value                | Platform        |
-| --------------------- | ---------------------------- | --------------- |
-| `AccessibilityLabels` | English strings (see guide)  | iOS, Android    |
+| Type                  | Default Value               | Platform     |
+| --------------------- | --------------------------- | ------------ |
+| `AccessibilityLabels` | English strings (see guide) | iOS, Android |
 
 **`AccessibilityLabels` shape:**
 
 ```ts
 interface AccessibilityLabels {
   list?: {
-    bulletPoint?: string;          // "Bullet point"
-    nestedBulletPoint?: string;    // "Nested bullet point"
-    orderedItem?: string;          // "List item {n}"
-    nestedOrderedItem?: string;    // "Nested list item {n}"
+    bulletPoint?: string; // "Bullet point"
+    nestedBulletPoint?: string; // "Nested bullet point"
+    orderedItem?: string; // "List item {n}"
+    nestedOrderedItem?: string; // "Nested list item {n}"
   };
   blockquote?: {
-    quote?: string;                // "Blockquote"
-    nestedQuote?: string;          // "Nested blockquote"
+    quote?: string; // "Blockquote"
+    nestedQuote?: string; // "Nested blockquote"
   };
   table?: {
-    row?: string;                  // "Row {n}: {content}"
+    row?: string; // "Row {n}: {content}"
   };
   math?: {
-    equation?: string;             // "Math: {speech}"
+    equation?: string; // "Math: {speech}"
   };
-  codeBlock?: {                    // enableCodeBlockWrapToggle
-    wrap?: string;                 // "Wrap lines"
-    unwrap?: string;               // "Disable line wrap"
+  codeBlock?: {
+    // enableCodeBlockWrapToggle
+    wrap?: string; // "Wrap lines"
+    unwrap?: string; // "Disable line wrap"
   };
-  rotor?: {                        // iOS only
-    headings?: string;             // "Headings"
-    links?: string;                // "Links"
-    images?: string;               // "Images"
+  rotor?: {
+    // iOS only
+    headings?: string; // "Headings"
+    links?: string; // "Links"
+    images?: string; // "Images"
   };
 }
 ```
@@ -957,17 +961,17 @@ type MarkdownShortcutsConfig = {
 
 See [INPUT — Markdown Shortcuts](INPUT.md#markdown-shortcuts).
 
-| Type                                  | Default Value | Platform |
-| ------------------------------------- | ------------- | -------- |
-| `boolean \| MarkdownShortcutsConfig`   | `false`       | Both     |
+| Type                                 | Default Value | Platform |
+| ------------------------------------ | ------------- | -------- |
+| `boolean \| MarkdownShortcutsConfig` | `false`       | Both     |
 
 ### `autoCapitalize`
 
 Auto-capitalization behavior.
 
-| Type     | Default Value  | Platform |
-| -------- | -------------- | -------- |
-| `string` | `'sentences'`  | Both     |
+| Type     | Default Value | Platform |
+| -------- | ------------- | -------- |
+| `string` | `'sentences'` | Both     |
 
 ### `multiline`
 
@@ -997,8 +1001,8 @@ Color of the text selection highlight.
 
 Style configuration for formatted text in the input.
 
-| Type                 | Default Value | Platform |
-| -------------------- | ------------- | -------- |
+| Type                     | Default Value | Platform |
+| ------------------------ | ------------- | -------- |
 | `MarkdownTextInputStyle` | `{}`          | Both     |
 
 On web, the [web editor](WEB_INPUT.md#styling) honors every key except `linkVariants`.
@@ -1028,9 +1032,9 @@ List of trigger strings that start a mention flow (e.g. `['@', '#']`). See [Ment
 
 Pattern that decides which typed text is detected as a link. Omit it to use the built-in URL detection; pass `null` to turn detection off. See [Auto-Link Detection](INPUT.md#auto-link-detection).
 
-| Type             | Default Value       | Platform |
-| ---------------- | ------------------- | -------- |
-| `RegExp \| null` | built-in detection  | Both     |
+| Type             | Default Value      | Platform |
+| ---------------- | ------------------ | -------- |
+| `RegExp \| null` | built-in detection | Both     |
 
 ### `onLinkDetected`
 
@@ -1044,8 +1048,8 @@ Fires when a new link is detected in the text, with the matched text, its URL an
 
 Style for the input view. Accepts `ViewStyle` and `TextStyle` properties (e.g., `fontSize`, `color`, `padding`).
 
-| Type                    | Default Value | Platform |
-| ----------------------- | ------------- | -------- |
+| Type                     | Default Value | Platform |
+| ------------------------ | ------------- | -------- |
 | `ViewStyle \| TextStyle` | -             | Both     |
 
 ### Events
@@ -1054,17 +1058,17 @@ Style for the input view. Accepts `ViewStyle` and `TextStyle` properties (e.g., 
 
 Fires when the plain text content changes. Returns the text without Markdown syntax.
 
-| Type                            | Default Value | Platform |
-| ------------------------------- | ------------- | -------- |
-| `(text: string) => void`       | -             | Both     |
+| Type                     | Default Value | Platform |
+| ------------------------ | ------------- | -------- |
+| `(text: string) => void` | -             | Both     |
 
 ### `onChangeMarkdown`
 
 Fires when the Markdown representation changes. Returns the full Markdown string. Only active when the callback is provided — omitting it skips the serialization for better performance.
 
-| Type                                | Default Value | Platform |
-| ----------------------------------- | ------------- | -------- |
-| `(markdown: string) => void`       | -             | Both     |
+| Type                         | Default Value | Platform |
+| ---------------------------- | ------------- | -------- |
+| `(markdown: string) => void` | -             | Both     |
 
 ### `onChangeSelection`
 
@@ -1078,9 +1082,9 @@ Fires when the text selection changes.
 
 Fires when the active style state changes. The payload provides a nested object for each style with an `isActive` property; `heading` additionally carries the cursor paragraph's `level` (1–6, read only while `isActive` is true) and `unorderedList` / `orderedList` their 0-based nesting `depth`.
 
-| Type                              | Default Value | Platform |
-| --------------------------------- | ------------- | -------- |
-| `(state: StyleState) => void`    | -             | Both     |
+| Type                          | Default Value | Platform |
+| ----------------------------- | ------------- | -------- |
+| `(state: StyleState) => void` | -             | Both     |
 
 **`StyleState` shape:**
 
@@ -1113,17 +1117,17 @@ interface StyleState {
 
 Fires when whether [`undo()`](#undo) or [`redo()`](#redo) has a step to take changes. It fires only when one of the two values flips, not on every edit, so it is cheap to drive toolbar buttons from. Web-only for now, part of the [web editor](WEB_INPUT.md): iOS and Android never call it.
 
-| Type                                                         | Default Value | Platform |
-| ------------------------------------------------------------ | ------------- | -------- |
-| `(state: { canUndo: boolean; canRedo: boolean }) => void`    | -             | Web      |
+| Type                                                      | Default Value | Platform |
+| --------------------------------------------------------- | ------------- | -------- |
+| `(state: { canUndo: boolean; canRedo: boolean }) => void` | -             | Web      |
 
 ### `onKeyPress`
 
 Fires on every keystroke, before the change is applied to the input content — mirroring React Native TextInput's `onKeyPress`. `nativeEvent.key` is the pressed character, or a named key: `Backspace`, `Enter`, `Tab` (iOS additionally reports `Escape`). On Android the key reported for soft keyboard input may lag actual typing when autocomplete suggestions are involved. Paste operations do not fire the event.
 
-| Type                                                          | Default Value | Platform |
-| ------------------------------------------------------------- | ------------- | -------- |
-| `(e: NativeSyntheticEvent<{ key: string }>) => void`          | -             | Both     |
+| Type                                                 | Default Value | Platform |
+| ---------------------------------------------------- | ------------- | -------- |
+| `(e: NativeSyntheticEvent<{ key: string }>) => void` | -             | Both     |
 
 **Example:**
 
@@ -1139,9 +1143,9 @@ Fires on every keystroke, before the change is applied to the input content — 
 
 Fires when the caret's pixel position changes (typing, selection change, content reflow). The rect is relative to the input's top-left corner, in density-independent pixels. The native side diffs the rect before emitting, so redundant events are suppressed.
 
-| Type                              | Default Value | Platform |
-| --------------------------------- | ------------- | -------- |
-| `(rect: CaretRect) => void`      | -             | Both     |
+| Type                        | Default Value | Platform |
+| --------------------------- | ------------- | -------- |
+| `(rect: CaretRect) => void` | -             | Both     |
 
 **`CaretRect` shape:**
 
@@ -1171,17 +1175,17 @@ All values are in density-independent pixels, relative to the input's top-left c
 
 Fires when the input gains focus.
 
-| Type           | Default Value | Platform |
-| -------------- | ------------- | -------- |
-| `() => void`   | -             | Both     |
+| Type         | Default Value | Platform |
+| ------------ | ------------- | -------- |
+| `() => void` | -             | Both     |
 
 ### `onBlur`
 
 Fires when the input loses focus.
 
-| Type           | Default Value | Platform |
-| -------------- | ------------- | -------- |
-| `() => void`   | -             | Both     |
+| Type         | Default Value | Platform |
+| ------------ | ------------- | -------- |
+| `() => void` | -             | Both     |
 
 The input participates in React Native's text-input focus tracking (`TextInput.State`), so blur also happens through the platform's standard keyboard-dismiss paths: taps outside the input inside a `ScrollView` (per its `keyboardShouldPersistTaps` setting) and `Keyboard.dismiss()`. See [Keyboard Dismissal](INPUT.md#keyboard-dismissal).
 
@@ -1213,33 +1217,33 @@ When `true`, a parent scroll view or pressable can't take over the touch respond
 
 Fires when a new mention flow starts. See [Mentions](MENTIONS.md#events).
 
-| Type | Default Value | Platform |
-| ---- | ------------- | -------- |
-| `(event: { indicator: string }) => void` | - | Both |
+| Type                                     | Default Value | Platform |
+| ---------------------------------------- | ------------- | -------- |
+| `(event: { indicator: string }) => void` | -             | Both     |
 
 ### `onChangeMention`
 
 Fires on every keystroke while a mention flow is active.
 
-| Type | Default Value | Platform |
-| ---- | ------------- | -------- |
-| `(event: { indicator: string; text: string }) => void` | - | Both |
+| Type                                                   | Default Value | Platform |
+| ------------------------------------------------------ | ------------- | -------- |
+| `(event: { indicator: string; text: string }) => void` | -             | Both     |
 
 ### `onEndMention`
 
 Fires when the active mention flow ends.
 
-| Type | Default Value | Platform |
-| ---- | ------------- | -------- |
-| `(event: { indicator: string }) => void` | - | Both |
+| Type                                     | Default Value | Platform |
+| ---------------------------------------- | ------------- | -------- |
+| `(event: { indicator: string }) => void` | -             | Both     |
 
 ### `writingDirection`
 
 Paragraph writing direction in the input. iOS only — Android's `EditText` already resolves direction per paragraph via `TEXT_DIRECTION_FIRST_STRONG` and is unaffected by this prop.
 
-| Type                                            | Default Value    | Platform |
-| ----------------------------------------------- | ---------------- | -------- |
-| `'auto' \| 'ltr' \| 'rtl' \| 'first-strong'`    | `'first-strong'` | iOS      |
+| Type                                         | Default Value    | Platform |
+| -------------------------------------------- | ---------------- | -------- |
+| `'auto' \| 'ltr' \| 'rtl' \| 'first-strong'` | `'first-strong'` | iOS      |
 
 - **`'first-strong'`** (default): each paragraph resolves its base direction from its first strong directional character. Neutral-only paragraphs fall back to the view's Yoga-resolved layout direction. Mirrors Android's platform behavior.
 - **`'auto'`**: React Native parity. TextKit follows the app's `userInterfaceLayoutDirection`; mixed-direction paragraphs do not auto-resolve.
@@ -1253,9 +1257,9 @@ Custom items to add to the text selection context menu. Items appear before the 
 
 > **iOS**: Requires iOS 16+. On earlier versions the prop is ignored.
 
-| Type                 | Default Value | Platform |
-| -------------------- | ------------- | -------- |
-| `ContextMenuItem[]`  | -             | Both     |
+| Type                | Default Value | Platform |
+| ------------------- | ------------- | -------- |
+| `ContextMenuItem[]` | -             | Both     |
 
 **`ContextMenuItem` shape:**
 
@@ -1302,8 +1306,8 @@ interface ContextMenuItem {
 
 Controls built-in items in the text selection context menu — the **Format** submenu (Bold, Italic, …) and the **Copy as Markdown** action. Each item takes an object: `{ enabled }` toggles visibility and `label` overrides the English default; `format.label` controls the submenu title itself. Custom app-provided actions are controlled separately with `contextMenuItems`.
 
-| Type                       | Default Value                          | Platform            |
-| -------------------------- | -------------------------------------- | ------------------- |
+| Type                       | Default Value                                 | Platform            |
+| -------------------------- | --------------------------------------------- | ------------------- |
 | `InputSelectionMenuConfig` | `{}` (see shape below for per-field defaults) | iOS, Android, macOS |
 
 **`InputSelectionMenuConfig` shape:**
@@ -1343,9 +1347,9 @@ See [COPY_OPTIONS.md](./COPY_OPTIONS.md#localizing-menu-labels) for details on t
 
 Controls which items appear inside the Format submenu and the label for each. Only effective when `selectionMenuConfig.format` is enabled (the default). Same `{ enabled?, label? }` shape as `selectionMenuConfig` above.
 
-| Type               | Default Value                                  | Platform            |
-| ------------------ | ---------------------------------------------- | ------------------- |
-| `FormatMenuConfig` | `{}` (see shape below for per-field defaults)  | iOS, Android, macOS |
+| Type               | Default Value                                 | Platform            |
+| ------------------ | --------------------------------------------- | ------------------- |
+| `FormatMenuConfig` | `{}` (see shape below for per-field defaults) | iOS, Android, macOS |
 
 **`FormatMenuConfig` shape:**
 

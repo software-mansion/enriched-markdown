@@ -27,6 +27,10 @@ class LinkSpan(
   @Volatile
   private var longPressTriggered = false
 
+  // The variant patterns are fixed for the style cache's lifetime, so a link matches them once,
+  // not on every measure and draw.
+  private val variant: LinkVariantEntry? by lazy(LazyThreadSafetyMode.PUBLICATION) { styleCache.resolvedVariantForUrl(url) }
+
   override fun onClick(widget: View) {
     if (longPressTriggered) {
       longPressTriggered = false
@@ -49,8 +53,7 @@ class LinkSpan(
   override fun updateDrawState(textPaint: TextPaint) {
     super.updateDrawState(textPaint)
 
-    val variant = styleCache.resolvedVariantForUrl(url)
-    if (appliesFont) applyLinkFont(textPaint, variant)
+    if (appliesFont) applyLinkFont(textPaint)
 
     textPaint.color = variant?.color ?: styleCache.linkColor
     textPaint.isUnderlineText = variant?.underline ?: styleCache.linkUnderline
@@ -62,10 +65,7 @@ class LinkSpan(
   }
 
   /** The font this link draws with. */
-  fun applyLinkFont(
-    textPaint: TextPaint,
-    variant: LinkVariantEntry? = styleCache.resolvedVariantForUrl(url),
-  ) {
+  fun applyLinkFont(textPaint: TextPaint) {
     val fontFamily = variant?.fontFamily?.takeIf { it.isNotEmpty() } ?: styleCache.linkFontFamily
     if (fontFamily.isNotEmpty()) {
       textPaint.textSize = blockStyle.fontSize

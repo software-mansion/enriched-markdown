@@ -11,6 +11,7 @@ import com.swmansion.enriched.markdown.spans.LinkIconSpan
 import com.swmansion.enriched.markdown.spans.LinkPillSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
+import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.text.extensions.applyBlockStyleFont
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import java.lang.ref.WeakReference
@@ -40,6 +41,8 @@ class LinkRenderer(
   private var checkedStart = 0
   private var checkedEnd = 0
   private var checkedRightToLeft = false
+  private var checkedFirstLeftToRight = -1
+  private var checkedLastLeftToRight = -1
 
   override fun render(
     node: MarkdownASTNode,
@@ -103,15 +106,12 @@ class LinkRenderer(
           factory.runAfterRender {
             val iconSpanStart = builder.getSpanStart(icon)
             if (iconSpanStart < 0) return@runAfterRender
-            // Bidi layout treats a replacement span as neutral, so in a paragraph with right-to-left
-            // text the covered word could move, or set the paragraph's direction. There the link
-            // keeps its text without the icon.
-            if (paragraphHasRightToLeft(builder, iconSpanStart)) {
+            // Deferred spans (superscript) are in place only now, and their edges end the icon too.
+            val iconSpanEnd = iconRunEnd(builder, iconSpanStart, builder.getSpanEnd(linkSpan), linkSpan, blockStyle.fontSize)
+            if (!keepsParagraphDirection(builder, iconSpanStart, iconSpanEnd, factory.context.resources.isLayoutRTL())) {
               builder.removeSpan(icon)
               return@runAfterRender
             }
-            // Deferred spans (superscript) are in place only now, and their edges end the icon too.
-            val iconSpanEnd = iconRunEnd(builder, iconSpanStart, builder.getSpanEnd(linkSpan), linkSpan, blockStyle.fontSize)
             if (iconSpanEnd != builder.getSpanEnd(icon)) builder.setSpan(icon, iconSpanStart, iconSpanEnd, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
           }
         }
@@ -158,28 +158,54 @@ class LinkRenderer(
     return start + max(firstCharacter, runEnd)
   }
 
-  private fun paragraphHasRightToLeft(
+  /**
+   * Bidi layout reads a replacement span as a neutral character, so in a paragraph with
+   * right-to-left text the covered word could move. Without a left-to-right letter outside
+   * [start, end), the paragraph would also take its direction from the device: right to left on
+   * [rightToLeftDevice]. In both cases the link keeps its text without the icon.
+   */
+  private fun keepsParagraphDirection(
+    text: CharSequence,
+    start: Int,
+    end: Int,
+    rightToLeftDevice: Boolean,
+  ): Boolean {
+    if (checkedText?.get() !== text || start < checkedStart || start >= checkedEnd) scanParagraph(text, start)
+    if (checkedRightToLeft) return false
+    return !rightToLeftDevice || (checkedFirstLeftToRight in 0 until start) || checkedLastLeftToRight >= end
+  }
+
+  private fun scanParagraph(
     text: CharSequence,
     position: Int,
-  ): Boolean {
-    if (position < 0) return false
-    if (checkedText?.get() === text && position >= checkedStart && position < checkedEnd) return checkedRightToLeft
+  ) {
     var start = position
     while (start > 0 && text[start - 1] != '\n') start--
     val end = TextUtils.indexOf(text, '\n', position).takeIf { it >= 0 } ?: text.length
     var rightToLeft = false
+    var firstLeftToRight = -1
+    var lastLeftToRight = -1
     var index = start
     while (index < end && !rightToLeft) {
       val codePoint = Character.codePointAt(text, index)
-      val direction = Character.getDirectionality(codePoint)
-      rightToLeft = direction == Character.DIRECTIONALITY_RIGHT_TO_LEFT || direction == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC
+      when (Character.getDirectionality(codePoint)) {
+        Character.DIRECTIONALITY_RIGHT_TO_LEFT, Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC -> {
+          rightToLeft = true
+        }
+
+        Character.DIRECTIONALITY_LEFT_TO_RIGHT -> {
+          if (firstLeftToRight < 0) firstLeftToRight = index
+          lastLeftToRight = index
+        }
+      }
       index += Character.charCount(codePoint)
     }
     checkedText = WeakReference(text)
     checkedStart = start
     checkedEnd = end
     checkedRightToLeft = rightToLeft
-    return rightToLeft
+    checkedFirstLeftToRight = firstLeftToRight
+    checkedLastLeftToRight = lastLeftToRight
   }
 
   /**

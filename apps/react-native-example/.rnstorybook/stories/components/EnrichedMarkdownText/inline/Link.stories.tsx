@@ -45,6 +45,40 @@ const PILL_ICON_URI = Image.resolveAssetSource(
   require('../../../../../src/assets/logo_icon.png')
 ).uri;
 
+const INLINE_ICON_MARKDOWN =
+  'Continue in [Migrating the renderer to the new architecture without breaking existing layouts](app://thread/42), ' +
+  'or see [Docs](app://thread/7) and [React Native](https://reactnative.dev).\n\n' +
+  '- [A list item that is only an icon link and wraps onto a second line](app://thread/9)\n' +
+  '- Superscript: x^[icon](app://thread/1)^';
+
+type LinkInlineIconControls = {
+  color: string;
+  underline: boolean;
+  backgroundColor: string;
+  tintIcon: boolean;
+  iconTintColor: string;
+};
+
+const linkInlineIconDefaults: LinkInlineIconControls = {
+  color: '#4F46E5',
+  underline: false,
+  backgroundColor: 'transparent',
+  tintIcon: true,
+  iconTintColor: '#4F46E5',
+};
+
+const inlineIconArgTypes = {
+  color: { control: 'color', description: 'variant color (link text)' },
+  underline: { control: 'boolean', description: 'variant underline' },
+  backgroundColor: { control: 'color', description: 'variant backgroundColor' },
+  tintIcon: {
+    control: 'boolean',
+    description:
+      'off: inlineIcon.iconTintColor is omitted and the icon keeps its colors',
+  },
+  iconTintColor: { control: 'color', description: 'inlineIcon.iconTintColor' },
+};
+
 // Per-link content is separate from the style: one exact URL -> its label / icon.
 const PILLS_CONTENT = {
   'https://example.com/files/src/components/Button.tsx': {
@@ -251,6 +285,40 @@ export const Pills: TextStory<LinkPillControls> = {
         description="linkVariants[pattern].pill presents matching links as pills (iOS and Android). linkPillContent gives one exact URL its own label: the Button.tsx link uses it, README.md shows its link text, and the unmatched reactnative.dev link stays an ordinary link. pill.iconTintColor recolors the variant's icon and keeps its alpha."
         {...rest}
         style={toLinkPillStyle(controls, PILL_ICON_URI)}
+      />
+    );
+  },
+};
+
+export const InlineIcons: TextStory<LinkInlineIconControls> = {
+  args: {
+    markdown: INLINE_ICON_MARKDOWN,
+    ...linkInlineIconDefaults,
+  },
+  argTypes: inlineIconArgTypes,
+  render: (args) => {
+    const { controls, rest } = splitStyleControls(args, linkInlineIconDefaults);
+    return (
+      <EnrichedMarkdownTextStory
+        title="Link Inline Icons"
+        description="linkVariants[pattern].inlineIcon draws an icon before the link's first word and lets the rest wrap as ordinary link text (iOS and Android). Unlike a pill, a long title is never cut off. The reactnative.dev link matches no variant."
+        {...rest}
+        md4cFlags={{ superscript: true }}
+        style={{
+          linkVariants: {
+            '^app://thread/': {
+              color: controls.color,
+              underline: controls.underline,
+              backgroundColor: controls.backgroundColor,
+              inlineIcon: {
+                iconUri: PILL_ICON_URI,
+                iconTintColor: controls.tintIcon
+                  ? controls.iconTintColor
+                  : undefined,
+              },
+            },
+          },
+        }}
       />
     );
   },

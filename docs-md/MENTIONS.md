@@ -19,8 +19,16 @@
   markdownStyle={{
     link: { color: '#2563EB', underline: true },
     linkVariants: {
-      '^user:': { color: '#1264A3', backgroundColor: '#E8F5FB', underline: false },
-      '^channel:': { color: '#065F46', backgroundColor: '#D1FAE5', underline: false },
+      '^user:': {
+        color: '#1264A3',
+        backgroundColor: '#E8F5FB',
+        underline: false,
+      },
+      '^channel:': {
+        color: '#065F46',
+        backgroundColor: '#D1FAE5',
+        underline: false,
+      },
     },
   }}
   onStartMention={({ indicator }) => setShowSuggestions(true)}
@@ -39,24 +47,24 @@ ref.current?.insertMention(`@${item.name}`, item.url);
 
 ## Props
 
-| Prop | Type | Default | Description |
-| ---- | ---- | ------- | ----------- |
-| `mentionIndicators` | `string[]` | `[]` | Trigger strings that start a mention flow. |
+| Prop                | Type       | Default | Description                                |
+| ------------------- | ---------- | ------- | ------------------------------------------ |
+| `mentionIndicators` | `string[]` | `[]`    | Trigger strings that start a mention flow. |
 
 ## Events
 
-| Event | Payload | When |
-| ----- | ------- | ---- |
-| `onStartMention` | `{ indicator }` | Mention flow starts. |
-| `onChangeMention` | `{ indicator, text }` | Query text changes (each keystroke). |
-| `onEndMention` | `{ indicator }` | Mention flow ends (cancel, insert, or cursor moved away). |
+| Event             | Payload               | When                                                      |
+| ----------------- | --------------------- | --------------------------------------------------------- |
+| `onStartMention`  | `{ indicator }`       | Mention flow starts.                                      |
+| `onChangeMention` | `{ indicator, text }` | Query text changes (each keystroke).                      |
+| `onEndMention`    | `{ indicator }`       | Mention flow ends (cancel, insert, or cursor moved away). |
 
 ## Ref Methods
 
-| Method | Description |
-| ------ | ----------- |
-| `startMention(indicator)` | Inserts the indicator at cursor and triggers the mention flow. Must be in `mentionIndicators`. |
-| `insertMention(displayText, url)` | Replaces the active mention token with a styled link. Only works during an active flow. |
+| Method                            | Description                                                                                    |
+| --------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `startMention(indicator)`         | Inserts the indicator at cursor and triggers the mention flow. Must be in `mentionIndicators`. |
+| `insertMention(displayText, url)` | Replaces the active mention token with a styled link. Only works during an active flow.        |
 
 ## Link Variants (Styling)
 
@@ -168,6 +176,23 @@ Icons are drawn at the label's font size.
 Local files show on the first layout. Remote icons load in the background through the same pipeline as Markdown images, using `imageRequestHeaders`, and the pill keeps room for them while they load. A source that fails to load gives that room back, so the pill shrinks to its label, and is retried after 30 seconds.
 
 Pill presentation is native only. Web and macOS render ordinary links and ignore `pill` and `linkPillContent`.
+
+### Inline icons: `linkVariants[pattern].inlineIcon`
+
+A pill is one unit, so a long label is cut off at the end of the line. For links that show their own text and need to wrap, such as titles, give the variant an `inlineIcon` instead:
+
+```tsx
+linkVariants: {
+  '^app://thread/': { color: '#4F46E5', inlineIcon: { iconUri: 'thread_icon', iconTintColor: '#4F46E5' } },
+}
+```
+
+- The icon is drawn before the link text, on the line of its first word; the text wraps like any other link and takes the variant's `color`, `underline`, `backgroundColor` and `fontFamily`.
+- The icon is not part of the text: copy, export, the accessible name and link menus see only the link text.
+- `iconUri` takes the same [icon sources](#icon-sources) as pills. `linkPillContent` does not apply, and a variant that also sets `pill` draws the pill.
+- iOS and Android only. Web and macOS render the link without the icon.
+- On Android, the icon stays on one line with the link's first word (up to about eight font sizes wide, and only up to the first style change). A paragraph with right-to-left text draws the link without its icon, and so does, on a right-to-left device, a paragraph whose only left-to-right text is the link's first word.
+- In superscript and subscript, the icon keeps the surrounding text's font size on Android and takes the superscript size on iOS.
 
 ## Positioning the Suggestion List
 
