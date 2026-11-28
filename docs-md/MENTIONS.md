@@ -19,16 +19,8 @@
   markdownStyle={{
     link: { color: '#2563EB', underline: true },
     linkVariants: {
-      '^user:': {
-        color: '#1264A3',
-        backgroundColor: '#E8F5FB',
-        underline: false,
-      },
-      '^channel:': {
-        color: '#065F46',
-        backgroundColor: '#D1FAE5',
-        underline: false,
-      },
+      '^user:': { color: '#1264A3', backgroundColor: '#E8F5FB', underline: false },
+      '^channel:': { color: '#065F46', backgroundColor: '#D1FAE5', underline: false },
     },
   }}
   onStartMention={({ indicator }) => setShowSuggestions(true)}
@@ -47,24 +39,24 @@ ref.current?.insertMention(`@${item.name}`, item.url);
 
 ## Props
 
-| Prop                | Type       | Default | Description                                |
-| ------------------- | ---------- | ------- | ------------------------------------------ |
-| `mentionIndicators` | `string[]` | `[]`    | Trigger strings that start a mention flow. |
+| Prop | Type | Default | Description |
+| ---- | ---- | ------- | ----------- |
+| `mentionIndicators` | `string[]` | `[]` | Trigger strings that start a mention flow. |
 
 ## Events
 
-| Event             | Payload               | When                                                      |
-| ----------------- | --------------------- | --------------------------------------------------------- |
-| `onStartMention`  | `{ indicator }`       | Mention flow starts.                                      |
-| `onChangeMention` | `{ indicator, text }` | Query text changes (each keystroke).                      |
-| `onEndMention`    | `{ indicator }`       | Mention flow ends (cancel, insert, or cursor moved away). |
+| Event | Payload | When |
+| ----- | ------- | ---- |
+| `onStartMention` | `{ indicator }` | Mention flow starts. |
+| `onChangeMention` | `{ indicator, text }` | Query text changes (each keystroke). |
+| `onEndMention` | `{ indicator }` | Mention flow ends (cancel, insert, or cursor moved away). |
 
 ## Ref Methods
 
-| Method                            | Description                                                                                    |
-| --------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `startMention(indicator)`         | Inserts the indicator at cursor and triggers the mention flow. Must be in `mentionIndicators`. |
-| `insertMention(displayText, url)` | Replaces the active mention token with a styled link. Only works during an active flow.        |
+| Method | Description |
+| ------ | ----------- |
+| `startMention(indicator)` | Inserts the indicator at cursor and triggers the mention flow. Must be in `mentionIndicators`. |
+| `insertMention(displayText, url)` | Replaces the active mention token with a styled link. Only works during an active flow. |
 
 ## Link Variants (Styling)
 
@@ -191,7 +183,7 @@ linkVariants: {
 - The icon is not part of the text: copy, export, the accessible name and link menus see only the link text.
 - `iconUri` takes the same [icon sources](#icon-sources) as pills. `linkPillContent` does not apply, and a variant that also sets `pill` draws the pill.
 - iOS and Android only. Web and macOS render the link without the icon.
-- On Android, the icon stays on one line with the link's first word (up to about eight font sizes wide, and only up to the first style change). A paragraph with right-to-left text draws the link without its icon, and so does, on a right-to-left device, a paragraph whose only left-to-right text is the link's first word.
+- On Android, the icon stays on one line with the link's first word (up to about eight font sizes wide, and only up to the first style change). A paragraph with right-to-left text draws the link without its icon, and so does, in a right-to-left layout (the device language or `I18nManager.forceRTL`), a paragraph with no left-to-right text outside icons, pills and images, such as `- [Docs](app://docs)`. An ancestor's `direction: 'rtl'` style is not taken into account.
 - In superscript and subscript, the icon keeps the surrounding text's font size on Android and takes the superscript size on iOS.
 
 ## Positioning the Suggestion List

@@ -1,10 +1,13 @@
 package com.swmansion.enriched.markdown.renderer
 
+import android.content.Context
 import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.text.TextPaint
 import android.text.TextUtils
 import android.text.style.CharacterStyle
 import android.text.style.ReplacementSpan
+import com.facebook.react.modules.i18nmanager.I18nUtil
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.LinkFontSpan
 import com.swmansion.enriched.markdown.spans.LinkIconSpan
@@ -41,8 +44,7 @@ class LinkRenderer(
   private var checkedStart = 0
   private var checkedEnd = 0
   private var checkedRightToLeft = false
-  private var checkedFirstLeftToRight = -1
-  private var checkedLastLeftToRight = -1
+  private var checkedHasVisibleLeftToRight = false
 
   override fun render(
     node: MarkdownASTNode,
@@ -108,11 +110,8 @@ class LinkRenderer(
             if (iconSpanStart < 0) return@runAfterRender
             // Deferred spans (superscript) are in place only now, and their edges end the icon too.
             val iconSpanEnd = iconRunEnd(builder, iconSpanStart, builder.getSpanEnd(linkSpan), linkSpan, blockStyle.fontSize)
-            if (!keepsParagraphDirection(builder, iconSpanStart, iconSpanEnd, factory.context.resources.isLayoutRTL())) {
-              builder.removeSpan(icon)
-              return@runAfterRender
-            }
             if (iconSpanEnd != builder.getSpanEnd(icon)) builder.setSpan(icon, iconSpanStart, iconSpanEnd, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
+            if (!keepsParagraphDirection(builder, iconSpanStart) { isRightToLeftLayout(factory.context) }) builder.removeSpan(icon)
           }
         }
       }
@@ -160,53 +159,57 @@ class LinkRenderer(
 
   /**
    * Bidi layout reads a replacement span as a neutral character, so in a paragraph with
-   * right-to-left text the covered word could move. Without a left-to-right letter outside
-   * [start, end), the paragraph would also take its direction from the device: right to left on
-   * [rightToLeftDevice]. In both cases the link keeps its text without the icon.
+   * right-to-left text the covered word could move. Without a left-to-right letter that no
+   * replacement covers (this icon, another link's, a pill, an image), the paragraph would also
+   * take its direction from the layout: right to left when [rightToLeftLayout]. In both cases the
+   * link keeps its text without the icon.
    */
   private fun keepsParagraphDirection(
-    text: CharSequence,
-    start: Int,
-    end: Int,
-    rightToLeftDevice: Boolean,
+    text: Spanned,
+    position: Int,
+    rightToLeftLayout: () -> Boolean,
   ): Boolean {
-    if (checkedText?.get() !== text || start < checkedStart || start >= checkedEnd) scanParagraph(text, start)
+    if (checkedText?.get() !== text || position < checkedStart || position >= checkedEnd) scanParagraph(text, position)
     if (checkedRightToLeft) return false
-    return !rightToLeftDevice || (checkedFirstLeftToRight in 0 until start) || checkedLastLeftToRight >= end
+    return checkedHasVisibleLeftToRight || !rightToLeftLayout()
   }
 
+  // A paragraph checked once serves every icon link in it. Icons later in the paragraph are measured
+  // before their own runs are final, which only ever shrink, so the result errs toward dropping the icon.
   private fun scanParagraph(
-    text: CharSequence,
+    text: Spanned,
     position: Int,
   ) {
     var start = position
     while (start > 0 && text[start - 1] != '\n') start--
     val end = TextUtils.indexOf(text, '\n', position).takeIf { it >= 0 } ?: text.length
     var rightToLeft = false
-    var firstLeftToRight = -1
-    var lastLeftToRight = -1
-    var index = start
-    while (index < end && !rightToLeft) {
-      val codePoint = Character.codePointAt(text, index)
-      when (Character.getDirectionality(codePoint)) {
-        Character.DIRECTIONALITY_RIGHT_TO_LEFT, Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC -> {
-          rightToLeft = true
+    var visibleLeftToRight = false
+    var segment = start
+    while (segment < end && !rightToLeft) {
+      val segmentEnd = text.nextSpanTransition(segment, end, ReplacementSpan::class.java)
+      val replaced = text.getSpans(segment, segmentEnd, ReplacementSpan::class.java).isNotEmpty()
+      var index = segment
+      while (index < segmentEnd && !rightToLeft) {
+        val codePoint = Character.codePointAt(text, index)
+        when (Character.getDirectionality(codePoint)) {
+          Character.DIRECTIONALITY_RIGHT_TO_LEFT, Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC -> rightToLeft = true
+          Character.DIRECTIONALITY_LEFT_TO_RIGHT -> if (!replaced) visibleLeftToRight = true
         }
-
-        Character.DIRECTIONALITY_LEFT_TO_RIGHT -> {
-          if (firstLeftToRight < 0) firstLeftToRight = index
-          lastLeftToRight = index
-        }
+        index += Character.charCount(codePoint)
       }
-      index += Character.charCount(codePoint)
+      segment = segmentEnd
     }
     checkedText = WeakReference(text)
     checkedStart = start
     checkedEnd = end
     checkedRightToLeft = rightToLeft
-    checkedFirstLeftToRight = firstLeftToRight
-    checkedLastLeftToRight = lastLeftToRight
+    checkedHasVisibleLeftToRight = visibleLeftToRight
   }
+
+  // What a paragraph without strong text falls back to: the device language, or React Native's
+  // forced or allowed right-to-left layout (I18nManager). An ancestor's `direction` style is not seen here.
+  private fun isRightToLeftLayout(context: Context): Boolean = context.resources.isLayoutRTL() || I18nUtil.instance.isRTL(context)
 
   /**
    * A pill replaces one unbroken run. Links that already hold a replacement (image,

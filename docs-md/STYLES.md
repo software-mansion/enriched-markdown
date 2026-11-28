@@ -369,7 +369,7 @@ Per-token foreground colors for syntax highlighting, keyed on the highlight toke
 | `underline` | `boolean` | Show underline |
 | `backgroundColor` | `string` | Background behind link text (default: `transparent`) |
 
-Per-URL link styling goes in `linkVariants`; see [Link Variants](MENTIONS.md#link-variants-styling).
+Per-URL link styling goes in `linkVariants`; see [Link Variants](MENTIONS.md#link-variants-styling). A variant can also present its links as [pills](MENTIONS.md#native-link-pills) or draw an [inline icon](MENTIONS.md#inline-icons-linkvariantspatterninlineicon) before them.
 
 ### Strong-specific
 

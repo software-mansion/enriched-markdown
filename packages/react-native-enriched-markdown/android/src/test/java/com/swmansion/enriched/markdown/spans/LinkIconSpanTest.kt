@@ -1,5 +1,6 @@
 package com.swmansion.enriched.markdown.spans
 
+import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -8,6 +9,7 @@ import android.text.Spannable
 import android.text.TextPaint
 import com.facebook.react.bridge.JavaOnlyArray
 import com.facebook.react.bridge.JavaOnlyMap
+import com.facebook.react.modules.i18nmanager.I18nUtil
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
@@ -64,8 +66,8 @@ class LinkIconSpanTest {
     assertTrue(paint.measureText(run) <= FONT_SIZE * (8f - LinkIconSpan.ICON_SLOT_RATIO) + 1f)
   }
 
-  // Bidi treats a replacement span as neutral, so the covered word could move in a right-to-left paragraph.
-  // Each paragraph is checked for itself, so one with right-to-left text doesn't take the icon from another.
+  // Bidi treats a replacement span as neutral, so the covered word could move in a right-to-left paragraph,
+  // which then draws its links without icons. Each paragraph is checked for itself.
   @Test
   fun onlyTheRightToLeftParagraphLosesItsIcon() {
     val rendered =
@@ -82,8 +84,7 @@ class LinkIconSpanTest {
     assertEquals(listOf("First", "Second"), covered.sorted())
   }
 
-  // With no other strong letter, the covered word alone would set the paragraph's direction, and a
-  // neutral replacement leaves it to the device.
+  // Without a left-to-right letter outside a replacement, a paragraph takes the layout's direction.
   @Test
   fun aLoneWordKeepsItsIconOnALeftToRightDevice() {
     assertEquals("Docs", covered(render(style(), paragraph(link(URL, text("Docs"))))))
@@ -91,9 +92,31 @@ class LinkIconSpanTest {
 
   @Test
   @Config(qualifiers = "ar")
-  fun aLoneWordLosesItsIconOnARightToLeftDevice() {
+  fun onARightToLeftDeviceALoneWordLosesItsIcon() {
     assertNull(iconSpan(render(style(), paragraph(link(URL, text("Docs"))))))
     assertEquals("Docs", covered(render(style(), paragraph(link(URL, text("Docs")), text(" here")))))
+    assertEquals("Docs", covered(render(style(), paragraph(text("See "), link(URL, text("Docs"))))))
+  }
+
+  // Each word is covered by its own icon, so neither gives the paragraph its direction.
+  @Test
+  @Config(qualifiers = "ar")
+  fun onARightToLeftDeviceIconLinksDoNotVouchForEachOther() {
+    val rendered = render(style(), paragraph(link(URL, text("Docs")), text(" "), link(URL, text("Api"))))
+
+    assertTrue(rendered.getSpans(0, rendered.length, LinkIconSpan::class.java).isEmpty())
+  }
+
+  @Test
+  fun aForcedRightToLeftLayoutCountsAsRightToLeft() {
+    val context = RuntimeEnvironment.getApplication()
+    context.applicationInfo.flags = context.applicationInfo.flags or ApplicationInfo.FLAG_SUPPORTS_RTL
+    I18nUtil.instance.forceRTL(context, true)
+    try {
+      assertNull(iconSpan(render(style(), paragraph(link(URL, text("Docs"))))))
+    } finally {
+      I18nUtil.instance.forceRTL(context, false)
+    }
   }
 
   @Test
