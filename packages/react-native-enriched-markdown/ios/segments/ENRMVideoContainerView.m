@@ -8,6 +8,7 @@
 #import <AVKit/AVKit.h>
 #if TARGET_OS_OSX
 #import "ENRMMenuAction.h"
+#import "ENRMScrollWheelRouting.h"
 #endif
 
 static const CGFloat kDefaultVideoAspectRatio = 16.0 / 9.0;
@@ -296,8 +297,32 @@ static RCTUIView *ENRMCreatePlayIconOverlay(void)
 
 // ===== macOS implementation =====
 
+// AVPlayerView scrubs on horizontal scroll-wheel motion; keep vertical gestures for the page.
+@interface ENRMPlayerView : AVPlayerView
+@end
+
+@implementation ENRMPlayerView {
+  ENRMScrollWheelLatch _scrollWheelLatch;
+}
+
+- (void)scrollWheel:(NSEvent *)event
+{
+  ENRMScrollWheelTarget target = ENRMRouteScrollWheel(&_scrollWheelLatch, event.phase, event.momentumPhase,
+                                                      event.scrollingDeltaX, event.scrollingDeltaY, YES);
+  if (target == ENRMScrollWheelTargetHold) {
+    return;
+  }
+  if (target == ENRMScrollWheelTargetNextResponder) {
+    [self.nextResponder scrollWheel:event];
+    return;
+  }
+  [super scrollWheel:event];
+}
+
+@end
+
 @implementation ENRMVideoContainerView {
-  AVPlayerView *_playerView;
+  ENRMPlayerView *_playerView;
   NSString *_currentURL;
 }
 
@@ -308,7 +333,7 @@ static RCTUIView *ENRMCreatePlayIconOverlay(void)
     _dynamicProps = [[ENRMDynamicBlockProps alloc] init];
     self.wantsLayer = YES;
 
-    _playerView = [[AVPlayerView alloc] init];
+    _playerView = [[ENRMPlayerView alloc] init];
     _playerView.controlsStyle = AVPlayerViewControlsStyleInline;
     _playerView.wantsLayer = YES;
     _playerView.layer.masksToBounds = YES;

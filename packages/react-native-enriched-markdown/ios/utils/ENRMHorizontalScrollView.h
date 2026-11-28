@@ -7,7 +7,11 @@
 /// `fullScreenGestureEnabled`, iOS 26 content pop) can begin instead. Inward
 /// pans, pans from inside the content, and pans during deceleration or bounce
 /// scroll as usual. Cost: no bounce on a fresh rightward pan at the leading
-/// edge. Left edge only; RTL is not handled. macOS keeps RCTUIScrollView.
+/// edge. Left edge only; RTL is not handled.
+///
+/// On macOS, vertical scroll-wheel gestures go to the next responder, so the
+/// page keeps scrolling while the cursor is over a block (see
+/// ENRMScrollWheelRouting.h).
 ///
 /// TODO: move this decision to react-native-screens. RNSScreenStack already
 /// inspects competing scroll-view pans (`shouldRequireFailureOfGestureRecognizer:`

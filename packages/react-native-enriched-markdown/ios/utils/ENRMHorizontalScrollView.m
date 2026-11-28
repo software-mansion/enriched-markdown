@@ -1,4 +1,12 @@
 #import "ENRMHorizontalScrollView.h"
+#import "ENRMScrollWheelRouting.h"
+
+#if TARGET_OS_OSX
+@interface ENRMHorizontalScrollView () {
+  ENRMScrollWheelLatch _scrollWheelLatch;
+}
+@end
+#endif
 
 @implementation ENRMHorizontalScrollView
 
@@ -11,6 +19,29 @@
     return NO;
   }
   return [super gestureRecognizerShouldBegin:gestureRecognizer];
+}
+#else
+// Overriding -scrollWheel: opts out of responsive scrolling; RN-macOS's RCTCustomScrollView forwards wheel events
+// the same way and opts back in.
++ (BOOL)isCompatibleWithResponsiveScrolling
+{
+  return YES;
+}
+
+- (void)scrollWheel:(NSEvent *)event
+{
+  BOOL canScrollHorizontally = self.contentSize.width > NSWidth(self.contentView.bounds) + 0.5;
+  ENRMScrollWheelTarget target =
+      ENRMRouteScrollWheel(&_scrollWheelLatch, event.phase, event.momentumPhase, event.scrollingDeltaX,
+                           event.scrollingDeltaY, canScrollHorizontally);
+  if (target == ENRMScrollWheelTargetHold) {
+    return;
+  }
+  if (target == ENRMScrollWheelTargetNextResponder) {
+    [self.nextResponder scrollWheel:event];
+    return;
+  }
+  [super scrollWheel:event];
 }
 #endif
 
