@@ -79,6 +79,7 @@ object SegmentHeightMeasurer {
     originXPx: Float = 0f,
     originYPx: Float = 0f,
     quoteRightToLeft: Boolean? = null,
+    nestedBlockquote: Boolean = true,
   ): Float =
     measure(
       segments,
@@ -93,7 +94,7 @@ object SegmentHeightMeasurer {
       slotMeasurer,
       originXPx,
       originYPx,
-      nested = true,
+      nested = nestedBlockquote,
       quoteRightToLeft = quoteRightToLeft,
     ).heightPx
 
@@ -170,6 +171,25 @@ object SegmentHeightMeasurer {
           }
         }
 
+        is RenderedSegment.ListBlock -> {
+          if (segment.depth == 0) totalHeightPx += style.listStyle.marginTop.toInt()
+          totalHeightPx +=
+            ListContainerView.measureListHeight(
+              segment,
+              style,
+              context,
+              contentWidthPx,
+              wrapCursor,
+              slotMeasurer,
+              originXPx,
+              originYPx + totalHeightPx,
+              breakStrategy,
+              quoteRightToLeft,
+            )
+          maxContentWidthPx = contentWidthPx
+          if (includeBottomMargin && segment.depth == 0) totalHeightPx += style.listStyle.marginBottom.toInt()
+        }
+
         is RenderedSegment.Blockquote -> {
           // Only the outermost quote carries vertical margins; a quote nested in
           // another is separated by the parent's padding alone (BlockquoteContainerView.nested).
@@ -184,7 +204,9 @@ object SegmentHeightMeasurer {
               slotMeasurer,
               originXPx,
               originYPx + totalHeightPx,
-              quoteRightToLeft,
+              outerRightToLeft = quoteRightToLeft,
+              listDepth = segment.listDepth,
+              parentMarkerWidth = segment.parentMarkerWidth,
             )
           maxContentWidthPx = contentWidthPx
           if (!nested && includeBottomMargin) totalHeightPx += style.blockquoteStyle.marginBottom.toInt()

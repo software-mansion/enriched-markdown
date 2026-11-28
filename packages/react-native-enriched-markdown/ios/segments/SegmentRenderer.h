@@ -8,6 +8,8 @@
 @class ENRMTextRenderCache;
 @class MarkdownASTNode;
 @class StyleConfig;
+@class ENRMListSegment;
+@class ENRMListMarkerDescriptor;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -41,6 +43,20 @@ ENRMRenderResult *ENRMRenderTextCached(NSArray<MarkdownASTNode *> *nodes, StyleC
                                        NSLineBreakStrategy lineBreakStrategy,
                                        ENRMWritingDirectionMode writingDirectionMode,
                                        NSWritingDirection layoutDirection, ENRMTextRenderCache *cache);
+
+NSInteger ENRMCountTaskItems(MarkdownASTNode *node);
+void ENRMApplySegmentWritingDirection(NSArray<ENRMRenderedSegment *> *segments, ENRMWritingDirectionMode mode,
+                                      NSWritingDirection layoutDirection);
+NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsWithListContext(MarkdownASTNode *ast, StyleConfig *config,
+                                                                  BOOL allowTrailingMargin, BOOL allowFontScaling,
+                                                                  CGFloat maxFontSizeMultiplier,
+                                                                  NSLineBreakStrategy lineBreakStrategy,
+                                                                  BOOL blockquoteContent,
+                                                                  ENRMListSegment *_Nullable context);
+NSArray<ENRMRenderedSegment *> *ENRMRenderListItemSegments(MarkdownASTNode *item, StyleConfig *config,
+                                                           ENRMListSegment *parent, ENRMListMarkerDescriptor *marker,
+                                                           BOOL allowFontScaling,
+                                                           NSLineBreakStrategy lineBreakStrategy);
 
 #ifdef __cplusplus
 }

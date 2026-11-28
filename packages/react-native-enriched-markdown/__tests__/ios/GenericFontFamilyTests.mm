@@ -104,8 +104,7 @@ static BOOL ENRMIsSystemMonospaced(UIFont *font)
                                                  isGFM:NO];
   NSAttributedString *text =
       ENRMRenderASTNodes(ast.children, config, NO, YES, 0, NSLineBreakStrategyStandard, 0).attributedText;
-  UIFont * (^fontOf)(NSString *) = ^UIFont *(NSString *word)
-  {
+  UIFont * (^fontOf)(NSString *) = ^UIFont *(NSString *word) {
     return [text attribute:NSFontAttributeName atIndex:[text.string rangeOfString:word].location effectiveRange:NULL];
   };
 

@@ -11,6 +11,10 @@ sealed interface MarkdownSegment {
     val node: MarkdownASTNode,
   ) : MarkdownSegment
 
+  data class ListBlock(
+    val node: MarkdownASTNode,
+  ) : MarkdownSegment
+
   data class Math(
     val latex: String,
     val node: MarkdownASTNode,
@@ -38,7 +42,10 @@ sealed interface MarkdownSegment {
 const val BLOCK_SLOT_ID_ATTRIBUTE = "blockSlotId"
 const val BLOCK_SLOT_KIND_ATTRIBUTE = "blockSlotKind"
 
-fun splitASTIntoSegments(root: MarkdownASTNode): List<MarkdownSegment> {
+fun splitASTIntoSegments(
+  root: MarkdownASTNode,
+  listContainer: Boolean = false,
+): List<MarkdownSegment> {
   val segments = mutableListOf<MarkdownSegment>()
   val currentTextNodes = mutableListOf<MarkdownASTNode>()
 
@@ -60,6 +67,17 @@ fun splitASTIntoSegments(root: MarkdownASTNode): List<MarkdownSegment> {
       MarkdownASTNode.NodeType.Table -> {
         flushTextNodes()
         segments.add(MarkdownSegment.Table(child))
+      }
+
+      MarkdownASTNode.NodeType.OrderedList,
+      MarkdownASTNode.NodeType.UnorderedList,
+      -> {
+        if (listContainer || child.containsTable()) {
+          flushTextNodes()
+          segments.add(MarkdownSegment.ListBlock(child))
+        } else {
+          currentTextNodes.add(child)
+        }
       }
 
       MarkdownASTNode.NodeType.LatexMathDisplay -> {
@@ -98,3 +116,5 @@ fun splitASTIntoSegments(root: MarkdownASTNode): List<MarkdownSegment> {
   flushTextNodes()
   return segments
 }
+
+private fun MarkdownASTNode.containsTable(): Boolean = type == MarkdownASTNode.NodeType.Table || children.any { it.containsTable() }

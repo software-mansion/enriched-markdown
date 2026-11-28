@@ -4,8 +4,9 @@ XCTest sources for the React Native library's Objective-C / Objective-C++ code
 (`ios/**`). They run twice, once per way an app can install the library:
 
 - CocoaPods: the app-hosted test target `EnrichedMarkdownExampleTests` in
-  `apps/react-native-example`, which links the same pods as the app (via the
-  Podfile `inherit! :complete` block).
+  `apps/react-native-example`, which inherits pod search paths through
+  `inherit! :search_paths` and resolves pod symbols from its host app, avoiding
+  duplicate static pod definitions.
 - Swift Package Manager: the app-hosted test target
   `EnrichedMarkdownSpmExampleTests` in `apps/react-native-spm-example`.
 

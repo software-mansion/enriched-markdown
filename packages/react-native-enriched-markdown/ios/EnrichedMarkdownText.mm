@@ -415,7 +415,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
       return;
     NSAttributedString *text = owner->_textView.textStorage;
     ENRMCopySelection([text attributedSubstringFromRange:range], range,
-                      markdownForRange(text, range, owner->_cachedMarkdown), owner -> _config,
+                      markdownForRange(text, range, owner->_cachedMarkdown), owner->_config,
                       [owner selectionCopyHandler]);
   };
 #if !TARGET_OS_OSX
@@ -451,8 +451,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
                                   selectionEnd:selectionEnd];
         });
     return buildEditMenuForSelection(textView.textStorage, textView.selectedRange, strongSelf->_cachedMarkdown,
-                                     strongSelf->_config, @[ baseMenu ], customItems,
-                                     strongSelf -> _selectionMenuConfig, [strongSelf selectionCopyHandler]);
+                                     strongSelf->_config, @[ baseMenu ], customItems, strongSelf->_selectionMenuConfig,
+                                     [strongSelf selectionCopyHandler]);
   };
 #endif
 

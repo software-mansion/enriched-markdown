@@ -9,6 +9,7 @@
     _enableLinkPreview = YES;
     _enableBlockContextMenu = YES;
     _enableCodeBlockPress = NO;
+    _enableTaskListItemToggle = YES;
   }
   return self;
 }

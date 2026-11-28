@@ -70,6 +70,11 @@ ENRMRenderResult *_Nullable ENRMRenderASTNodesResuming(NSArray<MarkdownASTNode *
 // blockSeeds for `text`, whose blocks start at `blockStarts`.
 NSArray *ENRMBlockSeeds(NSAttributedString *text, NSArray<NSNumber *> *blockStarts);
 
+ENRMRenderResult *ENRMRenderASTNodesWithTaskOffset(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config,
+                                                   BOOL allowTrailingMargin, BOOL allowFontScaling,
+                                                   CGFloat maxFontSizeMultiplier, NSLineBreakStrategy lineBreakStrategy,
+                                                   BOOL blockquoteContent, NSInteger taskIndexOffset);
+
 #ifdef __cplusplus
 }
 #endif

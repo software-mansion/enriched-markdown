@@ -113,28 +113,30 @@ static NSString *const kAppleColorEmojiFontName = @"AppleColorEmoji";
                                    CGFloat markerX = isRTL ? origin.x + container.size.width - marker.indent + gap
                                                            : origin.x + marker.indent - gap;
 
-                                   if (marker.isTask) {
-                                     const CGFloat size = [_config taskListCheckboxSize];
-                                     CGFloat checkboxX = isRTL ? markerX + size / 2.0 : markerX - size / 2.0;
-                                     [self drawCheckboxAtX:checkboxX
-                                                   centerY:baselineY - (font.capHeight / 2.0)
-                                                   checked:marker.isChecked];
-                                   } else if (marker.listType == ListTypeUnordered) {
-                                     [self drawBulletAtX:markerX
-                                                 centerY:baselineY - (font.xHeight + font.capHeight) / 4.0
-                                                   depth:marker.depth];
-                                   } else {
-                                     [self drawOrderedMarkerAtX:markerX
-                                                         number:marker.number
-                                                      baselineY:baselineY
-                                                          isRTL:isRTL];
-                                   }
+                                   [self drawMarker:marker boundaryX:markerX baselineY:baselineY font:font isRTL:isRTL];
                                  }
                                  CGContextRestoreGState(context);
                                }];
 }
 
 #pragma mark - Drawing Helpers
+
+- (void)drawMarker:(ENRMListMarkerDescriptor *)marker
+         boundaryX:(CGFloat)x
+         baselineY:(CGFloat)baseline
+              font:(UIFont *)font
+             isRTL:(BOOL)isRTL
+{
+  if (marker.isTask) {
+    const CGFloat size = [_config taskListCheckboxSize];
+    CGFloat checkboxX = isRTL ? x + size / 2.0 : x - size / 2.0;
+    [self drawCheckboxAtX:checkboxX centerY:baseline - (font.capHeight / 2.0) checked:marker.isChecked];
+  } else if (marker.listType == ListTypeUnordered) {
+    [self drawBulletAtX:x centerY:baseline - (font.xHeight + font.capHeight) / 4.0 depth:marker.depth];
+  } else {
+    [self drawOrderedMarkerAtX:x number:marker.number baselineY:baseline isRTL:isRTL];
+  }
+}
 
 - (void)drawCheckboxAtX:(CGFloat)x centerY:(CGFloat)y checked:(BOOL)checked
 {

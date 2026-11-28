@@ -1,6 +1,32 @@
 #import "RenderedMarkdownSegment.h"
 #import "MarkdownASTNode.h"
 
+@implementation ENRMListSegment
+- (instancetype)init
+{
+  if (self = [super init]) {
+    _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
+    _resolvedLayoutDirection = NSWritingDirectionNatural;
+    _outerDirection = NSWritingDirectionNatural;
+  }
+  return self;
+}
+- (id)copyWithZone:(NSZone *)zone
+{
+  ENRMListSegment *copy = [ENRMListSegment new];
+  copy.node = self.node;
+  copy.itemMarker = self.itemMarker;
+  copy.outerDirection = self.outerDirection;
+  copy.depth = self.depth;
+  copy.parentMarkerWidth = self.parentMarkerWidth;
+  copy.withinBlockquote = self.withinBlockquote;
+  copy.taskIndexOffset = self.taskIndexOffset;
+  copy.writingDirectionMode = self.writingDirectionMode;
+  copy.resolvedLayoutDirection = self.resolvedLayoutDirection;
+  return copy;
+}
+@end
+
 @implementation ENRMTextSegment
 + (instancetype)segmentWithNodes:(NSArray<MarkdownASTNode *> *)nodes
 {
@@ -79,6 +105,15 @@
   ENRMRenderedSegment *segment = [[ENRMRenderedSegment alloc] init];
   segment.kind = ENRMSegmentKindText;
   segment.textResult = result;
+  segment.signature = signature;
+  return segment;
+}
+
++ (instancetype)listSegmentWithSegment:(ENRMListSegment *)listSegment signature:(uint64_t)signature
+{
+  ENRMRenderedSegment *segment = [ENRMRenderedSegment new];
+  segment.kind = ENRMSegmentKindList;
+  segment.listSegment = listSegment;
   segment.signature = signature;
   return segment;
 }

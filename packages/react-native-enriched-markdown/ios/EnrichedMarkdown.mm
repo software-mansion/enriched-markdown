@@ -39,6 +39,7 @@
 #import "ENRMCodeBlockWrapState.h"
 #import "ENRMDroppableContent.h"
 #import "ENRMDynamicBlockProps.h"
+#import "ENRMListContainerView.h"
 #import "ENRMMarkdownTextView.h"
 #import "ENRMSpoilerCapable.h"
 #import "ENRMSpoilerOverlayView.h"
@@ -136,6 +137,8 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   ENRMLinkRegexConfig *_inlineCodeLinkRegex;
   NSString *_cachedMarkdown;
   NSString *_renderedMarkdown;
+  // Source represented by native task targets, advanced optimistically for local toggles.
+  NSString *_taskListMarkdown;
   ENRMLatexErrorCoordinator *_latexErrorCoordinator;
   NSMutableArray<RCTUIView *> *_segmentViews;
   NSMutableArray<NSNumber *> *_segmentSignatures;
@@ -143,6 +146,7 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   CGRect _drawnVisibleRect;
   // Block segments off screen, their bitmaps dropped (see updateDrawnSegments).
   NSHashTable<RCTUIView *> *_undrawnSegments;
+  NSArray<RCTUIView *> *_bitmapViews;
   // The ones drawn again for the hooked captures in progress (ENRMCapture).
   NSMutableArray<RCTUIView *> *_capturedSegments;
   NSInteger _captures;
@@ -467,6 +471,24 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
                             [codeBlockView applyCodeBlockNode:segment.codeBlockSegment.codeBlockNode];
                           }]];
 
+  [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindList
+                          matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
+                            return [view isKindOfClass:[ENRMListContainerView class]];
+                          }
+                          createView:^RCTUIView *(ENRMRenderedSegment *segment) {
+                            EnrichedMarkdown *host = weakSelf;
+                            if (!host)
+                              return [RCTUIView new];
+                            ENRMListContainerView *view = [[ENRMListContainerView alloc] initWithConfig:host->_config];
+                            [host configureNestedContainer:view];
+                            [view applyListSegment:segment.listSegment];
+                            [host animateBlockViewIfNeeded:view];
+                            return view;
+                          }
+                          updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
+                            [(ENRMListContainerView *)view applyListSegment:segment.listSegment];
+                          }]];
+
   [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindBlockquote
                           matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
                             return [view isKindOfClass:[ENRMBlockquoteContainerView class]];
@@ -489,6 +511,7 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
                               ENRMSetWritingDirection(quoteView, strongSelf->_writingDirectionMode,
                                                       strongSelf->_resolvedLayoutDirection);
                             }
+                            quoteView.listContext = segment.blockquoteSegment.listContext;
                             [quoteView applyBlockquoteNode:segment.blockquoteSegment.blockquoteNode
                                            taskIndexOffset:segment.blockquoteSegment.taskIndexOffset];
                           }]];
@@ -549,6 +572,15 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
 {
   ENRMBlockquoteContainerView *view = [[ENRMBlockquoteContainerView alloc] initWithConfig:_config];
   ENRMSetWritingDirection(view, _writingDirectionMode, _resolvedLayoutDirection);
+  view.listContext = blockquoteSegment.listContext;
+  [self configureNestedContainer:view];
+  [view applyBlockquoteNode:blockquoteSegment.blockquoteNode];
+  return view;
+}
+
+- (void)configureNestedContainer:(id<ENRMNestedSegmentHost>)view
+{
+  ENRMSetWritingDirection(view, _writingDirectionMode, _resolvedLayoutDirection);
   view.allowFontScaling = _fontScaleObserver.allowFontScaling;
   view.lineBreakStrategy = _lineBreakStrategy;
   view.dynamicProps = _dynamicBlockProps;
@@ -556,6 +588,40 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
   view.onSelectionCopy = [self selectionCopyHandler];
 
   __weak EnrichedMarkdown *weakSelf = self;
+  view.createLeafView = ^RCTUIView *(ENRMRenderedSegment *segment) {
+    EnrichedMarkdown *host = weakSelf;
+    if (!host)
+      return nil;
+    switch (segment.kind) {
+      case ENRMSegmentKindText:
+        return [host createTextViewForRenderedSegment:segment.textResult];
+      case ENRMSegmentKindTable:
+        return [host createTableViewForSegment:segment.tableSegment];
+      case ENRMSegmentKindCodeBlock:
+        return [host createCodeBlockViewForSegment:segment.codeBlockSegment];
+#if ENRICHED_MARKDOWN_MATH
+      case ENRMSegmentKindMath:
+        return [host createMathViewForSegment:segment.mathSegment];
+#endif
+      default:
+        return nil;
+    }
+  };
+  view.updateLeafView = ^BOOL(RCTUIView *child, ENRMRenderedSegment *segment) {
+    EnrichedMarkdown *host = weakSelf;
+    if (!host)
+      return NO;
+    switch (segment.kind) {
+      case ENRMSegmentKindText:
+        [host configureTextView:(EnrichedMarkdownInternalText *)child withRenderedSegment:segment.textResult];
+        return YES;
+      case ENRMSegmentKindTable:
+        [host updateTableView:(TableContainerView *)child withSegment:segment.tableSegment];
+        return YES;
+      default:
+        return NO;
+    }
+  };
   view.onCopyPress = ^(NSString *code, NSString *language) {
     EnrichedMarkdown *strongSelf = weakSelf;
     if (strongSelf)
@@ -588,8 +654,17 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
       [strongSelf emitTextPress:index text:text];
   };
 
-  [view applyBlockquoteNode:blockquoteSegment.blockquoteNode taskIndexOffset:blockquoteSegment.taskIndexOffset];
-  return view;
+  view.onTaskListItemPress = ^BOOL(NSInteger index, BOOL checked, NSString *text) {
+    EnrichedMarkdown *host = weakSelf;
+    if (!host || !host->_enableTaskListItemToggle || host->_taskListMarkdown == nil ||
+        ![host->_cachedMarkdown hasPrefix:host->_taskListMarkdown])
+      return NO;
+    host->_cachedMarkdown = toggleTaskListItemAtIndex(host->_cachedMarkdown, index, checked);
+    host->_taskListMarkdown = host->_cachedMarkdown;
+    [host renderMarkdownContent:host->_cachedMarkdown];
+    [host emitTaskListItemPress:index checked:checked text:text];
+    return YES;
+  };
 }
 
 /// The box the segments actually live in: the component frame inset by the
@@ -699,6 +774,10 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
       yOffset += _config.codeBlockMarginTop;
       segmentHeight = [(ENRMCodeBlockContainerView *)segment measureHeight:width];
       maxContentWidth = width;
+    } else if ([segment isKindOfClass:[ENRMListContainerView class]]) {
+      yOffset += _config.listStyleMarginTop;
+      segmentHeight = [(ENRMListContainerView *)segment measureHeight:width];
+      maxContentWidth = width;
     } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
       yOffset += _config.blockquoteMarginTop;
       segmentHeight = [(ENRMBlockquoteContainerView *)segment measureHeight:width];
@@ -756,6 +835,8 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 #endif
     else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]] && shouldAddBottomMargin) {
       yOffset += _config.codeBlockMarginBottom;
+    } else if ([segment isKindOfClass:[ENRMListContainerView class]] && shouldAddBottomMargin) {
+      yOffset += _config.listStyleMarginBottom;
     } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]] && shouldAddBottomMargin) {
       yOffset += _config.blockquoteMarginBottom;
     } else if ([segment isKindOfClass:[ENRMBlockSlotSegmentView class]] && shouldAddBottomMargin) {
@@ -1032,7 +1113,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
 - (void)pushWritingDirectionToTableSegments
 {
-  for (RCTUIView *segment in _segmentViews) {
+  for (RCTUIView *segment in ENRMDescendantSegmentViews(_segmentViews)) {
     if ([segment isKindOfClass:[TableContainerView class]]) {
       TableContainerView *tableView = (TableContainerView *)segment;
       ENRMSetWritingDirection(tableView, _writingDirectionMode, _resolvedLayoutDirection);
@@ -1047,6 +1128,8 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
       ((EnrichedMarkdownInternalText *)segment).accessibilityLabels = _accessibilityLabels;
     } else if ([segment isKindOfClass:[TableContainerView class]]) {
       ((TableContainerView *)segment).accessibilityLabels = _accessibilityLabels;
+    } else if ([segment isKindOfClass:[ENRMListContainerView class]]) {
+      ((ENRMListContainerView *)segment).accessibilityLabels = _accessibilityLabels;
     } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
       ((ENRMBlockquoteContainerView *)segment).accessibilityLabels = _accessibilityLabels;
     } else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
@@ -1177,11 +1260,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
     renderedSegments = ENRMRenderSegmentsFromAST(ast, config, allowTrailingMargin, allowFontScaling,
                                                  maxFontSizeMultiplier, lineBreakStrategy,
                                                  /*blockquoteContent*/ NO, /*startingTaskIndex*/ 0);
-    for (ENRMRenderedSegment *segment in renderedSegments) {
-      if (segment.kind == ENRMSegmentKindText && segment.textResult) {
-        ENRMApplyWritingDirectionMode(segment.textResult.attributedText, writingDirectionMode, resolvedLayoutDirection);
-      }
-    }
+    ENRMApplySegmentWritingDirection(renderedSegments, writingDirectionMode, resolvedLayoutDirection);
     return YES;
   };
   // What this render answers, taken now: an older render can still apply after a
@@ -1257,11 +1336,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   NSArray<ENRMRenderedSegment *> *segments = ENRMRenderSegmentsFromAST(
       ast, _config, _allowTrailingMargin, _fontScaleObserver.allowFontScaling, _maxFontSizeMultiplier,
       _lineBreakStrategy, /*blockquoteContent*/ NO, /*startingTaskIndex*/ 0);
-  for (ENRMRenderedSegment *segment in segments) {
-    if (segment.kind == ENRMSegmentKindText && segment.textResult) {
-      ENRMApplyWritingDirectionMode(segment.textResult.attributedText, _writingDirectionMode, _resolvedLayoutDirection);
-    }
-  }
+  ENRMApplySegmentWritingDirection(segments, _writingDirectionMode, _resolvedLayoutDirection);
   return segments;
 }
 
@@ -1288,6 +1363,8 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
                                                _mediaStreamingMode, _isGFM, &endsInsideOpenCodeFence, NULL)
           : markdownString;
   _renderedMarkdown = [renderableMarkdown copy];
+  _taskListMarkdown = _renderedMarkdown;
+  _bitmapViews = nil;
   _renderedStyleFingerprint = _pendingStyleFingerprint;
 
   if (renderableMarkdown.length == 0) {
@@ -1335,6 +1412,8 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 {
   const ENRMDirtyFlags dirtyFlags = scheduledFlags;
   _renderedMarkdown = [renderedMarkdown copy];
+  _taskListMarkdown = _renderedMarkdown;
+  _bitmapViews = nil;
   [self updatePendingCodeBlockSegment:endsInsideOpenCodeFence segments:renderedSegments];
   BOOL segmentTopologyChanged = _streaming && [self renderedSegmentsChangeTopology:renderedSegments];
 
@@ -1463,7 +1542,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
                                   selectionEnd:selectionEnd];
         });
     return buildEditMenuForSelection(textView.textStorage, textView.selectedRange, segmentMarkdown, strongSelf->_config,
-                                     @[ baseMenu ], customItems, strongSelf -> _selectionMenuConfig,
+                                     @[ baseMenu ], customItems, strongSelf->_selectionMenuConfig,
                                      [strongSelf selectionCopyHandler]);
   }];
 #endif
@@ -1668,7 +1747,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   [_blockSlotReveal cancel];
   [self applyBlockSlotReveal];
   [self setNeedsLayout];
-  for (RCTUIView *segment in _segmentViews) {
+  for (RCTUIView *segment in ENRMDescendantSegmentViews(_segmentViews)) {
     if ([segment isKindOfClass:[TableContainerView class]]) {
       [(TableContainerView *)segment finishRowFade];
 #if !TARGET_OS_OSX
@@ -1775,7 +1854,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
   _selectable = newViewProps.selectable;
 
-  for (RCTUIView *segment in _segmentViews) {
+  for (RCTUIView *segment in ENRMDescendantSegmentViews(_segmentViews)) {
     if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
       EnrichedMarkdownInternalText *textSegment = (EnrichedMarkdownInternalText *)segment;
       if (textSegment.textView.selectable != newViewProps.selectable) {
@@ -1836,6 +1915,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
 
   _enableLinkPreview = newViewProps.enableLinkPreview;
   _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
+  _dynamicBlockProps.enableTaskListItemToggle = _enableTaskListItemToggle;
   _enableImagePress = newViewProps.enableImagePress;
   _enableTextPress = newViewProps.enableTextPress;
 
@@ -1952,7 +2032,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   if (newViewProps.spoilerOverlay != oldViewProps.spoilerOverlay) {
     NSString *modeStr = [[NSString alloc] initWithUTF8String:newViewProps.spoilerOverlay.c_str()];
     _spoilerOverlay = ENRMSpoilerOverlayFromString(modeStr);
-    for (RCTUIView *segment in _segmentViews) {
+    for (RCTUIView *segment in ENRMDescendantSegmentViews(_segmentViews)) {
       if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
         ((EnrichedMarkdownInternalText *)segment).spoilerOverlay = _spoilerOverlay;
       }
@@ -1960,7 +2040,7 @@ static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
   }
 
   if (newViewProps.selectionColor != oldViewProps.selectionColor) {
-    for (RCTUIView *segment in _segmentViews) {
+    for (RCTUIView *segment in ENRMDescendantSegmentViews(_segmentViews)) {
       if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
         ENRMPlatformTextView *tv = ((EnrichedMarkdownInternalText *)segment).textView;
         ENRMApplySelectionColor(tv, newViewProps.selectionColor);
@@ -2041,34 +2121,25 @@ static void ENRMUpdateNestedViewports(UIView *view, ENRMVisibleArea *area)
   }
 }
 
-// Draws now what Core Animation's commit would draw of the views in `view` that draw their own.
-static void ENRMDisplayDroppableContent(UIView *view)
+// Cache bitmap owners after reconciliation; scrolling only checks their frames.
+static void ENRMCollectDroppableContent(UIView *view, NSMutableArray<UIView *> *views)
 {
-  if ([view conformsToProtocol:@protocol(ENRMDroppableContent)]) {
-    [view.layer displayIfNeeded];
-  }
-  for (UIView *subview in view.subviews) {
-    ENRMDisplayDroppableContent(subview);
-  }
+  if ([view isKindOfClass:[UITextView class]] || [view isKindOfClass:[ENRMBlockSlotSegmentView class]])
+    return;
+  if ([view conformsToProtocol:@protocol(ENRMDroppableContent)])
+    [views addObject:view];
+  for (UIView *child in view.subviews)
+    ENRMCollectDroppableContent(child, views);
 }
 
-// Drops (`draws` NO) or redraws the bitmaps of the views in `view` that draw their own
-// (ENRMDroppableContent). Text views draw only their drawn rect already.
 static void ENRMSetViewDrawsContent(UIView *view, BOOL draws)
 {
-  if ([view isKindOfClass:[UITextView class]]) {
-    return;
-  }
-  if ([view conformsToProtocol:@protocol(ENRMDroppableContent)]) {
-    if (draws) {
-      [view setNeedsDisplay];
-    } else {
-      view.layer.contents = nil;
-    }
-  }
-  for (UIView *subview in view.subviews) {
-    ENRMSetViewDrawsContent(subview, draws);
-  }
+  if ([view respondsToSelector:@selector(setBitmapDrawingEnabled:)])
+    [(id<ENRMDroppableContent>)view setBitmapDrawingEnabled:draws];
+  if (draws)
+    [view setNeedsDisplay];
+  else
+    view.layer.contents = nil;
 }
 
 // Core Animation commits (and draws the layers that need it) from a before-waiting observer of order
@@ -2129,15 +2200,18 @@ static void ENRMAfterCommit(dispatch_block_t block)
   CGRect drawn = CGRectIsNull(visible) || CGRectIsEmpty(visible) ? CGRectNull
                  : CGRectIsInfinite(visible)                     ? CGRectInfinite
                                                                  : CGRectInset(visible, 0, -ENRMVisibleAreaMargin);
+  BOOL reconciled = _bitmapViews == nil;
+  if (reconciled) {
+    NSMutableArray<UIView *> *views = [NSMutableArray array];
+    for (UIView *segment in _segmentViews)
+      ENRMCollectDroppableContent(segment, views);
+    _bitmapViews = views;
+  }
   NSMutableArray<RCTUIView *> *dropped = nil;
-  for (RCTUIView *segment in _segmentViews) {
-    // React Native draws the views it renders into a slot.
-    if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]] ||
-        [segment isKindOfClass:[ENRMBlockSlotSegmentView class]]) {
-      continue;
-    }
-    BOOL draws = !CGRectIsNull(drawn) && CGRectIntersectsRect(drawn, segment.frame);
-    if (draws == ![_undrawnSegments containsObject:segment]) {
+  for (RCTUIView *segment in _bitmapViews) {
+    CGRect frame = [segment convertRect:segment.bounds toView:self];
+    BOOL draws = !CGRectIsNull(drawn) && CGRectIntersectsRect(drawn, frame);
+    if (!reconciled && draws == ![_undrawnSegments containsObject:segment]) {
       continue;
     }
     if (draws) {
@@ -2176,15 +2250,18 @@ static void ENRMAfterCommit(dispatch_block_t block)
 // The dropped block segments in `rect` (this view's space), drawn again for a capture.
 - (nullable NSArray<RCTUIView *> *)drawSegmentsForCaptureInRect:(CGRect)rect
 {
+  if (_bitmapViews == nil)
+    [self updateBlockBitmaps];
   NSMutableArray<RCTUIView *> *drawn = nil;
-  for (RCTUIView *segment in _segmentViews) {
-    if ([_undrawnSegments containsObject:segment] && CGRectIntersectsRect(segment.frame, rect) &&
+  for (RCTUIView *segment in _bitmapViews) {
+    CGRect frame = [segment convertRect:segment.bounds toView:self];
+    if ([_undrawnSegments containsObject:segment] && CGRectIntersectsRect(frame, rect) &&
         ![_capturedSegments containsObject:segment]) {
       drawn = drawn ?: [NSMutableArray array];
       [drawn addObject:segment];
       // Now, not at the commit: a capture may not commit, and the drop after it must find it drawn.
       ENRMSetViewDrawsContent(segment, YES);
-      ENRMDisplayDroppableContent(segment);
+      [segment.layer displayIfNeeded];
     }
   }
   return drawn;
@@ -2241,7 +2318,7 @@ static void ENRMAfterCommit(dispatch_block_t block)
   }
   if (_renderedMarkdown != nil && _needsWindowAttachRefresh) {
     _needsWindowAttachRefresh = NO;
-    for (RCTUIView *segment in _segmentViews) {
+    for (RCTUIView *segment in ENRMDescendantSegmentViews(_segmentViews)) {
       if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
         EnrichedMarkdownInternalText *textSegment = (EnrichedMarkdownInternalText *)segment;
         [textSegment refreshAfterWindowAttach];
@@ -2276,6 +2353,8 @@ static void ENRMAfterCommit(dispatch_block_t block)
 
   _cachedMarkdown = nil;
   _renderedMarkdown = nil;
+  _taskListMarkdown = nil;
+  _bitmapViews = nil;
   _config = nil;
   _activeBlockSlotIds = nil;
   _blockSlotHeights = nil;
@@ -2344,7 +2423,10 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
 
 - (facebook::react::SharedTouchEventEmitter)touchEventEmitterAtPoint:(CGPoint)point
 {
-  for (RCTUIView *segment in _segmentViews) {
+  for (RCTUIView *segment in ENRMDescendantSegmentViews(_segmentViews)) {
+    if ([segment isKindOfClass:[ENRMListContainerView class]] &&
+        [(ENRMListContainerView *)segment isTaskTargetAtPoint:[self convertPoint:point toView:segment]])
+      return nil;
     if ([segment isKindOfClass:[TableContainerView class]]) {
       CGPoint segmentPoint = [self convertPoint:point toView:segment];
 #if !TARGET_OS_OSX
@@ -2515,7 +2597,7 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     return;
   }
 
-  for (RCTUIView *segment in _segmentViews) {
+  for (RCTUIView *segment in ENRMDescendantSegmentViews(_segmentViews)) {
     if ([segment conformsToProtocol:@protocol(ENRMSpoilerCapable)]) {
       id<ENRMSpoilerCapable> spoilerSegment = (id<ENRMSpoilerCapable>)segment;
       if (spoilerSegment.textView == textView) {

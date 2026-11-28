@@ -5,6 +5,8 @@
 #import "ENRMDroppableContent.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMLinkContextMenus.h"
+#import "ENRMListContainerView.h"
+#import "ENRMNestedSegmentViewRegistry.h"
 #import "ENRMSegmentHeightMeasurer.h"
 #import "ENRMTableIOSGridView.h"
 #import "ENRMTextInteractionUtils.h"
@@ -35,11 +37,14 @@
 static NSArray<ENRMRenderedSegment *> *ENRMRenderBlockquoteChildren(MarkdownASTNode *node, StyleConfig *config,
                                                                     BOOL allowFontScaling,
                                                                     NSLineBreakStrategy lineBreakStrategy,
-                                                                    NSInteger taskIndexOffset)
+                                                                    NSInteger taskIndexOffset,
+                                                                    ENRMListSegment *listContext)
 {
-  return ENRMRenderSegmentsFromAST(node, config, /*allowTrailingMargin*/ NO, allowFontScaling,
-                                   config.maxFontSizeMultiplier, lineBreakStrategy, /*blockquoteContent*/ YES,
-                                   taskIndexOffset);
+  if (listContext)
+    return ENRMRenderSegmentsWithListContext(node, config, NO, allowFontScaling, config.maxFontSizeMultiplier,
+                                             lineBreakStrategy, YES, listContext);
+  return ENRMRenderSegmentsFromAST(node, config, NO, allowFontScaling, config.maxFontSizeMultiplier, lineBreakStrategy,
+                                   YES, taskIndexOffset);
 }
 
 // The admonition type ("note"/"tip"/…) for a node, or nil for a plain quote.
@@ -161,16 +166,6 @@ static BOOL ENRMBlockquoteIsRTL(MarkdownASTNode *node, ENRMWritingDirectionMode 
   return direction == NSWritingDirectionRightToLeft;
 }
 
-static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *segments, ENRMWritingDirectionMode mode,
-                                                NSWritingDirection layoutDirection)
-{
-  for (ENRMRenderedSegment *segment in segments) {
-    if (segment.kind == ENRMSegmentKindText) {
-      ENRMApplyWritingDirectionMode(segment.textResult.attributedText, mode, layoutDirection);
-    }
-  }
-}
-
 @interface ENRMBlockquoteContainerView ()
 #if !TARGET_OS_OSX
     <UIContextMenuInteractionDelegate>
@@ -223,15 +218,20 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
   return self;
 }
 
+- (void)applyBlockquoteNode:(MarkdownASTNode *)node
+{
+  [self applyBlockquoteNode:node taskIndexOffset:self.listContext.taskIndexOffset];
+}
+
 - (void)applyBlockquoteNode:(MarkdownASTNode *)node taskIndexOffset:(NSInteger)taskIndexOffset
 {
   self.admonitionType = ENRMAdmonitionTypeForNode(node);
   self.cachedMarkdown = markdownFromBlockquoteNode(node);
   self.cachedPlainText = plainTextFromASTNode(node);
   self.cachedLinkedPlainText = plainTextWithMarkdownLinksFromASTNode(node);
-  NSArray<ENRMRenderedSegment *> *rendered =
-      ENRMRenderBlockquoteChildren(node, self.config, self.allowFontScaling, self.lineBreakStrategy, taskIndexOffset);
-  ENRMApplyWritingDirectionToSegments(rendered, self.writingDirectionMode, self.resolvedLayoutDirection);
+  NSArray<ENRMRenderedSegment *> *rendered = ENRMRenderBlockquoteChildren(
+      node, self.config, self.allowFontScaling, self.lineBreakStrategy, taskIndexOffset, self.listContext);
+  ENRMApplySegmentWritingDirection(rendered, self.writingDirectionMode, self.resolvedLayoutDirection);
   self.rightToLeft =
       ENRMBlockquoteIsRTL(node, self.writingDirectionMode, self.resolvedLayoutDirection, self.outerDirection);
   self.contentInsets = ENRMBlockquoteContentInsetsForNode(self.config, self.admonitionType != nil, self.rightToLeft);
@@ -246,13 +246,10 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
 
 - (void)setOuterDirection:(NSWritingDirection)outerDirection
 {
-  if (_outerDirection == outerDirection) {
-    return;
-  }
   _outerDirection = outerDirection;
-  if (outerDirection != NSWritingDirectionNatural) {
-    [self applySide:outerDirection == NSWritingDirectionRightToLeft];
-  }
+  // Reused quotes can have new child lists even when their own side is unchanged.
+  [self applySide:outerDirection == NSWritingDirectionNatural ? self.rightToLeft
+                                                              : outerDirection == NSWritingDirectionRightToLeft];
 }
 
 // Moves the bar, insets and header to one side, and hands the side to nested
@@ -273,6 +270,8 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
   for (RCTUIView *view in self.segmentViews) {
     if ([view isKindOfClass:[ENRMBlockquoteContainerView class]]) {
       ((ENRMBlockquoteContainerView *)view).outerDirection = side;
+    } else if ([view isKindOfClass:[ENRMListContainerView class]]) {
+      ((ENRMListContainerView *)view).outerDirection = side;
     }
   }
 }
@@ -292,6 +291,8 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
       ((TableContainerView *)child).accessibilityLabels = accessibilityLabels;
     } else if ([child isKindOfClass:[ENRMBlockquoteContainerView class]]) {
       ((ENRMBlockquoteContainerView *)child).accessibilityLabels = accessibilityLabels;
+    } else if ([child conformsToProtocol:@protocol(ENRMNestedSegmentHost)]) {
+      ((id<ENRMNestedSegmentHost>)child).accessibilityLabels = accessibilityLabels;
     } else if ([child isKindOfClass:[ENRMCodeBlockContainerView class]]) {
       ((ENRMCodeBlockContainerView *)child).accessibilityLabels = accessibilityLabels;
     }
@@ -309,216 +310,17 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
 // animation, no pending-fence sync.
 - (ENRMSegmentViewRegistry *)buildChildRegistry
 {
-  StyleConfig *config = self.config;
-  __weak ENRMBlockquoteContainerView *weakSelf = self;
-  NSMutableArray<ENRMSegmentViewHandler *> *handlers = [NSMutableArray array];
+  return ENRMCreateNestedSegmentRegistry(self);
+}
 
-  [handlers
-      addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindText
-                    matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
-                      return [view isKindOfClass:[EnrichedMarkdownInternalText class]];
-                    }
-                    createView:^RCTUIView *(ENRMRenderedSegment *segment) {
-                      ENRMBlockquoteContainerView *strongSelf = weakSelf;
-                      EnrichedMarkdownInternalText *view = [[EnrichedMarkdownInternalText alloc] initWithConfig:config];
-                      view.lastElementMarginBottom = segment.textResult.lastElementMarginBottom;
-                      view.accessibilityInfo = segment.textResult.accessibilityInfo;
-                      view.accessibilityLabels = strongSelf.accessibilityLabels;
-                      view.onSelectionCopy = strongSelf.onSelectionCopy;
-                      [view applyAttributedText:segment.textResult.attributedText context:segment.textResult.context];
-                      if (strongSelf) {
-                        [strongSelf attachLinkTapToTextView:view];
-                      }
-                      return view;
-                    }
-                    updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
-                      EnrichedMarkdownInternalText *textView = (EnrichedMarkdownInternalText *)view;
-                      textView.lastElementMarginBottom = segment.textResult.lastElementMarginBottom;
-                      textView.accessibilityInfo = segment.textResult.accessibilityInfo;
-                      [textView applyAttributedText:segment.textResult.attributedText
-                                            context:segment.textResult.context];
-                    }]];
+- (BOOL)childrenInsideBlockquote
+{
+  return YES;
+}
 
-  [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindTable
-                          matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
-                            return [view isKindOfClass:[TableContainerView class]];
-                          }
-                          createView:^RCTUIView *(ENRMRenderedSegment *segment) {
-                            TableContainerView *view = [[TableContainerView alloc] initWithConfig:config];
-                            ENRMBlockquoteContainerView *strongSelf = weakSelf;
-                            if (strongSelf) {
-                              ENRMSetWritingDirection(view, strongSelf.writingDirectionMode,
-                                                      strongSelf.resolvedLayoutDirection);
-                              view.dynamicProps = strongSelf.dynamicProps;
-                              view.accessibilityLabels = strongSelf.accessibilityLabels;
-                              view.onLinkPress = ^(NSString *url) {
-                                ENRMBlockquoteContainerView *s = weakSelf;
-                                if (s.onLinkPress && url)
-                                  s.onLinkPress(url);
-                              };
-                              view.onLinkLongPress = ^(NSString *url) {
-                                ENRMBlockquoteContainerView *s = weakSelf;
-                                if (s.onLinkLongPress && url)
-                                  s.onLinkLongPress(url);
-                              };
-                              view.onImagePress = ^(NSString *url, NSString *altText) {
-                                ENRMBlockquoteContainerView *s = weakSelf;
-                                if (s.onImagePress && url)
-                                  s.onImagePress(url, altText);
-                              };
-                            }
-                            [view applyTableNode:segment.tableSegment.tableNode];
-                            return view;
-                          }
-                          updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
-                            TableContainerView *tableView = (TableContainerView *)view;
-                            ENRMBlockquoteContainerView *strongSelf = weakSelf;
-                            if (strongSelf) {
-                              ENRMSetWritingDirection(tableView, strongSelf.writingDirectionMode,
-                                                      strongSelf.resolvedLayoutDirection);
-                            }
-                            [tableView applyTableNode:segment.tableSegment.tableNode];
-                          }]];
-
-  [handlers
-      addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindCodeBlock
-                    matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
-                      return [view isKindOfClass:[ENRMCodeBlockContainerView class]];
-                    }
-                    createView:^RCTUIView *(ENRMRenderedSegment *segment) {
-                      ENRMCodeBlockContainerView *view = [[ENRMCodeBlockContainerView alloc] initWithConfig:config];
-                      ENRMBlockquoteContainerView *strongSelf = weakSelf;
-                      view.dynamicProps = strongSelf.dynamicProps;
-                      view.accessibilityLabels = strongSelf.accessibilityLabels;
-                      view.onCopyPress = ^(NSString *code, NSString *language) {
-                        ENRMBlockquoteContainerView *s = weakSelf;
-                        if (s.onCopyPress)
-                          s.onCopyPress(code, language);
-                      };
-                      view.onCodeBlockPress = ^(NSString *code, NSString *language) {
-                        ENRMBlockquoteContainerView *s = weakSelf;
-                        if (s.onCodeBlockPress)
-                          s.onCodeBlockPress(code, language);
-                      };
-                      [view applyCodeBlockNode:segment.codeBlockSegment.codeBlockNode];
-                      return view;
-                    }
-                    updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
-                      [(ENRMCodeBlockContainerView *)view applyCodeBlockNode:segment.codeBlockSegment.codeBlockNode];
-                    }]];
-
-  [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindBlockquote
-                          matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
-                            return [view isKindOfClass:[ENRMBlockquoteContainerView class]];
-                          }
-                          createView:^RCTUIView *(ENRMRenderedSegment *segment) {
-                            ENRMBlockquoteContainerView *view =
-                                [[ENRMBlockquoteContainerView alloc] initWithConfig:config];
-                            view.nested = YES;
-                            ENRMBlockquoteContainerView *strongSelf = weakSelf;
-                            if (strongSelf) {
-                              ENRMSetWritingDirection(view, strongSelf.writingDirectionMode,
-                                                      strongSelf.resolvedLayoutDirection);
-                              view.allowFontScaling = strongSelf.allowFontScaling;
-                              view.lineBreakStrategy = strongSelf.lineBreakStrategy;
-                              view.dynamicProps = strongSelf.dynamicProps;
-                              view.accessibilityLabels = strongSelf.accessibilityLabels;
-                              view.onCopyPress = strongSelf.onCopyPress;
-                              view.onCodeBlockPress = strongSelf.onCodeBlockPress;
-                              view.onSelectionCopy = strongSelf.onSelectionCopy;
-                              view.onImagePress = ^(NSString *url, NSString *altText) {
-                                ENRMBlockquoteContainerView *s = weakSelf;
-                                if (s.onImagePress && url)
-                                  s.onImagePress(url, altText);
-                              };
-                              view.onTextPress = ^(NSInteger index, NSString *text) {
-                                ENRMBlockquoteContainerView *s = weakSelf;
-                                if (s.onTextPress)
-                                  s.onTextPress(index, text);
-                              };
-                              view.onLinkPress = ^(NSString *url) {
-                                ENRMBlockquoteContainerView *s = weakSelf;
-                                if (s.onLinkPress && url)
-                                  s.onLinkPress(url);
-                              };
-                              view.onLinkLongPress = ^(NSString *url) {
-                                ENRMBlockquoteContainerView *s = weakSelf;
-                                if (s.onLinkLongPress && url)
-                                  s.onLinkLongPress(url);
-                              };
-                            }
-                            [view applyBlockquoteNode:segment.blockquoteSegment.blockquoteNode
-                                      taskIndexOffset:segment.blockquoteSegment.taskIndexOffset];
-                            return view;
-                          }
-                          updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
-                            ENRMBlockquoteContainerView *quoteView = (ENRMBlockquoteContainerView *)view;
-                            ENRMBlockquoteContainerView *strongSelf = weakSelf;
-                            if (strongSelf) {
-                              ENRMSetWritingDirection(quoteView, strongSelf.writingDirectionMode,
-                                                      strongSelf.resolvedLayoutDirection);
-                            }
-                            [quoteView applyBlockquoteNode:segment.blockquoteSegment.blockquoteNode
-                                           taskIndexOffset:segment.blockquoteSegment.taskIndexOffset];
-                          }]];
-
-#if ENRICHED_MARKDOWN_MATH
-#if !TARGET_OS_OSX
-  [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindMath
-                          matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
-                            return [view isKindOfClass:[ENRMMathContainerView class]];
-                          }
-                          createView:^RCTUIView *(ENRMRenderedSegment *segment) {
-                            ENRMMathContainerView *view = [[ENRMMathContainerView alloc] initWithConfig:config];
-                            ENRMBlockquoteContainerView *strongSelf = weakSelf;
-                            view.dynamicProps = strongSelf.dynamicProps;
-                            view.accessibilityLabels = strongSelf.accessibilityLabels;
-                            [view applyLatex:segment.mathSegment.latex];
-                            return view;
-                          }
-                          updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
-                            [(ENRMMathContainerView *)view applyLatex:segment.mathSegment.latex];
-                          }]];
-#endif
-#endif
-
-  [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindBlockSlot
-                          matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
-                            return [view isKindOfClass:[ENRMBlockSlotSegmentView class]];
-                          }
-                          createView:^RCTUIView *(ENRMRenderedSegment *segment) {
-                            ENRMBlockSlotSegmentView *view = [[ENRMBlockSlotSegmentView alloc] init];
-                            view.slotId = segment.blockSlotSegment.slotId;
-                            view.kind = segment.blockSlotSegment.kind;
-                            return view;
-                          }
-                          updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
-                            ENRMBlockSlotSegmentView *slotView = (ENRMBlockSlotSegmentView *)view;
-                            slotView.slotId = segment.blockSlotSegment.slotId;
-                            slotView.kind = segment.blockSlotSegment.kind;
-                          }]];
-
-#if ENRICHED_MARKDOWN_VIDEO
-  __weak ENRMBlockquoteContainerView *weakBQ = self;
-  [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindVideo
-                          matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
-                            return [view isKindOfClass:[ENRMVideoContainerView class]];
-                          }
-                          createView:^RCTUIView *(ENRMRenderedSegment *segment) {
-                            ENRMVideoContainerView *view = [[ENRMVideoContainerView alloc] initWithConfig:config];
-                            ENRMBlockquoteContainerView *bq = weakBQ;
-                            if (bq) {
-                              view.dynamicProps = bq.dynamicProps;
-                            }
-                            [view applyVideoNode:segment.videoSegment.videoNode];
-                            return view;
-                          }
-                          updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
-                            [(ENRMVideoContainerView *)view applyVideoNode:segment.videoSegment.videoNode];
-                          }]];
-#endif
-
-  return [[ENRMSegmentViewRegistry alloc] initWithHandlers:handlers];
+- (void)configureNestedTextView:(EnrichedMarkdownInternalText *)view
+{
+  [self attachLinkTapToTextView:view];
 }
 
 - (void)attachLinkTapToTextView:(EnrichedMarkdownInternalText *)view
@@ -578,9 +380,38 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
                              slotMeasurer:(ENRMBlockSlotMeasurer *)slotMeasurer
                                    origin:(CGPoint)origin
 {
-  NSArray<ENRMRenderedSegment *> *rendered =
-      ENRMRenderBlockquoteChildren(node, config, allowFontScaling, lineBreakStrategy, /*taskIndexOffset*/ 0);
-  ENRMApplyWritingDirectionToSegments(rendered, writingDirectionMode, resolvedLayoutDirection);
+  return [self measureHeightForBlockquoteNode:node
+                                       config:config
+                                     maxWidth:maxWidth
+                             pointScaleFactor:pointScaleFactor
+                             allowFontScaling:allowFontScaling
+                            lineBreakStrategy:lineBreakStrategy
+                         writingDirectionMode:writingDirectionMode
+                      resolvedLayoutDirection:resolvedLayoutDirection
+                               outerDirection:outerDirection
+                                   wrapCursor:wrapCursor
+                                 slotMeasurer:slotMeasurer
+                                       origin:origin
+                                  listContext:nil];
+}
+
++ (CGFloat)measureHeightForBlockquoteNode:(MarkdownASTNode *)node
+                                   config:(StyleConfig *)config
+                                 maxWidth:(CGFloat)maxWidth
+                         pointScaleFactor:(CGFloat)pointScaleFactor
+                         allowFontScaling:(BOOL)allowFontScaling
+                        lineBreakStrategy:(NSLineBreakStrategy)lineBreakStrategy
+                     writingDirectionMode:(ENRMWritingDirectionMode)writingDirectionMode
+                  resolvedLayoutDirection:(NSWritingDirection)resolvedLayoutDirection
+                           outerDirection:(NSWritingDirection)outerDirection
+                               wrapCursor:(ENRMCodeBlockWrapCursor *)wrapCursor
+                             slotMeasurer:(ENRMBlockSlotMeasurer *)slotMeasurer
+                                   origin:(CGPoint)origin
+                              listContext:(ENRMListSegment *)listContext
+{
+  NSArray<ENRMRenderedSegment *> *rendered = ENRMRenderBlockquoteChildren(
+      node, config, allowFontScaling, lineBreakStrategy, /*taskIndexOffset*/ 0, listContext);
+  ENRMApplySegmentWritingDirection(rendered, writingDirectionMode, resolvedLayoutDirection);
   BOOL isRTL = ENRMBlockquoteIsRTL(node, writingDirectionMode, resolvedLayoutDirection, outerDirection);
   UIEdgeInsets insets = ENRMBlockquoteContentInsetsForNode(config, ENRMAdmonitionTypeForNode(node) != nil, isRTL);
   CGFloat innerWidth = MAX(maxWidth - insets.left - insets.right, 1);

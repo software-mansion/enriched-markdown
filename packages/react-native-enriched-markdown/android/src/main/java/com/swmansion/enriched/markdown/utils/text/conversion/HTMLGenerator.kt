@@ -20,6 +20,7 @@ import com.swmansion.enriched.markdown.spans.StrongSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.spans.UnorderedListSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.spans.innermostListSpan as resolveListSpan
 
 /** Generates semantic HTML with inline styles from Spannable text. */
 object HTMLGenerator {
@@ -888,10 +889,7 @@ object HTMLGenerator {
   private fun innermostListSpan(
     text: Spannable,
     start: Int,
-  ): BaseListSpan? =
-    text
-      .getSpans(start, minOf(start + 1, text.length), BaseListSpan::class.java)
-      .maxByOrNull { it.depth }
+  ): BaseListSpan? = resolveListSpan(text, start, minOf(start + 1, text.length))
 
   private fun getParagraphType(
     text: Spannable,

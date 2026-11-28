@@ -28,6 +28,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) BOOL enableLinkPreview;
 @property (nonatomic, assign) BOOL enableBlockContextMenu;
 @property (nonatomic, assign) BOOL enableCodeBlockPress;
+@property (nonatomic, assign) BOOL enableTaskListItemToggle;
 @property (nonatomic, copy, nullable, getter=menuCopyLabel) NSString *copyLabel;
 @property (nonatomic, copy, nullable, getter=menuCopyAsMarkdownLabel) NSString *copyAsMarkdownLabel;
 @end

@@ -1,7 +1,9 @@
 #import "SegmentRenderer.h"
+#import "AccessibilityInfo.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMTextRenderCache.h"
 #import "ENRMTextRenderer.h"
+#import "ListItemRenderer.h"
 #import "MarkdownASTNode.h"
 #import "ParagraphStyleUtils.h"
 #import "RenderContext.h"
@@ -50,18 +52,53 @@ static uint64_t ENRMMixTaskIndexOffset(uint64_t signature, NSInteger taskIndexOf
   return signature;
 }
 
-// Counts task items as ListItemRenderer does: a quote's children render later, in its own view.
-static NSInteger ENRMCountTaskItems(MarkdownASTNode *node)
+static uint64_t ENRMMixListContext(uint64_t signature, ENRMListSegment *context)
+{
+  if (!context)
+    return signature;
+  ENRMListMarkerDescriptor *marker = context.itemMarker;
+  uint64_t width = 0;
+  CGFloat parentWidth = context.parentMarkerWidth;
+  memcpy(&width, &parentWidth, sizeof(parentWidth));
+  uint64_t values[] = {(uint64_t)context.depth,
+                       (uint64_t)context.taskIndexOffset,
+                       width,
+                       (uint64_t)context.withinBlockquote,
+                       (uint64_t)(marker != nil),
+                       (uint64_t)marker.listType,
+                       (uint64_t)marker.number,
+                       (uint64_t)marker.depth,
+                       (uint64_t)marker.isTask,
+                       (uint64_t)marker.isChecked,
+                       (uint64_t)marker.taskIndex};
+  for (NSUInteger i = 0; i < sizeof(values) / sizeof(values[0]); i++) {
+    signature ^= values[i];
+    signature *= 1099511628211ULL;
+  }
+  return signature;
+}
+
+static BOOL ENRMContainsTable(MarkdownASTNode *node)
+{
+  if (node.type == MarkdownNodeTypeTable)
+    return YES;
+  for (MarkdownASTNode *child in node.children) {
+    if (ENRMContainsTable(child))
+      return YES;
+  }
+  return NO;
+}
+
+NSInteger ENRMCountTaskItems(MarkdownASTNode *node)
 {
   NSInteger count =
-      (node.type == MarkdownNodeTypeListItem && [node.attributes[@"isTask"] isEqualToString:@"true"]) ? 1 : 0;
-  for (MarkdownASTNode *child in node.children) {
+      node.type == MarkdownNodeTypeListItem && [node.attributes[@"isTask"] isEqualToString:@"true"] ? 1 : 0;
+  for (MarkdownASTNode *child in node.children)
     count += ENRMCountTaskItems(child);
-  }
   return count;
 }
 
-static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root)
+static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root, BOOL nativeLists)
 {
   NSMutableArray *segments = [NSMutableArray array];
   NSMutableArray *currentTextNodes = [NSMutableArray array];
@@ -81,6 +118,15 @@ static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root)
                                : [kindName isEqualToString:@"code"] ? ENRMBlockSlotKindCode
                                                                     : ENRMBlockSlotKindImage;
       [segments addObject:[ENRMBlockSlotSegment segmentWithSlotId:blockSlotId kind:kind]];
+    } else if ((child.type == MarkdownNodeTypeOrderedList || child.type == MarkdownNodeTypeUnorderedList) &&
+               (nativeLists || ENRMContainsTable(child))) {
+      if (currentTextNodes.count > 0) {
+        [segments addObject:[ENRMTextSegment segmentWithNodes:[currentTextNodes copy]]];
+        [currentTextNodes removeAllObjects];
+      }
+      ENRMListSegment *list = [ENRMListSegment new];
+      list.node = child;
+      [segments addObject:list];
     } else if (child.type == MarkdownNodeTypeTable) {
       if (currentTextNodes.count > 0) {
         [segments addObject:[ENRMTextSegment segmentWithNodes:[currentTextNodes copy]]];
@@ -161,8 +207,7 @@ static ENRMRenderedSegment *ENRMRenderTextSegment(NSArray<MarkdownASTNode *> *no
                                                   NSInteger taskIndexOffset, NSInteger taskItemCount,
                                                   ENRMTextRenderCache *cache)
 {
-  ENRMRenderResult * (^render)(void) = ^ENRMRenderResult *
-  {
+  ENRMRenderResult * (^render)(void) = ^ENRMRenderResult * {
     return blockquoteContent ? ENRMRenderBlockquoteContentNodes(nodes, config, allowFontScaling, maxFontSizeMultiplier,
                                                                 lineBreakStrategy, taskIndexOffset)
                              : ENRMRenderASTNodes(nodes, config, allowTrailingMargin, allowFontScaling,
@@ -198,9 +243,9 @@ static NSArray<ENRMRenderedSegment *> *
 ENRMRenderSegments(MarkdownASTNode *ast, StyleConfig *config, BOOL allowTrailingMargin, BOOL allowFontScaling,
                    CGFloat maxFontSizeMultiplier, NSLineBreakStrategy lineBreakStrategy, BOOL blockquoteContent,
                    NSInteger startingTaskIndex, ENRMWritingDirectionMode writingDirectionMode,
-                   NSWritingDirection layoutDirection, ENRMTextRenderCache *cache)
+                   NSWritingDirection layoutDirection, ENRMTextRenderCache *cache, ENRMListSegment *listContext)
 {
-  NSArray *segments = ENRMSplitASTIntoSegments(ast);
+  NSArray *segments = ENRMSplitASTIntoSegments(ast, listContext.depth > 0);
   NSUInteger lastTextIndex = [segments indexOfObjectWithOptions:NSEnumerationReverse
                                                     passingTest:^BOOL(id segment, NSUInteger index, BOOL *stop) {
                                                       return [segment isKindOfClass:[ENRMTextSegment class]];
@@ -219,16 +264,72 @@ ENRMRenderSegments(MarkdownASTNode *ast, StyleConfig *config, BOOL allowTrailing
   for (NSUInteger segmentIndex = 0; segmentIndex < segments.count; segmentIndex++) {
     id segment = segments[segmentIndex];
     if ([segment isKindOfClass:[ENRMTextSegment class]]) {
-      NSArray<MarkdownASTNode *> *nodes = ((ENRMTextSegment *)segment).nodes;
-      NSInteger taskItemCount = 0;
-      for (MarkdownASTNode *node in nodes) {
-        taskItemCount += ENRMCountTaskItems(node);
+      if (listContext) {
+        ENRMTextSegment *textSegment = (ENRMTextSegment *)segment;
+        ENRMRenderResult *rendered = ENRMRenderASTNodesWithTaskOffset(
+            textSegment.nodes, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier, lineBreakStrategy,
+            blockquoteContent, taskIndexOffset);
+        taskIndexOffset = rendered.context.taskItemCount;
+        ENRMListMarkerDescriptor *marker = listContext.itemMarker;
+        if (marker && rendered.attributedText.length > 0) {
+          NSRange range = NSMakeRange(0, rendered.attributedText.length);
+          NSMutableDictionary *attributes = [@{
+            ListDepthAttribute : @(marker.depth),
+            ListTypeAttribute : @(marker.listType),
+            ListItemNumberAttribute : @(marker.number)
+          } mutableCopy];
+          if (marker.isTask) {
+            attributes[TaskItemAttribute] = @YES;
+            attributes[TaskCheckedAttribute] = @(marker.isChecked);
+            attributes[TaskIndexAttribute] = @(marker.taskIndex);
+            if (marker.isChecked) {
+              if (config.taskListCheckedStrikethrough)
+                attributes[NSStrikethroughStyleAttributeName] = @(NSUnderlineStyleSingle);
+              if (config.taskListCheckedTextColor)
+                attributes[NSForegroundColorAttributeName] = config.taskListCheckedTextColor;
+            }
+          }
+          [rendered.attributedText addAttributes:attributes range:range];
+          [rendered.context registerListItemRange:range
+                                         position:marker.number
+                                            depth:marker.depth + 1
+                                        isOrdered:marker.listType == ListTypeOrdered];
+          rendered.accessibilityInfo = [AccessibilityInfo infoFromContext:rendered.context];
+        }
+        uint64_t signature = ENRMSignatureForNodes(textSegment.nodes) ^ kTextKindSalt;
+        signature = ENRMMixListContext(signature, listContext);
+        signature ^= (uint64_t)rendered.context.taskItemCount;
+        if (imageSourceOverrides.count > 0) {
+          signature = ENRMMixImageSourceOverrides(signature, textSegment.nodes, imageSourceOverrides);
+        }
+        [renderedSegments addObject:[ENRMRenderedSegment textSegmentWithResult:rendered signature:signature]];
+      } else {
+        NSArray<MarkdownASTNode *> *nodes = ((ENRMTextSegment *)segment).nodes;
+        NSInteger taskItemCount = 0;
+        for (MarkdownASTNode *node in nodes) {
+          taskItemCount += ENRMCountTaskItems(node);
+        }
+        [renderedSegments
+            addObject:ENRMRenderTextSegment(nodes, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
+                                            lineBreakStrategy, blockquoteContent, writingDirectionMode, layoutDirection,
+                                            segmentIndex == lastTextIndex, taskIndexOffset, taskItemCount, cache)];
+        taskIndexOffset += taskItemCount;
       }
-      [renderedSegments
-          addObject:ENRMRenderTextSegment(nodes, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
-                                          lineBreakStrategy, blockquoteContent, writingDirectionMode, layoutDirection,
-                                          segmentIndex == lastTextIndex, taskIndexOffset, taskItemCount, cache)];
-      taskIndexOffset += taskItemCount;
+    } else if ([segment isKindOfClass:[ENRMListSegment class]]) {
+      ENRMListSegment *list = (ENRMListSegment *)segment;
+      list.writingDirectionMode = writingDirectionMode;
+      list.resolvedLayoutDirection = layoutDirection;
+      list.depth = listContext.depth;
+      list.parentMarkerWidth = listContext.parentMarkerWidth;
+      list.withinBlockquote = blockquoteContent || listContext.withinBlockquote;
+      list.taskIndexOffset = taskIndexOffset;
+      taskIndexOffset += ENRMCountTaskItems(list.node);
+      uint64_t signature = ENRMSignatureForNode(list.node) ^ 0x6c69737400000000ULL ^ ((uint64_t)list.depth << 32) ^
+                           (uint64_t)list.taskIndexOffset;
+      signature = ENRMMixListContext(signature, list);
+      if (imageSourceOverrides.count > 0)
+        signature = ENRMMixImageSourceOverrides(signature, @[ list.node ], imageSourceOverrides);
+      [renderedSegments addObject:[ENRMRenderedSegment listSegmentWithSegment:list signature:signature]];
     } else if ([segment isKindOfClass:[ENRMTableSegment class]]) {
       ENRMTableSegment *tableSegment = (ENRMTableSegment *)segment;
       uint64_t signature = ENRMSignatureForNode(tableSegment.tableNode) ^ kTableKindSalt;
@@ -257,7 +358,14 @@ ENRMRenderSegments(MarkdownASTNode *ast, StyleConfig *config, BOOL allowTrailing
                                                                          signature:signature]];
     } else if ([segment isKindOfClass:[ENRMBlockquoteSegment class]]) {
       ENRMBlockquoteSegment *blockquoteSegment = (ENRMBlockquoteSegment *)segment;
-      uint64_t signature = ENRMSignatureForNode(blockquoteSegment.blockquoteNode) ^ kBlockquoteKindSalt;
+      ENRMListSegment *quoteContext = listContext ? [listContext copy] : [ENRMListSegment new];
+      quoteContext.writingDirectionMode = writingDirectionMode;
+      quoteContext.resolvedLayoutDirection = layoutDirection;
+      quoteContext.taskIndexOffset = taskIndexOffset;
+      quoteContext.withinBlockquote = YES;
+      blockquoteSegment.listContext = quoteContext;
+      uint64_t signature = ENRMMixListContext(
+          ENRMSignatureForNode(blockquoteSegment.blockquoteNode) ^ kBlockquoteKindSalt, quoteContext);
       if (imageSourceOverrides.count > 0) {
         signature = ENRMMixImageSourceOverrides(signature, @[ blockquoteSegment.blockquoteNode ], imageSourceOverrides);
       }
@@ -290,6 +398,9 @@ ENRMRenderSegments(MarkdownASTNode *ast, StyleConfig *config, BOOL allowTrailing
     }
   }
 
+  if (listContext)
+    ENRMApplySegmentWritingDirection(renderedSegments, listContext.writingDirectionMode,
+                                     listContext.resolvedLayoutDirection);
   return renderedSegments;
 }
 
@@ -301,7 +412,8 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
 {
   return ENRMRenderSegments(ast, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
                             lineBreakStrategy, blockquoteContent, startingTaskIndex,
-                            ENRMWritingDirectionModeFirstStrong, NSWritingDirectionNatural, /*cache*/ nil);
+                            ENRMWritingDirectionModeFirstStrong, NSWritingDirectionNatural, /*cache*/ nil,
+                            /*listContext*/ nil);
 }
 
 NSArray<ENRMRenderedSegment *> *
@@ -312,7 +424,7 @@ ENRMRenderSegmentsFromASTCached(MarkdownASTNode *ast, StyleConfig *config, BOOL 
 {
   return ENRMRenderSegments(ast, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
                             lineBreakStrategy, /*blockquoteContent*/ NO, /*startingTaskIndex*/ 0, writingDirectionMode,
-                            layoutDirection, cache);
+                            layoutDirection, cache, /*listContext*/ nil);
 }
 
 ENRMRenderResult *ENRMRenderTextCached(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config, BOOL allowTrailingMargin,
@@ -325,4 +437,47 @@ ENRMRenderResult *ENRMRenderTextCached(NSArray<MarkdownASTNode *> *nodes, StyleC
                                lineBreakStrategy, /*blockquoteContent*/ NO, writingDirectionMode, layoutDirection,
                                /*isLast*/ YES, /*taskIndexOffset*/ 0, /*taskItemCount*/ 0, cache)
       .textResult;
+}
+
+void ENRMApplySegmentWritingDirection(NSArray<ENRMRenderedSegment *> *segments, ENRMWritingDirectionMode mode,
+                                      NSWritingDirection layoutDirection)
+{
+  for (ENRMRenderedSegment *segment in segments) {
+    if (segment.kind == ENRMSegmentKindText) {
+      ENRMApplyWritingDirectionMode(segment.textResult.attributedText, mode, layoutDirection);
+    } else {
+      ENRMListSegment *context =
+          segment.kind == ENRMSegmentKindList ? segment.listSegment : segment.blockquoteSegment.listContext;
+      context.writingDirectionMode = mode;
+      context.resolvedLayoutDirection = layoutDirection;
+    }
+  }
+}
+
+NSArray<ENRMRenderedSegment *> *ENRMRenderListItemSegments(MarkdownASTNode *item, StyleConfig *config,
+                                                           ENRMListSegment *parent, ENRMListMarkerDescriptor *marker,
+                                                           BOOL allowFontScaling, NSLineBreakStrategy lineBreakStrategy)
+{
+  ENRMListSegment *context = [parent copy];
+  context.depth = parent.depth + 1;
+  context.itemMarker = marker;
+  context.taskIndexOffset = marker.taskIndex + (marker.isTask ? 1 : 0);
+  context.parentMarkerWidth = marker.isTask
+                                  ? config.effectiveListMarginLeftForTask
+                                  : (marker.listType == ListTypeOrdered ? [config effectiveListMarginLeftForNumber:99]
+                                                                        : config.effectiveListMarginLeftForBullet);
+  return ENRMRenderSegmentsWithListContext(item, [config configForListItemBody], NO, allowFontScaling,
+                                           config.maxFontSizeMultiplier, lineBreakStrategy, NO, context);
+}
+
+NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsWithListContext(MarkdownASTNode *ast, StyleConfig *config,
+                                                                  BOOL allowTrailingMargin, BOOL allowFontScaling,
+                                                                  CGFloat maxFontSizeMultiplier,
+                                                                  NSLineBreakStrategy lineBreakStrategy,
+                                                                  BOOL blockquoteContent, ENRMListSegment *listContext)
+{
+  return ENRMRenderSegments(
+      ast, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier, lineBreakStrategy, blockquoteContent,
+      listContext.taskIndexOffset, listContext ? listContext.writingDirectionMode : ENRMWritingDirectionModeFirstStrong,
+      listContext ? listContext.resolvedLayoutDirection : NSWritingDirectionNatural, nil, listContext);
 }

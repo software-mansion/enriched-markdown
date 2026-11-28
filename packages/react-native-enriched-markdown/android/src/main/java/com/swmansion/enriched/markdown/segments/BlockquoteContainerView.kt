@@ -125,7 +125,7 @@ class BlockquoteContainerView(
   init {
     setWillNotDraw(false)
     applyInsets()
-    segmentViewFactory = ChildFactory()
+    segmentViewFactory = NestedSegmentViewFactory(parentConfig, withinBlockquote = true)
     trailingMarginEnabled = false
     isLongClickable = true
     setOnLongClickListener { view -> showContextMenu(view) }
@@ -135,6 +135,8 @@ class BlockquoteContainerView(
   fun applyBlockquoteNode(
     node: MarkdownASTNode,
     taskIndexOffset: Int = 0,
+    listDepth: Int = 0,
+    parentMarkerWidth: Float? = null,
   ) {
     admonitionType =
       if (node.type == MarkdownASTNode.NodeType.Admonition) {
@@ -146,7 +148,7 @@ class BlockquoteContainerView(
     cachedPlainText = MarkdownASTSerializer.plainText(node)
     cachedLinkedPlainText = MarkdownASTSerializer.plainText(node, linksAsMarkdown = true)
 
-    val segments = splitASTIntoSegments(node)
+    val segments = splitASTIntoSegments(node, listContainer = listDepth > 0)
     val rendered =
       MarkdownSegmentRenderer.render(
         segments,
@@ -157,6 +159,8 @@ class BlockquoteContainerView(
         blockquoteStyle,
         onLatexError = parentConfig.onLatexError,
         startingTaskIndex = taskIndexOffset,
+        listDepth = listDepth,
+        parentMarkerWidth = parentMarkerWidth,
       )
     rightToLeft = outerRightToLeft ?: isRightToLeft(node, resources.isLayoutRTL())
     applyInsets()
@@ -173,7 +177,12 @@ class BlockquoteContainerView(
       applyInsets()
       invalidate()
     }
-    segmentViews.forEach { (it as? BlockquoteContainerView)?.outerRightToLeft = rightToLeft }
+    segmentViews.forEach {
+      when (it) {
+        is BlockquoteContainerView -> it.outerRightToLeft = rightToLeft
+        is ListContainerView -> it.outerRightToLeft = rightToLeft
+      }
+    }
   }
 
   private fun applyInsets() {
@@ -314,79 +323,6 @@ class BlockquoteContainerView(
     canvas.drawText(fitted, 0, fitted.length, titleX, baseline, titlePaint)
   }
 
-  /**
-   * Factory for this quote's own children. It reuses the shared creators for
-   * every kind and, for a nested Blockquote, creates another
-   * BlockquoteContainerView (the recursion). Streaming is static here: no
-   * animation, no pending-fence sync.
-   */
-  private inner class ChildFactory : SegmentViewFactory {
-    override fun matchesKind(
-      view: View,
-      segment: RenderedSegment,
-    ): Boolean =
-      when (segment) {
-        is RenderedSegment.Text -> view is EnrichedMarkdownInternalText
-        is RenderedSegment.Table -> view is TableContainerView
-        is RenderedSegment.Math -> SegmentViewCreators.isMathContainerView(view)
-        is RenderedSegment.CodeBlock -> view is CodeBlockContainerView
-        is RenderedSegment.Blockquote -> view is BlockquoteContainerView
-        is RenderedSegment.Video -> SegmentViewCreators.isVideoContainerView(view)
-        is RenderedSegment.BlockSlot -> view is BlockSlotSegmentView
-      }
-
-    override fun createView(segment: RenderedSegment): View =
-      when (segment) {
-        is RenderedSegment.Text -> {
-          SegmentViewCreators.createTextView(segment, parentConfig)
-        }
-
-        is RenderedSegment.Table -> {
-          SegmentViewCreators.createTableView(segment, parentConfig)
-        }
-
-        is RenderedSegment.Math -> {
-          SegmentViewCreators.createMathView(segment, parentConfig)
-        }
-
-        is RenderedSegment.CodeBlock -> {
-          SegmentViewCreators.createCodeBlockView(segment, parentConfig)
-        }
-
-        is RenderedSegment.Blockquote -> {
-          SegmentViewCreators.createBlockquoteView(segment, parentConfig).apply { nested = true }
-        }
-
-        is RenderedSegment.Video -> {
-          SegmentViewCreators.createVideoView(segment, parentConfig)
-        }
-
-        is RenderedSegment.BlockSlot -> {
-          SegmentViewCreators.createBlockSlotView(segment, parentConfig)
-        }
-      }
-
-    override fun updateView(
-      view: View,
-      segment: RenderedSegment,
-    ) {
-      when (segment) {
-        is RenderedSegment.Text -> SegmentViewCreators.updateTextView(view as EnrichedMarkdownInternalText, segment)
-        is RenderedSegment.Table -> (view as TableContainerView).applyTableNode(segment.node)
-        is RenderedSegment.Math -> SegmentViewCreators.updateMathView(view, segment)
-        is RenderedSegment.CodeBlock -> (view as CodeBlockContainerView).applyCodeBlockNode(segment.node)
-        is RenderedSegment.Blockquote -> (view as BlockquoteContainerView).applyBlockquoteNode(segment.node, segment.taskIndexOffset)
-        is RenderedSegment.Video -> SegmentViewCreators.updateVideoView(view, segment)
-        is RenderedSegment.BlockSlot -> SegmentViewCreators.updateBlockSlotView(view as BlockSlotSegmentView, segment)
-      }
-    }
-
-    override fun animateNewView(
-      view: View,
-      segment: RenderedSegment,
-    ) = Unit
-  }
-
   companion object {
     // Height of the header band (icon + title row). Shared by the instance draw
     // path and the view-free measurement so both reserve identical space.
@@ -451,6 +387,8 @@ class BlockquoteContainerView(
       originYPx: Float = 0f,
       // The side of the quote around this one, for a nested quote (outerRightToLeft).
       outerRightToLeft: Boolean? = null,
+      listDepth: Int = 0,
+      parentMarkerWidth: Float? = null,
     ): Float {
       val style = config.blockquoteStyle
       val leadingInset = ceil(style.borderWidth + style.gapWidth + style.padding).toInt()
@@ -467,8 +405,18 @@ class BlockquoteContainerView(
       // paths wrap long lines differently.
       val innerWidth = (ceil(width) - leadingInset - trailingInset).coerceAtLeast(1f)
 
-      val segments = splitASTIntoSegments(node)
-      val rendered = MarkdownSegmentRenderer.render(segments, config, context, null, null, style)
+      val segments = splitASTIntoSegments(node, listContainer = listDepth > 0)
+      val rendered =
+        MarkdownSegmentRenderer.render(
+          segments,
+          config,
+          context,
+          null,
+          null,
+          style,
+          listDepth = listDepth,
+          parentMarkerWidth = parentMarkerWidth,
+        )
       val rightToLeft = outerRightToLeft ?: isRightToLeft(node, context.resources.isLayoutRTL())
       val leftInset = if (rightToLeft) trailingInset else leadingInset
 

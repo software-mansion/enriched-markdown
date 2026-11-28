@@ -52,13 +52,13 @@ target 'EnrichedMarkdownExample' do
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
-  # App-hosted XCTest target for the library's iOS unit tests. `inherit! :complete`
-  # links the same pods as the host app (including ReactNativeEnrichedMarkdown), so
-  # the tests compile and run against the exact code the example app ships. The
+  # The app-hosted XCTest bundle resolves pod symbols from its host app. Inherit
+  # headers without linking the static pods twice, which creates duplicate ObjC
+  # classes and breaks native view type checks. The
   # XCTest sources live in ../../../packages/react-native-enriched-markdown/__tests__/ios
   # and are added to the EnrichedMarkdownExampleTests target in the Xcode project.
   target 'EnrichedMarkdownExampleTests' do
-    inherit! :complete
+    inherit! :search_paths
   end
 
   post_install do |installer|

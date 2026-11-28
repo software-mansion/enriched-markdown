@@ -3,6 +3,7 @@
 #import "ENRMBlockquoteContainerView.h"
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMFeatureFlags.h"
+#import "ENRMListContainerView.h"
 #import "EnrichedMarkdownInternalText.h"
 #import "SegmentReconciler.h"
 #import "TableContainerView.h"
@@ -12,6 +13,17 @@
 #if ENRICHED_MARKDOWN_VIDEO
 #import "ENRMVideoContainerView.h"
 #endif
+
+NSArray<RCTUIView *> *ENRMDescendantSegmentViews(NSArray<RCTUIView *> *segments)
+{
+  NSMutableArray *result = [NSMutableArray array];
+  for (RCTUIView *view in segments) {
+    [result addObject:view];
+    if ([view isKindOfClass:[ENRMContainerNodeView class]])
+      [result addObjectsFromArray:ENRMDescendantSegmentViews(((ENRMContainerNodeView *)view).segmentViews)];
+  }
+  return result;
+}
 
 @implementation ENRMContainerNodeView {
   NSMutableArray<RCTUIView *> *_segmentViews;
@@ -92,6 +104,8 @@
 
 - (CGFloat)marginTopForView:(RCTUIView *)view
 {
+  if ([view isKindOfClass:[ENRMListContainerView class]])
+    return ((ENRMListContainerView *)view).rootList ? _config.listStyleMarginTop : 0;
   if ([view isKindOfClass:[TableContainerView class]]) {
     return _config.tableMarginTop;
   }
@@ -121,6 +135,8 @@
 
 - (CGFloat)marginBottomForView:(RCTUIView *)view
 {
+  if ([view isKindOfClass:[ENRMListContainerView class]])
+    return ((ENRMListContainerView *)view).rootList ? _config.listStyleMarginBottom : 0;
   if ([view isKindOfClass:[TableContainerView class]]) {
     return _config.tableMarginBottom;
   }
@@ -153,6 +169,8 @@
     textView.allowTrailingMargin = shouldAddBottomMargin;
     return [textView measureSize:width].height;
   }
+  if ([view isKindOfClass:[ENRMListContainerView class]])
+    return [(ENRMListContainerView *)view measureHeight:width];
   if ([view isKindOfClass:[TableContainerView class]]) {
     return [(TableContainerView *)view measureHeight:width];
   }

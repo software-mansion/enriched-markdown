@@ -34,7 +34,9 @@ object MarkdownRenderTestSupport {
     image: Map<String, Any> = emptyMap(),
     highlight: Map<String, Any> = emptyMap(),
     elements: Map<String, Map<String, Any>> = emptyMap(),
-  ): StyleConfig = StyleConfig(styleMap(list, taskList, blockquote, codeBlock, image, highlight, elements), context, false, 0f)
+    table: Map<String, Any> = emptyMap(),
+  ): StyleConfig =
+    StyleConfig(styleMap(list, taskList, blockquote, codeBlock, image, highlight, elements, table = table), context, false, 0f)
 
   /**
    * The style map the JS side sends, with [list], [taskList], [blockquote], [codeBlock], [image] and [highlight] entries replacing
@@ -49,12 +51,15 @@ object MarkdownRenderTestSupport {
     image: Map<String, Any> = emptyMap(),
     highlight: Map<String, Any> = emptyMap(),
     elements: Map<String, Map<String, Any>> = emptyMap(),
+    table: Map<String, Any> = emptyMap(),
   ): JavaOnlyMap {
     DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(context)
     val style = JavaOnlyMap()
     // Headings are read by StyleConfig.needsJustify, which every segment render consults.
-    (listOf("paragraph", "strong", "em", "strikethrough", "code", "superscript", "subscript", "highlight") + (1..6).map { "h$it" })
-      .forEach { style.putMap(it, textElement()) }
+    (
+      listOf("paragraph", "strong", "em", "strikethrough", "underline", "code", "superscript", "subscript", "highlight") +
+        (1..6).map { "h$it" }
+    ).forEach { style.putMap(it, textElement()) }
     style.putMap("highlight", textElement().apply { putAll(highlight) })
     style.putMap("link", textElement().apply { putString("fontFamily", "serif") })
     style.putArray(
@@ -86,6 +91,24 @@ object MarkdownRenderTestSupport {
     style.putMap("thematicBreak", JavaOnlyMap.of("color", Color.BLACK, "height", 1.0, "marginTop", 0.0, "marginBottom", 0.0))
     style.putMap("image", JavaOnlyMap().apply { putAll(defaultImage + image) })
     style.putMap("inlineImage", JavaOnlyMap.of("size", 20.0))
+    style.putMap(
+      "table",
+      textElement().apply {
+        putString("headerFontFamily", "")
+        putInt("headerBackgroundColor", Color.WHITE)
+        putInt("headerTextColor", Color.BLACK)
+        putInt("rowEvenBackgroundColor", Color.WHITE)
+        putInt("rowOddBackgroundColor", Color.WHITE)
+        putInt("borderColor", Color.BLACK)
+        putDouble("borderWidth", 1.0)
+        putDouble("borderRadius", 0.0)
+        putDouble("cellPaddingHorizontal", 8.0)
+        putDouble("cellPaddingVertical", 4.0)
+        putDouble("horizontalOverflow", 0.0)
+        putString("align", "left")
+        putAll(table)
+      },
+    )
     for ((element, values) in elements) {
       val map = style.getMap(element) as? JavaOnlyMap ?: JavaOnlyMap().also { style.putMap(element, it) }
       map.putAll(values)
