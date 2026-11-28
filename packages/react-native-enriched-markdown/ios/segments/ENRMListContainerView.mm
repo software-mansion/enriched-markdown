@@ -75,7 +75,7 @@ static BOOL ENRMListItemIsRTL(MarkdownASTNode *item, ENRMListSegment *segment)
 }
 
 @interface ENRMListTaskTarget : RCTUIView
-@property (nonatomic, copy) void (^activate)(void);
+@property (nonatomic, copy) BOOL (^activate)(void);
 @property (nonatomic, copy) BOOL (^canActivate)(void);
 @property (nonatomic, assign) BOOL checked;
 @end
@@ -85,9 +85,7 @@ static BOOL ENRMListItemIsRTL(MarkdownASTNode *item, ENRMListSegment *segment)
 {
   if (!self.canActivate || !self.canActivate())
     return NO;
-  if (self.activate)
-    self.activate();
-  return YES;
+  return self.activate ? self.activate() : NO;
 }
 - (UIAccessibilityTraits)accessibilityTraits
 {
@@ -103,14 +101,35 @@ static BOOL ENRMListItemIsRTL(MarkdownASTNode *item, ENRMListSegment *segment)
 #endif
 @end
 
-@interface ENRMListItemView : ENRMContainerNodeView
+@class ENRMListItemView;
+
+@interface ENRMListMarkerView : RCTUIView
 #if !TARGET_OS_OSX
-                              <ENRMDroppableContent>
+                                <ENRMDroppableContent>
 #endif
+@property (nonatomic, weak) ENRMListItemView *owner;
+@end
+
+@interface ENRMListItemView : ENRMContainerNodeView
 @property (nonatomic, strong) ENRMListMarkerDescriptor *marker;
 @property (nonatomic, strong) ListMarkerDrawer *markerDrawer;
 @property (nonatomic, strong) ENRMListTaskTarget *taskTarget;
+@property (nonatomic, strong) ENRMListMarkerView *markerView;
 @property (nonatomic, assign) BOOL rightToLeft;
+- (void)drawMarkerAtOffset:(CGPoint)offset;
+@end
+
+@implementation ENRMListMarkerView
+#if TARGET_OS_OSX
+- (BOOL)isFlipped
+{
+  return YES;
+}
+#endif
+- (void)drawRect:(CGRect)rect
+{
+  [self.owner drawMarkerAtOffset:self.frame.origin];
+}
 @end
 
 // Grid tables draw without UITextViews; their first row still provides the
@@ -177,10 +196,25 @@ static CGFloat ENRMFirstContentBaseline(RCTUIView *view, StyleConfig *config)
   CGFloat baseline = [self markerBaseline];
   CGFloat centerY = baseline - self.config.listStyleFont.capHeight / 2;
   self.taskTarget.frame = CGRectMake(center - size / 2, centerY - MAX(24, size) / 2, size, MAX(24, size));
+  UIFont *markerFont = self.config.listMarkerFont ?: self.config.listStyleFont;
+  CGFloat extent = ceil(MAX(MAX(UIFontLineHeight(markerFont), UIFontLineHeight(self.config.listStyleFont)),
+                            MAX(size, self.config.listStyleBulletSize))) +
+                   2;
+  NSString *number = self.rightToLeft ? [NSString stringWithFormat:@".%ld", (long)self.marker.number]
+                                      : [NSString stringWithFormat:@"%ld.", (long)self.marker.number];
+  CGFloat width = self.marker.isTask ? size
+                  : self.marker.listType == ListTypeUnordered
+                      ? self.config.listStyleBulletSize
+                      : [number sizeWithAttributes:@{NSFontAttributeName : markerFont}].width;
+  CGFloat horizontalExtent = ceil(width + extent);
+  CGRect frame =
+      CGRectIntegral(CGRectMake(boundary - horizontalExtent, baseline - extent, horizontalExtent * 2, extent * 2));
+  frame = CGRectIntersection(frame, self.bounds);
+  self.markerView.frame = CGRectIsNull(frame) ? CGRectZero : frame;
 #if !TARGET_OS_OSX
-  [self setNeedsDisplay];
+  [self.markerView setNeedsDisplay];
 #else
-  self.needsDisplay = YES;
+  self.markerView.needsDisplay = YES;
 #endif
 }
 #if !TARGET_OS_OSX
@@ -201,11 +235,11 @@ static CGFloat ENRMFirstContentBaseline(RCTUIView *view, StyleConfig *config)
   [self layoutTaskTarget];
 }
 #endif
-- (void)drawRect:(CGRect)rect
+- (void)drawMarkerAtOffset:(CGPoint)offset
 {
   [self.markerDrawer drawMarker:self.marker
-                      boundaryX:[self markerBoundary]
-                      baselineY:[self markerBaseline]
+                      boundaryX:[self markerBoundary] - offset.x
+                      baselineY:[self markerBaseline] - offset.y
                            font:self.config.listStyleFont
                           isRTL:self.rightToLeft];
 }
@@ -300,6 +334,13 @@ static CGFloat ENRMFirstContentBaseline(RCTUIView *view, StyleConfig *config)
       item.config = self.config;
       item.segmentViewRegistry = ENRMCreateNestedSegmentRegistry(self);
       item.markerDrawer = [[ListMarkerDrawer alloc] initWithConfig:self.config];
+      item.markerView = [[ENRMListMarkerView alloc] initWithFrame:CGRectZero];
+      item.markerView.owner = item;
+#if !TARGET_OS_OSX
+      item.markerView.opaque = NO;
+      item.markerView.userInteractionEnabled = NO;
+#endif
+      [item addSubview:item.markerView];
       item.taskTarget = [[ENRMListTaskTarget alloc] initWithFrame:CGRectZero];
       ENRMTapRecognizer *tap = [[ENRMTapRecognizer alloc] initWithTarget:self action:@selector(taskTapped:)];
       [item.taskTarget addGestureRecognizer:tap];
@@ -318,13 +359,16 @@ static CGFloat ENRMFirstContentBaseline(RCTUIView *view, StyleConfig *config)
     item.taskTarget.checked = marker.isChecked;
     item.taskTarget.canActivate = ^BOOL { return weakSelf.dynamicProps.enableTaskListItemToggle; };
     __weak ENRMListTaskTarget *weakTarget = item.taskTarget;
-    item.taskTarget.activate = ^{
+    item.taskTarget.activate = ^BOOL {
       ENRMListContainerView *strongSelf = weakSelf;
       ENRMListTaskTarget *target = weakTarget;
-      if (target && strongSelf.dynamicProps.enableTaskListItemToggle && strongSelf.onTaskListItemPress) {
-        target.checked = !target.checked;
-        strongSelf.onTaskListItemPress(marker.taskIndex, target.checked, text);
-      }
+      if (!target || !strongSelf.dynamicProps.enableTaskListItemToggle || !strongSelf.onTaskListItemPress)
+        return NO;
+      BOOL checked = !target.checked;
+      if (!strongSelf.onTaskListItemPress(marker.taskIndex, checked, text))
+        return NO;
+      target.checked = checked;
+      return YES;
     };
 #if !TARGET_OS_OSX
     item.taskTarget.isAccessibilityElement = marker.isTask;

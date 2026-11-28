@@ -103,7 +103,7 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 @property (nonatomic, strong, nullable) ENRMListSegment *listContext;
 @property (nonatomic, copy, nullable) RCTUIView *_Nullable (^createLeafView)(ENRMRenderedSegment *segment);
 @property (nonatomic, copy, nullable) BOOL (^updateLeafView)(RCTUIView *view, ENRMRenderedSegment *segment);
-@property (nonatomic, copy, nullable) void (^onTaskListItemPress)(NSInteger index, BOOL checked, NSString *text);
+@property (nonatomic, copy, nullable) BOOL (^onTaskListItemPress)(NSInteger index, BOOL checked, NSString *text);
 
 // Bridged up to the JS onLinkPress/onLinkLongPress events; propagated to nested
 // quotes so links at any depth fire.

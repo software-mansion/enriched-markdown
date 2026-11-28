@@ -240,6 +240,9 @@ static UIWindow *ENRMCodeTilesKeyWindow(void)
   CGRect shown = [_content convertRect:_scrollView.bounds fromView:_scrollView];
   shown = CGRectIntersection(shown, [_content convertRect:[self pane].bounds fromView:[self pane]]);
   CGRect required = [_canvas convertRect:CGRectIntersection(shown, _content.bounds) fromView:_content];
+  XCTAssertFalse(CGRectIsEmpty(required));
+  if (CGRectIsEmpty(required))
+    return;
   XCTAssertTrue(ENRMCodeTilesCoverRect(ENRMCodeTilesTiles(_canvas), required), @"%@ does not cover %@",
                 NSStringFromCGRect(covered), NSStringFromCGRect(required));
 }

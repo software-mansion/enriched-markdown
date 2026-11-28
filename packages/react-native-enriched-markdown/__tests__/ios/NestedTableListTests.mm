@@ -1,5 +1,6 @@
 #import "../../ios/EnrichedMarkdown.h"
 #import "../../ios/segments/ENRMCodeBlockContainerView.h"
+#import "../../ios/segments/ENRMDroppableContent.h"
 #import "../../ios/utils/ENRMAccessibilityLabels.h"
 #import "../../ios/utils/ENRMAsyncRenderCoordinator.h"
 #import "../../ios/utils/ENRMFeatureFlags.h"
@@ -15,6 +16,7 @@
 #import "../../ios/segments/TableContainerView.h"
 #import "../../ios/styles/StyleConfig.h"
 #import "../../ios/utils/ENRMTextRenderer.h"
+#import "../../ios/utils/ListMarkerDrawer.h"
 #import "../../ios/views/EnrichedMarkdownInternalText.h"
 #import <XCTest/XCTest.h>
 
@@ -48,6 +50,14 @@ static void ENRMCollectViews(UIView *view, Class type, NSMutableArray *result)
     [result addObject:view];
   for (UIView *child in view.subviews)
     ENRMCollectViews(child, type, result);
+}
+
+static void ENRMCollectBitmapOwners(UIView *view, NSMutableArray<UIView *> *result)
+{
+  if ([view conformsToProtocol:@protocol(ENRMDroppableContent)])
+    [result addObject:view];
+  for (UIView *child in view.subviews)
+    ENRMCollectBitmapOwners(child, result);
 }
 
 @interface ENRMListContainerView (ENRMListClipboardTesting)
@@ -129,7 +139,8 @@ static void ENRMCollectViews(UIView *view, Class type, NSMutableArray *result)
   UIView *target = [self taskTargetWithMarkdown:markdown];
   NSString *pending = [@"- [ ] B\n\n" stringByAppendingString:markdown];
   [_taskDocument renderMarkdownContent:pending];
-  [target accessibilityActivate];
+  XCTAssertFalse([target accessibilityActivate]);
+  XCTAssertFalse((target.accessibilityTraits & UIAccessibilityTraitSelected) != 0);
   XCTAssertEqualObjects([_taskDocument valueForKey:@"cachedMarkdown"], pending);
   XCTAssertEqual(_taskDocument.taskStates.count, 0u);
 }
@@ -155,6 +166,76 @@ static void ENRMCollectViews(UIView *view, Class type, NSMutableArray *result)
   XCTAssertEqualObjects(_taskDocument.taskStates, (@[ @YES ]));
   XCTAssertEqualObjects([_taskDocument valueForKey:@"cachedMarkdown"],
                         [pending stringByReplacingOccurrencesOfString:@"[ ] A" withString:@"[x] A"]);
+}
+
+- (void)testMarkerBitmapSizeDoesNotGrowWithItsItem
+{
+  for (NSNumber *variant in @[ @0, @1, @2, @3, @4, @5 ]) {
+    NSInteger shape = variant.integerValue % 3;
+    BOOL rightToLeft = variant.integerValue >= 3;
+    MarkdownASTNode *item = ENRMTestNode(MarkdownNodeTypeListItem, @[
+      ENRMTestParagraph([@"" stringByPaddingToLength:20000 withString:@"long content " startingAtIndex:0]),
+      ENRMTestTable()
+    ]);
+    item.attributes[@"isTask"] = shape == 2 ? @"true" : @"false";
+    MarkdownASTNode *list =
+        ENRMTestNode(shape == 1 ? MarkdownNodeTypeOrderedList : MarkdownNodeTypeUnorderedList, @[ item ]);
+    list.attributes[@"start"] = @"12345";
+    StyleConfig *config = [StyleConfig new];
+    [config setListStyleFontSize:18];
+    [config setListStyleBulletSize:6];
+    [config setListStyleBulletColor:UIColor.blackColor];
+    [config setListStyleMarkerColor:UIColor.blackColor];
+    [config setTaskListCheckboxSize:16];
+    [config setTaskListBorderColor:UIColor.blackColor];
+    ENRMRenderedSegment *segment = ENRMRenderSegmentsFromAST(ENRMTestNode(MarkdownNodeTypeDocument, @[ list ]), config,
+                                                             NO, YES, 0, NSLineBreakStrategyNone, NO, 0)
+                                       .firstObject;
+    ENRMApplySegmentWritingDirection(@[ segment ],
+                                     rightToLeft ? ENRMWritingDirectionModeRTL : ENRMWritingDirectionModeLTR,
+                                     NSWritingDirectionLeftToRight);
+    ENRMListContainerView *view = [[ENRMListContainerView alloc] initWithConfig:config];
+    [view applyListSegment:segment.listSegment];
+    view.frame = CGRectMake(0, 0, 360, [view measureHeight:360]);
+    [view layoutIfNeeded];
+    XCTAssertGreaterThan(view.bounds.size.height, 1000);
+    NSMutableArray<UIView *> *owners = [NSMutableArray array];
+    ENRMCollectBitmapOwners(view, owners);
+    XCTAssertEqual(owners.count, 2u);
+    for (UIView *owner in owners) {
+      XCTAssertGreaterThan(owner.bounds.size.height, 0);
+      XCTAssertLessThan(owner.bounds.size.height, 128, @"%@", owner);
+    }
+    UIView *itemView = view.segmentViews.firstObject;
+    UIView *markerView = [itemView valueForKey:@"markerView"];
+    UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat];
+    format.scale = 1;
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(360, 128)
+                                                                               format:format];
+    UIImage *expected = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+      [UIColor.whiteColor setFill];
+      UIRectFill(CGRectMake(0, 0, 360, 128));
+      ListMarkerDrawer *drawer = [itemView valueForKey:@"markerDrawer"];
+      [drawer drawMarker:[itemView valueForKey:@"marker"]
+               boundaryX:[[itemView valueForKey:@"markerBoundary"] doubleValue]
+               baselineY:[[itemView valueForKey:@"markerBaseline"] doubleValue]
+                    font:config.listStyleFont
+                   isRTL:rightToLeft];
+    }];
+    UIImage *blank = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+      [UIColor.whiteColor setFill];
+      UIRectFill(CGRectMake(0, 0, 360, 128));
+    }];
+    XCTAssertNotEqualObjects(UIImagePNGRepresentation(expected), UIImagePNGRepresentation(blank));
+    UIImage *actual = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+      [UIColor.whiteColor setFill];
+      UIRectFill(CGRectMake(0, 0, 360, 128));
+      CGContextTranslateCTM(context.CGContext, markerView.frame.origin.x, markerView.frame.origin.y);
+      CGContextClipToRect(context.CGContext, markerView.bounds);
+      [markerView drawRect:markerView.bounds];
+    }];
+    XCTAssertEqualObjects(UIImagePNGRepresentation(actual), UIImagePNGRepresentation(expected), @"variant %@", variant);
+  }
 }
 
 - (void)testListForwardsChangedAccessibilityLabelsToCodeAndMath
@@ -316,9 +397,10 @@ static void ENRMCollectViews(UIView *view, Class type, NSMutableArray *result)
   ENRMListContainerView *view = [[ENRMListContainerView alloc] initWithConfig:config];
   __block NSInteger calledIndex = -1;
   __block BOOL checked = NO;
-  view.onTaskListItemPress = ^(NSInteger index, BOOL state, NSString *text) {
+  view.onTaskListItemPress = ^BOOL(NSInteger index, BOOL state, NSString *text) {
     calledIndex = index;
     checked = state;
+    return YES;
   };
   [view applyListSegment:segment];
   UIView *target = ((ENRMContainerNodeView *)view.segmentViews.firstObject).accessibilityElements.firstObject;

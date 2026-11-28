@@ -26,7 +26,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy, nullable) ENRMCodeBlockPressBlock onCodeBlockPress;
 @property (nonatomic, copy, nullable) RCTUIView *_Nullable (^createLeafView)(ENRMRenderedSegment *segment);
 @property (nonatomic, copy, nullable) BOOL (^updateLeafView)(RCTUIView *view, ENRMRenderedSegment *segment);
-@property (nonatomic, copy, nullable) void (^onTaskListItemPress)(NSInteger index, BOOL checked, NSString *text);
+@property (nonatomic, copy, nullable) BOOL (^onTaskListItemPress)(NSInteger index, BOOL checked, NSString *text);
 - (void)configureNestedTextView:(EnrichedMarkdownInternalText *)view;
 @end
 

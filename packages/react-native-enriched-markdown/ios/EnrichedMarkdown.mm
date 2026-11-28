@@ -654,15 +654,16 @@ static const uint64_t kENRMUnknownSignature = UINT64_MAX;
       [strongSelf emitTextPress:index text:text];
   };
 
-  view.onTaskListItemPress = ^(NSInteger index, BOOL checked, NSString *text) {
+  view.onTaskListItemPress = ^BOOL(NSInteger index, BOOL checked, NSString *text) {
     EnrichedMarkdown *host = weakSelf;
     if (!host || !host->_enableTaskListItemToggle || host->_taskListMarkdown == nil ||
         ![host->_cachedMarkdown hasPrefix:host->_taskListMarkdown])
-      return;
+      return NO;
     host->_cachedMarkdown = toggleTaskListItemAtIndex(host->_cachedMarkdown, index, checked);
     host->_taskListMarkdown = host->_cachedMarkdown;
     [host renderMarkdownContent:host->_cachedMarkdown];
     [host emitTaskListItemPress:index checked:checked text:text];
+    return YES;
   };
 }
 

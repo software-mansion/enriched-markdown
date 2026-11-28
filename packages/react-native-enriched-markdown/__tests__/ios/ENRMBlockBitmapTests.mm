@@ -33,7 +33,7 @@ static void ENRMCollectBitmapViews(UIView *view, NSMutableArray<UIView *> *views
   static NSSet<NSString *> *names;
   static dispatch_once_t once;
   dispatch_once(&once, ^{
-    names = [NSSet setWithArray:@[ @"ENRMCodeBlockHeaderLabelView", @"ENRMTableIOSGridView", @"ENRMListItemView" ]];
+    names = [NSSet setWithArray:@[ @"ENRMCodeBlockHeaderLabelView", @"ENRMTableIOSGridView", @"ENRMListMarkerView" ]];
   });
   if ([names containsObject:NSStringFromClass([view class])]) {
     [views addObject:view];
@@ -189,6 +189,9 @@ static CGRect ENRMBlockTestDrawnTextRect(UIView *view, UIView *textView)
     return;
   NSArray<UIView *> *views = ENRMBitmapViews(@[ list ]);
   XCTAssertEqual(views.count, 2u);
+  NSHashTable *undrawn = [document valueForKey:@"undrawnSegments"];
+  for (UIView *view in views)
+    XCTAssertFalse([undrawn containsObject:view]);
   ENRMDrawBitmaps(views);
   for (UIView *view in views)
     XCTAssertNotNil(view.layer.contents);
