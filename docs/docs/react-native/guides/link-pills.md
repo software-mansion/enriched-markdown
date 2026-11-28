@@ -71,7 +71,7 @@ The icon is drawn before the link text, on the same line as its first word, and 
 - A variant that sets both `pill` and `inlineIcon` draws the pill; in development a warning says the icon is ignored.
 - [`linkPillContent`](/react-native/api-reference/enriched-markdown-text#linkpillcontent) does not apply: the icon and its tint come from the variant.
 - On Android, the icon and the start of the link text stay together on one line: the first word, up to about eight font sizes wide, and only up to the first style change (in `[**Thr**ead](…)` the icon stays with "Thr"). The rest of a longer word wraps as usual.
-- On Android, a paragraph that contains right-to-left text draws the link without its icon.
+- On Android, a paragraph that contains right-to-left text draws the link without its icon. Table cells follow the device language's direction, so on a right-to-left device an icon link at the start of a left-to-right cell can draw its first word out of order.
 
 ## Icon sources {#icon-sources}
 

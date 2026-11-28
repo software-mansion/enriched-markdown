@@ -8,6 +8,7 @@ import android.view.View
 import com.swmansion.enriched.markdown.EnrichedMarkdownText
 import com.swmansion.enriched.markdown.renderer.BlockStyle
 import com.swmansion.enriched.markdown.renderer.SpanStyleCache
+import com.swmansion.enriched.markdown.styles.LinkVariantEntry
 import com.swmansion.enriched.markdown.utils.text.extensions.applyBlockStyleFont
 
 class LinkSpan(
@@ -49,7 +50,7 @@ class LinkSpan(
     super.updateDrawState(textPaint)
 
     val variant = styleCache.resolvedVariantForUrl(url)
-    if (appliesFont) applyLinkFont(textPaint)
+    if (appliesFont) applyLinkFont(textPaint, variant)
 
     textPaint.color = variant?.color ?: styleCache.linkColor
     textPaint.isUnderlineText = variant?.underline ?: styleCache.linkUnderline
@@ -61,8 +62,10 @@ class LinkSpan(
   }
 
   /** The font this link draws with. */
-  fun applyLinkFont(textPaint: TextPaint) {
-    val variant = styleCache.resolvedVariantForUrl(url)
+  fun applyLinkFont(
+    textPaint: TextPaint,
+    variant: LinkVariantEntry? = styleCache.resolvedVariantForUrl(url),
+  ) {
     val fontFamily = variant?.fontFamily?.takeIf { it.isNotEmpty() } ?: styleCache.linkFontFamily
     if (fontFamily.isNotEmpty()) {
       textPaint.textSize = blockStyle.fontSize

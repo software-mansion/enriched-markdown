@@ -27,7 +27,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * Draws a link variant's inline icon in front of the link's first character, which it
+ * Draws a link variant's inline icon in front of the link's first word, which it
  * covers and draws itself. Nothing is inserted into the text, so copy, export and
  * accessibility read the link as it is, and the rest of the link wraps as ordinary text.
  */
@@ -117,12 +117,11 @@ class LinkIconSpan(
         ascent = min(ascent, floor(iconTop).toInt())
         descent = max(descent, ceil(iconTop + fontSize).toInt())
       }
-      // The line grows for a text run's baseline shift but not for a replacement's, so add it here.
-      val shift = (paint as? TextPaint)?.baselineShift ?: 0
-      it.ascent = min(it.ascent, ascent + shift)
-      it.descent = max(it.descent, descent + shift)
-      it.top = min(it.top, min(metrics.top, ascent) + shift)
-      it.bottom = max(it.bottom, max(metrics.bottom, descent) + shift)
+      // Unshifted: the layout adds the run's baseline shift (superscript, subscript) after measuring.
+      it.ascent = min(it.ascent, ascent)
+      it.descent = max(it.descent, descent)
+      it.top = min(it.top, min(metrics.top, ascent))
+      it.bottom = max(it.bottom, max(metrics.bottom, descent))
     }
     return ceil(slotWidth + labelPaint.measureText(text, start, end)).toInt()
   }
