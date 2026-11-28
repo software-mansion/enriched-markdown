@@ -353,6 +353,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   // coordinate system is managed correctly and the entire table is drawn in
   // a single drawRect: pass (no subview / layer compositing issues).
   ENRMTableGridView *gridView = [[ENRMTableGridView alloc] initWithFrame:CGRectZero];
+  gridView.spoilerConfig = self.config;
+  gridView.spoilerOverlay = _spoilerOverlay;
   __weak TableContainerView *weakSelf = self;
   gridView.menuProvider = ^NSMenu *
   {
@@ -369,6 +371,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   [(NSScrollView *)_scrollView setDocumentView:_gridContainer];
 #else
   ENRMTableIOSGridView *iosGridView = [[ENRMTableIOSGridView alloc] initWithFrame:CGRectZero];
+  iosGridView.spoilerConfig = self.config;
+  iosGridView.spoilerOverlay = _spoilerOverlay;
   __weak TableContainerView *weakSelf = self;
   iosGridView.onLinkTap = ^(NSString *url) {
     TableContainerView *strongSelf = weakSelf;
@@ -1023,6 +1027,16 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   }
   _cachedAccessibilityElements = elements;
   return elements;
+}
+
+- (void)setSpoilerOverlay:(ENRMSpoilerOverlay)spoilerOverlay
+{
+  _spoilerOverlay = spoilerOverlay;
+#if !TARGET_OS_OSX
+  [(ENRMTableIOSGridView *)_gridContainer setSpoilerOverlay:spoilerOverlay];
+#else
+  [(ENRMTableGridView *)_gridContainer setSpoilerOverlay:spoilerOverlay];
+#endif
 }
 
 @end

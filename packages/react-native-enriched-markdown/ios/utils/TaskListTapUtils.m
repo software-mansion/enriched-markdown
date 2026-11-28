@@ -1,4 +1,5 @@
 #import "TaskListTapUtils.h"
+#import "ENRMSpoilerTapUtils.h"
 #import "ENRMUIKit.h"
 #import "LastElementUtils.h"
 #import "ListItemRenderer.h"
@@ -167,44 +168,39 @@ BOOL updateTaskListItemCheckedState(ENRMPlatformTextView *textView, NSInteger ta
   RCTUIColor *listStyleColor = [config listStyleColor];
   BOOL shouldStrikethrough = [config taskListCheckedStrikethrough];
 
-  [mutableText
-      enumerateAttribute:ListDepthAttribute
-                 inRange:targetItemRange
-                 options:0
-              usingBlock:^(NSNumber *depth, NSRange segmentRange, BOOL *stop) {
-                if (depth && [depth integerValue] > nestingLevel)
-                  return;
+  [mutableText enumerateAttribute:ListDepthAttribute
+                          inRange:targetItemRange
+                          options:0
+                       usingBlock:^(NSNumber *depth, NSRange segmentRange, BOOL *stop) {
+                         if (depth && [depth integerValue] > nestingLevel)
+                           return;
 
-                // Skip code block ranges — preserve CodeBlockRenderer styles.
-                NSNumber *isCodeBlock = [mutableText attribute:CodeBlockAttributeName
-                                                       atIndex:segmentRange.location
-                                                effectiveRange:nil];
-                if ([isCodeBlock boolValue])
-                  return;
+                         // Skip code block ranges — preserve CodeBlockRenderer styles.
+                         NSNumber *isCodeBlock = [mutableText attribute:CodeBlockAttributeName
+                                                                atIndex:segmentRange.location
+                                                         effectiveRange:nil];
+                         if ([isCodeBlock boolValue])
+                           return;
 
-                [mutableText addAttribute:TaskCheckedAttribute value:@(newChecked) range:segmentRange];
+                         [mutableText addAttribute:TaskCheckedAttribute value:@(newChecked) range:segmentRange];
 
-                if (newChecked) {
-                  if (checkedColor) {
-                    [mutableText addAttribute:NSForegroundColorAttributeName value:checkedColor range:segmentRange];
-                  }
-                  if (shouldStrikethrough) {
-                    [mutableText addAttribute:NSStrikethroughStyleAttributeName
-                                        value:@(NSUnderlineStyleSingle)
-                                        range:segmentRange];
-                    [mutableText addAttribute:NSStrikethroughColorAttributeName
-                                        value:(checkedColor ?: listStyleColor)range:segmentRange];
-                  }
-                } else {
-                  [mutableText removeAttribute:NSStrikethroughStyleAttributeName range:segmentRange];
-                  [mutableText removeAttribute:NSStrikethroughColorAttributeName range:segmentRange];
-                  if (listStyleColor) {
-                    [mutableText addAttribute:NSForegroundColorAttributeName value:listStyleColor range:segmentRange];
-                  } else {
-                    [mutableText removeAttribute:NSForegroundColorAttributeName range:segmentRange];
-                  }
-                }
-              }];
+                         if (newChecked) {
+                           if (checkedColor) {
+                             ENRMSetTextColorRespectingSpoilers(mutableText, checkedColor, segmentRange);
+                           }
+                           if (shouldStrikethrough) {
+                             [mutableText addAttribute:NSStrikethroughStyleAttributeName
+                                                 value:@(NSUnderlineStyleSingle)
+                                                 range:segmentRange];
+                             [mutableText addAttribute:NSStrikethroughColorAttributeName
+                                                 value:(checkedColor ?: listStyleColor)range:segmentRange];
+                           }
+                         } else {
+                           [mutableText removeAttribute:NSStrikethroughStyleAttributeName range:segmentRange];
+                           [mutableText removeAttribute:NSStrikethroughColorAttributeName range:segmentRange];
+                           ENRMSetTextColorRespectingSpoilers(mutableText, listStyleColor, segmentRange);
+                         }
+                       }];
 
   // The checkbox glyph is drawn from the marker descriptor, not from
   // TaskCheckedAttribute — keep it in sync. Enumerated over the full text:

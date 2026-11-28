@@ -1,5 +1,6 @@
 #import "ENRMTableGridView.h"
 #import "ENRMMenuAction.h"
+#import "ENRMTableSpoilerCells.h"
 
 #if TARGET_OS_OSX
 
@@ -15,6 +16,16 @@
   CGFloat _horizontalCellPadding;
   CGFloat _verticalCellPadding;
   CGFloat _cornerRadius;
+  ENRMTableSpoilerCells *_spoilers;
+  BOOL _pressedSpoiler;
+}
+
+- (instancetype)initWithFrame:(NSRect)frame
+{
+  if (self = [super initWithFrame:frame]) {
+    _spoilers = [[ENRMTableSpoilerCells alloc] initWithHost:self];
+  }
+  return self;
 }
 
 - (BOOL)isFlipped
@@ -39,7 +50,60 @@
   _horizontalCellPadding = horizontalCellPadding;
   _verticalCellPadding = verticalCellPadding;
   _cornerRadius = cornerRadius;
+  [self syncSpoilerCells];
   [self setNeedsDisplay:YES];
+}
+
+#pragma mark - Spoilers
+
+- (void)setSpoilerOverlay:(ENRMSpoilerOverlay)spoilerOverlay
+{
+  _spoilerOverlay = spoilerOverlay;
+  _spoilers.spoilerOverlay = spoilerOverlay;
+}
+
+- (void)syncSpoilerCells
+{
+  NSMutableArray<NSArray<NSAttributedString *> *> *texts = [NSMutableArray arrayWithCapacity:_tableRows.count];
+  NSMutableArray<NSColor *> *backgrounds = [NSMutableArray arrayWithCapacity:_tableRows.count];
+  for (ENRMMacOSTableRowData *row in _tableRows) {
+    [texts addObject:row.cellTexts ?: @[]];
+    [backgrounds addObject:row.backgroundColor ?: NSColor.clearColor];
+  }
+  _spoilers.config = _spoilerConfig;
+  [_spoilers syncWithTexts:texts backgrounds:backgrounds];
+  NSArray<NSNumber *> *rowTops = ENRMTableOffsets(_rowHeights);
+  NSArray<NSNumber *> *columnLefts = ENRMTableOffsets(_columnWidths);
+  [_spoilers layoutWithTextRect:^CGRect(NSUInteger r, NSUInteger c, CGRect *cellRect) {
+    if (r >= rowTops.count || c >= columnLefts.count)
+      return CGRectZero;
+    CGFloat y = rowTops[r].doubleValue;
+    CGFloat x = columnLefts[c].doubleValue;
+    CGFloat inset = self->_borderWidth;
+    *cellRect = NSMakeRect(x + inset, y + inset, [self->_columnWidths[c] doubleValue] - inset,
+                           [self->_rowHeights[r] doubleValue] - inset);
+    return NSMakeRect(x + self->_horizontalCellPadding, y + self->_verticalCellPadding,
+                      [self->_columnWidths[c] doubleValue] - self->_horizontalCellPadding * 2,
+                      [self->_rowHeights[r] doubleValue] - self->_verticalCellPadding * 2);
+  }];
+}
+
+- (void)mouseDown:(NSEvent *)event
+{
+  _pressedSpoiler = [_spoilers hasSpoilerAtPoint:[self convertPoint:event.locationInWindow fromView:nil]];
+  if (!_pressedSpoiler)
+    [super mouseDown:event];
+}
+
+- (void)mouseUp:(NSEvent *)event
+{
+  if (!_pressedSpoiler) {
+    [super mouseUp:event];
+    return;
+  }
+  _pressedSpoiler = NO;
+  if ([_spoilers revealAtPoint:[self convertPoint:event.locationInWindow fromView:nil]])
+    [self setNeedsDisplay:YES];
 }
 
 - (NSMenu *)menuForEvent:(NSEvent *)event

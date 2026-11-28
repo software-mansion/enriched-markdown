@@ -18,17 +18,6 @@
     return;
 
   [output addAttribute:SpoilerAttributeName value:@YES range:range];
-
-  [output enumerateAttribute:NSForegroundColorAttributeName
-                     inRange:range
-                     options:0
-                  usingBlock:^(id value, NSRange subRange, BOOL *stop) {
-                    if (value) {
-                      [output addAttribute:SpoilerOriginalColorAttributeName value:value range:subRange];
-                    }
-                  }];
-
-  [output addAttribute:NSForegroundColorAttributeName value:[RCTUIColor colorWithWhite:0 alpha:0] range:range];
 }
 
 @end

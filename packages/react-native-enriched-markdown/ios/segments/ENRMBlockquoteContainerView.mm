@@ -6,6 +6,7 @@
 #import "ENRMFeatureFlags.h"
 #import "ENRMLinkContextMenus.h"
 #import "ENRMSegmentHeightMeasurer.h"
+#import "ENRMSpoilerTapUtils.h"
 #import "ENRMTableIOSGridView.h"
 #import "ENRMTextInteractionUtils.h"
 #import "ENRMTextRenderer.h"
@@ -303,6 +304,23 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
   }
 }
 
+- (void)setSpoilerOverlay:(ENRMSpoilerOverlay)spoilerOverlay
+{
+  if (_spoilerOverlay == spoilerOverlay) {
+    return;
+  }
+  _spoilerOverlay = spoilerOverlay;
+  for (RCTUIView *child in self.subviews) {
+    if ([child isKindOfClass:[EnrichedMarkdownInternalText class]]) {
+      ((EnrichedMarkdownInternalText *)child).spoilerOverlay = spoilerOverlay;
+    } else if ([child isKindOfClass:[TableContainerView class]]) {
+      ((TableContainerView *)child).spoilerOverlay = spoilerOverlay;
+    } else if ([child isKindOfClass:[ENRMBlockquoteContainerView class]]) {
+      ((ENRMBlockquoteContainerView *)child).spoilerOverlay = spoilerOverlay;
+    }
+  }
+}
+
 // Child registry for this quote's own content. It reuses static creators for
 // every kind and, for a nested Blockquote, creates another
 // ENRMBlockquoteContainerView (the recursion). Streaming is static: no
@@ -324,6 +342,7 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
                       view.lastElementMarginBottom = segment.textResult.lastElementMarginBottom;
                       view.accessibilityInfo = segment.textResult.accessibilityInfo;
                       view.accessibilityLabels = strongSelf.accessibilityLabels;
+                      view.spoilerOverlay = strongSelf.spoilerOverlay;
                       view.onSelectionCopy = strongSelf.onSelectionCopy;
                       [view applyAttributedText:segment.textResult.attributedText context:segment.textResult.context];
                       if (strongSelf) {
@@ -351,6 +370,7 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
                                                       strongSelf.resolvedLayoutDirection);
                               view.dynamicProps = strongSelf.dynamicProps;
                               view.accessibilityLabels = strongSelf.accessibilityLabels;
+                              view.spoilerOverlay = strongSelf.spoilerOverlay;
                               view.onLinkPress = ^(NSString *url) {
                                 ENRMBlockquoteContainerView *s = weakSelf;
                                 if (s.onLinkPress && url)
@@ -423,6 +443,7 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
                               view.lineBreakStrategy = strongSelf.lineBreakStrategy;
                               view.dynamicProps = strongSelf.dynamicProps;
                               view.accessibilityLabels = strongSelf.accessibilityLabels;
+                              view.spoilerOverlay = strongSelf.spoilerOverlay;
                               view.onCopyPress = strongSelf.onCopyPress;
                               view.onCodeBlockPress = strongSelf.onCodeBlockPress;
                               view.onSelectionCopy = strongSelf.onSelectionCopy;
@@ -535,6 +556,16 @@ static void ENRMApplyWritingDirectionToSegments(NSArray<ENRMRenderedSegment *> *
   ENRMPlatformTextView *textView = (ENRMPlatformTextView *)recognizer.view;
   // Read before the link check below clears the selection.
   BOOL hadSelection = textView.selectedRange.length > 0;
+
+  for (RCTUIView *child in self.subviews) {
+    if ([child isKindOfClass:[EnrichedMarkdownInternalText class]] &&
+        ((EnrichedMarkdownInternalText *)child).textView == textView) {
+      if (handleSpoilerTap(textView, recognizer, ((EnrichedMarkdownInternalText *)child).spoilerManager))
+        return;
+      break;
+    }
+  }
+
   __weak ENRMBlockquoteContainerView *weakSelf = self;
   if (ENRMHandleTapOnTextView(textView, recognizer, ^(NSString *url) {
         ENRMBlockquoteContainerView *strongSelf = weakSelf;
