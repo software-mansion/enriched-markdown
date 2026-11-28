@@ -1,11 +1,12 @@
 package com.swmansion.enriched.markdown.utils.text.view
 
+import android.graphics.BlendMode
+import android.graphics.BlendModeColorFilter
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.util.Log
 import android.widget.TextView
 import androidx.annotation.ColorInt
-import androidx.core.graphics.drawable.DrawableCompat
 
 private const val TAG = "TextSelectionColors"
 
@@ -13,9 +14,9 @@ private typealias HandleGetter = (TextView) -> Drawable?
 private typealias HandleSetter = (TextView, Drawable) -> Unit
 
 /**
- * Applies selection highlight and (where supported) handle tinting to a [TextView].
+ * Applies selection highlight and (where supported) handle coloring to a [TextView].
  *
- * Handle drawables are only tinted on API 29+ where the framework exposes getters;
+ * Handle drawables are only colored on API 29+ where the framework exposes getters;
  * on older versions the handle theme defaults remain unchanged.
  */
 fun TextView.applySelectionColors(
@@ -23,11 +24,15 @@ fun TextView.applySelectionColors(
   selectionHandleColor: Int?,
 ) {
   selectionColor?.let { highlightColor = it }
-  selectionHandleColor?.let { applySelectionHandleTint(it) }
+  selectionHandleColor?.let { applySelectionHandleColor(it) }
 }
 
-private fun TextView.applySelectionHandleTint(
-  @ColorInt color: Int,
+/**
+ * Colors the left, right and insertion handles with [color] on API 29+. A null [color]
+ * clears it, bringing back the theme's handle color, which is the drawables' own tint.
+ */
+fun TextView.applySelectionHandleColor(
+  @ColorInt color: Int?,
 ) {
   if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
 
@@ -40,9 +45,15 @@ private fun TextView.applySelectionHandleTint(
 
   handles.forEach { (getter, setter) ->
     try {
-      getter(this)?.mutate()?.also { DrawableCompat.setTint(it, color) }?.let { setter(this, it) }
+      val handle = getter(this)?.mutate() ?: return@forEach
+      if (color != null) {
+        handle.colorFilter = BlendModeColorFilter(color, BlendMode.SRC_IN)
+      } else {
+        handle.clearColorFilter()
+      }
+      setter(this, handle)
     } catch (e: LinkageError) {
-      Log.w(TAG, "Selection handle tint skipped: ${e.message}")
+      Log.w(TAG, "Selection handle color skipped: ${e.message}")
     }
   }
 }
